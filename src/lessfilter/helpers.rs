@@ -9,6 +9,21 @@ use std::sync::Mutex;
 
 use cli_boilerplate_automation::vec_;
 
+#[allow(clippy::ptr_arg)]
+pub fn is_header(cmd: &Vec<OsString>) -> bool {
+    cmd.is_empty()
+}
+
+pub fn header_viewer(path: &Path) -> Vec<OsString> {
+    vec_![]
+}
+
+pub fn show_header(path: &Path) {
+    println!("\x1b[3;2m{}\x1b[0m\n", path.display());
+}
+
+// ----------------- IMAGE ---------------------------------
+
 thread_local! {
     // vs lazycell?
     static CHAFA_FORMAT: OnceCell<&'static str> = const { OnceCell::new() };
@@ -47,10 +62,6 @@ pub fn image_viewer(path: &Path) -> Vec<OsString> {
     vec_!["chafa", "-f", infer_chafa_format(), path]
 }
 
-pub fn header_viewer(path: &Path) -> Vec<OsString> {
-    vec_!["echo", "\\e[3;2m", path, "\\e[0m\n"]
-}
-
 pub fn infer_visual(path: &Path) -> Vec<OsString> {
     VISUAL.with(|cell| {
         cell.get_or_init(|| {
@@ -79,6 +90,8 @@ pub fn infer_visual(path: &Path) -> Vec<OsString> {
         .collect()
     })
 }
+
+// ---------------------- EDITOR -----------------------------
 
 pub static LINE_COLUMN: Mutex<Option<(usize, usize)>> = const { Mutex::new(None) };
 pub fn infer_editor(path: &Path) -> Vec<OsString> {

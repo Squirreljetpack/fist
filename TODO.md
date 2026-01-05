@@ -1,5 +1,3 @@
-Too long paths... a metadata preview mode?
-
 # Actions
 
 Platform specific feature flags for dependencies
@@ -18,50 +16,40 @@ lowpri: Preview command also needs to switch cwd if there is an efficient way
 
 # Indexing
 
-- (alt)0-9 to accept? not sure what a good way to set this up would be.
+- (alt)0-9 to accept? Feature is in but not sure what is a good default/behavior for this.
 
-# Trash is unreliable!
-
-# Lessfilter
-
-Script
-
+# Lessfilter (lowpri)
 - Previewer Formats
-
   - chafa
   - format
   - pdf/epub
   - sqlite
 
-- Text rendering
-  - Currently we always just use bat
+- Low pri
   - rle_matcher is not perfect because it doesn't support expressing fallback conditions
   - prettier + tmp file formatting isn't hard but maybe out of scope?
 
 Image rendering
-
 - lowpri
 - ratatui-image doesn't seem very reliable, we may have to do it manually, maybe check out yazi
 - scaling
 
-- Verbose Previewer
-- Terminal Opener
-
-we should have some functions, which users can pair?
+Better support for some of the modes
+- 
 
 # Db
 
 - option to register on action
-- Configurable prompts for each pane
-
-# Apps
+- Configurable prompts for each pane (blocker: config is not mutable)
 
 # Other
 
 - Presets
 - Debounce rerenders to avoid showing 0 items
 
-# Scratch
+# Rg
+- how to display it comfortably?
+- Allow configuring tokens from actions
 
 # Global Filters
 
@@ -107,21 +95,12 @@ Per-pane extensions:
 - menu bar of files/folders: allow typing out exact path, with underline when valid and completion
 - bookmarks?
 
-# Important
-
-- lessfilter
-
-# For AI
-
-Refactor stack
-Add operations support on prompt
-
 # Low pri
 
-- watcher can potentially lose events due to sleep. But we only want a single dispatch for each simultaneous event. Is there an edge-trigger mode?
+- watcher can potentially lose events due to sleep. (i.e. trash) But we only want a single dispatch for each simultaneous event. Is there an edge-trigger mode?
 
 error on empty?
 
 # Scripts
 
-we have some zsh specific scripts
+we have some zsh specific scripts, posix/something crossplatform would be better.

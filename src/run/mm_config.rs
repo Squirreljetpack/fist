@@ -77,6 +77,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-d) => FsAction::ToggleDirs,
         key!(ctrl-h) => FsAction::ToggleHidden, // this is ctrl-backspace on my keyboard
         key!(alt-h) => FsAction::ToggleHidden,
+        key!(alt-'H') => Action::Help("".into()),
 
         // file actions
         // ----------------------------------
@@ -92,15 +93,18 @@ pub fn default_binds() -> BindMap<FsAction> {
 
         // spawning
         key!(alt-s) => Action::Execute("$SHELL".into()),
-        key!(ctrl-b) => FsAction::Handler(Preset::Open, false),
-        key!(ctrl-l) => FsAction::Handler(Preset::Preview, true),
-        key!(alt-l) => FsAction::Handler(Preset::Extended, true),
+        key!(ctrl-b) => FsAction::Handler(Preset::Open, false, None),
+        key!(alt - '/') => Action::Preview(Preset::Display.to_command_string_with_header()),
+        key!(ctrl-l) => FsAction::Handler(Preset::Preview, true, None),
+        key!(alt-l) => FsAction::Handler(Preset::Extended, true, None),
 
         // misc
         // ---------------------------------------
         key!('?') => Action::SwitchPreview(None),
         key!(ctrl-7) => Action::CyclePreview,
         key!(alt-r) => Action::Reload("".to_string()),
+        key!(0) => FsAction::AutoJump(0),
+        key!(1) => FsAction::AutoJump(1),
     )
 }
 

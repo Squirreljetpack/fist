@@ -5,6 +5,7 @@ pub mod mm_config;
 pub mod stash;
 pub mod styles;
 
+pub use fsaction::FsAction;
 mod fspane;
 pub use fspane::*;
 mod start;

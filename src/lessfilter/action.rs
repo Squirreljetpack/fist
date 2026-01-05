@@ -23,11 +23,11 @@ pub enum Action {
     Image,
     Metadata,
 
-    // header
     Header,
     None,
-    // Url,
-    Custom(String), // script
+    // todo: Url,
+    /// Key to a custom [action](super::config::CustomActions)
+    Custom(String),
 }
 
 impl<'de> Deserialize<'de> for Action {
@@ -56,72 +56,79 @@ impl Action {
     // todo: some way of communicating which permissions are needed on the target
     pub fn to_progs(
         &self,
-        target: &Path,
+        path: &Path,
         preset: Preset,
     ) -> (ArrayVec<Vec<OsString>, 5>, [bool; 3]) {
         match self {
             _ if matches!(preset, Preset::Default) => Default::default(),
             Action::Directory => match preset {
                 Preset::Preview => (
-                    arr![vec_![current_exe(), ":tool", "lz", ":u2", target]],
+                    arr![vec_![current_exe(), ":tool", "lz", ":u2", path]],
                     [true, false, true], // read + execute
                 ),
                 Preset::Display => (
-                    arr![vec_![current_exe(), ":tool", "lz", ":u", target]],
+                    arr![vec_![current_exe(), ":tool", "lz", ":u", path]],
                     [true, false, true],
                 ),
                 Preset::Extended => (
-                    arr![vec_![current_exe(), ":tool", "lz", ":sa", target]],
+                    arr![vec_![current_exe(), ":tool", "lz", ":sa", path]],
                     [true, false, true],
                 ),
                 Preset::Info => (
-                    arr![vec_![current_exe(), ":tool", "lz", ":x", target]],
+                    arr![vec_![current_exe(), ":tool", "lz", ":x", path]],
                     [true, false, true],
                 ),
                 Preset::Open => (
-                    arr![vec_![current_exe(), ":open", target]],
+                    arr![vec_![current_exe(), ":open", path]],
                     [true, false, true],
                 ),
-                Preset::Edit => (arr![infer_visual(target)], [true, false, true]),
+                Preset::Edit => (arr![infer_visual(path)], [true, false, true]),
                 Preset::Default => unreachable!(),
             },
             Action::Text => match preset {
-                Preset::Edit => (arr![infer_editor(target)], [true, true, false]),
+                Preset::Edit => (arr![infer_editor(path)], [true, true, false]),
                 Preset::Info => (
-                    arr![vec_![metadata_viewer_path(), target]],
+                    arr![vec_![metadata_viewer_path(), path]],
                     [true, false, false],
                 ),
                 Preset::Open => (
-                    arr![vec_![current_exe(), ":open", target]],
+                    arr![vec_![current_exe(), ":open", path]],
                     [true, false, false],
                 ),
-                _ => (arr![vec_![pager_path(), target]], [true, false, false]),
+                Preset::Extended => (arr![vec_![pager_path(), path]], [true, false, false]),
+                _ => (arr![vec_![pager_path(), path]], [true, false, false]),
             },
             Action::Image => match preset {
                 Preset::Extended => (
                     arr![
-                        header_viewer(target),
-                        image_viewer(target),
-                        vec_![metadata_viewer_path(), target]
+                        header_viewer(path),
+                        image_viewer(path),
+                        vec_![metadata_viewer_path(), path]
                     ],
                     [true, false, false],
                 ),
                 Preset::Info => (
-                    arr![header_viewer(target), vec_![metadata_viewer_path(), target]],
+                    arr![header_viewer(path), vec_![metadata_viewer_path(), path]],
                     [true, false, false],
                 ),
                 Preset::Open => (
-                    arr![vec_![current_exe(), ":open", target]],
+                    arr![vec_![current_exe(), ":open", path]],
                     [true, false, false],
                 ),
-                _ => (arr![image_viewer(target)], [true, false, false]),
+                _ => (arr![image_viewer(path)], [true, false, false]),
             },
-            Action::Metadata => (
-                arr![vec_![metadata_viewer_path(), target]],
-                [true, false, false],
-            ),
+            Action::Metadata => match preset {
+                Preset::Extended => (
+                    arr![vec_![metadata_viewer_path(), path]],
+                    [true, false, false],
+                ),
+                _ => (
+                    arr![vec_![metadata_viewer_path(), path]],
+                    [true, false, false],
+                ),
+            },
             Action::Header => (
-                arr![vec_!["echo", "\\e[3;2m", target, "\\e[0m\n"]],
+                arr![vec_!["echo", "\\e[3;2m", path, "\\e[0m\n"]],
                 [true, false, false],
             ),
             Action::Custom(_) => (arr![vec_![]], [false, false, false]),
@@ -145,50 +152,3 @@ impl Action {
         }
     }
 }
-
-// pub fn exec(
-//     preset: Preset,
-//     paths: &[PathBuf],
-//     cfg: LessfilterConfig,
-// ) {
-//     let rules = if let Some(rules) = cfg.rules.get(&preset) {
-//         rules
-//     } else {
-//         // No rules for this preset, do nothing
-//         return;
-//     };
-
-//     for path in paths {
-//         let path = if let Ok(p) = path.canonicalize() {
-//             p
-//         } else {
-//             eprintln!("Error: Could not find file {}", path.to_string_lossy());
-//             continue;
-//         };
-
-//         let data = FileData::new(AbsPath::new(path.clone()), cfg.infer);
-
-//         if let Some(actions) = rules.get_best_match(&path, data) {
-//             for action in actions {
-//                 let script = action.to_script(&path, preset);
-//                 let mut cmd = Command::new("sh");
-//                 cmd.arg("-c").arg(&script);
-
-//                 match cmd.status() {
-//                     Ok(status) => {
-//                         if !status.success() {
-//                             eprintln!("Error: script failed for {}", path.to_string_lossy());
-//                         }
-//                     }
-//                     Err(e) => {
-//                         eprintln!(
-//                             "Error: failed to execute script for {}: {}",
-//                             path.to_string_lossy(),
-//                             e
-//                         );
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }

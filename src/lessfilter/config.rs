@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::cli::{BINARY_SHORT, paths::current_exe};
+use crate::{
+    cli::{BINARY_SHORT, paths::current_exe},
+    lessfilter::RulesConfig,
+};
 
 #[derive(
     Default,
@@ -18,19 +21,26 @@ use crate::cli::{BINARY_SHORT, paths::current_exe};
 #[strum(serialize_all = "lowercase")]
 pub enum Preset {
     #[clap(alias = "p")]
+    /// for [`matchmaker::preview`]
     Preview,
     #[default]
     #[clap(alias = "d")]
+    /// for terminal display
     Display,
     #[clap(alias = "x")]
+    /// for terminal interaction/verbose display
     Extended,
     #[clap(alias = "i")]
+    /// metadata/raw info
     Info,
     #[clap(alias = "o")]
+    /// System open
     Open,
     #[clap(alias = "e")]
+    /// For [`crate::run::FsAction::Advance`]
     Edit,
     #[clap(skip)]
+    /// Default preset for configuration only
     Default,
 }
 
@@ -41,11 +51,45 @@ impl Preset {
             current_exe().to_str().unwrap_or(BINARY_SHORT),
         )
     }
+
+    pub fn to_command_string_with_header(self) -> String {
+        format!(
+            "'{}' :tool lessfilter --header=truex {self} {{}}",
+            current_exe().to_str().unwrap_or(BINARY_SHORT),
+        )
+    }
 }
 
 #[derive(Default, Debug, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
+pub struct LessfilterConfig {
+    #[serde(flatten)]
+    pub test: TestSettings,
+    pub rules: RulesConfig,
+    pub actions: CustomActions,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct TestSettings {
+    pub infer: bool,
+}
+
+impl Default for TestSettings {
+    fn default() -> Self {
+        Self { infer: true }
+    }
+}
+
+/// Name => Shell Script
+///
+/// # Notes
+/// Name is case insensitive
+#[derive(Default, Debug, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct CustomActions(HashMap<String, String>);
+
+// --------------------- BOILERPLATE ----------------------------------------
 
 impl CustomActions {
     pub fn new() -> Self {

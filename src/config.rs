@@ -88,10 +88,6 @@ impl Config {
                 binary_viewer_path(),
                 include_str!("../assets/scripts/fist_binary_viewer"),
             ),
-            (
-                header_viewer_path(),
-                include_str!("../assets/scripts/fist_header_viewer"),
-            ),
         ];
 
         for (path, script) in files {

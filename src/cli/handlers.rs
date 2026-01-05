@@ -425,7 +425,7 @@ async fn handle_tools(
             let path = current_exe().basename();
             args.insert(0, format!("{path} :tool lessfilter").into());
 
-            let LessfilterCommand { preset, paths } = LessfilterCommand::parse_from(args);
+            let cmd = LessfilterCommand::parse_from(args);
 
             let cfg = load_type_or_default(
                 lessfilter_cfg_path(),
@@ -433,7 +433,7 @@ async fn handle_tools(
                 include_str!("../../assets/config/lessfilter.toml"),
             );
 
-            lessfilter::handle(preset, paths, cfg)
+            lessfilter::handle(cmd, cfg)
         }
         SubTool::Bump { mut args } => {
             let path = current_exe().basename();

@@ -8,12 +8,14 @@ use std::str::FromStr;
 use std::sync::OnceLock;
 
 use crate::abspath::AbsPath;
+use crate::lessfilter::TestSettings;
 use crate::lessfilter::mime_helpers::Myme;
 use crate::lessfilter::rule_matcher::{DefaultScore, Score, Test};
 
 /// compiled GlobMatcher
 pub type Glob = GlobMatcher;
 
+/// Appearing on the right of the [`super::RuleMatcher`], this is tested against a path to produce a [`super::rule_matcher::Score`]
 #[derive(Debug, Clone)]
 pub struct FileRule {
     pub kind: FileRuleKind,
@@ -44,6 +46,7 @@ pub enum FileRuleKind {
     NotHave(String), // The default score has the effect: have:x -> NotHave -> Min(0). !have:x -> has x -> Min(0).
 }
 
+/// This is the [`super::rule_matcher::Test::Context`] for a path
 #[derive(Debug)]
 pub struct FileData {
     pub path: AbsPath,
@@ -58,13 +61,13 @@ impl FileData {
     #[allow(clippy::collapsible_if)]
     pub fn new(
         path: AbsPath,
-        infer: bool,
+        settings: &TestSettings,
     ) -> Self {
         // 2. Permissions (Read, Write, Execute)
         let permissions = permissions(&path);
 
         // 3. Mime Detection
-        let mime = Myme::from_path(&path, infer);
+        let mime = Myme::from_path(&path, settings.infer);
 
         Self {
             path,
@@ -74,6 +77,7 @@ impl FileData {
         }
     }
 
+    /// for [`FileRuleKind::Child`]
     fn children_names(&self) -> &[OsString] {
         self.children
             .get_or_init(|| {

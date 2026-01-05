@@ -110,7 +110,11 @@ pub enum FsAction {
     /// Paste all stack items into the current or specified directory
     Paste(PathBuf), // dump Stack
     /// Execute according to [`crate::lessfilter::RulesConfig`]
-    Handler(Preset, bool),
+    Handler(Preset, bool, Option<bool>),
+
+    // other
+    // --------------------------------------------
+    AutoJump(u8),
 }
 // print, accept
 
@@ -330,7 +334,7 @@ pub fn fsaction_aliaser(
             // FsAction::Category => {
             //     acs![Action::Overlay(3)]
             // }
-            FsAction::Handler(p, page) => {
+            FsAction::Handler(p, page, header) => {
                 let mut cmd = p.to_command_string();
                 if page {
                     let pp = else_default!(
@@ -343,6 +347,21 @@ pub fn fsaction_aliaser(
                     cmd.push_str(pp);
                 }
                 acs![Action::Execute(cmd)]
+            }
+
+            FsAction::AutoJump(digit) => {
+                if raw_input {
+                    let c = (b'0' + (digit % 10)) as char;
+                    acs![Action::Input(c)]
+                } else if digit > 0
+                    || ENTERED_PROMPT
+                        .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
+                        .is_err()
+                {
+                    acs![Action::Pos((digit - 1) as i32), Action::Accept]
+                } else {
+                    acs![Action::Custom(FsAction::EnterPrompt(true))]
+                }
             }
             _ => acs![Action::Custom(fa)],
         },
