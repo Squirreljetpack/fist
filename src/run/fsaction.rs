@@ -124,6 +124,8 @@ fn enter_dir_pane(path: AbsPath) {
     GLOBAL::db().bump(true, path.clone());
     // this happens after the reload, so that the config dependent prompt marker gets applied
     GLOBAL::send_efx(efx![Effect::RestoreInputPromptMarker]);
+    // todo: somehow change the render inputui config
+    // always clear
 
     // pane
     let pane = FsPane::new_nav(path, FILTERS::visibility(), FILTERS::sort());

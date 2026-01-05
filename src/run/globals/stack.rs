@@ -183,6 +183,18 @@ impl STACK {
         });
     }
 
+    pub fn has_saved_input() -> bool {
+        STACK.with(|cell| {
+            let Self { stack, index, .. } = &*cell.borrow();
+            match &stack[*index] {
+                FsPane::Custom { input, .. } | FsPane::Nav { input, .. } => {
+                    input.0.is_empty() && input.1 == 0
+                }
+                _ => false,
+            }
+        })
+    }
+
     pub fn get_maybe_input() -> Option<(String, u32)> {
         STACK.with(|cell| {
             let Self { stack, index, .. } = &*cell.borrow();

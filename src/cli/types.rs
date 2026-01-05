@@ -30,13 +30,13 @@ impl Cli {
             ":open", ":o", ":app", ":a", ":file", ":dir", "::", ":", ":tool", ":t", ":info",
         ];
 
-        let should_skip_nav = match first.as_deref().map(|s| s.to_str()) {
+        let non_default = match first.as_deref().map(|s| s.to_str()) {
             None => false,
             Some(None) => true,
             Some(Some(arg)) => SUBCMDS.contains(&arg),
         };
 
-        if should_skip_nav {
+        if non_default {
             return match Cli::try_parse() {
                 Ok(cli) => cli,
                 Err(e) => match e.kind() {

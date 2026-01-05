@@ -55,4 +55,7 @@ For more information on bindings, see [matchmaker](https://github.com/Squirrelje
 # Additional
 
 # Dependencies
-fist 
+- fd-find
+- eza
+- ripgrep 
+- matchmaker
