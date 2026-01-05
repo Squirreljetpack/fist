@@ -12,8 +12,9 @@ pane settings need to be applied not just on startup
 When entering non-nav, cursor should enter prompt
 
 # Execute
-
-Enter a terminal, and return to fs on ctrl-c?
+Enter a terminal (works), and return to fs on ctrl-c (asking a bit much?)
+mini terminal?
+lowpri: Preview command also needs to switch cwd if there is an efficient way
 
 # Indexing
 

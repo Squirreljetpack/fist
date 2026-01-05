@@ -1,6 +1,7 @@
 mod program;
 use std::ffi::OsString;
 
+use crate::abspath::AbsPath;
 use cli_boilerplate_automation::bog::BogOkExt;
 use cli_boilerplate_automation::vec_;
 pub use program::*;
@@ -27,7 +28,7 @@ pub async fn open_wrapped(
     }
 
     if !files.is_empty() {
-        conn.push_files_and_folders(files)
+        conn.push_files_and_folders(files.iter().map(AbsPath::new))
             .await
             ._wbog_("Failed to record files");
     }

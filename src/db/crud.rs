@@ -21,7 +21,8 @@ impl Connection {
     ) -> Result<(), DbError> {
         trace!("Setting {entry:?}");
         let query = format!(
-            "INSERT OR REPLACE INTO {} (name, path, alias, cmd, atime, count) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO {} (name, path, alias, cmd, atime, count) VALUES (?, ?, ?, ?, \
+             ?, ?)",
             self.table_name
         );
 

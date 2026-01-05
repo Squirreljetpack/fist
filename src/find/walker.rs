@@ -71,9 +71,7 @@ pub fn build_overrides<'a>(
     let mut builder = OverrideBuilder::new(paths[0]); // no absolute patterns
 
     for pattern in exclusions {
-        builder
-            .add(pattern)
-            .prefix("Malformed exclude pattern")?;
+        builder.add(pattern).prefix("Malformed exclude pattern")?;
     }
 
     builder.build().prefix("Malformed exclude pattern")

@@ -73,7 +73,10 @@ impl Config {
         }
     }
 
-    pub fn check_files(&self) {
+    pub fn check_files(
+        &self,
+        force: bool,
+    ) {
         let files = [
             (lz_path(), include_str!("../assets/scripts/lz")),
             (pager_path(), include_str!("../assets/scripts/pager")),
@@ -93,11 +96,15 @@ impl Config {
 
         for (path, script) in files {
             let error_prefix = format!("Failed set executability of {path:?}");
-            if !path.exists()
+            if (force || !path.exists())
                 && write_str(path, script)._ebog().is_some()
                 && set_executable(path).prefix(&error_prefix)._ebog().is_some()
             {
-                ibog!("{} saved to: {}", basename(path), path.to_string_lossy());
+                if !force
+                // less noise for debug
+                {
+                    ibog!("{} saved to: {}", basename(path), path.to_string_lossy());
+                }
             }
         }
     }

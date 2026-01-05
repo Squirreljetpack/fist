@@ -1,5 +1,7 @@
 use std::{
-    ffi::OsString, fmt, path::{Path, PathBuf}
+    ffi::OsString,
+    fmt,
+    path::{Path, PathBuf},
 };
 
 use cli_boilerplate_automation::{bath::PathExt, impl_restricted_wrapper};

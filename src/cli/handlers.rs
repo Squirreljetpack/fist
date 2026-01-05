@@ -28,7 +28,7 @@ use crate::{
     abspath::AbsPath,
     config::Config,
     db::{
-        DbSortOrder, DbTable, Pool,
+        DbSortOrder, DbTable, Pool, display_entries,
         zoxide::{DbFilter, RetryStrat},
     },
     errors::CliError,
@@ -91,6 +91,7 @@ async fn handle_info(
 ) -> Result<(), CliError> {
     println!("Config path: {}", config_path().display());
     println!("MM config path: {}", mm_cfg_path().display());
+    println!("logs path: {}", cfg.log_path().display());
     println!();
 
     let is_multi_table_display = cmd.table.is_none();
@@ -109,7 +110,7 @@ async fn handle_info(
                 prints!(entry.path.to_string_lossy());
             }
         } else {
-            crate::db::display_entries(&entries);
+            display_entries(&entries);
         }
     }
 
@@ -390,6 +391,7 @@ async fn handle_tools(
             SubTool::Shell { args: args.clone() },
             SubTool::Lessfilter { args: args.clone() },
             SubTool::Bump { args: args.clone() },
+            SubTool::Types { args: args.clone() },
         ])
         .await?
     };
@@ -470,15 +472,26 @@ async fn handle_tools(
                 let mut remove_vec = Vec::with_capacity(paths.len());
                 let mut push_vec = Vec::with_capacity(paths.len());
 
+                use globset::{Glob, GlobSetBuilder};
+                let mut builder = GlobSetBuilder::new();
+                for pattern in &cfg.db.exclude {
+                    builder.add(Glob::new(pattern).unwrap());
+                }
+                let exclude = builder.build().unwrap();
+
                 for path in paths {
                     if !path.exists() {
                         ebog!("{} does not exist!", path.to_string_lossy());
                         exit(1);
                     }
+                    let path = AbsPath::new(path);
+                    if exclude.is_match(&path) {
+                        continue;
+                    }
                     if count == 0 {
-                        remove_vec.push(AbsPath::new(path))
+                        remove_vec.push(path)
                     } else {
-                        push_vec.push(path.into())
+                        push_vec.push(path)
                     }
                 }
 
@@ -496,7 +509,7 @@ async fn handle_tools(
                         conn.remove_entries(&files).await?;
                     }
                 } else {
-                    conn.push_files_and_folders(&push_vec).await?;
+                    conn.push_files_and_folders(push_vec).await?;
                 }
             } else {
                 let mut conn = Pool::new(cfg.global.db_path())

@@ -1,6 +1,7 @@
 use std::{ffi::OsString, process::Stdio, sync::atomic::Ordering};
 
 use cli_boilerplate_automation::{
+    bog::BogOkExt,
     broc::{SHELL, exec_script, spawn_script},
     env_vars, prints,
 };
@@ -136,15 +137,20 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
 
             if !template.is_empty() {
                 let cmd = mm_formatter(t, template);
+
                 let mut vars = state.make_env_vars();
                 let preview_cmd = mm_formatter(t, state.preview_payload());
                 let extra = env_vars!(
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
                 vars.extend(extra);
-                let tty = maybe_tty();
+
+                if let Some(cwd) = STACK::cwd() {
+                    std::env::set_current_dir(cwd)._ebog();
+                }
+
                 if let Some(mut child) =
-                    spawn_script(&cmd, vars, tty, Stdio::inherit(), Stdio::inherit())
+                    spawn_script(&cmd, vars, maybe_tty(), Stdio::inherit(), Stdio::inherit())
                 {
                     match child.wait() {
                         Ok(i) => {
@@ -156,8 +162,7 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
                     }
                 }
             } else {
-                // directly spawn previewer
-                todo!()
+                // undecided
             };
 
             efx![]
@@ -171,13 +176,18 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
                 && let Some(t) = state.current_raw()
             {
                 let cmd = mm_formatter(t, template);
-                let mut vars = state.make_env_vars();
 
+                let mut vars = state.make_env_vars();
                 let preview_cmd = mm_formatter(t, state.preview_payload());
                 let extra = env_vars!(
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
                 vars.extend(extra);
+
+                if let Some(cwd) = STACK::cwd() {
+                    std::env::set_current_dir(cwd)._ebog();
+                }
+
                 debug!("Becoming: {cmd}");
                 exec_script(&cmd, vars);
             }
@@ -221,3 +231,67 @@ fn maybe_tty() -> Stdio {
         Stdio::inherit()
     }
 }
+
+// mod spawn {
+//     use std::process::{Child, Command};
+
+//     use crate::run::dhandlers::maybe_tty;
+//     use cli_boilerplate_automation::ebog;
+//     use cli_boilerplate_automation::{_log, bait::ResultExt, bog::BogOkExt, broc::SHELL};
+
+//     pub fn spawn_script(
+//         script: &str,
+//         vars: impl IntoIterator<Item = (String, String)>,
+//     ) -> Option<Child> {
+//         let (shell, arg) = &*SHELL;
+//         _log!("Spawning script: {script}");
+
+//         Command::new(shell)
+//             .arg(arg)
+//             .arg(script)
+//             .envs(vars)
+//             .stdin(maybe_tty())
+//             .spawn()
+//             .prefix(&format!("Could not spawn: {script}"))
+//             ._ebog()
+//     }
+
+//     pub fn exec_script(
+//         script: &str,
+//         vars: impl IntoIterator<Item = (String, String)>,
+//     ) -> ! {
+//         let (shell, arg) = &*SHELL;
+
+//         let mut cmd = Command::new(shell);
+//         cmd.arg(arg).arg(script).envs(vars);
+//         _log!("Spawning detached: {cmd:?}");
+
+//         #[cfg(not(windows))]
+//         {
+//             // replace current process
+//             use std::os::unix::process::CommandExt;
+//             let err = cmd.exec();
+//             use std::process::exit;
+
+//             ebog!("Could not exec {script:?}: {err}");
+//             exit(1);
+//         }
+
+//         #[cfg(windows)]
+//         {
+//             match command.status() {
+//                 Ok(status) => {
+//                     exit(
+//                         status
+//                             .code()
+//                             .unwrap_or(if status.success() { 0 } else { 1 }),
+//                     );
+//                 }
+//                 Err(err) => {
+//                     ebog!("Could not exec {script:?}: {err}");
+//                     exit(1);
+//                 }
+//             }
+//         }
+//     }
+// }

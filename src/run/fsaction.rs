@@ -490,7 +490,7 @@ pub fn fsaction_handler(
             STASH::insert(state.map_selected_to_vec(|s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
-                StackItem::cp(s.path.clone())
+                StackItem::mv(s.path.clone())
             }));
             if !toast_vec.is_empty() {
                 TOAST::push(ToastStyle::Normal, "Cut: ", toast_vec);

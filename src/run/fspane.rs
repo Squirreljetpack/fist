@@ -20,6 +20,7 @@ use cli_boilerplate_automation::{
 };
 use matchmaker::{efx, nucleo::injector::Injector, preview::AppendOnly, render::Effect};
 
+use crate::config::GlobalConfig;
 use crate::{
     abspath::AbsPath,
     cli::DefaultCommand,
@@ -37,7 +38,6 @@ use crate::{
         state::{GLOBAL, STACK},
     },
 };
-use crate::config::GlobalConfig;
 
 #[derive(Debug, Clone)]
 pub enum FsPane {

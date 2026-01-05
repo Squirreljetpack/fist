@@ -91,6 +91,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(alt-b) => FsAction::Backup,
 
         // spawning
+        key!(alt-s) => Action::Execute("$SHELL".into()),
         key!(ctrl-b) => FsAction::Handler(Preset::Open, false),
         key!(ctrl-l) => FsAction::Handler(Preset::Preview, true),
         key!(alt-l) => FsAction::Handler(Preset::Extended, true),

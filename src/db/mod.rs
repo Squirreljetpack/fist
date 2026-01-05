@@ -11,9 +11,6 @@ pub use crate::filters::DbSortOrder;
 
 use crate::{abspath::AbsPath, db::zoxide::RetryStrat, errors::DbError};
 use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt, bog::BogOkExt, prints};
-use std::
-    ffi::OsString
-;
 
 pub type Epoch = i64;
 
@@ -49,13 +46,12 @@ impl Pool {
 impl Connection {
     pub async fn push_files_and_folders(
         &mut self,
-        paths: &[OsString],
+        paths: impl IntoIterator<Item = AbsPath>,
     ) -> Result<(), DbError> {
         let mut files = Vec::new();
         let mut dirs = Vec::new();
 
-        for s in paths {
-            let path = AbsPath::new(s);
+        for path in paths {
             if path.is_dir() {
                 dirs.push(path);
             } else {
@@ -132,9 +128,9 @@ impl Connection {
         let mut found = None;
 
         let mut entries = self
-        .get_entries_range(0, 0, DbSortOrder::none)
-        .await
-        .__ebog();
+            .get_entries_range(0, 0, DbSortOrder::none)
+            .await
+            .__ebog();
 
         entries.sort_by_key(|e| std::cmp::Reverse(db_filter.score(e)));
 
@@ -145,7 +141,7 @@ impl Connection {
                 }
                 Some(true) => {
                     if let Ok(cwd) = std::env::current_dir()
-                    && cwd.as_path() == e.path.as_ref()
+                        && cwd.as_path() == e.path.as_ref()
                     {
                         match db_filter.refind {
                             RetryStrat::Next => continue,

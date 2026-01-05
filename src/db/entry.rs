@@ -24,16 +24,19 @@ impl Entry {
             name: name.into(),
             path,
             atime: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as Epoch,
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as Epoch,
             alias: String::new(),
             cmd: String::new(),
             count: 1,
         }
     }
 
-    pub fn cmd(mut self, cmd: String) -> Self {
+    pub fn cmd(
+        mut self,
+        cmd: String,
+    ) -> Self {
         self.cmd = cmd;
         self
     }

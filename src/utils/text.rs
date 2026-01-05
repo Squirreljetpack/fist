@@ -244,7 +244,6 @@ pub fn split_shell_like(s: &str) -> Vec<String> {
 
 // replace {}, {s:e}, leave everything else intact. supports \ escape.
 
-
 pub fn path_formatter(
     template: &str,
     path: &AbsPath,

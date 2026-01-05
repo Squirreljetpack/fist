@@ -1,6 +1,5 @@
 use chrono::Utc;
 use cli_boilerplate_automation::impl_transparent_wrapper;
-use globset::{Glob, GlobSet, GlobSetBuilder};
 use std::path::Path;
 
 use crate::db::{Entry, Epoch};
@@ -45,9 +44,12 @@ pub struct DbConfig {
 #[derive(Default, Copy, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 /// What to do when the best match by [`crate::db::Connection::print_best_by_frecency`] is the current directory
 pub enum RetryStrat {
+    /// search interface
     Search,
     #[default]
+    /// keep looking
     Next,
+    /// return anyway (the current directory)
     None,
 }
 
@@ -56,7 +58,7 @@ pub enum RetryStrat {
 pub struct DbFilter {
     now: Epoch,
     keywords: Vec<String>,
-    exclude: GlobSet,
+    // exclude: GlobSet,
     filter_before: Epoch,
 
     filter_missing: bool,
@@ -69,19 +71,13 @@ pub struct DbFilter {
 
 impl DbFilter {
     pub fn new(config: &DbConfig) -> Self {
-        let mut builder = GlobSetBuilder::new();
-        for pattern in &config.exclude {
-            builder.add(Glob::new(pattern).unwrap());
-        }
-        let exclude = builder.build().unwrap();
-
         let now = Utc::now().timestamp();
         let filter_before = now - config.filter_before.0 * 24 * 60 * 60; // convert TTL days to seconds
 
         DbFilter {
             now,
             keywords: Default::default(),
-            exclude,
+            // exclude,
             filter_before,
 
             filter_missing: config.filter_missing,
@@ -114,10 +110,10 @@ impl DbFilter {
             log::debug!("filtered by: base");
             return Some(false);
         }
-        if !self.filter_by_exclude(path) {
-            log::debug!("filtered by: exclude");
-            return Some(false);
-        }
+        // if !self.filter_by_exclude(path) {
+        //     log::debug!("filtered by: exclude");
+        //     return Some(false);
+        // }
         if atime <= self.filter_before {
             log::debug!("filtered by: atime");
             return None;
@@ -167,12 +163,12 @@ impl DbFilter {
         }
     }
 
-    fn filter_by_exclude(
-        &self,
-        path: &Path,
-    ) -> bool {
-        !self.exclude.is_match(path)
-    }
+    // fn filter_by_exclude(
+    //     &self,
+    //     path: &Path,
+    // ) -> bool {
+    //     !self.exclude.is_match(path)
+    // }
 
     fn filter_by_exists(
         &self,

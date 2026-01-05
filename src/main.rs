@@ -94,7 +94,10 @@ async fn main() {
     }
     // ensure necessary directories/files (scripts) exist
     cfg.check_dirs_or_exit();
-    cfg.check_files();
+    #[cfg(debug_assertions)]
+    cfg.check_files(true);
+    #[cfg(not(debug_assertions))]
+    cfg.check_files(false);
 
     init_logger(
         cli.opts.verbosity(),

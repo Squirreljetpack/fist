@@ -18,6 +18,7 @@ use matchmaker::{
 use ratatui::text::{Line, Span};
 use tokio;
 
+use crate::config::GlobalConfig;
 use crate::{
     abspath::AbsPath,
     cli::env::EnvOpts,
@@ -29,7 +30,6 @@ use crate::{
     utils::text::{ToastContent, ToastStyle, make_toast},
     watcher::{WatcherMessage, WatcherSender},
 };
-use crate::config::GlobalConfig;
 
 mod filters;
 pub use filters::*;

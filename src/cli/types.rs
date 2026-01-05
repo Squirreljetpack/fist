@@ -24,22 +24,36 @@ pub struct Cli {
 
 impl Cli {
     pub fn parse_custom() -> Self {
-        let e = match Cli::try_parse() {
-            Ok(cli) => return cli,
-            Err(e) => match e.kind() {
-                ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => {
-                    e.print().expect("Failed to print help/version");
-                    std::process::exit(0);
-                }
-                _ => e,
-            },
+        let first = std::env::args_os().nth(1);
+
+        const SUBCMDS: &[&str] = &[
+            ":open", ":o", ":app", ":a", ":file", ":dir", "::", ":", ":tool", ":t", ":info",
+        ];
+
+        let should_skip_nav = match first.as_deref().map(|s| s.to_str()) {
+            None => false,
+            Some(None) => true,
+            Some(Some(arg)) => SUBCMDS.contains(&arg),
         };
+
+        if should_skip_nav {
+            return match Cli::try_parse() {
+                Ok(cli) => cli,
+                Err(e) => match e.kind() {
+                    ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => {
+                        e.print().expect("Failed to print help/version");
+                        std::process::exit(0);
+                    }
+                    _ => e.exit(),
+                },
+            };
+        }
 
         match NavCli::try_parse() {
             Ok(cli) => cli.into(),
             Err(err) => {
                 dbg!(err);
-                e.exit()
+                Cli::try_parse().unwrap_or_else(|e| e.exit())
             }
         }
     }
