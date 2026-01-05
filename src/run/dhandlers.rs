@@ -55,34 +55,20 @@ pub fn sync_handler<'a>(
     {
         efx![Effect::SetIndex(i as u32)]
     } else if RESTORE_INPUT
-        .compare_exchange(true, false, Ordering::Acquire, Ordering::Acquire)
-        .is_ok()
+    .compare_exchange(true, false, Ordering::Acquire, Ordering::Acquire)
+    .is_ok()
+    // this part is exclusive to [`FsAction::Undo`] and Forward, which is when the input can be taken from stack.
+    && let Some((input, index)) = STACK::get_maybe_input()
     {
-        // this part is exclusive to [`FsAction::Undo`] and Forward, which is when the input can be taken from stack.
-        if let Some((input, index)) = STACK::get_maybe_input() {
-            let il = input.len() as u16;
-            // refreshing selections should be the responsibility of the caller
-            // However, we want to keep selections on file watch events, hence the above
-            efx![
-                Effect::Input((input, il)),
-                Effect::SetIndex(index),
-                Effect::RevalidateSelectons,
-                Effect::RestoreInputPromptMarker
-            ]
-        } else {
-            // RESTORE_INPUT is set by reload, we should clear the state if nothing was saved.
-            // i.e., [`FsAction::Find`]
-            if state.picker_ui.results.cursor_disabled {
-                efx![Effect::Input(Default::default()), Effect::ClearSelections]
-            } else {
-                efx![
-                    Effect::Input(Default::default()),
-                    Effect::SetIndex(0),
-                    Effect::ClearSelections,
-                    Effect::RestoreInputPromptMarker
-                ]
-            }
-        }
+        let il = input.len() as u16;
+        // refreshing selections should be the responsibility of the caller
+        // However, we want to keep selections on file watch events, hence the above
+        efx![
+            Effect::Input((input, il)),
+            Effect::SetIndex(index),
+            Effect::RevalidateSelectons,
+            Effect::RestoreInputPromptMarker
+        ]
     } else {
         efx![]
     }
@@ -116,13 +102,29 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
                     // - this signals to restore that saved input
                     // - technically we should set this only if input was saved, but the check needs to be done by sync_handler anyway
 
-                    RESTORE_INPUT.store(true, Ordering::SeqCst);
+                    if STACK::has_saved_input() {
+                        RESTORE_INPUT.store(true, Ordering::Release);
+                    }
                 }
 
                 let injector = IndexedInjector::new(state.injector(), 0);
                 STACK::populate(injector, || {});
             }
-            efx![]
+            if !RESTORE_INPUT.load(Ordering::Acquire) {
+                // i.e., [`FsAction::Find`]: stay in prompt
+                if state.picker_ui.results.cursor_disabled {
+                    efx![Effect::Input(Default::default()), Effect::ClearSelections]
+                } else {
+                    efx![
+                        Effect::Input(Default::default()),
+                        Effect::SetIndex(0),
+                        Effect::ClearSelections,
+                        Effect::RestoreInputPromptMarker
+                    ]
+                }
+            } else {
+                efx!()
+            }
         });
     }
 
