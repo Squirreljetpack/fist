@@ -1,0 +1,71 @@
+infer=true
+
+# later ones win in tie
+[rules]
+  defaults=[
+    [["Metadata"], ["mime:*/*"]],
+    [["Image"], ["mime:image/*"]],
+    [["Text"], ["mime:text/*"]],
+    [["Directory"], ["mime:directory/*"]],
+    [
+      ["Archive"],
+      [
+        "mime:application/zip",
+        "mime:application/x-tar",
+        "mime:application/x-gzip",
+        "mime:application/x-bzip2",
+        "mime:application/x-xz",
+        "ext:zip",
+        "ext:tar",
+        "ext:gz",
+        "ext:bz2",
+        "ext:xz",
+      ],
+    ],
+  ]
+  preview=[
+    [["sqlite"], ["mime:application/vnd.sqlite3"]],
+  ]
+
+  edit=[
+
+  ]
+
+  display=[
+  ]
+
+  extended=[
+
+  ]
+
+  info=[
+  ]
+
+  open=[
+
+  ]
+
+[actions]
+  sqlite='''
+have() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+if have sqlite3; then
+    sqlite3 {} "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;" |
+    while read -r tbl; do
+        [[ -n $tbl ]] || continue;
+        echo "== $tbl ($(sqlite3 {} "SELECT COUNT(*) FROM \"$tbl\";")) rows =="
+        sqlite3 {} <<EOF
+.headers on
+.mode column
+SELECT * FROM "$tbl" LIMIT 5;
+EOF
+    echo
+    done
+elif have file; then
+    file -bL {}
+else
+    echo "No viewer for {}"
+fi
+'''

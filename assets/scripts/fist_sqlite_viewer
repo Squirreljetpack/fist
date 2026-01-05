@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+have() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+if have sqlite3; then
+    sqlite3 "$1" "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;" |
+    while read -r tbl; do
+        [[ -n $tbl ]] || continue;
+        echo "== $tbl ($(sqlite3 "$1" "SELECT COUNT(*) FROM \"$tbl\";") rows) =="
+        sqlite3 "$1" <<EOF
+.headers on
+.mode column
+SELECT * FROM "$tbl" LIMIT 5;
+EOF
+    echo
+    done
+elif have file; then
+    file -bL "$target"
+else
+    echo "No viewer for $target"
+fi

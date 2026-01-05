@@ -1,0 +1,222 @@
+#!/bin/zsh
+# todo: completions
+# todo: make this available as a subtool
+skip=false
+parsed=()
+long=()
+nlong=()
+args=()
+all=()
+show=
+
+usage() {
+  cat >&2 <<'EOF'
+lz: eza wrapper
+
+Filters:
+  :a         all
+  :i         --git-ignore
+  :[0-9T]    tree depth
+
+Columns:
+  :m         mtime
+  :s         octal + mtime
+  :t         time
+  :S         size
+  :l         cleaner ls -al
+  :x         extensive
+
+Trees:
+  ::nav      pretty tree view (paged)
+  ::dirs     all directories (paged)
+  ::git      git directory (copied to clipboard)
+
+Other views:
+  ::flatten
+  ::recent
+
+Styles:
+  :u         pretty
+  -1         one line
+  V          Print command
+
+Additional Notes:
+  Ordinary arguments are passed through to eza.
+  The set of positional arguments is determined by taking all arguments to
+  the right of '--', or else if that is not present, the longest suffix of words not beginning with '-'.
+EOF
+  (($#)) && exit "$1"
+}
+if [[ $1 == --help ]]; then
+  usage 0
+fi
+
+VERBOSE=false
+
+# Intersect the excluded long columns
+i_nl() {
+    if [[ -z $nlong ]]; then
+      nlong=(-l $@)
+    else
+      local _long=(-l $@)
+      nlong=(${nlong:*_long})
+    fi
+}
+# reusable param groups
+_user=(--color=always --icons=always --hyperlink)
+_all=(-a --group-directories-first)
+
+for param; do
+  if [[ $param == ::* ]] && ! $skip; then
+    show=${param#::}
+    [[ -z $show ]] && usage 0
+  elif [[ $param == :* ]] && ! $skip; then
+    for letter in ${(@s//)param#:}; do
+      case $letter in
+        a)
+          all=($_all)
+          ;;
+        s) # shortened long form, only octal, mtime
+          i_nl --no-filesize --no-permissions --no-user
+          long+=(-o)
+          ;;
+        t)
+          i_nl --no-filesize --no-permissions --no-user
+          long+=(-Umu --sort=modified --header) # timestamps
+          ;;
+        m)
+          i_nl --no-filesize --no-permissions --no-user
+          long+=(--time=modified --sort=modified -r --header) # timestamps
+          ;;
+        l) # cleaner long form (no hard-links)
+          all=($_all)
+
+          i_nl --no-permissions # meaning: permissions, user, time are shown
+          long+=(--sort=ext --header -on@ --group) # dev style: ocatl, extended.
+          # indicators (fifo/socket etc. with -F=always) not included since we have color.
+          ;;
+        x) # longer long form
+          all=($_all)
+
+          i_nl
+          long+=(--sort=ext --header -n@ -ZuUmigO) # security context, accessed time, created time, inode, group, file flags on Mac/Win
+          ;;
+        u)
+          parsed+=($_user)
+          ;;
+        [0-9T])
+          [[ $letter == T ]] && parsed=(-T) || parsed+=(-T -L $letter)
+          ;;
+        h)
+          usage 0
+          ;;
+        i)
+          parsed+=(--git-ignore)
+          ;;
+        S)
+          i_nl --no-permissions --no-user --no-time
+          parsed+=(--total-size)
+          ;;
+        V)
+          VERBOSE=true
+          ;;
+        g) # show file status inside git repo, otherwise status of git repos
+          i_nl --no-filesize --no-permissions --no-user --no-time # full negation of long
+          if [[ -n "$(git rev-parse --git-dir 2>/dev/null)" ]]; then
+            parsed+=(--git)
+          else
+            parsed+=(--git-repos)
+          fi
+          ;;
+        *)
+          usage 1
+          ;;
+      esac
+    done
+  elif $skip; then
+    pargs+=($param)
+  else
+    # leaky but best possible
+    if [[ -z $args && $param != -* ]]; then
+      pargs+=($param)
+      skip=true
+      continue
+    elif [[ $param == -- ]]; then
+      skip=true
+    fi
+    args+=($param)
+  fi
+done
+
+# directories top, iso time
+eza_def=(eza --smart-group --time-style="iso")
+
+page() {
+  $VERBOSE && echo $@ >&2
+  if [ -t 0 ] && command -v $PAGER &>/dev/null; then
+    # note: subprocess is strangely empty without args
+    $@ | $PAGER
+  else
+    $@
+  fi
+}
+
+
+params=($all $parsed $nlong $long $args $pargs)
+
+if true; then
+  idx=${params[(i)--hyperlink]}
+  (( idx )) && params[idx]=()
+fi
+
+if [[ -z $show ]]; then
+  $VERBOSE && print -u2 -- $eza_def $params
+  $eza_def $params
+else
+  eza_def+=(--color=always)
+  case $show in
+    n|nav)
+      page $eza_def -T $_user -l --no-permissions --no-user --no-filesize --no-time -L ${MAX_DEPTH:-3} $params
+      ;;
+
+    g|git)
+      git ls-tree -r --name-only ${pargs[1]:-HEAD} | tree --fromfile | tee >($=CLIPcmd)
+      # git ls-files | $eza_def -T ${@} | tee ${=CLIPcmd}
+      exit
+      ;;
+    d|dir(|s))
+      pager+=(-n)
+      page $eza_def -T --only-dirs --total-size --no-permissions --no-user $params # https://superuser.com/questions/1039003/linux-how-does-file-modification-time-affect-directory-modification-time-and-di
+      ;;
+    f|flatten)
+      # todo: generalize with -L n, improve files detection
+      [[ -z $pargs ]] && pargs=(.)
+      for p in $pargs; do
+        ! [[ -d $p ]] && dirs+=($p) ||
+        for d in $p/*; do [[ -r $d ]] && dirs+=($d) || print -u2 -- "'$d': Permission denied" ; done
+      done
+
+      $eza_def $user $params $dirs
+      ;;
+    t|tree)
+      page $eza_def -T $params
+      ;;
+    r|recent)
+    # recent reverse, used for lsn
+    # not actually useful tho
+    # https://github.com/eza-community/eza/issues/1021
+      $eza_def --sort=accessed --reverse -1 $params |
+      if [ -t 1 ]; then cat; else
+        while IFS= read -r line && [[ -n "$line" ]]; do
+          echo "${(*)line%% #->*}"
+        done
+      fi
+      ;;
+
+    *)
+      usage 1
+      ;;
+  esac
+
+
+fi

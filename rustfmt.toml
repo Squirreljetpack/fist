@@ -1,0 +1,6 @@
+unstable_features = true
+fn_params_layout = "Vertical"
+format_code_in_doc_comments = true
+format_strings = true
+trailing_semicolon = false
+use_field_init_shorthand = true

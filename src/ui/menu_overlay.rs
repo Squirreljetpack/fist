@@ -1,0 +1,405 @@
+use std::path::Path;
+
+use crate::abspath::AbsPath;
+use crate::cli::paths::cwd;
+use crate::run::fsaction::FsAction;
+use crate::run::globals::{GLOBAL, TEMP, TOAST};
+use crate::run::item::{PathItem, short_display};
+use crate::run::stash::{STASH, StackItem};
+use crate::spawn::open_wrapped;
+use crate::ui::prompt_overlay::{PromptConfig, PromptOverlay};
+use crate::utils::text::{ToastStyle, bold_indices};
+use cli_boilerplate_automation::bath::root_dir;
+use cli_boilerplate_automation::bog::BogUnwrapExt;
+use matchmaker::action::Action;
+use matchmaker::config::BorderSetting;
+use matchmaker::ui::{Overlay, OverlayEffect};
+use ratatui::widgets::Padding;
+use ratatui::{
+    prelude::*,
+    widgets::{Block, Borders, Clear, Paragraph},
+};
+
+const MAX_ITEM_WIDTH: u16 = 9;
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct MenuConfig {
+    pub border: BorderSetting,
+}
+
+impl Default for MenuConfig {
+    fn default() -> Self {
+        Self {
+            border: BorderSetting {
+                title: "Menu".into(),
+                sides: Borders::ALL,
+                padding: Padding::symmetric(2, 1),
+                ..Default::default()
+            },
+        }
+    }
+}
+
+#[derive(Debug, strum::Display, Clone, Copy)]
+pub enum PromptKind {
+    New,
+    Rename,
+}
+
+/// MenuItem enum with stateless action
+#[derive(Clone)]
+pub enum MenuItem {
+    New,
+    Rename,
+    Cut,
+    Copy,
+    Trash,
+    Delete,
+    Open,
+    OpenWith,
+    Custom { name: String, action: String },
+}
+
+impl MenuItem {
+    pub fn from_key(c: char) -> Option<Self> {
+        match c {
+            'n' => Some(MenuItem::New),
+            'r' => Some(MenuItem::Rename),
+            'x' => Some(MenuItem::Cut),
+            'c' => Some(MenuItem::Copy),
+            't' => Some(MenuItem::Trash),
+            'T' => Some(MenuItem::Delete),
+            'o' => Some(MenuItem::Open),
+            'w' => Some(MenuItem::OpenWith),
+            _ => None, // custom items cannot be triggered by key here
+        }
+    }
+
+    pub fn line(&self) -> Line<'static> {
+        match self {
+            MenuItem::New => Line::from(bold_indices("new", [0])),
+            MenuItem::Rename => Line::from(bold_indices("rename", [0])),
+            MenuItem::Cut => Line::from(bold_indices("cut (x)", [6])),
+            MenuItem::Copy => Line::from(bold_indices("copy", [0])),
+            MenuItem::Trash => Line::from(bold_indices("trash", [0])),
+            MenuItem::Delete => Line::from(bold_indices("deleTe", [5])),
+            MenuItem::Open => Line::from(bold_indices("open", [0])),
+            MenuItem::OpenWith => Line::from(bold_indices("open with", [6])),
+            MenuItem::Custom { name, .. } => Line::from(name.clone()),
+        }
+    }
+
+    /// Stateless action returning optional (PromptKind, optional extra title string)
+    pub fn action(
+        &self,
+        path: AbsPath,
+    ) -> Option<(PromptKind, Option<String>)> {
+        match self {
+            MenuItem::New => Some((PromptKind::New, None)),
+            MenuItem::Rename => Some((PromptKind::Rename, Some(path.to_string_lossy().into()))),
+            MenuItem::Cut | MenuItem::Copy => {
+                TOAST::push(ToastStyle::Normal, "Cut: ", [short_display(&path)]);
+                STASH::insert(vec![StackItem::mv(path)]);
+                None
+            }
+            MenuItem::Trash => {
+                match trash::delete(&path) {
+                    Ok(()) => TOAST::push(ToastStyle::Success, "Trashed: ", [short_display(&path)]),
+                    Err(_) => TOAST::push(
+                        ToastStyle::Error,
+                        "Failed to trash: ",
+                        [short_display(&path)],
+                    ),
+                }
+                None
+            }
+            MenuItem::Delete => {
+                tokio::spawn(async move {
+                    if tokio::fs::remove_file(&path).await.is_ok() {
+                        TOAST::push(ToastStyle::Success, "Deleted: ", [short_display(&path)]);
+                    } else {
+                        TOAST::push(
+                            ToastStyle::Error,
+                            "Failed to delete: ",
+                            [short_display(&path)],
+                        );
+                    }
+                });
+                None
+            }
+            MenuItem::Open => {
+                let path_clone = path;
+                let pool = GLOBAL::db();
+                tokio::spawn(async move {
+                    let conn = pool.get_conn(crate::db::DbTable::dirs).await?;
+                    open_wrapped(conn, None, &[path_clone.inner().into()]).await?;
+                    anyhow::Ok(())
+                });
+                None
+            }
+            MenuItem::OpenWith => {
+                todo!()
+            }
+            MenuItem::Custom { action, .. } => {
+                todo!()
+            }
+        }
+    }
+}
+
+/// The main MenuOverlay
+pub struct MenuOverlay {
+    cursor: usize,
+    config: MenuConfig,
+    prompt_kind: Option<PromptKind>,
+    prompt: PromptOverlay,
+    item: PathItem,
+    items: Vec<MenuItem>,
+}
+
+impl MenuOverlay {
+    pub fn new(
+        config: MenuConfig,
+        prompt_config: PromptConfig,
+    ) -> Self {
+        let items: Vec<MenuItem> = vec![
+            MenuItem::New,
+            MenuItem::Rename,
+            MenuItem::Cut,
+            MenuItem::Copy,
+            MenuItem::Trash,
+            MenuItem::Delete,
+            MenuItem::Open,
+            MenuItem::OpenWith,
+        ];
+
+        Self {
+            cursor: 0,
+            config,
+            prompt_kind: None,
+            prompt: PromptOverlay::new(prompt_config),
+            item: PathItem::default_(),
+            items,
+        }
+    }
+
+    fn make_widget(&self) -> Paragraph<'_> {
+        let lines: Vec<Line> = self
+            .items
+            .iter()
+            .enumerate()
+            .map(|(idx, item)| {
+                let mut line = item.line();
+                if idx == self.cursor {
+                    line = line.patch_style(
+                        Style::default()
+                            .bg(Color::Black)
+                            .add_modifier(Modifier::BOLD),
+                    )
+                }
+                line
+            })
+            .collect();
+        Paragraph::new(lines).block(self.config.border.as_block())
+    }
+
+    fn p(&self) -> AbsPath {
+        self.item.path.clone()
+    }
+
+    fn set_prompt(
+        &mut self,
+        prompt: PromptKind,
+        extra_title: Option<String>,
+    ) {
+        self.prompt_kind = Some(prompt);
+        self.prompt.config.border.title = match extra_title {
+            Some(s) => format!("{}: {}", prompt, s),
+            None => prompt.to_string(),
+        };
+        self.prompt.on_enable(&Rect::default());
+    }
+
+    fn handle_menu_input(
+        &mut self,
+        c: char,
+    ) -> OverlayEffect {
+        if let Some(item) = MenuItem::from_key(c) {
+            if let Some((prompt, extra)) = item.action(self.item.path.clone()) {
+                self.set_prompt(prompt, extra);
+            }
+            OverlayEffect::None
+        } else if c == 'q' {
+            OverlayEffect::Disable
+        } else {
+            OverlayEffect::None
+        }
+    }
+
+    fn on_prompt_accept(
+        &mut self,
+        prompt: PromptKind,
+    ) -> OverlayEffect {
+        match prompt {
+            PromptKind::New => {
+                let path = self.p();
+                let new_path = path
+                    .parent()
+                    .unwrap_or(&root_dir())
+                    .join(&self.prompt.input);
+
+                tokio::spawn(async move {
+                    match tokio::fs::File::create(&new_path).await {
+                        Ok(_) => {
+                            TOAST::push(ToastStyle::Success, "New: ", [short_display(&new_path)]);
+                        }
+                        Err(_) => {
+                            TOAST::push(
+                                ToastStyle::Error,
+                                "Failed to create: ",
+                                [short_display(&new_path)],
+                            );
+                        }
+                    }
+                });
+            }
+            PromptKind::Rename => {
+                let old_path = self.p();
+                let new_path = old_path
+                    .parent()
+                    .unwrap_or(&root_dir())
+                    .join(&self.prompt.input);
+                if new_path == old_path.as_ref() {
+                    // TOAST::push_msg(Span::styled("Same name", Color::Red), false);
+                } else {
+                    tokio::spawn(async move {
+                        match tokio::fs::rename(&old_path, &new_path).await {
+                            Ok(_) => {
+                                let new_display = new_path.to_string_lossy().to_string().into();
+                                TOAST::push_pair(
+                                    ToastStyle::Success,
+                                    "Renamed: ",
+                                    short_display(&old_path),
+                                    new_display,
+                                );
+                            }
+                            Err(_) => {
+                                TOAST::push(
+                                    ToastStyle::Error,
+                                    "Failed to rename: ",
+                                    [short_display(&old_path)],
+                                );
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        self.prompt_kind = None;
+        self.prompt.on_disable();
+        OverlayEffect::Disable
+    }
+
+    pub fn accept(&mut self) -> OverlayEffect {
+        if let Some((prompt, extra)) = self.items[self.cursor].action(self.item.path.clone()) {
+            self.set_prompt(prompt, extra);
+        }
+        OverlayEffect::None
+    }
+
+    pub fn move_cursor_up(&mut self) {
+        if self.cursor == 0 {
+            self.cursor = self.items.len() - 1;
+        } else {
+            self.cursor -= 1;
+        }
+    }
+
+    pub fn move_cursor_down(&mut self) {
+        self.cursor = (self.cursor + 1) % self.items.len();
+    }
+}
+
+impl Overlay for MenuOverlay {
+    type A = FsAction;
+
+    fn on_enable(
+        &mut self,
+        area: &Rect,
+    ) {
+        self.cursor = 0;
+        self.prompt_kind = None;
+        let (p, s) = TEMP::take_prompt();
+        if let Some(p) = p {
+            self.set_prompt(p, Some(s.display().into()));
+        }
+        self.item = s;
+    }
+
+    fn on_disable(&mut self) {
+        self.prompt.on_disable();
+    }
+
+    fn handle_input(
+        &mut self,
+        c: char,
+    ) -> OverlayEffect {
+        if let Some(p) = self.prompt_kind {
+            if let OverlayEffect::Disable = self.prompt.handle_input(c) {
+                self.on_prompt_accept(p)
+            } else {
+                OverlayEffect::None
+            }
+        } else {
+            self.handle_menu_input(c)
+        }
+    }
+
+    fn handle_action(
+        &mut self,
+        action: &Action<Self::A>,
+    ) -> OverlayEffect {
+        if let Some(p) = self.prompt_kind {
+            match self.prompt.handle_action_(action) {
+                None => {}
+                Some(false) => self.prompt_kind = None,
+                Some(true) => return self.on_prompt_accept(p),
+            }
+        } else {
+            match action {
+                Action::Up(_) => self.move_cursor_up(),
+                Action::Down(_) => self.move_cursor_down(),
+                Action::Accept => return self.accept(),
+                Action::Quit(_) => return OverlayEffect::Disable,
+                _ => {}
+            }
+        }
+        OverlayEffect::None
+    }
+
+    fn area(
+        &mut self,
+        ui_area: &Rect,
+    ) -> Result<Rect, [u16; 2]> {
+        self.prompt.area(ui_area);
+        Err([
+            MAX_ITEM_WIDTH + self.config.border.width(),
+            self.items.len() as u16 + self.config.border.height(),
+        ])
+    }
+
+    fn draw(
+        &mut self,
+        frame: &mut matchmaker::ui::Frame,
+        mut area: matchmaker::ui::Rect,
+    ) {
+        if self.prompt_kind.is_some() {
+            self.prompt.draw(frame, Rect::default());
+        } else {
+            frame.render_widget(Clear, area);
+            frame.render_widget(self.make_widget(), area);
+        }
+    }
+}

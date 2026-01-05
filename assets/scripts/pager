@@ -1,0 +1,27 @@
+#!/bin/zsh
+
+# Configured by environment variables, including LESS=
+# bat colorization is not idempotent, so it's important that --paging=never is a default option for bat when this is set as PAGER
+
+have() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+# override/fallback
+if [[ -n $FS_PAGER ]]; then
+    ${(z)FS_PAGER} $@
+    return
+elif ! have bat; then
+    cat
+    return
+fi
+
+opts=()
+
+[[ -n $PG_LANG ]] && opts+=(-l $PG_LANG)
+[[ -n $PG_DEFAULT ]] || opts+=(--color=always --style=changes)
+[[ -n $PG_FLAGS ]] && opts+=(${(@Q)${(z)PG_FLAGS}})
+[[ -n $PG_LESS ]] && LESS+=" $PG_LESS"
+opts+=($@)
+
+LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p bat --paging=always --pager="less -R" -p $opts

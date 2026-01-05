@@ -1,0 +1,215 @@
+use std::{ffi::OsString, sync::Arc};
+
+use cli_boilerplate_automation::{bait::ResultExt, bog::BogOkExt};
+use matchmaker::{
+    MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector,
+    binds::display_binds,
+    config::{PreviewerConfig, RenderConfig},
+    make_previewer,
+    message::Event,
+    nucleo::{
+        Column, Indexed, Render, Worker,
+        injector::{IndexedInjector, Injector, WorkerInjector},
+    },
+    render::Effect,
+};
+
+use crate::{
+    cli::config::Config,
+    db::{DbTable, Pool, zoxide::DbFilter},
+    errors::CliError,
+    run::{
+        dhandlers::{MMExt, sync_handler},
+        fsaction::{fsaction_aliaser, fsaction_handler, paste_handler},
+        fspane::FsPane,
+        item::PathItem,
+        mm_config::{MATCHER_CONFIG, MMConfig, tui_config},
+        state::{APP, DB_FILTER, GLOBAL, PRINT_HANDLE, STACK},
+    },
+    spawn::{Program, open_wrapped},
+    ui::{
+        filters_overlay::FilterOverlay, global::global_ui_init, menu_overlay::MenuOverlay,
+        stash_overlay::StackOverlay,
+    },
+    watcher::FsWatcher,
+};
+
+pub type FsInjector = IndexedInjector<PathItem, WorkerInjector<Indexed<PathItem>>>;
+
+fn exist_validator(s: &PathItem) -> bool {
+    s.path.exists()
+}
+
+pub type FormatterFn = Arc<RenderFn<Indexed<PathItem>>>;
+
+// todo: prompt needs to show initial fs pattern if given
+fn make_mm(
+    render: RenderConfig,
+    cfg: &Config,
+) -> (
+    Matchmaker<Indexed<PathItem>, PathItem>,
+    FsInjector,
+    FormatterFn,
+) {
+    let worker = Worker::new(
+        [
+            Column::new("_", |item: &Indexed<PathItem>| item.inner.as_text()),
+            Column::new("", |item: &Indexed<PathItem>| item.inner.tail.clone()),
+        ],
+        0,
+    );
+    let injector = IndexedInjector::new(worker.injector(), 0);
+
+    let selector = Selector::new_with_validator(Indexed::identifier, exist_validator);
+    let formatter =
+        Arc::new(worker.make_format_fn::<true>(|item: &Indexed<PathItem>| item.inner.display()));
+
+    let mut mm = Matchmaker::new(worker, selector);
+
+    mm.config_render(render);
+
+    let tui = tui_config();
+    mm.config_tui(tui);
+
+    let print_formatter = std::sync::Arc::new(
+        mm.worker
+            .make_format_fn::<false>(|item| item.inner.display()),
+    );
+    mm.register_print_handler(PRINT_HANDLE.with(|x| x.clone()), print_formatter);
+
+    // attach previewer handling alt-h: help display, display file/fn
+    mm.register_become_handler(formatter.clone());
+    mm.register_execute_handler_(formatter.clone());
+    mm.register_reload_handler_(formatter.clone());
+    mm.register_event_handler([Event::Synced], sync_handler);
+
+    (mm, injector, formatter)
+}
+
+// "entrypoint", called ONCE
+pub async fn start(
+    pane: FsPane,
+    cfg: Config,
+    mm_cfg: MMConfig,
+    db_pool: Pool,
+) -> Result<(), CliError> {
+    // init configs
+    let MMConfig {
+        mut render,
+        binds,
+        scratch,
+        filters,
+        prompt,
+        menu,
+    } = mm_cfg;
+    log::debug!("cfg: {cfg:?}");
+
+    if let Some(x) = pane.preview_show(&cfg.global.panes) {
+        render.preview.show = x
+    }
+    if let Some(x) = pane.prompt(&cfg.global.panes) {
+        render.input.prompt = x
+    }
+    // init MM
+    let (mut mm, injector, formatter) = make_mm(render, &cfg);
+
+    // init previewer
+    let previewer_config = PreviewerConfig::default();
+    let help_str = display_binds(&binds, Some(&previewer_config.help_colors));
+    let previewer = make_previewer(&mut mm, previewer_config, formatter, help_str);
+
+    // configure mm
+    let mut builder = PickOptions::with_binds(binds)
+        .previewer(previewer)
+        .ext_handler(fsaction_handler)
+        .ext_aliaser(fsaction_aliaser)
+        .paste_handler(paste_handler)
+        .matcher(MATCHER_CONFIG)
+        .overlay(StackOverlay::new(scratch))
+        .overlay(FilterOverlay::new(filters))
+        .overlay(MenuOverlay::new(menu, prompt));
+
+    let render_tx = builder.get_tx();
+
+    // start fs-watcher
+    let (watcher, watcher_tx) = FsWatcher::new(cfg.notify, render_tx.clone());
+
+    // set input
+    match &pane {
+        FsPane::Custom { input, .. }
+        | FsPane::Nav { input, .. }
+        | FsPane::Folders { input, .. }
+        | FsPane::Files { input, .. } => {
+            let il = input.0.len() as u16;
+            render_tx
+                .send(matchmaker::message::RenderCommand::Effect(Effect::Input((
+                    input.0.clone(),
+                    il,
+                ))))
+                .elog()
+                .ok();
+        }
+        _ => {}
+    }
+
+    // init history capabilities
+    let db_filter = DbFilter::new(&cfg.db);
+    *DB_FILTER.lock().await = Some(db_filter);
+
+    // init global
+    GLOBAL::init(
+        cfg.global,
+        render_tx,
+        watcher_tx,
+        db_pool,
+        pane,
+        cfg.misc.clipboard_delay_ms,
+    );
+    global_ui_init(cfg.styles);
+
+    // start watcher
+    watcher.spawn()._ebog();
+    // populate mm
+    STACK::populate(injector, || {});
+
+    // run and wait for mm
+    let ret = mm.pick(builder).await;
+    // print before errors
+    PRINT_HANDLE.with(|x| x.map_to_vec(|s| println!("{s}")));
+
+    if APP::in_app_pane() {
+        match ret.first().abort() {
+            Ok(prog) => {
+                // no contention, but clippy warning cannot be got rid of
+                // let files = APP::TO_OPEN.lock().unwrap();
+                let files = APP::TO_OPEN.lock().unwrap().clone();
+                let conn = GLOBAL::db().get_conn(DbTable::apps).await?;
+
+                let prog = Program::from_scanned_path(prog.path, prog.cmd);
+
+                open_wrapped(conn, Some(prog), &files).await?;
+                Ok(())
+            }
+            Err(e) => Err(e.into()),
+        }
+    } else {
+        match ret {
+            Ok(lines) => {
+                let files: Vec<OsString> = lines
+                    .iter()
+                    .map(|p| OsString::from(p.path.inner()))
+                    .collect();
+                let conn = GLOBAL::db().get_conn(DbTable::apps).await?;
+                open_wrapped(
+                    conn,
+                    GLOBAL::with_env(|s| s.opener.as_ref().and_then(Program::from_os_string)),
+                    &files,
+                )
+                .await?;
+                Ok(())
+            }
+            Err(MatchError::Abort(i)) => std::process::exit(i),
+            Err(e) => Err(e.into()),
+        }
+    }
+}
