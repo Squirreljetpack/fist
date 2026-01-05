@@ -3,10 +3,8 @@ use std::{ffi::OsString, path::PathBuf};
 use cli_boilerplate_automation::{vec_, wbog};
 
 use crate::{
-    cli::{
-        config::FdConfig,
-        paths::{cwd, home_dir},
-    },
+    cli::paths::{cwd, home_dir},
+    config::FdConfig,
     filters::{SortOrder, Visibility},
     utils::{categories::FileCategory, filetypes::FileType},
 };

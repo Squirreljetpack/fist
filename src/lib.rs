@@ -1,6 +1,7 @@
 #![allow(unused_variables, dead_code)]
 pub mod abspath;
 pub mod cli;
+pub mod config;
 pub mod db;
 pub mod errors;
 pub mod filters;

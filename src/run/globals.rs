@@ -20,7 +20,7 @@ use tokio;
 
 use crate::{
     abspath::AbsPath,
-    cli::{config::GlobalConfig, env::EnvOpts},
+    cli::env::EnvOpts,
     clipboard::{CLIPBOARD, CLIPBOARD_SLEEP_MS},
     db::{Connection, DbSortOrder, Pool, zoxide::DbFilter},
     errors::DbError,
@@ -29,6 +29,7 @@ use crate::{
     utils::text::{ToastContent, ToastStyle, make_toast},
     watcher::{WatcherMessage, WatcherSender},
 };
+use crate::config::GlobalConfig;
 
 mod filters;
 pub use filters::*;

@@ -1,25 +1,26 @@
 infer=true
 
-# later ones win in tie
+# later ones win in tie.
+# But metadata has a score of 20, be sure to set higher
 [rules]
-  defaults=[
-    [["Metadata"], ["mime:*/*"]],
-    [["Image"], ["mime:image/*"]],
-    [["Text"], ["mime:text/*"]],
-    [["Directory"], ["mime:directory/*"]],
+  default=[
+    [["Metadata"], ["1|mime:*/*"]],
+    [["Image"], ["1|mime:image/*"]],
+    [["Text"], ["1|mime:text/*"]],
+    [["Directory"], ["1|mime:directory/*"]],
     [
-      ["Archive"],
+      ["Metadata"],
       [
-        "mime:application/zip",
-        "mime:application/x-tar",
-        "mime:application/x-gzip",
-        "mime:application/x-bzip2",
-        "mime:application/x-xz",
-        "ext:zip",
-        "ext:tar",
-        "ext:gz",
-        "ext:bz2",
-        "ext:xz",
+        "1|mime:application/zip",
+        "1|mime:application/x-tar",
+        "1|mime:application/x-gzip",
+        "1|mime:application/x-bzip2",
+        "1|mime:application/x-xz",
+        "1|ext:zip",
+        "1|ext:tar",
+        "1|ext:gz",
+        "1|ext:bz2",
+        "1|ext:xz",
       ],
     ],
   ]
@@ -35,14 +36,14 @@ infer=true
   ]
 
   extended=[
-
+    [["rainfrog"], ["mime:application/vnd.sqlite3"]],
   ]
 
   info=[
   ]
 
   open=[
-
+    [["code"], ["mime:directory/*"]],
   ]
 
 [actions]
@@ -69,3 +70,5 @@ else
     echo "No viewer for {}"
 fi
 '''
+  rainfrog='rainfrog --url "sqlite://{.}?mode=ro"'
+  code='code --add {}'

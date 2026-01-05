@@ -20,9 +20,9 @@ Filters:
 
 Columns:
   :m         mtime
-  :s         octal + mtime
+  :b         octal + mtime
   :t         time
-  :S         size
+  :s         size
   :l         cleaner ls -al
   :x         extensive
 
@@ -38,7 +38,8 @@ Other views:
 Styles:
   :u         pretty
   -1         one line
-  V          Print command
+  :V         Print command
+  :P         Force paging
 
 Additional Notes:
   Ordinary arguments are passed through to eza.
@@ -52,7 +53,7 @@ if [[ $1 == --help ]]; then
 fi
 
 VERBOSE=false
-
+ALWAYS_PAGE=false
 # Intersect the excluded long columns
 i_nl() {
     if [[ -z $nlong ]]; then
@@ -76,7 +77,7 @@ for param; do
         a)
           all=($_all)
           ;;
-        s) # shortened long form, only octal, mtime
+        b) # shortened long form, only octal, mtime
           i_nl --no-filesize --no-permissions --no-user
           long+=(-o)
           ;;
@@ -104,7 +105,10 @@ for param; do
         u)
           parsed+=($_user)
           ;;
-        [0-9T])
+        P)
+          =true
+          ;;
+        [1-9T])
           [[ $letter == T ]] && parsed=(-T) || parsed+=(-T -L $letter)
           ;;
         h)
@@ -113,7 +117,7 @@ for param; do
         i)
           parsed+=(--git-ignore)
           ;;
-        S)
+        s)
           i_nl --no-permissions --no-user --no-time
           parsed+=(--total-size)
           ;;
@@ -153,14 +157,18 @@ eza_def=(eza --smart-group --time-style="iso")
 
 page() {
   $VERBOSE && echo $@ >&2
-  if [ -t 0 ] && command -v $PAGER &>/dev/null; then
-    # note: subprocess is strangely empty without args
+  if [ "$FS_SUBPROCESS" = "false" ] && [ -t 0 ] && command -v $PAGER &>/dev/null; then
     $@ | $PAGER
   else
     $@
   fi
 }
 
+if [ "$FS_SUBPROCESS" = "true" ] && [ -t 0 ] && command -v $PAGER &>/dev/null; then
+    exec 3> >($PAGER)
+else
+    exec 3>&1
+fi
 
 params=($all $parsed $nlong $long $args $pargs)
 
@@ -171,7 +179,7 @@ fi
 
 if [[ -z $show ]]; then
   $VERBOSE && print -u2 -- $eza_def $params
-  $eza_def $params
+  page false $eza_def $params
 else
   eza_def+=(--color=always)
   case $show in

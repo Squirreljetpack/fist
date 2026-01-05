@@ -1,11 +1,11 @@
 use std::{ffi::OsString, process::Stdio, sync::atomic::Ordering};
 
 use cli_boilerplate_automation::{
-    broc::{SHELL, spawn_script},
-    env_vars,
+    broc::{SHELL, exec_script, spawn_script},
+    env_vars, prints,
 };
 use easy_ext::ext;
-use log::info;
+use log::{debug, info};
 use matchmaker::{
     Matchmaker, efx,
     message::{Event, Interrupt},
@@ -13,6 +13,7 @@ use matchmaker::{
         Indexed,
         injector::{IndexedInjector, Injector},
     },
+    preview::AppendOnly,
     render::{Effect, Effects},
 };
 
@@ -21,7 +22,6 @@ use crate::{
     run::{
         fspane::FsPane,
         item::PathItem,
-        start::FormatterFn,
         state::{FILTERS, RESTORE_INPUT, STACK, TEMP},
     },
 };
@@ -89,16 +89,13 @@ pub fn sync_handler<'a>(
 
 #[ext(MMExt)]
 impl Matchmaker<Indexed<PathItem>, PathItem> {
-    pub fn register_reload_handler_(
-        &mut self,
-        formatter: FormatterFn,
-    ) {
+    pub fn register_reload_handler_(&mut self) {
         self.register_interrupt_handler(Interrupt::Reload("".into()), move |state, interrupt| {
             if let Interrupt::Reload(template) = interrupt {
                 // User reload event: create a custom pane
                 if !template.is_empty() {
                     if let Some(t) = state.current_raw() {
-                        let script = formatter(t, template);
+                        let script = mm_formatter(t, template);
                         log::debug!("Reloading: {script}");
                         let (shell, arg) = &*SHELL;
                         let command = (
@@ -128,12 +125,7 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
         });
     }
 
-    pub fn register_execute_handler_(
-        &mut self,
-        formatter: FormatterFn,
-    ) {
-        let preview_formatter = formatter.clone();
-
+    pub fn register_execute_handler_(&mut self) {
         self.register_interrupt_handler(Interrupt::Execute("".into()), move |state, interrupt| {
             let Interrupt::Execute(template) = interrupt else {
                 unreachable!()
@@ -143,9 +135,9 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
             };
 
             if !template.is_empty() {
-                let cmd = formatter(t, template);
+                let cmd = mm_formatter(t, template);
                 let mut vars = state.make_env_vars();
-                let preview_cmd = preview_formatter(t, state.preview_payload());
+                let preview_cmd = mm_formatter(t, state.preview_payload());
                 let extra = env_vars!(
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
@@ -171,6 +163,53 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
             efx![]
         });
     }
+
+    pub fn register_become_handler_(&mut self) {
+        self.register_interrupt_handler(Interrupt::Become("".into()), move |state, interrupt| {
+            if let Interrupt::Become(template) = interrupt
+                && !template.is_empty()
+                && let Some(t) = state.current_raw()
+            {
+                let cmd = mm_formatter(t, template);
+                let mut vars = state.make_env_vars();
+
+                let preview_cmd = mm_formatter(t, state.preview_payload());
+                let extra = env_vars!(
+                    "FZF_PREVIEW_COMMAND" => preview_cmd,
+                );
+                vars.extend(extra);
+                debug!("Becoming: {cmd}");
+                exec_script(&cmd, vars);
+            }
+            efx![]
+        });
+    }
+
+    pub fn register_print_handler_(
+        &mut self,
+        print_handle: AppendOnly<String>,
+    ) {
+        self.register_interrupt_handler(Interrupt::Print("".into()), move |state, i| {
+            if let Interrupt::Print(template) = i
+                && let Some(t) = state.current_raw()
+            {
+                let s = mm_formatter(t, template);
+                if atty::is(atty::Stream::Stdout) {
+                    print_handle.push(s);
+                } else {
+                    prints!(s);
+                }
+            };
+            efx![]
+        });
+    }
+}
+
+pub fn mm_formatter(
+    item: &Indexed<PathItem>,
+    template: &str,
+) -> String {
+    crate::utils::text::path_formatter(template, &item.inner.path)
 }
 
 fn maybe_tty() -> Stdio {

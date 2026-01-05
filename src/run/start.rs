@@ -4,7 +4,7 @@ use cli_boilerplate_automation::{bait::ResultExt, bog::BogOkExt};
 use matchmaker::{
     MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector,
     binds::display_binds,
-    config::{PreviewerConfig, RenderConfig},
+    config::{PreviewerConfig, RenderConfig, TerminalConfig},
     make_previewer,
     message::Event,
     nucleo::{
@@ -15,7 +15,7 @@ use matchmaker::{
 };
 
 use crate::{
-    cli::config::Config,
+    config::Config,
     db::{DbTable, Pool, zoxide::DbFilter},
     errors::CliError,
     run::{
@@ -23,7 +23,7 @@ use crate::{
         fsaction::{fsaction_aliaser, fsaction_handler, paste_handler},
         fspane::FsPane,
         item::PathItem,
-        mm_config::{MATCHER_CONFIG, MMConfig, tui_config},
+        mm_config::{MATCHER_CONFIG, MMConfig},
         state::{APP, DB_FILTER, GLOBAL, PRINT_HANDLE, STACK},
     },
     spawn::{Program, open_wrapped},
@@ -45,6 +45,7 @@ pub type FormatterFn = Arc<RenderFn<Indexed<PathItem>>>;
 // todo: prompt needs to show initial fs pattern if given
 fn make_mm(
     render: RenderConfig,
+    tui: TerminalConfig,
     cfg: &Config,
 ) -> (
     Matchmaker<Indexed<PathItem>, PathItem>,
@@ -67,20 +68,13 @@ fn make_mm(
     let mut mm = Matchmaker::new(worker, selector);
 
     mm.config_render(render);
-
-    let tui = tui_config();
     mm.config_tui(tui);
 
-    let print_formatter = std::sync::Arc::new(
-        mm.worker
-            .make_format_fn::<false>(|item| item.inner.display()),
-    );
-    mm.register_print_handler(PRINT_HANDLE.with(|x| x.clone()), print_formatter);
-
+    mm.register_print_handler_(PRINT_HANDLE.with(|x| x.clone()));
     // attach previewer handling alt-h: help display, display file/fn
-    mm.register_become_handler(formatter.clone());
-    mm.register_execute_handler_(formatter.clone());
-    mm.register_reload_handler_(formatter.clone());
+    mm.register_become_handler_();
+    mm.register_execute_handler_();
+    mm.register_reload_handler_();
     mm.register_event_handler([Event::Synced], sync_handler);
 
     (mm, injector, formatter)
@@ -101,6 +95,7 @@ pub async fn start(
         filters,
         prompt,
         menu,
+        tui,
     } = mm_cfg;
     log::debug!("cfg: {cfg:?}");
 
@@ -111,7 +106,7 @@ pub async fn start(
         render.input.prompt = x
     }
     // init MM
-    let (mut mm, injector, formatter) = make_mm(render, &cfg);
+    let (mut mm, injector, formatter) = make_mm(render, tui, &cfg);
 
     // init previewer
     let previewer_config = PreviewerConfig::default();
@@ -200,6 +195,7 @@ pub async fn start(
                     .map(|p| OsString::from(p.path.inner()))
                     .collect();
                 let conn = GLOBAL::db().get_conn(DbTable::apps).await?;
+                // the default is the same behavior as fs :open, which also called by fs :tool lessfilter open
                 open_wrapped(
                     conn,
                     GLOBAL::with_env(|s| s.opener.as_ref().and_then(Program::from_os_string)),

@@ -16,7 +16,7 @@ use matchmaker::{
 };
 
 use crate::{
-    cli::config::Config,
+    config::Config,
     lessfilter::Preset,
     run::fsaction::FsAction,
     ui::{
@@ -27,7 +27,7 @@ use crate::{
 
 // ------- Main config --------
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct MMConfig {
     // configure the ui
     #[serde(flatten)]
@@ -38,6 +38,7 @@ pub struct MMConfig {
     pub filters: FiltersConfig,
     pub prompt: PromptConfig,
     pub menu: MenuConfig,
+    pub tui: TerminalConfig,
 
     // binds
     pub binds: BindMap<FsAction>,
@@ -90,8 +91,9 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(alt-b) => FsAction::Backup,
 
         // spawning
-        key!(alt-b) => FsAction::Open,
-        key!(ctrl-l) => FsAction::Handler(Preset::Preview),
+        key!(ctrl-b) => FsAction::Handler(Preset::Open, false),
+        key!(ctrl-l) => FsAction::Handler(Preset::Preview, true),
+        key!(alt-l) => FsAction::Handler(Preset::Extended, true),
 
         // misc
         // ---------------------------------------
@@ -202,18 +204,14 @@ pub fn get_mm_cfg(
         ..Default::default()
     }));
 
+    // non-fullscreen by default
+    if mm_cfg.tui.layout.is_none() {
+        mm_cfg.tui.layout = Some(TerminalLayoutSettings {
+            percentage: Percentage::new(60),
+            ..Default::default()
+        })
+    }
+
     log::debug!("{mm_cfg:?}");
     mm_cfg
-}
-
-pub fn tui_config() -> TerminalConfig {
-    let layout = TerminalLayoutSettings {
-        percentage: Percentage::new(60),
-        ..Default::default()
-    };
-    TerminalConfig {
-        layout: Some(layout),
-        restore_fullscreen: true,
-        ..Default::default()
-    }
 }

@@ -82,10 +82,7 @@ impl Action {
                     arr![vec_![current_exe(), ":open", target]],
                     [true, false, true],
                 ),
-                Preset::Edit => (
-                    arr![infer_visual(target)],
-                    [true, true, true], // editing usually requires write + execute if a script
-                ),
+                Preset::Edit => (arr![infer_visual(target)], [true, false, true]),
                 Preset::Default => unreachable!(),
             },
             Action::Text => match preset {
@@ -96,7 +93,7 @@ impl Action {
                 ),
                 Preset::Open => (
                     arr![vec_![current_exe(), ":open", target]],
-                    [true, false, true],
+                    [true, false, false],
                 ),
                 _ => (arr![vec_![pager_path(), target]], [true, false, false]),
             },
@@ -115,7 +112,7 @@ impl Action {
                 ),
                 Preset::Open => (
                     arr![vec_![current_exe(), ":open", target]],
-                    [true, false, true],
+                    [true, false, false],
                 ),
                 _ => (arr![image_viewer(target)], [true, false, false]),
             },

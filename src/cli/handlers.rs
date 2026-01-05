@@ -18,16 +18,15 @@ use cli_boilerplate_automation::{
     ebog, ibog, prints,
 };
 
-use super::{config::Config, types::*};
+use super::{
+    matchmaker::mm_get,
+    paths::{config_path, current_exe, cwd, home_dir, lessfilter_cfg_path, lz_path, mm_cfg_path},
+    tool_types::*,
+    types::*,
+};
 use crate::{
     abspath::AbsPath,
-    cli::{
-        matchmaker::mm_get,
-        paths::{
-            config_path, current_exe, cwd, home_dir, lessfilter_cfg_path, lz_path, mm_cfg_path,
-        },
-        tool_types::*,
-    },
+    config::Config,
     db::{
         DbSortOrder, DbTable, Pool,
         zoxide::{DbFilter, RetryStrat},

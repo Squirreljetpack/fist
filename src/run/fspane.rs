@@ -22,7 +22,7 @@ use matchmaker::{efx, nucleo::injector::Injector, preview::AppendOnly, render::E
 
 use crate::{
     abspath::AbsPath,
-    cli::{DefaultCommand, config::GlobalConfig},
+    cli::DefaultCommand,
     db::{DbSortOrder, DbTable},
     filters::{SortOrder, Visibility},
     find::{
@@ -37,6 +37,7 @@ use crate::{
         state::{GLOBAL, STACK},
     },
 };
+use crate::config::GlobalConfig;
 
 #[derive(Debug, Clone)]
 pub enum FsPane {

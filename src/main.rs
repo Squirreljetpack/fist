@@ -9,10 +9,10 @@ use cli_boilerplate_automation::{
 use fist::{
     cli::{
         Cli,
-        config::Config,
         handlers::handle_subcommand,
         paths::{config_path, lessfilter_cfg_path, mm_cfg_path},
     },
+    config::Config,
     errors::CliError,
 };
 
@@ -96,7 +96,11 @@ async fn main() {
     cfg.check_dirs_or_exit();
     cfg.check_files();
 
-    init_logger(cli.opts.verbosity(), cfg.log_path());
+    init_logger(
+        cli.opts.verbosity(),
+        cfg.log_path(),
+        cfg.misc.append_mode_logging,
+    );
 
     match handle_subcommand(cli, cfg).await {
         Ok(()) => (),
@@ -108,6 +112,7 @@ async fn main() {
 fn init_logger(
     verbosity: u8,
     log_path: PathBuf,
+    append: bool,
 ) {
     bog::init_bogger(true, true);
     bog::init_filter(verbosity);
@@ -140,11 +145,16 @@ fn init_logger(
         }
     }
 
-    if let Some(log_file) = OpenOptions::new()
-        // .truncate(true)
-        // .write(true)
-        .append(true)
-        .create(true)
+    let mut opts = OpenOptions::new();
+
+    opts.create(true);
+    if append {
+        opts.append(true);
+    } else {
+        opts.truncate(true).write(true);
+    }
+
+    if let Some(log_file) = opts
         .open(log_path)
         .prefix("Failed to open log file")
         ._wbog()

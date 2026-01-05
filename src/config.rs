@@ -8,15 +8,7 @@ use cli_boilerplate_automation::{
 };
 use std::{collections::HashMap, path::PathBuf};
 
-use super::{
-    BINARY_FULL,
-    paths::{cache_dir, state_dir},
-};
-use crate::{
-    cli::paths::{binary_viewer_path, header_viewer_path, metadata_viewer_path},
-    lessfilter::Preset,
-    utils::serde::escaped_opt_char,
-};
+use crate::{cli::BINARY_FULL, cli::paths::*, lessfilter::Preset, utils::serde::escaped_opt_char};
 use crate::{
     cli::paths::{lz_path, pager_path},
     db::zoxide::DbConfig,
@@ -83,19 +75,19 @@ impl Config {
 
     pub fn check_files(&self) {
         let files = [
-            (lz_path(), include_str!("../../assets/scripts/lz")),
-            (pager_path(), include_str!("../../assets/scripts/pager")),
+            (lz_path(), include_str!("../assets/scripts/lz")),
+            (pager_path(), include_str!("../assets/scripts/pager")),
             (
                 metadata_viewer_path(),
-                include_str!("../../assets/scripts/fist_metadata_viewer"),
+                include_str!("../assets/scripts/fist_metadata_viewer"),
             ),
             (
                 binary_viewer_path(),
-                include_str!("../../assets/scripts/fist_binary_viewer"),
+                include_str!("../assets/scripts/fist_binary_viewer"),
             ),
             (
                 header_viewer_path(),
-                include_str!("../../assets/scripts/fist_header_viewer"),
+                include_str!("../assets/scripts/fist_header_viewer"),
             ),
         ];
 
@@ -125,6 +117,7 @@ impl Config {
 pub struct MiscConfig {
     pub clipboard_delay_ms: u64,
     pub cd_fallback_search: bool,
+    pub append_mode_logging: bool,
 }
 
 impl Default for MiscConfig {
@@ -132,6 +125,7 @@ impl Default for MiscConfig {
         Self {
             clipboard_delay_ms: 20,
             cd_fallback_search: false,
+            append_mode_logging: false,
         }
     }
 }
@@ -142,7 +136,7 @@ impl Default for MiscConfig {
 #[serde(default, deny_unknown_fields)]
 pub struct InterfaceConfig {
     pub alt_accept: bool,
-    pub enter_cmd: String,
+    pub advance_cmd: String,
     pub cwd_prompt: String,
     // When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
@@ -158,7 +152,7 @@ impl Default for InterfaceConfig {
         Self {
             alt_accept: false,
             always_paste: false,
-            enter_cmd: Preset::Edit.to_command_string(),
+            advance_cmd: Preset::Edit.to_command_string(),
             default_sort: None,
             default_visibility: None,
             cwd_prompt: "{} ".into(),

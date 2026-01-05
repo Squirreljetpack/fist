@@ -8,8 +8,8 @@ have() {
 }
 
 # override/fallback
-if [[ -n $FS_PAGER ]]; then
-    ${(z)FS_PAGER} $@
+if [[ -n "$FS_PAGER" && "${${(z)FS_PAGER}[1]}:t" != "$0:t" ]]; then
+    ${(z)FS_PAGER} "$@"
     return
 elif ! have bat; then
     cat

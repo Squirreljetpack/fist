@@ -242,7 +242,9 @@ pub fn split_shell_like(s: &str) -> Vec<String> {
     out
 }
 
-// replace {}, {s:e}, leave everything else intact. use \ to escape the starting {.
+// replace {}, {s:e}, leave everything else intact. supports \ escape.
+
+
 pub fn path_formatter(
     template: &str,
     path: &AbsPath,

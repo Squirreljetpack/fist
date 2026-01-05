@@ -3,7 +3,7 @@
 
 use std::{path::PathBuf, sync::atomic::Ordering};
 
-use cli_boilerplate_automation::{bath::PathExt, else_default};
+use cli_boilerplate_automation::{bait::OptionExt, bath::PathExt, else_default};
 use matchmaker::{
     acs,
     action::{Action, ActionExt, Actions, Count, Exit},
@@ -15,7 +15,7 @@ use matchmaker::{
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
-    cli::paths::home_dir,
+    cli::paths::{home_dir, pager_path},
     clipboard::{copy_files, copy_paths_as_text},
     filters::SortOrder,
     lessfilter::Preset,
@@ -99,8 +99,6 @@ pub enum FsAction {
     CopyPath,
     /// Create a new file. (todo)
     New,
-    /// Open in background
-    Open,
     /// Stash file (to stack) in Symlink mode.
     Symlink,
     /// Save the file to the backup directory. (todo)
@@ -112,7 +110,7 @@ pub enum FsAction {
     /// Paste all stack items into the current or specified directory
     Paste(PathBuf), // dump Stack
     /// Execute according to [`crate::lessfilter::RulesConfig`]
-    Handler(Preset),
+    Handler(Preset, bool),
 }
 // print, accept
 
@@ -274,10 +272,10 @@ pub fn fsaction_aliaser(
                         GLOBAL::db().bump(false, item.path.clone());
                     }
 
-                    acs![
-                        Action::Execute(GLOBAL::with_cfg(|c| c.interface.enter_cmd.clone())),
-                        // Action::Custom(FsAction::EnterFile(item.path.clone())),
-                    ]
+                    acs![Action::Execute(GLOBAL::with_cfg(|c| c
+                        .interface
+                        .advance_cmd
+                        .clone())),]
                 } else {
                     acs![]
                 }
@@ -330,6 +328,20 @@ pub fn fsaction_aliaser(
             // FsAction::Category => {
             //     acs![Action::Overlay(3)]
             // }
+            FsAction::Handler(p, page) => {
+                let mut cmd = p.to_command_string();
+                if page {
+                    let pp = else_default!(
+                        pager_path()
+                            .to_str()
+                            .elog("Invalid encoding for pager path")
+                            .ok()
+                    );
+                    cmd.push_str(" | ");
+                    cmd.push_str(pp);
+                }
+                acs![Action::Execute(cmd)]
+            }
             _ => acs![Action::Custom(fa)],
         },
         _ => match a {

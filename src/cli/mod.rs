@@ -1,4 +1,3 @@
-pub mod config;
 pub mod handlers;
 pub mod paths;
 pub mod tool_types;

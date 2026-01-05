@@ -19,7 +19,7 @@ use std::{path::PathBuf, process::exit};
 use crate::utils::text::path_formatter;
 use crate::{
     abspath::AbsPath,
-    cli::config::Config,
+    config::Config,
     lessfilter::{
         action::Action,
         file_rule::{FileData, FileRule},
