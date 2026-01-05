@@ -1,0 +1,5 @@
+[current]
+    delimiter="\t"
+
+[panes.nav]
+    show_preview=true

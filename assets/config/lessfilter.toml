@@ -1,0 +1,73 @@
+infer=true
+
+# later ones win in tie.
+# But metadata has a score of 20, be sure to set higher
+[rules]
+  default=[
+    [["Metadata"], ["1|mime:*/*"]],
+    [["Image"], ["1|mime:image/*"]],
+    [["Text"], ["1|mime:text/*"]],
+    [["Directory"], ["1|mime:directory/*"]],
+    [
+      ["Metadata"],
+      [
+        "1|mime:application/zip",
+        "1|mime:application/x-tar",
+        "1|mime:application/x-gzip",
+        "1|mime:application/x-bzip2",
+        "1|mime:application/x-xz",
+        "1|ext:zip",
+        "1|ext:tar",
+        "1|ext:gz",
+        "1|ext:bz2",
+        "1|ext:xz",
+      ],
+    ],
+  ]
+  preview=[
+    [["sqlite"], ["mime:application/vnd.sqlite3"]],
+  ]
+
+  edit=[
+
+  ]
+
+  display=[
+  ]
+
+  extended=[
+    [["rainfrog"], ["mime:application/vnd.sqlite3"]],
+  ]
+
+  info=[
+  ]
+
+  open=[
+    [["code"], ["mime:directory/*"]],
+  ]
+
+[actions]
+  sqlite='''
+have() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+if have sqlite3; then
+    sqlite3 {} "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;" |
+    while read -r tbl; do
+        [[ -n $tbl ]] || continue;
+        echo "== $tbl ($(sqlite3 {} "SELECT COUNT(*) FROM \"$tbl\";")) rows =="
+        sqlite3 {} <<EOF
+.headers on
+.mode column
+SELECT * FROM "$tbl" LIMIT 5;
+EOF
+    echo
+    done
+elif have file; then
+    file -bL {}
+else
+    echo "No viewer for {}"
+fi
+'''
+  rainfrog='rainfrog --url "sqlite://{.}?mode=ro"'
