@@ -1,5 +1,5 @@
 use std::{
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     fmt,
     path::{Path, PathBuf},
 };
@@ -24,6 +24,13 @@ impl AbsPath {
     pub fn to_os_string(&self) -> OsString {
         self.0.clone().into_os_string()
     }
+
+    /// Since AbsPath is normalized, parent only fails if on root, in which case the sensible fallback is itself
+    pub fn _parent(self) -> AbsPath {
+        Path::parent(&self)
+            .map(AbsPath::new_unchecked)
+            .unwrap_or(self)
+    }
 }
 
 impl From<AbsPath> for OsString {
@@ -35,6 +42,12 @@ impl From<AbsPath> for OsString {
 impl AsRef<Path> for AbsPath {
     fn as_ref(&self) -> &Path {
         &self.0
+    }
+}
+
+impl AsRef<OsStr> for AbsPath {
+    fn as_ref(&self) -> &OsStr {
+        self.0.as_ref()
     }
 }
 

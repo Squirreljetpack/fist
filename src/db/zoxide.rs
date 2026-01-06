@@ -1,8 +1,72 @@
 use chrono::Utc;
-use cli_boilerplate_automation::impl_transparent_wrapper;
+use cli_boilerplate_automation::{
+    bait::ResultExt, bog::BogOkExt, impl_transparent_wrapper, prints,
+};
 use std::path::Path;
 
-use crate::db::{Entry, Epoch};
+use crate::db::{Connection, DbSortOrder, Entry, Epoch};
+
+impl Connection {
+    /// some optimizations on the [`Self::get_entries`] for faster printing
+    /// Abuses RetryStrat as a signal: Next => Success, None => NoMatch
+    pub async fn print_best_by_frecency(
+        mut self,
+        db_filter: &DbFilter,
+    ) -> RetryStrat {
+        let mut remove = Vec::new();
+        let mut found = None;
+
+        let mut entries = self
+            .get_entries_range(0, 0, DbSortOrder::none)
+            .await
+            .__ebog();
+
+        entries.sort_by_key(|e| std::cmp::Reverse(db_filter.score(e)));
+
+        for e in entries {
+            match db_filter.filter(&e.path, e.atime) {
+                None => {
+                    remove.push(e.path.clone());
+                }
+                Some(true) => {
+                    if let Ok(cwd) = std::env::current_dir()
+                        && cwd.as_path() == e.path.as_path()
+                    {
+                        match db_filter.refind {
+                            RetryStrat::Next => continue,
+                            RetryStrat::None => {}
+                            RetryStrat::Search => {
+                                if !remove.is_empty() {
+                                    tokio::spawn(async move {
+                                        self.remove_entries(&remove).await._elog();
+                                    });
+                                }
+                                return RetryStrat::Search;
+                            }
+                        }
+                    };
+                    prints!(e.path.to_string_lossy());
+                    found = Some(e.path);
+                    break;
+                }
+                Some(false) => {}
+            }
+        }
+
+        if let Some(p) = found.as_ref() {
+            self.bump(p, 1).await._elog();
+        };
+        if !remove.is_empty() {
+            self.remove_entries(&remove).await._elog();
+        }
+
+        if found.is_some() {
+            RetryStrat::Next
+        } else {
+            RetryStrat::None
+        }
+    }
+}
 
 /// s2 maps monotonically and injectively into s1
 fn is_monotonic_substring(
@@ -33,6 +97,7 @@ fn is_monotonic_substring(
 #[serde(default, deny_unknown_fields)]
 pub struct DbConfig {
     pub exclude: Vec<String>,
+    /// This is always true in "--cd"
     pub filter_missing: bool,
     pub remove_missing: bool,
     pub resolve_symlinks: bool,
@@ -57,13 +122,13 @@ pub enum RetryStrat {
 #[derive(Debug, Clone)]
 pub struct DbFilter {
     now: Epoch,
-    keywords: Vec<String>,
+    pub keywords: Vec<String>,
     // exclude: GlobSet,
     filter_before: Epoch,
 
-    filter_missing: bool,
-    remove_missing: bool,
-    resolve_symlinks: bool,
+    pub filter_missing: bool,
+    pub remove_missing: bool,
+    pub resolve_symlinks: bool,
     /// filter_before is stored as epoch seconds
     base_dir: Option<String>,
     pub refind: RetryStrat,
@@ -88,10 +153,17 @@ impl DbFilter {
         }
     }
 
-    pub fn keywords(
+    pub fn with_keywords(
         mut self,
         keywords: Vec<String>,
     ) -> Self {
+        self.keywords = keywords;
+        self
+    }
+    pub fn keywords(
+        &mut self,
+        keywords: Vec<String>,
+    ) -> &mut Self {
         self.keywords = keywords;
         self
     }
@@ -177,14 +249,15 @@ impl DbFilter {
         if !self.filter_missing {
             return true;
         }
+        path.exists()
 
-        let resolver = if self.resolve_symlinks {
-            std::fs::symlink_metadata
-        } else {
-            std::fs::metadata
-        };
+        // let resolver = if self.resolve_symlinks {
+        //     std::fs::symlink_metadata
+        // } else {
+        //     std::fs::metadata
+        // };
 
-        resolver(path).map(|meta| meta.is_dir()).unwrap_or(false)
+        // resolver(path).map(|meta| meta.is_dir()).unwrap_or(false)
     }
 
     /// zoxide algorithm with some adjustments:

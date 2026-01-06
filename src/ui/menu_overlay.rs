@@ -2,6 +2,7 @@ use std::path::Path;
 
 use crate::abspath::AbsPath;
 use crate::cli::paths::cwd;
+use crate::fs::{auto_dest, create_all, rename};
 use crate::run::fsaction::FsAction;
 use crate::run::globals::{GLOBAL, TEMP, TOAST};
 use crate::run::item::{PathItem, short_display};
@@ -9,7 +10,7 @@ use crate::run::stash::{STASH, StackItem};
 use crate::spawn::open_wrapped;
 use crate::ui::prompt_overlay::{PromptConfig, PromptOverlay};
 use crate::utils::text::{ToastStyle, bold_indices};
-use cli_boilerplate_automation::bath::root_dir;
+use cli_boilerplate_automation::bath::{PathExt, RenamePolicy, auto_dest_for_src, root_dir};
 use cli_boilerplate_automation::bog::BogUnwrapExt;
 use matchmaker::action::Action;
 use matchmaker::config::BorderSetting;
@@ -44,6 +45,7 @@ impl Default for MenuConfig {
 #[derive(Debug, strum::Display, Clone, Copy)]
 pub enum PromptKind {
     New,
+    NewDir,
     Rename,
 }
 
@@ -106,24 +108,35 @@ impl MenuItem {
             MenuItem::Trash => {
                 match trash::delete(&path) {
                     Ok(()) => TOAST::push(ToastStyle::Success, "Trashed: ", [short_display(&path)]),
-                    Err(_) => TOAST::push(
-                        ToastStyle::Error,
-                        "Failed to trash: ",
-                        [short_display(&path)],
-                    ),
+                    Err(e) => {
+                        log::error!("Failed to trash {}: {e}", path.to_string_lossy());
+                        TOAST::push(
+                            ToastStyle::Error,
+                            "Failed to trash: ",
+                            [short_display(&path)],
+                        )
+                    }
                 }
                 None
             }
             MenuItem::Delete => {
                 tokio::spawn(async move {
-                    if tokio::fs::remove_file(&path).await.is_ok() {
-                        TOAST::push(ToastStyle::Success, "Deleted: ", [short_display(&path)]);
+                    match if path.is_dir() {
+                        tokio::fs::remove_dir_all(&path).await
                     } else {
-                        TOAST::push(
-                            ToastStyle::Error,
-                            "Failed to delete: ",
-                            [short_display(&path)],
-                        );
+                        tokio::fs::remove_file(&path).await
+                    } {
+                        Ok(_) => {
+                            TOAST::push(ToastStyle::Success, "Deleted: ", [short_display(&path)])
+                        }
+                        Err(e) => {
+                            log::error!("Failed to delete {}: {e}", path.to_string_lossy());
+                            TOAST::push(
+                                ToastStyle::Error,
+                                "Failed to delete: ",
+                                [short_display(&path)],
+                            )
+                        }
                     }
                 });
                 None
@@ -243,22 +256,47 @@ impl MenuOverlay {
     ) -> OverlayEffect {
         match prompt {
             PromptKind::New => {
-                let path = self.p();
-                let new_path = path
-                    .parent()
-                    .unwrap_or(&root_dir())
-                    .join(&self.prompt.input);
+                let current_item_path = self.p();
+                let input_path = Path::new(&self.prompt.input);
+                let dest = auto_dest(input_path, &current_item_path._parent()); // replaced if input is absolute
+                let dest_slice = [dest];
 
                 tokio::spawn(async move {
-                    match tokio::fs::File::create(&new_path).await {
+                    match create_all(&dest_slice) {
                         Ok(_) => {
-                            TOAST::push(ToastStyle::Success, "New: ", [short_display(&new_path)]);
+                            let dest_path = match &dest_slice[0] {
+                                Ok(p) | Err(p) => p,
+                            };
+                            TOAST::push(ToastStyle::Success, "New: ", [short_display(dest_path)]);
+                        }
+                        Err(_) => {
+                            let dest_path = match &dest_slice[0] {
+                                Ok(p) | Err(p) => p,
+                            };
+                            TOAST::push(
+                                ToastStyle::Error,
+                                "Failed to create: ",
+                                [short_display(dest_path)],
+                            );
+                        }
+                    }
+                });
+            }
+            PromptKind::NewDir => {
+                let current_item_path = self.p();
+                let input_path = Path::new(&self.prompt.input);
+                let dest = AbsPath::new_unchecked(input_path.abs(current_item_path._parent()));
+
+                tokio::spawn(async move {
+                    match std::fs::create_dir_all(&dest) {
+                        Ok(_) => {
+                            TOAST::push(ToastStyle::Success, "New: ", [short_display(&dest)]);
                         }
                         Err(_) => {
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Failed to create: ",
-                                [short_display(&new_path)],
+                                [short_display(&dest)],
                             );
                         }
                     }
@@ -266,17 +304,21 @@ impl MenuOverlay {
             }
             PromptKind::Rename => {
                 let old_path = self.p();
-                let new_path = old_path
-                    .parent()
-                    .unwrap_or(&root_dir())
-                    .join(&self.prompt.input);
-                if new_path == old_path.as_ref() {
-                    // TOAST::push_msg(Span::styled("Same name", Color::Red), false);
+                if old_path.file_name().is_none() {
+                    OverlayEffect::None;
+                }
+                let dest = AbsPath::new_unchecked(
+                    auto_dest_for_src(&old_path, &self.prompt.input, &RenamePolicy::default())
+                        .abs(old_path.parent().unwrap()),
+                );
+
+                if dest == old_path {
+                    TOAST::push_skipped();
                 } else {
                     tokio::spawn(async move {
-                        match tokio::fs::rename(&old_path, &new_path).await {
+                        match rename(&old_path, &dest) {
                             Ok(_) => {
-                                let new_display = new_path.to_string_lossy().to_string().into();
+                                let new_display = dest.to_string_lossy().to_string().into();
                                 TOAST::push_pair(
                                     ToastStyle::Success,
                                     "Renamed: ",

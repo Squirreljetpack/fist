@@ -1,7 +1,7 @@
 //! CLI command handlers
 use clap::Parser;
 use cli_boilerplate_automation::{
-    bath::PathExt, bo::map_reader_lines, broc::CommandExt, bs::sort_by_mtime, else_default,
+    bath::PathExt, bo::map_reader_lines, broc::CommandExt, bs::sort_by_mtime,
 };
 use globset::GlobBuilder;
 use std::{
@@ -177,9 +177,11 @@ async fn handle_dirs(
 ) -> Result<(), CliError> {
     let pool = Pool::new(cfg.db_path()).await?;
     if cmd.cd {
+        cfg.db.filter_missing = true;
+
         if !cmd.query.is_empty() {
             let conn = pool.get_conn(DbTable::dirs).await?;
-            let db_filter = DbFilter::new(&cfg.db).keywords(cmd.query.clone());
+            let db_filter = DbFilter::new(&cfg.db).with_keywords(cmd.query.clone());
 
             match conn.print_best_by_frecency(&db_filter).await {
                 RetryStrat::Next => return Ok(()),
@@ -189,18 +191,21 @@ async fn handle_dirs(
                 _ => {}
             }
         };
+
         // fallback to interactive if no match
         // todo: numbers on side to select
         cfg.global.interface.alt_accept = true;
         cfg.global.current.no_multi = true;
-        TEMP::set_original_relative_path(cfg.styles.path.relative);
+        TEMP::set_initial_relative_path(cfg.styles.path.relative);
         cfg.styles.path.relative = false;
     } else if let Some(all) = cmd.list {
         let mut conn = pool.get_conn(DbTable::dirs).await?;
+
         if matches!(all, ListMode::All) {
-            cfg.db.filter_missing = true;
+            cfg.db.filter_missing = false;
         }
-        let db_filter = DbFilter::new(&cfg.db).keywords(cmd.query.clone());
+        let db_filter = DbFilter::new(&cfg.db).with_keywords(cmd.query.clone());
+
         for e in conn.get_entries(cmd.sort, &db_filter).await? {
             match e.path.to_str() {
                 Some(s) => {
@@ -257,6 +262,7 @@ async fn handle_default(
         cmd.paths.append(&mut cmd.fd); // fd is not supported
         cfg.global.interface.alt_accept = true;
         cfg.global.current.no_multi = true;
+        cfg.db.filter_missing = true;
 
         let cwd = AbsPath::new_unchecked(cwd());
         FsPane::new_fd_from_command(cmd, cwd)
@@ -310,15 +316,15 @@ async fn handle_default(
                 ),
             );
 
-            let stdout = else_default!(
-                Command::new(prog)
+            let stdout = match Command::new(prog)
                 .args(args)
                 .current_dir(&cwd)
                 .spawn_piped()
                 ._ebog()
-                ;
-                ?
-            );
+            {
+                Some(s) => s,
+                None => return Err(CliError::Handled),
+            };
 
             let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
                 let path = PathBuf::from(line);

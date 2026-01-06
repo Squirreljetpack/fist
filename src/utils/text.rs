@@ -27,9 +27,7 @@ impl ToastStyle {
             ToastStyle::Info => Style::default().fg(Color::Blue),
             ToastStyle::Success => Style::default().fg(Color::Green),
             ToastStyle::Warning => Style::default().fg(Color::Yellow),
-            ToastStyle::Error => Style::default()
-                .fg(Color::Red)
-                .add_modifier(ratatui::style::Modifier::BOLD),
+            ToastStyle::Error => Style::default().fg(Color::Red),
         }
     }
 }

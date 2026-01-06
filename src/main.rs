@@ -8,7 +8,7 @@ use cli_boilerplate_automation::{
 };
 use fist::{
     cli::{
-        Cli,
+        Cli, SubCmd, ToolsCmd,
         handlers::handle_subcommand,
         paths::{config_path, lessfilter_cfg_path, mm_cfg_path},
     },
@@ -99,11 +99,20 @@ async fn main() {
     #[cfg(not(debug_assertions))]
     cfg.check_files(false);
 
-    init_logger(
-        cli.opts.verbosity(),
-        cfg.log_path(),
-        cfg.misc.append_mode_logging,
-    );
+    if !atty::is(atty::Stream::Stdin)
+        && matches!(
+            cli.subcommand,
+            SubCmd::Tools(ToolsCmd { tool: Some(_), .. })
+        )
+    {
+        // skip tool logging (mainly lessfilter)
+    } else {
+        init_logger(
+            cli.opts.verbosity(),
+            cfg.log_path(),
+            cfg.misc.append_mode_logging,
+        );
+    }
 
     match handle_subcommand(cli, cfg).await {
         Ok(()) => (),

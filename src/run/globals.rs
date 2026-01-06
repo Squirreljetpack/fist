@@ -15,7 +15,10 @@ use matchmaker::{
     preview::AppendOnly,
     render::{Effect, Effects},
 };
-use ratatui::text::{Line, Span};
+use ratatui::{
+    style::Style,
+    text::{Line, Span},
+};
 use tokio;
 
 use crate::config::GlobalConfig;
@@ -68,7 +71,7 @@ impl TEMP {
         INPUT_BAR_CONTENT.replace((s, Some(p)));
     }
 
-    pub fn set_original_relative_path(relative: bool) {
+    pub fn set_initial_relative_path(relative: bool) {
         ORIGINAL_RELATIVE_PATH.replace(Some(relative));
     }
     pub fn take_original_relative_path() -> Option<bool> {
@@ -211,6 +214,50 @@ impl TOAST {
         debug!("Clearing {state:?}");
         GLOBAL::send_efx(efx![Effect::ClearFooter]);
     }
+
+    // todo: maintain a counter
+    pub fn push_skipped() {
+        let mut state = TOAST.lock().unwrap();
+
+        const SKIPPED: &str = "Skipped";
+
+        if let Some((_, ToastContent::Line(existing))) = state.iter_mut().find(|(span, content)| {
+            span.content.is_empty()
+                && matches!(
+                    content,
+                    ToastContent::Line(l)
+                    if l.spans.first().map(|s| s.content.starts_with(SKIPPED)) == Some(true)
+                )
+        }) {
+            let first = &existing.spans[0].content;
+
+            let next = if first == SKIPPED {
+                2
+            } else {
+                first
+                    .strip_prefix(SKIPPED)
+                    .and_then(|rest| {
+                        rest.trim_start_matches('(')
+                            .trim_end_matches(')')
+                            .parse::<usize>()
+                            .ok()
+                    })
+                    .map(|n| n + 1)
+                    .unwrap_or(2)
+            };
+
+            existing.spans[0] =
+                Span::styled(format!("{SKIPPED} ({next})"), Style::new().dim().italic());
+        } else {
+            let prefix_span = Span::raw("");
+            let line = Line::from(Span::styled(SKIPPED, Style::new().dim().italic()));
+            state.push((prefix_span, ToastContent::Line(line)));
+        }
+
+        let toast = make_toast(&state);
+        GLOBAL::send_efx(efx![Effect::Footer(toast)]);
+    }
+
     pub fn clear_msgs() {
         let mut state = TOAST.lock().unwrap();
 

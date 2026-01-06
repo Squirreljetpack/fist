@@ -148,8 +148,10 @@ pub async fn start(
     }
 
     // init history capabilities
-    let db_filter = DbFilter::new(&cfg.db);
-    *DB_FILTER.lock().await = Some(db_filter);
+    {
+        let mut guard = DB_FILTER.lock().await;
+        *guard = Some(DbFilter::new(&cfg.db));
+    }
 
     // init global
     GLOBAL::init(

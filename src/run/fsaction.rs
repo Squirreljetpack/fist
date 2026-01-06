@@ -99,6 +99,8 @@ pub enum FsAction {
     CopyPath,
     /// Create a new file. (todo)
     New,
+    /// Create a new directory. (todo)
+    NewDir,
     /// Stash file (to stack) in Symlink mode.
     Symlink,
     /// Save the file to the backup directory. (todo)
@@ -417,13 +419,17 @@ pub fn fsaction_aliaser(
             // The intention is to feed into a shell function
             // Might make more sense as a custom action
             Action::Print(ref s) if s.is_empty() => {
-                if state.picker_ui.results.cursor_disabled
+                if state.overlay_index.is_some() {
+                    return acs![Action::Accept];
+                } else if state.picker_ui.results.cursor_disabled
                     && let Some(p) = STACK::cwd()
                 {
+                    // print cwd
                     let s = p.to_string_lossy().to_string();
                     GLOBAL::db().bump(true, p);
                     PRINT_HANDLE.with(|x| x.push(s));
                 } else {
+                    // print selected
                     state.map_selected_to_vec(|item| {
                         let s = item.display().to_string();
                         GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
@@ -556,21 +562,29 @@ pub fn fsaction_handler(
                 items.push(s.path.inner());
             });
             tokio::spawn(async {
-                for i in items {
-                    match trash::delete(&i) {
+                for path in items {
+                    match trash::delete(&path) {
                         Ok(()) => {
-                            TOAST::push(ToastStyle::Success, "Trashed: ", [short_display(&i)]);
+                            TOAST::push(ToastStyle::Success, "Trashed: ", [short_display(&path)]);
                         }
                         Err(e) => {
+                            log::error!("Failed to trash {}: {e}", path.to_string_lossy());
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Failed to trash: ",
-                                [short_display(&i)],
+                                [short_display(&path)],
                             );
                         }
                     }
                 }
             });
+            efx![]
+        }
+        FsAction::New => {
+            efx![]
+        }
+        FsAction::NewDir => {
+            // todo: launch menu overlay
             efx![]
         }
         FsAction::Delete => {
@@ -580,22 +594,23 @@ pub fn fsaction_handler(
             });
 
             tokio::spawn(async move {
-                for i in items {
-                    let result = if i.is_dir() {
-                        std::fs::remove_dir_all(&i)
+                for path in items {
+                    let result = if path.is_dir() {
+                        std::fs::remove_dir_all(&path)
                     } else {
-                        std::fs::remove_file(&i)
+                        std::fs::remove_file(&path)
                     };
 
                     match result {
                         Ok(()) => {
-                            TOAST::push(ToastStyle::Success, "Deleted: ", [short_display(&i)]);
+                            TOAST::push(ToastStyle::Success, "Deleted: ", [short_display(&path)]);
                         }
                         Err(e) => {
+                            log::error!("Failed to delete {}: {e}", path.to_string_lossy());
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Failed to delete: ",
-                                [short_display(&i)],
+                                [short_display(&path)],
                             );
                         }
                     }

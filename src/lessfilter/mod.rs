@@ -5,7 +5,7 @@ mod config;
 pub mod file_rule;
 mod helpers;
 pub mod rule_matcher;
-use cli_boilerplate_automation::broc::exec_script;
+use cli_boilerplate_automation::broc::tty_or_inherit;
 pub use config::*;
 pub mod mime_helpers;
 use arrayvec::ArrayVec;
@@ -14,11 +14,12 @@ use cli_boilerplate_automation::bog::BogUnwrapExt;
 use cli_boilerplate_automation::{bog::BogOkExt, broc::CommandExt};
 use cli_boilerplate_automation::{ebog, else_default};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::{path::PathBuf, process::exit};
 
 use crate::cli::tool_types::LessfilterCommand;
 use crate::lessfilter::helpers::{header_viewer, is_header, show_header};
+use crate::spawn::utils::exec_script_to_tty;
 use crate::utils::text::path_formatter;
 use crate::{
     abspath::AbsPath,
@@ -70,8 +71,14 @@ pub fn handle(
                     ebog!("The custom action '{s}' is not defined!");
                     continue;
                 };
-                let script = path_formatter(template, &AbsPath::new(path));
-                exec_script(&script, std::iter::empty());
+                let script = path_formatter(template, &AbsPath::new(path.clone()));
+                let mut cmd = Command::from_script(&script);
+                cmd.stdout(if matches!(preset, Preset::Edit) {
+                    tty_or_inherit()
+                } else {
+                    Stdio::inherit()
+                });
+                succeeded |= cmd.status()._ebog().is_some_and(|s| s.success())
             } else {
                 let (progs, perms) = action.to_progs(&path, preset);
                 for mut prog in progs {
@@ -87,7 +94,11 @@ pub fn handle(
 
                     log::debug!("Executing: {prog:?}");
                     let mut cmd = Command::new(prog.remove(0));
-                    cmd.args(prog);
+                    cmd.args(prog).stdout(if matches!(preset, Preset::Edit) {
+                        tty_or_inherit()
+                    } else {
+                        Stdio::inherit()
+                    });
 
                     succeeded |= cmd.status()._ebog().is_some_and(|s| s.success())
                 }

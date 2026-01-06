@@ -9,8 +9,8 @@ pub use display::*;
 pub mod zoxide;
 pub use crate::filters::DbSortOrder;
 
-use crate::{abspath::AbsPath, db::zoxide::RetryStrat, errors::DbError};
-use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt, bog::BogOkExt, prints};
+use crate::{abspath::AbsPath, errors::DbError};
+use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt};
 
 pub type Epoch = i64;
 
@@ -116,65 +116,5 @@ impl Connection {
         }
         self.remove_entries(&remove).await._elog();
         Ok(entries)
-    }
-
-    /// some optimizations on the [`Self::get_entries`] for faster printing
-    /// Abuses RetryStrat as a signal: Next => Success, None => NoMatch
-    pub async fn print_best_by_frecency(
-        mut self,
-        db_filter: &zoxide::DbFilter,
-    ) -> RetryStrat {
-        let mut remove = Vec::new();
-        let mut found = None;
-
-        let mut entries = self
-            .get_entries_range(0, 0, DbSortOrder::none)
-            .await
-            .__ebog();
-
-        entries.sort_by_key(|e| std::cmp::Reverse(db_filter.score(e)));
-
-        for e in entries {
-            match db_filter.filter(&e.path, e.atime) {
-                None => {
-                    remove.push(e.path.clone());
-                }
-                Some(true) => {
-                    if let Ok(cwd) = std::env::current_dir()
-                        && cwd.as_path() == e.path.as_ref()
-                    {
-                        match db_filter.refind {
-                            RetryStrat::Next => continue,
-                            RetryStrat::None => {}
-                            RetryStrat::Search => {
-                                if !remove.is_empty() {
-                                    tokio::spawn(async move {
-                                        self.remove_entries(&remove).await._elog();
-                                    });
-                                }
-                                return RetryStrat::Search;
-                            }
-                        }
-                    };
-                    prints!(e.path.to_string_lossy());
-                    found = Some(e.path);
-                    break;
-                }
-                Some(false) => {}
-            }
-        }
-
-        if let Some(p) = found.as_ref() {
-            self.bump(p, 1).await._elog();
-        };
-        if !remove.is_empty() {
-            self.remove_entries(&remove).await._elog();
-        }
-
-        if found.is_some() {
-            RetryStrat::Next
-        } else {
-            RetryStrat::None
-        }
     }
 }

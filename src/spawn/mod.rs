@@ -1,5 +1,6 @@
 mod program;
 use std::ffi::OsString;
+pub mod utils;
 
 use crate::abspath::AbsPath;
 use cli_boilerplate_automation::bog::BogOkExt;

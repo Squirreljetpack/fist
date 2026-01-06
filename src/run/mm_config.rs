@@ -90,6 +90,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-x) => FsAction::Cut,
         key!(ctrl-c) => FsAction::Copy,
         key!(alt-b) => FsAction::Backup,
+        key!(ctrl-n) => FsAction::NewDir,
 
         // spawning
         key!(alt-s) => Action::Execute("$SHELL".into()),
