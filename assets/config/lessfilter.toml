@@ -1,53 +1,49 @@
-infer=true
+infer = true
 
-# later ones win in tie.
-# But metadata has a score of 20, be sure to set higher
+# Documentation: todo
+# in event of a tie, last one wins.
 [rules]
-  default=[
-    [["Metadata"], ["1|mime:*/*"]],
-    [["Image"], ["1|mime:image/*"]],
-    [["Text"], ["1|mime:text/*"]],
-    [["Directory"], ["1|mime:directory/*"]],
+default = [
+  [["Metadata"], ["1|*/*"]],
+  [["Image"], ["1|image/*"]],
+  [["Text"], ["1|text/*"]],
+  [["Directory"], ["1|directory/*"]],
+  [
+    ["Metadata"],
     [
-      ["Metadata"],
-      [
-        "1|mime:application/zip",
-        "1|mime:application/x-tar",
-        "1|mime:application/x-gzip",
-        "1|mime:application/x-bzip2",
-        "1|mime:application/x-xz",
-        "1|ext:zip",
-        "1|ext:tar",
-        "1|ext:gz",
-        "1|ext:bz2",
-        "1|ext:xz",
-      ],
+      "1|application/zip",
+      "1|application/x-tar",
+      "1|application/x-gzip",
+      "1|application/x-bzip2",
+      "1|application/x-xz",
+      "1|.zip",
+      "1|.tar",
+      "1|.gz",
+      "1|.bz2",
+      "1|.xz",
     ],
-  ]
-  preview=[
-    [["sqlite"], ["mime:application/vnd.sqlite3"]],
-  ]
+  ],
+]
+preview = [
+  [["sqlite"], ["application/vnd.sqlite3"]],
+]
 
-  edit=[
+edit = []
 
-  ]
+display = []
 
-  display=[
-  ]
+extended = []
 
-  extended=[
-    [["rainfrog"], ["mime:application/vnd.sqlite3"]],
-  ]
+info = []
 
-  info=[
-  ]
+open = []
 
-  open=[
-    [["code"], ["mime:directory/*"]],
-  ]
+alternate = [
+  [["none"], ["*/*"]],
+]
 
 [actions]
-  sqlite='''
+sqlite = '''
 have() {
     command -v "$1" >/dev/null 2>&1
 }
@@ -70,4 +66,3 @@ else
     echo "No viewer for {}"
 fi
 '''
-  rainfrog='rainfrog --url "sqlite://{.}?mode=ro"'

@@ -183,10 +183,15 @@ impl FromStr for FileRule {
         };
 
         let Some((kind, rest)) = s.split_once(':') else {
-            return Ok(FileRule {
-                kind: FileRuleKind::Ext(s.to_string()),
-                invert,
-            });
+            return if let Some(s) = s.strip_prefix('.') {
+                let kind = FileRuleKind::Ext(s.to_string());
+                Ok(FileRule { kind, invert })
+            } else if let Some((ty, sub)) = s.split_once('/') {
+                let kind = FileRuleKind::Mime([ty.to_string(), sub.to_string()]);
+                Ok(FileRule { kind, invert })
+            } else {
+                Err(ParseFileRuleError::InvalidPrefix)
+            };
         };
 
         let kind = match kind {

@@ -97,9 +97,9 @@ pub struct CliOpts {
     #[arg(
         long,
         help = r#"Dump the main config and any other missing configuration
-files to standard locations.
-Configs will be instead printed if stdout is redirected.
-If not redirected, this WILL OVERWRITE your main config."#
+files to default locations:
+If the output was detected to have been redirected, this prints the main configuration.
+Otherwise, this WILL OVERWRITE your main config."#
     )]
     pub dump_config: bool,
 }
@@ -114,8 +114,6 @@ impl CliOpts {
 pub enum SubCmd {
     #[command(name = ":open", visible_aliases = [":o"])]
     Open(OpenCmd),
-    #[command(name = ":app", visible_aliases = [":a"])]
-    Apps(AppsCmd),
     #[command(name = ":file")]
     Files(FilesCmd),
     #[command(name = ":dir")] // shell script wraps this with z
@@ -129,19 +127,6 @@ pub enum SubCmd {
     Tools(ToolsCmd),
     #[command(name = ":info")]
     Info(InfoCmd),
-}
-
-/// Open files by path
-#[derive(Debug, Parser, Default, Clone)]
-pub struct OpenCmd {
-    /// app to open files with.
-    #[arg(short = 'w', short_alias = 'a', long)]
-    pub with: Option<OsString>,
-    /// Positional arguments
-    pub files: Vec<OsString>,
-
-    #[arg(long, action = ArgAction::Help)]
-    pub help: (),
 }
 
 /// Stats and database records
@@ -163,20 +148,20 @@ pub struct InfoCmd {
     pub help: (),
 }
 
-/// App launcher
+/// Launch apps and files
 #[derive(Debug, Parser, Default, Clone)]
-pub struct AppsCmd {
-    #[clap(long, value_name = "PROG", num_args(0..=1))]
-    with: Option<Option<String>>,
-
-    /// files to open in app.
+pub struct OpenCmd {
+    /// app to open files with.
+    #[clap(short = 'w', long, value_name = "PROG")]
+    pub with: Option<OsString>,
+    /// files to open.
     pub files: Vec<OsString>,
 
     #[arg(long)]
     pub list: bool,
     /// initial query.
-    #[arg(long, default_value_t)]
-    pub query: String,
+    // #[arg(long, default_value_t)]
+    // pub query: String,
     #[arg(long, action = ArgAction::Help)]
     pub help: (),
 }

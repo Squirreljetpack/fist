@@ -3,7 +3,7 @@ use std::{ffi::OsString, process::Command, sync::atomic::Ordering};
 use cli_boilerplate_automation::{
     bog::BogOkExt,
     broc::{CommandExt, SHELL, tty_or_inherit},
-    env_vars, prints,
+    else_default, env_vars, prints,
 };
 use easy_ext::ext;
 use log::{debug, info};
@@ -134,19 +134,16 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
             let Interrupt::Execute(template) = interrupt else {
                 unreachable!()
             };
-            let Some(t) = state.current_raw() else {
-                return efx![];
-            };
 
             if !template.is_empty() {
-                let cmd = mm_formatter(t, template);
+                let path = else_default!(if state.picker_ui.results.cursor_disabled {
+                    STACK::cwd()
+                } else {
+                    state.current_raw().map(|t| t.inner.path.clone())
+                });
+                let cmd = crate::utils::text::path_formatter(template, &path);
 
-                let mut vars = state.make_env_vars();
-                let preview_cmd = mm_formatter(t, state.preview_payload());
-                let extra = env_vars!(
-                    "FZF_PREVIEW_COMMAND" => preview_cmd,
-                );
-                vars.extend(extra);
+                let vars = state.make_env_vars();
 
                 if let Some(cwd) = STACK::cwd() {
                     std::env::set_current_dir(cwd)._ebog();

@@ -6,45 +6,55 @@ F:ist is a fast and intuitive search tool for the filesystem.
 
 # Installation
 
-`cargo install fd-find eza fist`
+```shell
+# dependencies
+cargo install fd-find eza ripgrep
+
+cargo install fist
+
+# (Optional) setup shell integration:
+echo "\neval$(fs :tool shell)" >> ~/.zshrc # or whatever the startup file of your respective shell is.
+```
 
 Call as:
+
 - `fs`: Directory navigation
 - `fs [..paths] pattern`: interactive find
 - `generate_paths | fs`: enriched fuzzy searching of paths
-
-fs also integrates with your [shell](#shell-integration), as well as with [fzs](https://github.com/Squirreljetpack/fzs).
-
-
+- `z [query]`: directory jump (requires [shell integration](#shell-integration))
 
 # Commands
 
 ### Default bindings overview
+
 - `Up`/`Down`: Navigate (or `Up` in the initial position to to enter prompt).
 - `Left`/`Right`: Back/Enter.
 - `Enter`: Default (system) open.
-- `alt-enter`: Open in terminal.
-- `Tab`: Toggle select.
 
 ---
 
-- `ctrl-f`/`alt-f`: Find/Find text.
+- `ctrl-f`/`alt-f`: Find/Text search.
 - `ctrl-g`: History view (Folders and files).
 - `ctrl-z`/`ctrl-y`: Undo/Redo
 
 ---
 
 - `ctrl-x`/`ctrl-c`/`ctrl-v`: Cut, Copy, Paste.
-- `ctrl-s`: Open stack.
-- `alt-s`: Open filters.
+- `delete/shift-delete`: Trash/Delete.
+- `ctrl-s`: Open stash.
+- `alt-f`: Open filters.
 - `ctrl-e`: Open menu.
+- `ctrl-h`: Toggle hidden.
 
 ---
 
-- `ctrl-o`: Default open without exiting.
+- `Tab`: Toggle select.
+- `alt-enter`: Print.
+- `?`: toggle preview
+
+- `ctrl-b`: Open background.
 - `ctrl-l`: Full preview.
 - `/` and `~`: Jump to home
-- `?`: toggle preview
 
 For more information on bindings, see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
 
@@ -54,8 +64,11 @@ For more information on bindings, see [matchmaker](https://github.com/Squirrelje
 
 # Additional
 
+Fist integrates into [CommandSpace](https://github.com/Squirreljetpack/command-space), which you may also like.
+
 # Dependencies
+
 - fd-find
 - eza
-- ripgrep 
+- ripgrep
 - matchmaker

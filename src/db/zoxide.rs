@@ -6,6 +6,43 @@ use std::path::Path;
 
 use crate::db::{Connection, DbSortOrder, Entry, Epoch};
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct DbConfig {
+    /// Ignore files matching these globs
+    pub exclude: Vec<String>,
+    /// Whether to show missing files in queries.
+    /// This is set to false by the binary when called with the "--cd" flag.
+    pub show_missing: bool,
+    /// Lazily remove nonexistant entries older than this many days
+    pub missing_expiry: TtlDays,
+
+    /// Lazily remove entries older than this many days
+    pub atime_expiry: TtlDays,
+
+    /// What to do when the best match by [`crate::db::Connection::print_best_by_frecency`] is the current directory
+    pub refind: RetryStrat,
+
+    /// Whether to save resolved paths (todo)
+    pub resolve_symlinks: bool,
+    /// Experimental
+    pub base_dir: Option<String>,
+}
+
+impl Default for DbConfig {
+    fn default() -> Self {
+        Self {
+            exclude: Default::default(),
+            show_missing: Default::default(),
+            missing_expiry: TtlDays(7),
+            resolve_symlinks: Default::default(),
+            atime_expiry: Default::default(),
+            base_dir: Default::default(),
+            refind: Default::default(),
+        }
+    }
+}
+
 impl Connection {
     /// some optimizations on the [`Self::get_entries`] for faster printing
     /// Abuses RetryStrat as a signal: Next => Success, None => NoMatch
@@ -68,44 +105,6 @@ impl Connection {
     }
 }
 
-/// s2 maps monotonically and injectively into s1
-fn is_monotonic_substring(
-    s1: &str,
-    s2: &str,
-) -> bool {
-    let mut prev_index = 0;
-    let s1_chars: Vec<char> = s1.chars().collect();
-
-    for c in s2.chars() {
-        let mut found = false;
-        while prev_index < s1_chars.len() {
-            if s1_chars[prev_index] == c {
-                found = true;
-                prev_index += 1;
-                break;
-            }
-            prev_index += 1;
-        }
-        if !found {
-            return false;
-        }
-    }
-    true
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct DbConfig {
-    pub exclude: Vec<String>,
-    /// This is always true in "--cd"
-    pub filter_missing: bool,
-    pub remove_missing: bool,
-    pub resolve_symlinks: bool,
-    pub filter_before: TtlDays,
-    pub base_dir: Option<String>,
-    pub refind: RetryStrat,
-}
-
 #[derive(Default, Copy, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 /// What to do when the best match by [`crate::db::Connection::print_best_by_frecency`] is the current directory
 pub enum RetryStrat {
@@ -124,10 +123,10 @@ pub struct DbFilter {
     now: Epoch,
     pub keywords: Vec<String>,
     // exclude: GlobSet,
-    filter_before: Epoch,
+    atime_expiration: Epoch,
 
-    pub filter_missing: bool,
-    pub remove_missing: bool,
+    pub show_missing: bool,
+    pub missing_expiration: Epoch,
     pub resolve_symlinks: bool,
     /// filter_before is stored as epoch seconds
     base_dir: Option<String>,
@@ -137,16 +136,17 @@ pub struct DbFilter {
 impl DbFilter {
     pub fn new(config: &DbConfig) -> Self {
         let now = Utc::now().timestamp();
-        let filter_before = now - config.filter_before.0 * 24 * 60 * 60; // convert TTL days to seconds
+        let atime_expiry = now - config.atime_expiry.0 * 24 * 60 * 60; // convert TTL days to seconds
+        let missing_expiry = now - config.missing_expiry.0 * 24 * 60 * 60; // convert TTL days to seconds
 
         DbFilter {
             now,
             keywords: Default::default(),
             // exclude,
-            filter_before,
+            atime_expiration: atime_expiry,
 
-            filter_missing: config.filter_missing,
-            remove_missing: config.remove_missing,
+            show_missing: config.show_missing,
+            missing_expiration: missing_expiry,
             resolve_symlinks: config.resolve_symlinks,
             refind: config.refind,
             base_dir: config.base_dir.clone(),
@@ -186,7 +186,7 @@ impl DbFilter {
         //     log::debug!("filtered by: exclude");
         //     return Some(false);
         // }
-        if atime <= self.filter_before {
+        if atime <= self.atime_expiration {
             log::debug!("filtered by: atime");
             return None;
         }
@@ -196,7 +196,7 @@ impl DbFilter {
         }
         if !self.filter_by_exists(path) {
             log::debug!("filtered by: exist");
-            return if self.remove_missing {
+            return if atime <= self.missing_expiration {
                 None
             } else {
                 Some(false)
@@ -246,7 +246,7 @@ impl DbFilter {
         &self,
         path: &Path,
     ) -> bool {
-        if !self.filter_missing {
+        if self.show_missing {
             return true;
         }
         path.exists()
@@ -322,6 +322,31 @@ impl DbFilter {
 
         true
     }
+}
+
+/// s2 maps monotonically and injectively into s1
+fn is_monotonic_substring(
+    s1: &str,
+    s2: &str,
+) -> bool {
+    let mut prev_index = 0;
+    let s1_chars: Vec<char> = s1.chars().collect();
+
+    for c in s2.chars() {
+        let mut found = false;
+        while prev_index < s1_chars.len() {
+            if s1_chars[prev_index] == c {
+                found = true;
+                prev_index += 1;
+                break;
+            }
+            prev_index += 1;
+        }
+        if !found {
+            return false;
+        }
+    }
+    true
 }
 
 // Transparent wrappers for type safety

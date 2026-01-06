@@ -35,7 +35,11 @@ pub enum Preset {
     Info,
     #[clap(alias = "o")]
     /// System open
+    ///
+    /// (By deferring to fs :open)
     Open,
+    /// Alternate open (a preset dedicated to user customization)
+    Alternate,
     #[clap(alias = "e")]
     /// For [`crate::run::FsAction::Advance`]
     Edit,
@@ -54,7 +58,7 @@ impl Preset {
 
     pub fn to_command_string_with_header(self) -> String {
         format!(
-            "'{}' :tool lessfilter --header=truex {self} {{}}",
+            "'{}' :tool lessfilter --header=true {self} {{}}",
             current_exe().to_str().unwrap_or(BINARY_SHORT),
         )
     }

@@ -78,7 +78,7 @@ impl Action {
                     arr![vec_![current_exe(), ":tool", "lz", ":x", path]],
                     [true, false, true],
                 ),
-                Preset::Open => (
+                Preset::Open | Preset::Alternate => (
                     arr![vec_![current_exe(), ":open", path]],
                     [true, false, true],
                 ),
@@ -91,7 +91,7 @@ impl Action {
                     arr![vec_![metadata_viewer_path(), path]],
                     [true, false, false],
                 ),
-                Preset::Open => (
+                Preset::Open | Preset::Alternate => (
                     arr![vec_![current_exe(), ":open", path]],
                     [true, false, false],
                 ),
@@ -111,7 +111,7 @@ impl Action {
                     arr![header_viewer(path), vec_![metadata_viewer_path(), path]],
                     [true, false, false],
                 ),
-                Preset::Open => (
+                Preset::Open | Preset::Alternate => (
                     arr![vec_![current_exe(), ":open", path]],
                     [true, false, false],
                 ),

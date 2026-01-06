@@ -61,7 +61,6 @@ pub async fn handle_subcommand(
 ) -> Result<(), CliError> {
     match cli.subcommand {
         SubCmd::Open(cmd) => handle_open(cli.opts, cmd, cfg).await,
-        SubCmd::Apps(cmd) => handle_launch(cli.opts, cmd, cfg).await,
         SubCmd::Files(cmd) => handle_files(cli.opts, cmd, cfg).await,
         SubCmd::Dirs(cmd) => handle_dirs(cli.opts, cmd, cfg).await,
         SubCmd::Fd(cmd) => handle_default(cli.opts, cmd, cfg).await,
@@ -74,13 +73,27 @@ pub async fn handle_subcommand(
 async fn handle_open(
     cli: CliOpts,
     cmd: OpenCmd,
-    cfg: Config,
+    mut cfg: Config,
 ) -> Result<(), CliError> {
-    // _dbg!(cli, cmd, cfg);
-    let pool = Pool::new(cfg.db_path()).await?;
-    let conn = pool.get_conn(DbTable::apps).await?;
+    // fs :o or fs :o --with= files
+    if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
+        *APP::TO_OPEN.lock().unwrap() = cmd.files;
+        cfg.global.current.no_multi = true;
+        let pane = FsPane::new_launch();
 
-    open_wrapped(conn, cmd.with.and_then(Program::from_os_string), &cmd.files).await
+        let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
+        let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
+
+        let pool = Pool::new(cfg.global.db_path()).await?;
+        start(pane, cfg, mm_cfg, pool).await
+    } else {
+        let pool = Pool::new(cfg.db_path()).await?;
+        let conn = pool.get_conn(DbTable::apps).await?;
+
+        let prog = cmd.with.and_then(Program::from_os_string);
+
+        open_wrapped(conn, prog, &cmd.files).await
+    }
 }
 
 // todo: partitioned info
@@ -115,26 +128,6 @@ async fn handle_info(
     }
 
     Ok(())
-}
-
-async fn handle_launch(
-    cli: CliOpts,
-    cmd: AppsCmd,
-    cfg: Config,
-) -> Result<(), CliError> {
-    // _dbg!(cli, cmd, cfg);
-    *APP::TO_OPEN.lock().unwrap() = cmd.files;
-
-    let pane = FsPane::new_launch();
-
-    let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
-    let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
-
-    let pool = Pool::new(cfg.global.db_path()).await?;
-    start(pane, cfg, mm_cfg, pool).await
-    // get entries from db
-    // spawn update db
-    // lowpri: repopulate on db complete
 }
 
 // Need:
@@ -177,7 +170,7 @@ async fn handle_dirs(
 ) -> Result<(), CliError> {
     let pool = Pool::new(cfg.db_path()).await?;
     if cmd.cd {
-        cfg.db.filter_missing = true;
+        cfg.db.show_missing = false;
 
         if !cmd.query.is_empty() {
             let conn = pool.get_conn(DbTable::dirs).await?;
@@ -202,7 +195,7 @@ async fn handle_dirs(
         let mut conn = pool.get_conn(DbTable::dirs).await?;
 
         if matches!(all, ListMode::All) {
-            cfg.db.filter_missing = false;
+            cfg.db.show_missing = true;
         }
         let db_filter = DbFilter::new(&cfg.db).with_keywords(cmd.query.clone());
 
@@ -262,7 +255,7 @@ async fn handle_default(
         cmd.paths.append(&mut cmd.fd); // fd is not supported
         cfg.global.interface.alt_accept = true;
         cfg.global.current.no_multi = true;
-        cfg.db.filter_missing = true;
+        cfg.db.show_missing = false;
 
         let cwd = AbsPath::new_unchecked(cwd());
         FsPane::new_fd_from_command(cmd, cwd)

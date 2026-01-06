@@ -119,6 +119,7 @@ pub struct RulesConfig {
     pub extended: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
     pub info: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
     pub open: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
+    pub alternate: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
     pub edit: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
     pub default: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
 }
@@ -132,6 +133,7 @@ impl Default for RulesConfig {
             extended: RuleMatcher::new(),
             info: RuleMatcher::new(),
             open: RuleMatcher::new(),
+            alternate: RuleMatcher::new(),
             edit: RuleMatcher::new(),
             default: RuleMatcher::new(),
         }
@@ -150,6 +152,7 @@ impl RulesConfig {
             Preset::Extended => &self.extended,
             Preset::Info => &self.info,
             Preset::Open => &self.open,
+            Preset::Alternate => &self.alternate,
             Preset::Edit => &self.edit,
             Preset::Default => &self.default,
         }
@@ -166,6 +169,7 @@ impl RulesConfig {
             Preset::Extended => &mut self.extended,
             Preset::Info => &mut self.info,
             Preset::Open => &mut self.open,
+            Preset::Alternate => &mut self.alternate,
             Preset::Edit => &mut self.edit,
             Preset::Default => &mut self.default,
         }

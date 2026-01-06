@@ -72,9 +72,9 @@ pub enum FsAction {
     /// Display current filters.
     Filters,
     /// Display the current stack.
-    Stack,
+    Stash,
     /// Clear the stack.
-    ClearStack,
+    ClearStash,
 
     /// Show all* available actions on the current item(s).
     /// (E to interact).
@@ -103,8 +103,9 @@ pub enum FsAction {
     NewDir,
     /// Stash file (to stack) in Symlink mode.
     Symlink,
-    /// Save the file to the backup directory. (todo)
-    Backup,
+    /// Save the file to the backup directory.
+    /// On the prompt, this invokes [Preset::Alternate].
+    Backup, // the extra behavior is a bit weird, dunno how to handle.
     /// Delete the file using system trash.
     Trash,
     /// Permanently delete the file. (todo: confirmation).
@@ -116,6 +117,8 @@ pub enum FsAction {
 
     // other
     // --------------------------------------------
+    /// Jump and accept
+    /// 0 jumps to menu
     AutoJump(u8),
 }
 // print, accept
@@ -317,7 +320,7 @@ pub fn fsaction_aliaser(
                 acs![]
             }
             //  ------------- Overlay aliases --------------
-            FsAction::Stack => {
+            FsAction::Stash => {
                 acs![Action::Overlay(0)]
             }
             FsAction::Filters => {
@@ -336,6 +339,10 @@ pub fn fsaction_aliaser(
             // FsAction::Category => {
             //     acs![Action::Overlay(3)]
             // }
+            FsAction::Backup if state.picker_ui.results.cursor_disabled => {
+                let cmd = Preset::Alternate.to_command_string();
+                acs![Action::Execute(cmd)]
+            }
             FsAction::Handler(p, page, header) => {
                 let mut cmd = p.to_command_string();
                 if page {
@@ -355,13 +362,19 @@ pub fn fsaction_aliaser(
                 if raw_input {
                     let c = (b'0' + (digit % 10)) as char;
                     acs![Action::Input(c)]
-                } else if digit > 0
-                    || ENTERED_PROMPT
-                        .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
-                        .is_err()
-                {
-                    acs![Action::Pos((digit - 1) as i32), Action::Accept]
+                } else if digit > 0 {
+                    if !raw_input && GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                        // todo, probably redesign this action
+                        acs![
+                            Action::Pos((digit - 1) as i32),
+                            Action::Print("{.}".into()),
+                            Action::Quit(0.into())
+                        ]
+                    } else {
+                        acs![Action::Pos((digit - 1) as i32), Action::Accept]
+                    }
                 } else {
+                    ENTERED_PROMPT.store(true, Ordering::Release);
                     acs![Action::Custom(FsAction::EnterPrompt(true))]
                 }
             }
@@ -409,6 +422,18 @@ pub fn fsaction_aliaser(
                         .is_ok()
                 {
                     acs![Action::Custom(FsAction::EnterPrompt(false))]
+                } else {
+                    acs![a]
+                }
+            }
+            Action::Pos(_) => {
+                if state.overlay_index.is_none()
+                    && state.picker_ui.results.cursor_disabled
+                    && ENTERED_PROMPT
+                        .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
+                        .is_ok()
+                {
+                    acs![Action::Custom(FsAction::EnterPrompt(false)), a]
                 } else {
                     acs![a]
                 }
@@ -650,7 +675,7 @@ pub fn fsaction_handler(
             STASH::transfer_all(&base, true);
             efx![]
         }
-        FsAction::ClearStack => {
+        FsAction::ClearStash => {
             STASH::clear_invalid_and_completed();
             TOAST::push_notice(ToastStyle::Normal, "Stack cleared");
             efx![]

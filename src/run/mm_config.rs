@@ -55,6 +55,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(shift-right) => Action::ForwardChar,
         key!(shift-left) => Action::BackwardChar,
         key!(enter) => Action::Accept,
+        key!(ctrl-enter) => Action::Print("".into()),
         key!(alt-enter) => Action::Print("".into()),
         key!(tab) => [Action::Toggle, Action::Down(1.into())],
 
@@ -64,20 +65,22 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-r) => FsAction::Rg,
         key!(ctrl-g) => FsAction::History,
         key!(ctrl-z) => FsAction::Undo,
-        key!(alt-z) => FsAction::Advance,
+        key!(alt-z) => FsAction::Forward,
+        key!(ctrl-shift-'z') => FsAction::Forward,
         key!('/') => FsAction::Jump("".into(), '/'),
         key!('~') => FsAction::Jump("".into(), '~'),
 
         // Display
         // ----------------------------------
-        key!(alt-shift-s) => FsAction::ClearStack,
+        key!(ctrl-s) => FsAction::Stash,
+        key!(alt-shift-s) => FsAction::ClearStash,
         key!(ctrl-e) => FsAction::Menu,
         // -- filters --
         key!(alt-f) => FsAction::Filters,
+        key!(ctrl-shift-f) => FsAction::Filters,
         key!(ctrl-d) => FsAction::ToggleDirs,
-        key!(ctrl-h) => FsAction::ToggleHidden, // this is ctrl-backspace on my keyboard
+        key!(ctrl-h) => FsAction::ToggleHidden,
         key!(alt-h) => FsAction::ToggleHidden,
-        key!(alt-'H') => Action::Help("".into()),
 
         // file actions
         // ----------------------------------
@@ -85,27 +88,42 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(delete) => FsAction::Trash,
         key!(shift-delete) => FsAction::Delete,
         key!(ctrl-v) => FsAction::Paste("".into()),
+        key!(alt-b) => FsAction::Backup,
 
         // these behave the same on the prompt
         key!(ctrl-x) => FsAction::Cut,
         key!(ctrl-c) => FsAction::Copy,
-        key!(alt-b) => FsAction::Backup,
         key!(ctrl-n) => FsAction::NewDir,
 
+        // preview
+        key!('?') => Action::Preview(Preset::Preview.to_command_string()),
+        key!(alt - '/') => Action::Preview(Preset::Display.to_command_string_with_header()),
+        key!(alt-shift-h) => Action::Help("".into()),
         // spawning
         key!(alt-s) => Action::Execute("$SHELL".into()),
         key!(ctrl-b) => FsAction::Handler(Preset::Open, false, None),
-        key!(alt - '/') => Action::Preview(Preset::Display.to_command_string_with_header()),
+        // display
         key!(ctrl-l) => FsAction::Handler(Preset::Preview, true, None),
         key!(alt-l) => FsAction::Handler(Preset::Extended, true, None),
 
+
         // misc
         // ---------------------------------------
-        key!('?') => Action::SwitchPreview(None),
-        key!(ctrl-7) => Action::CyclePreview,
+        key!(shift-up) => Action::PreviewUp(1.into()),
+        key!(shift-down) => Action::PreviewDown(1.into()),
+
+        key!(ctrl-shift-'/') => Action::CyclePreview,
         key!(alt-r) => Action::Reload("".to_string()),
         key!(0) => FsAction::AutoJump(0),
-        key!(1) => FsAction::AutoJump(1),
+        key!(ctrl-1) => FsAction::AutoJump(1),
+        key!(ctrl-2) => FsAction::AutoJump(2),
+        key!(ctrl-3) => FsAction::AutoJump(3),
+        key!(ctrl-4) => FsAction::AutoJump(4),
+        key!(ctrl-5) => FsAction::AutoJump(5),
+        key!(ctrl-6) => FsAction::AutoJump(6),
+        key!(ctrl-7) => FsAction::AutoJump(7),
+        key!(ctrl-8) => FsAction::AutoJump(8),
+        key!(ctrl-9) => FsAction::AutoJump(9),
     )
 }
 

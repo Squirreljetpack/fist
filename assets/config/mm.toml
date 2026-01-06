@@ -2,3 +2,6 @@
 percentage = 50
 min = 10
 max = 25
+
+[preview]
+wrap = true

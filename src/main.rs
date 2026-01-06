@@ -82,12 +82,16 @@ async fn main() {
             let contents = toml::to_string_pretty(&cfg).expect("failed to serialize to TOML");
             std::io::stdout().write_all(contents.as_bytes())._ebog();
 
-            std::io::stdout()
-                .write_all(b"\n---------------- mm.toml ----------------\n")
-                .unwrap();
-            let mm_cfg = fist::run::mm_config::get_mm_cfg(mm_cfg_path, &cfg);
-            let contents = toml::to_string_pretty(&mm_cfg).expect("failed to serialize to TOML");
-            std::io::stdout().write_all(contents.as_bytes())._ebog();
+            #[cfg(debug_assertions)]
+            {
+                std::io::stdout()
+                    .write_all(b"\n---------------- mm.toml ----------------\n")
+                    .unwrap();
+                let mm_cfg = fist::run::mm_config::get_mm_cfg(mm_cfg_path, &cfg);
+                let contents =
+                    toml::to_string_pretty(&mm_cfg).expect("failed to serialize to TOML");
+                std::io::stdout().write_all(contents.as_bytes())._ebog();
+            }
         }
 
         std::process::exit(0);
