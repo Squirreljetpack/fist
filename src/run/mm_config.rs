@@ -114,7 +114,7 @@ pub fn default_binds() -> BindMap<FsAction> {
 
         key!(ctrl-shift-'/') => Action::CyclePreview,
         key!(alt-r) => Action::Reload("".to_string()),
-        key!(0) => FsAction::AutoJump(0),
+        key!(ctrl-0) => FsAction::AutoJump(0),
         key!(ctrl-1) => FsAction::AutoJump(1),
         key!(ctrl-2) => FsAction::AutoJump(2),
         key!(ctrl-3) => FsAction::AutoJump(3),

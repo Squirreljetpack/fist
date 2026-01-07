@@ -109,14 +109,14 @@ impl GLOBAL {
             | FsPane::Fd { sort, .. }
             | FsPane::Stream { sort, .. } => *sort,
             FsPane::Folders { sort, .. } | FsPane::Files { sort, .. } => (*sort).into(),
-            _ => cfg.interface.default_sort.unwrap_or_default(),
+            _ => Default::default(),
         };
         let visibility = match &pane {
             FsPane::Nav { vis, .. }
             | FsPane::Custom { vis, .. }
             | FsPane::Fd { vis, .. }
             | FsPane::Stream { vis, .. } => *vis,
-            _ => cfg.interface.default_visibility.unwrap_or_default(),
+            _ => Default::default(),
         };
         debug!("Initial filters: {sort}, {visibility:?}");
         FILTERS::set(sort, visibility);
@@ -311,7 +311,8 @@ impl TOAST {
         GLOBAL::send_efx(efx![Effect::Footer(toast)]);
     }
 
-    /// Push a message with empty prefix
+    /// Push a message with empty prefix.
+    /// `replace = true` clears all previous messages of this type.
     pub fn push_msg(
         line: impl Into<Line<'static>>,
         replace: bool,
@@ -319,9 +320,7 @@ impl TOAST {
         let mut state = TOAST.lock().unwrap();
 
         if replace {
-            if let Some(pos) = state.iter().position(|(span, _)| span.content.is_empty()) {
-                state.remove(pos);
-            }
+            state.retain(|(prefix, _)| !prefix.content.is_empty());
         }
 
         let prefix_span = Span::raw("");
@@ -335,8 +334,7 @@ impl TOAST {
         msg: impl Into<std::borrow::Cow<'static, str>>,
     ) {
         let mut state = TOAST.lock().unwrap();
-        let prefix: &'static str = style.into();
-        let prefix_span = Span::styled(prefix, style.to_style());
+        let prefix_span = Span::styled(format!("{style}: "), style.to_style());
         state.push((prefix_span, ToastContent::Line(msg.into().into())));
 
         let toast = make_toast(&state);

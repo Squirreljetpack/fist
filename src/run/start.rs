@@ -9,7 +9,7 @@ use matchmaker::{
     message::Event,
     nucleo::{
         Column, Indexed, Render, Worker,
-        injector::{IndexedInjector, Injector, WorkerInjector},
+        injector::{IndexedInjector, WorkerInjector},
     },
     render::Effect,
 };
@@ -59,7 +59,7 @@ fn make_mm(
         ],
         0,
     );
-    let injector = IndexedInjector::new(worker.injector(), 0);
+    let injector = IndexedInjector::new_globally_indexed(worker.injector());
 
     let selector = Selector::new_with_validator(Indexed::identifier, exist_validator);
     let formatter =

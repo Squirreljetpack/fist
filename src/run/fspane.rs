@@ -1,9 +1,9 @@
 use std::{
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     fmt::Display,
     io::{self, Read},
     path::PathBuf,
-    process::{Command, Stdio},
+    process::Command,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -19,6 +19,7 @@ use cli_boilerplate_automation::{
     bs::sort_by_mtime,
 };
 use matchmaker::{efx, nucleo::injector::Injector, preview::AppendOnly, render::Effect};
+use tokio::task::spawn_blocking;
 
 use crate::config::GlobalConfig;
 use crate::{
@@ -262,6 +263,9 @@ impl FsPane {
                     ._ebog()?;
 
                 let vis = *vis;
+                let sem = Arc::new(tokio::sync::Semaphore::new(GLOBAL::with_cfg(|c| {
+                    c.panes.settings.display_script_batch_size
+                })));
 
                 map_reader(
                     stdout,
@@ -272,24 +276,40 @@ impl FsPane {
                             PathItem::new(line, &cwd)
                         };
 
-                        let mut push = vis.filter(&item.path);
+                        if !vis.filter(&item.path) {
+                            return Ok(());
+                        }
                         // apply render override
-                        if push
-                            && let Some(script) = &display_script
-                            && let Ok(out) = Command::from_script(script)
-                                .arg(&item.path)
-                                .stderr(Stdio::null())
-                                .output()
-                        {
-                            push = out.status.success();
-                            if push
-                                && let Ok(rendered) = ansi_to_tui::IntoText::into_text(&out.stdout)
-                            {
-                                item.override_rendered(rendered);
-                            }
-                        };
-
-                        if push { injector.push(item) } else { Ok(()) }
+                        if let Some(Ok(script)) = display_script.clone() {
+                            let injector = injector.clone();
+                            let sem = sem.clone();
+                            tokio::spawn(async move {
+                                let _permit = sem.acquire_owned().await.unwrap();
+                                if let Ok(out) =
+                                    crate::spawn::utils::tokio_command_from_script(&script)
+                                        .arg(&item.path)
+                                        .arg(OsStr::new(
+                                            item.tail.lines[0].spans[0].content.as_ref(),
+                                        ))
+                                        // .stderr(Stdio::null())
+                                        .output()
+                                        .await
+                                {
+                                    if out.status.success()
+                                        && let Ok(rendered) =
+                                            ansi_to_tui::IntoText::into_text(&out.stdout)
+                                    {
+                                        item.override_rendered(rendered);
+                                    }
+                                    injector.push(item)
+                                } else {
+                                    Ok(())
+                                }
+                            });
+                            Ok(())
+                        } else {
+                            injector.push(item)
+                        }
                     },
                     complete.clone(),
                 )
@@ -311,11 +331,15 @@ impl FsPane {
                 let display_script = GLOBAL::with_env(|c| c.display.clone());
                 // store current sort/vis in global, then reset self
 
+                let items = items.clone();
+                items.map_to_vec(|item| injector.push(item.clone())); // stdin reads resume
+
                 let cwd = cwd.clone();
                 let vis = *vis;
-                let items = items.clone();
+                let sem = Arc::new(tokio::sync::Semaphore::new(GLOBAL::with_cfg(|c| {
+                    c.panes.settings.display_script_batch_size
+                })));
 
-                items.map_to_vec(|item| injector.push(item.clone())); // stdin reads resume
                 map_reader(
                     io::stdin(),
                     move |line| {
@@ -325,24 +349,40 @@ impl FsPane {
                             PathItem::new(line, &cwd)
                         };
 
-                        let mut push = vis.filter(&item.path);
+                        if !vis.filter(&item.path) {
+                            return Ok(());
+                        }
                         // apply render override
-                        if push
-                            && let Some(script) = &display_script
-                            && let Ok(out) = Command::from_script(script)
-                                .arg(&item.path)
-                                .stderr(Stdio::null())
-                                .output()
-                        {
-                            push = out.status.success();
-                            if push
-                                && let Ok(rendered) = ansi_to_tui::IntoText::into_text(&out.stdout)
-                            {
-                                item.override_rendered(rendered);
-                            }
-                        };
-
-                        if push { injector.push(item) } else { Ok(()) }
+                        if let Some(Ok(script)) = display_script.clone() {
+                            let injector = injector.clone();
+                            let sem = sem.clone();
+                            tokio::spawn(async move {
+                                let _permit = sem.acquire_owned().await.unwrap();
+                                if let Ok(out) =
+                                    crate::spawn::utils::tokio_command_from_script(&script)
+                                        .arg(&item.path)
+                                        .arg(OsStr::new(
+                                            item.tail.lines[0].spans[0].content.as_ref(),
+                                        ))
+                                        // .stderr(Stdio::null())
+                                        .output()
+                                        .await
+                                {
+                                    if out.status.success()
+                                        && let Ok(rendered) =
+                                            ansi_to_tui::IntoText::into_text(&out.stdout)
+                                    {
+                                        item.override_rendered(rendered);
+                                    }
+                                    injector.push(item)
+                                } else {
+                                    Ok(())
+                                }
+                            });
+                            Ok(())
+                        } else {
+                            injector.push(item)
+                        }
                     },
                     complete.clone(),
                 )
@@ -410,25 +450,23 @@ impl FsPane {
                 todo!()
             }
             Self::Files { sort, .. } => {
-                let db_path = cfg.db_path();
                 let sort = *sort;
                 let cwd = STACK::cwd().unwrap_or_default();
                 let pool = GLOBAL::db();
 
                 tokio::spawn(async move {
-                    let conn = pool.get_conn(DbTable::files).await.elog()?;
-                    // let entries = GLOBAL::get_db_entries(&mut conn, sort).await?;
+                    let mut conn = pool.get_conn(DbTable::files).await.elog()?;
+                    let entries = GLOBAL::get_db_entries(&mut conn, sort).await?.into_iter();
 
-                    // for e in entries.filter_exists(true) {
-                    //     let item = PathItem::new_unchecked(e.path.into(), &cwd);
-                    //     injector.push(item);
-                    // }
+                    for e in entries {
+                        let item = PathItem::new_unchecked(e.path.into(), &cwd);
+                        injector.push(item)?;
+                    }
 
                     Ok(())
                 })
             }
             Self::Folders { sort, fd_args, .. } => {
-                let db_path = cfg.db_path();
                 let sort = *sort;
                 let cwd = STACK::cwd().unwrap_or_default();
                 let pool = GLOBAL::db();
@@ -456,7 +494,6 @@ impl FsPane {
                 })
             }
             Self::Launch { sort, .. } => {
-                let db_path = cfg.db_path();
                 let sort = *sort;
                 let cwd = STACK::cwd().unwrap_or_default();
                 let pool = GLOBAL::db();
@@ -509,7 +546,7 @@ impl FsPane {
                 let depth = *depth;
                 let complete = complete.clone();
 
-                tokio::spawn(async move {
+                spawn_blocking(move || {
                     let iter = list_dir(&cwd, vis, depth); // cwd is abs so we can add results as unchecked
 
                     match sort {
@@ -551,7 +588,7 @@ pub fn map_reader<E: matchmaker::SSS + Display>(
     f: impl FnMut(String) -> Result<(), E> + matchmaker::SSS,
     complete: Arc<AtomicBool>,
 ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
-    tokio::spawn(async move {
+    spawn_blocking(move || {
         map_reader_lines::<true, E>(reader, f)._elog();
         complete.store(true, Ordering::SeqCst);
         log::info!("Command completed");

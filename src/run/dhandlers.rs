@@ -10,10 +10,7 @@ use log::{debug, info};
 use matchmaker::{
     Matchmaker, efx,
     message::{Event, Interrupt},
-    nucleo::{
-        Indexed,
-        injector::{IndexedInjector, Injector},
-    },
+    nucleo::{Indexed, injector::IndexedInjector},
     preview::AppendOnly,
     render::{Effect, Effects},
 };
@@ -108,7 +105,7 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
                     }
                 }
 
-                let injector = IndexedInjector::new(state.injector(), 0);
+                let injector = IndexedInjector::new_globally_indexed(state.injector());
                 STACK::populate(injector, || {});
             }
             if !RESTORE_INPUT.load(Ordering::Acquire) {

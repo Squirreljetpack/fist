@@ -1,12 +1,12 @@
 use std::{
     ffi::OsStr,
-    fs, io,
+    io,
     path::{MAIN_SEPARATOR, Path},
 };
 
-use cli_boilerplate_automation::bath::PathExt;
-
 use crate::abspath::AbsPath;
+use cli_boilerplate_automation::bath::PathExt;
+use tokio::fs;
 
 // Returns Err(dest) if the given ends with slash
 pub fn auto_dest(
@@ -25,29 +25,29 @@ pub fn auto_dest(
 }
 
 // fails fast
-pub fn create_all(files: &[Result<AbsPath, AbsPath>]) -> Result<(), io::Error> {
+pub async fn create_all(files: &[Result<AbsPath, AbsPath>]) -> Result<(), io::Error> {
     for entry in files {
         match entry {
             Ok(file) => {
                 if let Some(parent) = file.as_path().parent() {
-                    fs::create_dir_all(parent)?;
+                    fs::create_dir_all(parent).await?;
                 }
-                fs::File::create(file.as_path())?;
+                fs::File::create(file.as_path()).await?;
             }
             Err(dir) => {
-                fs::create_dir_all(dir.as_path())?;
+                fs::create_dir_all(dir.as_path()).await?;
             }
         }
     }
     Ok(())
 }
 
-pub fn rename(
+pub async fn rename(
     src: &AbsPath,
     dst: &AbsPath,
 ) -> Result<(), io::Error> {
     if let Some(parent) = dst.as_path().parent() {
-        fs::create_dir_all(parent)?;
+        fs::create_dir_all(parent).await?;
     }
-    fs::rename(src.as_path(), dst.as_path())
+    fs::rename(src.as_path(), dst.as_path()).await
 }

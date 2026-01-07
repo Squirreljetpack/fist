@@ -11,6 +11,7 @@ use matchmaker::{
     nucleo::{Color, Indexed, Modifier, Span, Style},
     render::{Effect, Effects},
 };
+use tokio::task::spawn_blocking;
 
 use crate::{
     abspath::AbsPath,
@@ -285,7 +286,7 @@ pub fn fsaction_aliaser(
 
                     acs![Action::Execute(GLOBAL::with_cfg(|c| c
                         .interface
-                        .advance_cmd
+                        .advance_command
                         .clone())),]
                 } else {
                     acs![]
@@ -373,9 +374,13 @@ pub fn fsaction_aliaser(
                     } else {
                         acs![Action::Pos((digit - 1) as i32), Action::Accept]
                     }
-                } else {
-                    ENTERED_PROMPT.store(true, Ordering::Release);
+                } else if ENTERED_PROMPT
+                    .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
+                    .is_ok()
+                {
                     acs![Action::Custom(FsAction::EnterPrompt(true))]
+                } else {
+                    acs![]
                 }
             }
             _ => acs![Action::Custom(fa)],
@@ -421,7 +426,14 @@ pub fn fsaction_aliaser(
                         .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
                         .is_ok()
                 {
-                    acs![Action::Custom(FsAction::EnterPrompt(false))]
+                    if i > 1 {
+                        acs![
+                            Action::Custom(FsAction::EnterPrompt(false)),
+                            Action::Down((i - 1).into())
+                        ]
+                    } else {
+                        acs![Action::Custom(FsAction::EnterPrompt(false))]
+                    }
                 } else {
                     acs![a]
                 }
@@ -493,6 +505,12 @@ pub fn fsaction_aliaser(
                     }
                 }
             }
+            Action::Reload(s)
+                if s.is_empty() && STACK::with_current(|c| matches!(c, FsPane::Stream { .. })) =>
+            {
+                TOAST::push_msg("Cannot reload streams", false);
+                acs![]
+            }
             _ => acs![a],
         },
     }
@@ -510,21 +528,31 @@ pub fn fsaction_handler(
 
             // set prompt
             if enter {
-                if let Some(cwd) = STACK::cwd() {
+                let prompt = if let Some(cwd) = STACK::cwd() {
                     let content = format_cwd_prompt(
                         &GLOBAL::with_cfg(|c| c.interface.cwd_prompt.clone()),
                         &cwd,
                     );
-                    let prompt = Span::styled(
+                    Span::styled(
                         content,
                         Style::default()
                             .fg(Color::Blue)
                             .add_modifier(Modifier::ITALIC),
-                    );
-                    efx![Effect::DisableCursor(enter), Effect::Prompt(prompt)]
+                    )
                 } else {
-                    efx![]
-                }
+                    let content = state.picker_ui.input.config.prompt.clone();
+                    Span::styled(
+                        content,
+                        Style::default()
+                            .fg(Color::Blue)
+                            .add_modifier(Modifier::ITALIC),
+                    )
+                };
+                efx![
+                    Effect::SetIndex(0),
+                    Effect::DisableCursor(enter),
+                    Effect::Prompt(prompt)
+                ]
             } else {
                 efx![
                     Effect::DisableCursor(enter),
@@ -586,7 +614,8 @@ pub fn fsaction_handler(
             state.map_selected_to_vec(|s| {
                 items.push(s.path.inner());
             });
-            tokio::spawn(async {
+            // not heavy computationally, but still blocking...
+            spawn_blocking(|| {
                 for path in items {
                     match trash::delete(&path) {
                         Ok(()) => {
@@ -621,9 +650,9 @@ pub fn fsaction_handler(
             tokio::spawn(async move {
                 for path in items {
                     let result = if path.is_dir() {
-                        std::fs::remove_dir_all(&path)
+                        tokio::fs::remove_dir_all(&path).await
                     } else {
-                        std::fs::remove_file(&path)
+                        tokio::fs::remove_file(&path).await
                     };
 
                     match result {

@@ -8,7 +8,7 @@ use crate::utils::text::split_whitespace_keep_single_quotes;
 pub struct EnvOpts {
     pub ancestor: Option<usize>,
     pub opener: Option<String>,
-    pub display: Option<String>,
+    pub display: Option<Result<String, String>>,
     pub delim: Option<char>,
 }
 
@@ -36,7 +36,10 @@ impl EnvOpts {
                     ret.opener = Some(v.to_string());
                 }
                 "display" => {
-                    ret.display = Some(v.to_string());
+                    ret.display = Some(Ok(v.to_string()));
+                }
+                "display-batch" => {
+                    ret.display = Some(Err(v.to_string()));
                 }
                 "delim" => {
                     log::debug!("{v}, {}", v.len());

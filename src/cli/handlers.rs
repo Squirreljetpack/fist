@@ -87,7 +87,7 @@ async fn handle_open(
         let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
         let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
 
-        let pool = Pool::new(cfg.global.db_path()).await?;
+        let pool = Pool::new(cfg.db_path()).await?;
         start(pane, cfg, mm_cfg, pool).await
     } else {
         let pool = Pool::new(cfg.db_path()).await?;
@@ -148,7 +148,7 @@ async fn handle_files(
 
     let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
     let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
-    let pool = Pool::new(cfg.global.db_path()).await?;
+    let pool = Pool::new(cfg.db_path()).await?;
     start(pane, cfg, mm_cfg, pool).await
 }
 
@@ -388,7 +388,7 @@ async fn handle_default(
 
     let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
     let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
-    let pool = Pool::new(cfg.global.db_path()).await?;
+    let pool = Pool::new(cfg.db_path()).await?;
     start(pane, cfg, mm_cfg, pool).await
 }
 
@@ -466,19 +466,13 @@ async fn handle_tools(
 
             if reset {
                 if let Some(table) = table {
-                    let mut conn = Pool::new(cfg.global.db_path())
-                        .await?
-                        .get_conn(table)
-                        .await?;
+                    let mut conn = Pool::new(cfg.db_path()).await?.get_conn(table).await?;
                     conn.reset_table().await?;
                     ibog!("Deleted {table}");
                 } else {
-                    match std::fs::remove_file(cfg.global.db_path()) {
-                        Ok(()) => ibog!("Deleted {}", cfg.global.db_path().to_string_lossy()),
-                        Err(e) => ebog!(
-                            "Couldn't delete {}: {e}",
-                            cfg.global.db_path().to_string_lossy()
-                        ),
+                    match std::fs::remove_file(cfg.db_path()) {
+                        Ok(()) => ibog!("Deleted {}", cfg.db_path().to_string_lossy()),
+                        Err(e) => ebog!("Couldn't delete {}: {e}", cfg.db_path().to_string_lossy()),
                     }
                 }
                 return Ok(());
@@ -511,7 +505,7 @@ async fn handle_tools(
                     }
                 }
 
-                let mut conn = Pool::new(cfg.global.db_path())
+                let mut conn = Pool::new(cfg.db_path())
                     .await?
                     .get_conn(DbTable::dirs)
                     .await?;
@@ -528,7 +522,7 @@ async fn handle_tools(
                     conn.push_files_and_folders(push_vec).await?;
                 }
             } else {
-                let mut conn = Pool::new(cfg.global.db_path())
+                let mut conn = Pool::new(cfg.db_path())
                     .await?
                     .get_conn(table.unwrap_or(DbTable::dirs))
                     .await?;

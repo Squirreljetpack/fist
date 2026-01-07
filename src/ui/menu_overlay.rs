@@ -262,7 +262,7 @@ impl MenuOverlay {
                 let dest_slice = [dest];
 
                 tokio::spawn(async move {
-                    match create_all(&dest_slice) {
+                    match create_all(&dest_slice).await {
                         Ok(_) => {
                             let dest_path = match &dest_slice[0] {
                                 Ok(p) | Err(p) => p,
@@ -316,7 +316,7 @@ impl MenuOverlay {
                     TOAST::push_skipped();
                 } else {
                     tokio::spawn(async move {
-                        match rename(&old_path, &dest) {
+                        match rename(&old_path, &dest).await {
                             Ok(_) => {
                                 let new_display = dest.to_string_lossy().to_string().into();
                                 TOAST::push_pair(

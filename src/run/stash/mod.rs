@@ -97,7 +97,7 @@ impl StackItem {
 
         log::debug!("Transferring: {self:?} -> dst: {dst:?}");
 
-        tokio::task::spawn(async move {
+        tokio::task::spawn_blocking(move || {
             let result = if src.is_dir() {
                 // options: todo
                 let mut options = dir::CopyOptions::new();

@@ -12,7 +12,8 @@ use crate::{
     cli::paths::{__cwd, home_dir},
 };
 
-#[derive(Copy, Clone, Debug, Default, strum::IntoStaticStr)]
+// strum::IntoStaticStr,
+#[derive(Copy, Clone, Debug, Default, strum::Display)]
 pub enum ToastStyle {
     #[default]
     Normal,

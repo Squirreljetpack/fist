@@ -22,6 +22,14 @@ use crate::{
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
+    /// store history
+    #[serde(default = "state_dir")]
+    pub state_dir: PathBuf,
+
+    /// cache
+    #[serde(default = "cache_dir")]
+    pub cache_dir: PathBuf,
+
     #[serde(flatten)]
     pub global: GlobalConfig,
 
@@ -36,15 +44,6 @@ pub struct Config {
 
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GlobalConfig {
-    // not sure these need be in global
-    /// store history
-    #[serde(default = "state_dir")]
-    pub state_dir: PathBuf,
-
-    /// cache
-    #[serde(default = "cache_dir")]
-    pub cache_dir: PathBuf,
-
     #[serde(default)]
     pub interface: InterfaceConfig,
 
@@ -60,7 +59,7 @@ pub struct GlobalConfig {
 
 impl Config {
     pub fn check_dirs_or_exit(&self) {
-        let dirs = [&self.global.state_dir, &self.global.cache_dir];
+        let dirs = [&self.state_dir, &self.cache_dir];
 
         for dir in dirs {
             log::debug!("checking: {dir:?}");
@@ -101,14 +100,6 @@ impl Config {
             }
         }
     }
-
-    pub fn db_path(&self) -> PathBuf {
-        self.global.db_path()
-    }
-
-    pub fn log_path(&self) -> PathBuf {
-        self.global.log_path()
-    }
 }
 
 /// Miscellaneous + Tool specific options
@@ -136,17 +127,16 @@ impl Default for MiscConfig {
 #[serde(default, deny_unknown_fields)]
 /// Not recommended to change.
 pub struct InterfaceConfig {
+    // actions
+    pub advance_command: String,
     pub alt_accept: bool,
     pub no_multi: bool,
-    pub advance_cmd: String,
-    pub cwd_prompt: String,
     // When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
-    pub toast_on_empty: bool, // todo
 
-    // experimental
-    pub default_sort: Option<SortOrder>,
-    pub default_visibility: Option<Visibility>,
+    // display
+    pub cwd_prompt: String,
+    pub toast_on_empty: bool, // todo
 }
 
 impl Default for InterfaceConfig {
@@ -155,15 +145,27 @@ impl Default for InterfaceConfig {
             alt_accept: false,
             no_multi: false,
             always_paste: false,
-            advance_cmd: Preset::Edit.to_command_string(),
-            default_sort: None,
-            default_visibility: None,
+            advance_command: Preset::Edit.to_command_string(),
             cwd_prompt: "{} ".into(),
             toast_on_empty: true,
         }
     }
 }
 // ------------- PANES ------------------
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PanesSettings {
+    pub display_script_batch_size: usize,
+}
+
+impl Default for PanesSettings {
+    fn default() -> Self {
+        Self {
+            display_script_batch_size: 15,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PanesConfig {
@@ -175,6 +177,28 @@ pub struct PanesConfig {
     pub fd: PaneSettings,
     pub custom: PaneSettings,
     pub rg: PaneSettings,
+
+    pub settings: PanesSettings,
+}
+
+impl Default for PanesConfig {
+    fn default() -> Self {
+        Self {
+            app: PaneSettings {
+                show_preview: Some(false),
+                ..PaneSettings::default()
+            },
+            file: PaneSettings::default(),
+            dir: PaneSettings::default(),
+            nav: NavPaneSettings::default(),
+            fd: PaneSettings::default(),
+            rg: PaneSettings::default(),
+            custom: PaneSettings::default(),
+            stream: PaneSettings::default(),
+
+            settings: PanesSettings::default(),
+        }
+    }
 }
 
 impl FsPane {
@@ -242,24 +266,6 @@ impl Default for NavPaneSettings {
     }
 }
 
-impl Default for PanesConfig {
-    fn default() -> Self {
-        Self {
-            app: PaneSettings {
-                show_preview: Some(false),
-                ..PaneSettings::default()
-            },
-            file: PaneSettings::default(),
-            dir: PaneSettings::default(),
-            nav: NavPaneSettings::default(),
-            fd: PaneSettings::default(),
-            rg: PaneSettings::default(),
-            custom: PaneSettings::default(),
-            stream: PaneSettings::default(),
-        }
-    }
-}
-
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FdConfig {
@@ -286,7 +292,7 @@ pub struct FsConfig {
 //     pub delimiter: Option<char>,
 // }
 
-impl GlobalConfig {
+impl Config {
     pub fn db_path(&self) -> PathBuf {
         #[cfg(debug_assertions)]
         {
