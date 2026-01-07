@@ -8,12 +8,12 @@ use cli_boilerplate_automation::{bath::PathExt, impl_restricted_wrapper};
 
 use crate::cli::paths;
 
-impl_restricted_wrapper!(AbsPath, PathBuf, paths::cwd().into());
+impl_restricted_wrapper!(AbsPath, PathBuf, paths::__cwd().into());
 
 impl AbsPath {
     /// Normalize + resolve paths relative to cwd
     pub fn new(path: impl Into<PathBuf>) -> Self {
-        let path = path.into().abs(paths::cwd());
+        let path = path.into().abs(paths::__cwd());
         Self(path)
     }
 

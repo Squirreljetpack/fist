@@ -180,7 +180,7 @@ pub fn get_mm_cfg(
     change_actions(
         &mut binds,
         cfg.global.interface.alt_accept,
-        cfg.global.current.no_multi,
+        cfg.global.interface.no_multi,
     );
     mm_cfg.binds = binds;
 

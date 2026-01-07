@@ -1079,6 +1079,7 @@ checksum = "9844ddc3a6e533d62bba727eb6c28b5d360921d5175e9ff0f1e621a5c590a4d5"
 name = "fist"
 version = "0.0.1"
 dependencies = [
+ "ansi-to-tui",
  "anyhow",
  "arboard",
  "arrayvec",

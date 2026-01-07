@@ -103,6 +103,7 @@ async fn main() {
     #[cfg(not(debug_assertions))]
     cfg.check_files(false);
 
+    // if atty is not stdin, (this may be a bit unexpected but shouldn't be a big problem)
     if !atty::is(atty::Stream::Stdin)
         && matches!(
             cli.subcommand,

@@ -54,7 +54,7 @@ impl Connection {
         for path in paths {
             if path.is_dir() {
                 dirs.push(path);
-            } else {
+            } else if path.is_file() {
                 files.push(path);
             }
             // else {

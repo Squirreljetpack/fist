@@ -19,7 +19,6 @@ use std::{path::PathBuf, process::exit};
 
 use crate::cli::tool_types::LessfilterCommand;
 use crate::lessfilter::helpers::{header_viewer, is_header, show_header};
-use crate::spawn::utils::exec_script_to_tty;
 use crate::utils::text::path_formatter;
 use crate::{
     abspath::AbsPath,

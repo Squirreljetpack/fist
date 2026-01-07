@@ -33,17 +33,17 @@ Call as:
 
 ---
 
-- `ctrl-f`/`alt-f`: Find/Text search.
+- `ctrl-f`/`ctrl-r`: Find files/Search text.
 - `ctrl-g`: History view (Folders and files).
-- `ctrl-z`/`ctrl-y`: Undo/Redo
+- `ctrl-z`/`ctrl-y`: Undo/Redo.
 
 ---
 
 - `ctrl-x`/`ctrl-c`/`ctrl-v`: Cut, Copy, Paste.
 - `delete/shift-delete`: Trash/Delete.
-- `ctrl-s`: Open stash.
-- `alt-f`: Open filters.
 - `ctrl-e`: Open menu.
+- `ctrl-s`: Open stash.
+- `ctrl-shift-f`: Open filters.
 - `ctrl-h`: Toggle hidden.
 
 ---

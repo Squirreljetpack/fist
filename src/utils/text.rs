@@ -1,12 +1,16 @@
 use std::path::{MAIN_SEPARATOR, Path, PathBuf};
 
+use cli_boilerplate_automation::text::consume_escaped;
 use matchmaker::nucleo::{Line, Span, Style};
 use ratatui::{
     style::{Color, Modifier},
     text::Text,
 };
 
-use crate::{abspath::AbsPath, cli::paths::home_dir};
+use crate::{
+    abspath::AbsPath,
+    cli::paths::{__cwd, home_dir},
+};
 
 #[derive(Copy, Clone, Debug, Default, strum::IntoStaticStr)]
 pub enum ToastStyle {
@@ -206,8 +210,10 @@ pub fn bold_indices(
     spans
 }
 
-/// Split on whitespace, maintain within ', \ escape
-pub fn split_shell_like(s: &str) -> Vec<String> {
+/// - Split on whitespace
+/// - maintain within '.
+/// - \ escapes ' only.
+pub fn split_whitespace_keep_single_quotes(s: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut cur = String::new();
     let mut chars = s.chars().peekable();
@@ -221,6 +227,9 @@ pub fn split_shell_like(s: &str) -> Vec<String> {
             }
             '\\' => {
                 if let Some(next) = chars.next() {
+                    if next != '\'' {
+                        cur.push('\\');
+                    }
                     cur.push(next);
                 }
             }
@@ -240,7 +249,32 @@ pub fn split_shell_like(s: &str) -> Vec<String> {
     out
 }
 
-// replace {}, {s:e}, leave everything else intact. supports \ escape.
+pub fn slice_path(
+    path: &Path,
+    start: i32,
+    end: i32,
+) -> PathBuf {
+    let comps: Vec<_> = path.components().collect();
+    let len = comps.len() as i32;
+
+    let norm = |i: i32| {
+        if i < 0 {
+            (len + i).clamp(0, len)
+        } else {
+            i.clamp(0, len)
+        }
+    };
+
+    let s = norm(start);
+    let e = if end == 0 { len } else { norm(end) };
+
+    comps[s as usize..e as usize]
+        .iter()
+        .fold(PathBuf::new(), |mut p, c| {
+            p.push(c.as_os_str());
+            p
+        })
+}
 
 pub fn path_formatter(
     template: &str,
@@ -251,10 +285,7 @@ pub fn path_formatter(
 
     while let Some(ch) = chars.next() {
         if ch == '\\' {
-            // escape sequence
-            if let Some(next) = chars.next() {
-                out.push(next);
-            }
+            consume_escaped(&mut chars, &mut out);
             continue;
         }
 
@@ -279,22 +310,49 @@ pub fn path_formatter(
             out.push('\'');
             out.push_str(&path.to_string_lossy());
             out.push('\'');
-        } else if spec.contains('.') {
-            // contains dot → leave path unquoted
-            out.push_str(&path.to_string_lossy());
-        } else if let Some((a, b)) = spec.split_once(':') {
-            // check if both a and b are integers (can be negative)
-            let a_valid = a.is_empty() || a.parse::<i32>().is_ok();
-            let b_valid = b.is_empty() || b.parse::<i32>().is_ok();
-            if a_valid && b_valid {
-                out.push('\'');
-                out.push_str(&path.to_string_lossy());
-                out.push('\'');
+        } else if let Some((a, d, b)) = split_on_first_delim(&spec, [':', '=', '.']) {
+            // check if both a and b are integers
+            let start = if a.is_empty() {
+                Some(0)
             } else {
+                a.parse::<i32>().ok()
+            };
+            let end = if b.is_empty() {
+                Some(0)
+            } else {
+                b.parse::<i32>().ok()
+            };
+            if let (Some(start), Some(end)) = (start, end) {
+                match d {
+                    ':' => {
+                        out.push('\'');
+                        out.push_str(&slice_path(path, start, end).to_string_lossy());
+                        out.push('\'');
+                    }
+                    '=' => {
+                        out.push_str(&slice_path(path, start, end).to_string_lossy());
+                    }
+                    '.' => {
+                        out.push_str(&slice_path(__cwd(), start, end).to_string_lossy());
+                    }
+                    _ => unreachable!(),
+                }
+            } else {
+                match d {
+                    ':' => {
+                        out.push('{');
+                        out.push_str(&spec);
+                        out.push('}');
+                    }
+                    '=' => {
+                        out.push_str(&spec);
+                    }
+                    '.' => {
+                        out.push_str(&__cwd().to_string_lossy());
+                    }
+                    _ => unreachable!(),
+                }
                 // invalid spec, leave literal
-                out.push('{');
-                out.push_str(&spec);
-                out.push('}');
             }
         } else {
             // unrecognized spec, leave literal
@@ -305,4 +363,22 @@ pub fn path_formatter(
     }
 
     out
+}
+
+fn split_on_first_delim<const N: usize>(
+    s: &str,
+    delims: [char; N],
+) -> Option<(&str, char, &str)> {
+    let mut first: Option<(usize, char)> = None;
+
+    for d in delims {
+        if let Some(i) = s.find(d) {
+            if first.is_none_or(|(j, _)| i < j) {
+                first = Some((i, d));
+            }
+        }
+    }
+
+    let (i, d) = first?;
+    Some((&s[..i], d, &s[i + d.len_utf8()..]))
 }

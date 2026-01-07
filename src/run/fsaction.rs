@@ -367,7 +367,7 @@ pub fn fsaction_aliaser(
                         // todo, probably redesign this action
                         acs![
                             Action::Pos((digit - 1) as i32),
-                            Action::Print("{.}".into()),
+                            Action::Print("{=}".into()),
                             Action::Quit(0.into())
                         ]
                     } else {

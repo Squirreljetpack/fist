@@ -3,7 +3,7 @@ use std::{
     fmt::Display,
     io::{self, Read},
     path::PathBuf,
-    process::Command,
+    process::{Command, Stdio},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -246,7 +246,8 @@ impl FsPane {
                     items.map_to_vec(|item| injector.push(item.clone()));
                     return None;
                 }
-                let delim = cfg.current.delimiter;
+                let delim = GLOBAL::with_env(|c| c.delim);
+                let display_script = GLOBAL::with_env(|c| c.display.clone());
                 // store current sort/vis in global, then reset self
 
                 let cwd = cwd.clone();
@@ -265,16 +266,30 @@ impl FsPane {
                 map_reader(
                     stdout,
                     move |line| {
-                        let item = if let Some(c) = delim {
+                        let mut item = if let Some(c) = delim {
                             PathItem::new_from_split(line, c, &cwd)
                         } else {
                             PathItem::new(line, &cwd)
                         };
-                        if vis.filter(&item.path) {
-                            injector.push(item)
-                        } else {
-                            Ok(())
-                        }
+
+                        let mut push = vis.filter(&item.path);
+                        // apply render override
+                        if push
+                            && let Some(script) = &display_script
+                            && let Ok(out) = Command::from_script(script)
+                                .arg(&item.path)
+                                .stderr(Stdio::null())
+                                .output()
+                        {
+                            push = out.status.success();
+                            if push
+                                && let Ok(rendered) = ansi_to_tui::IntoText::into_text(&out.stdout)
+                            {
+                                item.override_rendered(rendered);
+                            }
+                        };
+
+                        if push { injector.push(item) } else { Ok(()) }
                     },
                     complete.clone(),
                 )
@@ -292,7 +307,8 @@ impl FsPane {
                     items.map_to_vec(|item| injector.push(item.clone()));
                     return None;
                 }
-                let delim = cfg.current.delimiter;
+                let delim = GLOBAL::with_env(|c| c.delim);
+                let display_script = GLOBAL::with_env(|c| c.display.clone());
                 // store current sort/vis in global, then reset self
 
                 let cwd = cwd.clone();
@@ -303,17 +319,30 @@ impl FsPane {
                 map_reader(
                     io::stdin(),
                     move |line| {
-                        let item = if let Some(c) = delim {
+                        let mut item = if let Some(c) = delim {
                             PathItem::new_from_split(line, c, &cwd)
                         } else {
                             PathItem::new(line, &cwd)
                         };
-                        items.push(item.clone());
-                        if vis.filter(&item.path) {
-                            injector.push(item) // reads stop when reload is called
-                        } else {
-                            Ok(())
-                        }
+
+                        let mut push = vis.filter(&item.path);
+                        // apply render override
+                        if push
+                            && let Some(script) = &display_script
+                            && let Ok(out) = Command::from_script(script)
+                                .arg(&item.path)
+                                .stderr(Stdio::null())
+                                .output()
+                        {
+                            push = out.status.success();
+                            if push
+                                && let Ok(rendered) = ansi_to_tui::IntoText::into_text(&out.stdout)
+                            {
+                                item.override_rendered(rendered);
+                            }
+                        };
+
+                        if push { injector.push(item) } else { Ok(()) }
                     },
                     complete.clone(),
                 )
@@ -349,8 +378,8 @@ impl FsPane {
                     stdout,
                     move |line| {
                         let item = PathItem::new(line, &cwd);
-                        let mut push = true;
 
+                        let mut push = true;
                         // most checks were already handled by fd
                         if vis.hidden_files && item.path.is_hidden() {
                             if vis.dirs {
@@ -362,6 +391,7 @@ impl FsPane {
                         if !vis.all() {
                             push = item.path.exists()
                         }
+
                         if push { injector.push(item) } else { Ok(()) }
                     },
                     complete.clone(),

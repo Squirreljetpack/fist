@@ -8,7 +8,7 @@ use cli_boilerplate_automation::{
 };
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{cli::BINARY_FULL, cli::paths::*, lessfilter::Preset, utils::serde::escaped_opt_char};
+use crate::{cli::BINARY_FULL, cli::paths::*, lessfilter::Preset};
 use crate::{
     cli::paths::{lz_path, pager_path},
     db::zoxide::DbConfig,
@@ -53,9 +53,6 @@ pub struct GlobalConfig {
 
     #[serde(default)]
     pub fd: FdConfig,
-
-    #[serde(default)]
-    pub current: CurrentConfig,
 
     #[serde(default)]
     pub panes: PanesConfig,
@@ -137,13 +134,15 @@ impl Default for MiscConfig {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
+/// Not recommended to change.
 pub struct InterfaceConfig {
     pub alt_accept: bool,
+    pub no_multi: bool,
     pub advance_cmd: String,
     pub cwd_prompt: String,
     // When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
-    pub toast_on_empty: bool,
+    pub toast_on_empty: bool, // todo
 
     // experimental
     pub default_sort: Option<SortOrder>,
@@ -154,6 +153,7 @@ impl Default for InterfaceConfig {
     fn default() -> Self {
         Self {
             alt_accept: false,
+            no_multi: false,
             always_paste: false,
             advance_cmd: Preset::Edit.to_command_string(),
             default_sort: None,
@@ -277,14 +277,14 @@ pub struct FsConfig {
     pub rename_policy: RenamePolicy,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct CurrentConfig {
-    pub no_multi: bool,
+// #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+// #[serde(default, deny_unknown_fields)]
+// pub struct CurrentConfig {
+//     pub render_script: Option<String>,
 
-    #[serde(default, deserialize_with = "escaped_opt_char")]
-    pub delimiter: Option<char>,
-}
+//     #[serde(deserialize_with = "escaped_opt_char")]
+//     pub delimiter: Option<char>,
+// }
 
 impl GlobalConfig {
     pub fn db_path(&self) -> PathBuf {

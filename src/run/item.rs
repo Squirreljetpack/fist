@@ -73,6 +73,16 @@ impl PathItem {
             tail: Text::from(entry.alias),
         }
     }
+
+    // q: can compiler know to skip the initial render invocation
+    pub fn override_rendered(
+        &mut self,
+        rendered: Text<'static>,
+    ) -> &mut Self {
+        self.rendered = rendered;
+        self
+    }
+
     /// cwd is used for reductions in rendering
     pub fn new_unchecked(
         path: PathBuf,
@@ -114,8 +124,11 @@ impl PathItem {
         }
     }
 
-    pub fn default_() -> Self {
-        PathItem::new_unchecked(crate::cli::paths::cwd().into(), crate::cli::paths::cwd())
+    pub fn _uninit() -> Self {
+        PathItem::new_unchecked(
+            crate::cli::paths::__cwd().into(),
+            crate::cli::paths::__cwd(),
+        )
     }
 
     // pub fn new_cwd(cwd: PathBuf) -> Self {
@@ -247,7 +260,7 @@ impl Eq for PathItem {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::paths::{cwd, home_dir};
+    use crate::cli::paths::{__cwd, home_dir};
     use crate::ui::global::global_ui_init;
     use crate::ui::styles_config::{PathDisplayConfig, StyleConfig};
     use std::path::Path;
@@ -275,7 +288,7 @@ mod tests {
         // be false for the paths constructed here.
 
         let home = home_dir();
-        let cwd = cwd();
+        let cwd = __cwd();
 
         // A logical path inside the current working directory.
         let path_in_cwd = cwd.join("src").join("main.rs");

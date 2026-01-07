@@ -2,6 +2,11 @@
 
 Platform specific feature flags for dependencies
 
+# Docs
+
+- Intro guide
+- FS_OPTS
+
 # Panes
 
 Nav: - search depth
@@ -10,6 +15,7 @@ pane settings need to be applied not just on startup
 When entering non-nav, cursor should enter prompt
 
 # Execute
+
 Enter a terminal (works), and return to fs on ctrl-c (asking a bit much?)
 mini terminal?
 lowpri: Preview command also needs to switch cwd if there is an efficient way
@@ -19,7 +25,9 @@ lowpri: Preview command also needs to switch cwd if there is an efficient way
 - (alt)0-9 to accept? Feature is in but not sure what is a good default/behavior for this.
 
 # Lessfilter (lowpri)
+
 - Previewer Formats
+
   - chafa
   - format
   - pdf/epub
@@ -30,12 +38,14 @@ lowpri: Preview command also needs to switch cwd if there is an efficient way
   - prettier + tmp file formatting isn't hard but maybe out of scope?
 
 Image rendering
+
 - lowpri
 - ratatui-image doesn't seem very reliable, we may have to do it manually, maybe check out yazi
 - scaling
 
 Better support for some of the modes
-- 
+
+-
 
 # Db
 
@@ -48,6 +58,7 @@ Better support for some of the modes
 - Debounce rerenders to avoid showing 0 items
 
 # Rg
+
 - how to display it comfortably?
 - Allow configuring tokens from actions
 
@@ -98,9 +109,16 @@ Per-pane extensions:
 # Low pri
 
 - watcher can potentially lose events due to sleep. (i.e. trash) But we only want a single dispatch for each simultaneous event. Is there an edge-trigger mode?
-
-error on empty?
+- undo redo on file actions (copy/etc.)
+  error on empty?
+- async push for display_script
 
 # Scripts
 
 we have some zsh specific scripts, posix/something crossplatform would be better.
+
+# UI
+...
+
+# CLI
+better cli/env var handling: need a proc macro to generate a mirrored with every concrete value wrapped in option, then a fn to merge that config into the main config

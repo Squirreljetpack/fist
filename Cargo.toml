@@ -49,6 +49,7 @@ image = { version = "0.25", default-features = false, features = [] }
 arrayvec = { version = "0.7", features = ["serde"] }
 shell-words = "1.1.1"
 charset-normalizer-rs = "1.1.0"
+ansi-to-tui = "8.0.0"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

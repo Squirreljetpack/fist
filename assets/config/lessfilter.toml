@@ -1,49 +1,47 @@
-infer = true
-
 # Documentation: todo
 # in event of a tie, last one wins.
 [rules]
-default = [
-  [["Metadata"], ["1|*/*"]],
-  [["Image"], ["1|image/*"]],
-  [["Text"], ["1|text/*"]],
-  [["Directory"], ["1|directory/*"]],
-  [
-    ["Metadata"],
+  default=[
+    [["Metadata"], ["1|*/*"]],
+    [["Image"], ["1|image/*"]],
+    [["Text"], ["1|text/*"]],
+    [["Directory"], ["1|directory/*"]],
     [
-      "1|application/zip",
-      "1|application/x-tar",
-      "1|application/x-gzip",
-      "1|application/x-bzip2",
-      "1|application/x-xz",
-      "1|.zip",
-      "1|.tar",
-      "1|.gz",
-      "1|.bz2",
-      "1|.xz",
+      ["Metadata"],
+      [
+        "1|application/zip",
+        "1|application/x-tar",
+        "1|application/x-gzip",
+        "1|application/x-bzip2",
+        "1|application/x-xz",
+        "1|.zip",
+        "1|.tar",
+        "1|.gz",
+        "1|.bz2",
+        "1|.xz",
+      ],
     ],
-  ],
-]
-preview = [
-  [["sqlite"], ["application/vnd.sqlite3"]],
-]
+  ]
+  preview=[
+    [["sqlite"], ["application/vnd.sqlite3"]],
+  ]
 
-edit = []
+  edit=[]
 
-display = []
+  display=[]
 
-extended = []
+  extended=[]
 
-info = []
+  info=[]
 
-open = []
+  open=[]
 
-alternate = [
-  [["none"], ["*/*"]],
-]
+  alternate=[
+    [["none"], ["*/*"]],
+  ]
 
 [actions]
-sqlite = '''
+  sqlite='''
 have() {
     command -v "$1" >/dev/null 2>&1
 }

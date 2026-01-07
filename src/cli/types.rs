@@ -82,11 +82,12 @@ impl From<NavCli> for Cli {
 #[derive(Debug, Parser, Default, Clone)]
 pub struct CliOpts {
     /// + verbosity
-    #[arg(short, global = true, action = ArgAction::Count)]
-    pub verbose: u8,
-    /// - verbosity
-    #[arg(short, global = true, action = ArgAction::Count)]
-    pub quiet: u8,
+    #[arg(long, global = true, default_value_t = 2)]
+    pub verbosity: u8,
+
+    /// config override
+    #[arg(long = "override", global = true, value_name = "PATH")]
+    pub config_override: Option<String>,
     /// config path
     #[arg(long, global = true, value_name = "PATH")]
     pub config: Option<PathBuf>,
@@ -106,7 +107,8 @@ Otherwise, this WILL OVERWRITE your main config."#
 
 impl CliOpts {
     pub fn verbosity(&self) -> u8 {
-        (2 + self.verbose).saturating_sub(self.quiet)
+        // (2 + self.verbose).saturating_sub(self.quiet)
+        self.verbosity
     }
 }
 
@@ -246,6 +248,12 @@ pub struct DefaultCommand {
     pub fd: Vec<OsString>,
     #[arg(long)]
     pub list: bool,
+    /// Never stream input from stdin.
+    #[arg(long, default_value_t)]
+    pub no_read: bool,
+    /// Template to format the list output as
+    #[arg(long)]
+    pub list_fmt: Option<String>,
     /// print the first match.
     #[arg(long)]
     pub cd: bool,

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::abspath::AbsPath;
-use crate::cli::paths::cwd;
+use crate::cli::paths::__cwd;
 use crate::fs::{auto_dest, create_all, rename};
 use crate::run::fsaction::FsAction;
 use crate::run::globals::{GLOBAL, TEMP, TOAST};
@@ -192,7 +192,7 @@ impl MenuOverlay {
             config,
             prompt_kind: None,
             prompt: PromptOverlay::new(prompt_config),
-            item: PathItem::default_(),
+            item: PathItem::_uninit(),
             items,
         }
     }

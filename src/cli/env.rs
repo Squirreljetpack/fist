@@ -1,19 +1,21 @@
-use cli_boilerplate_automation::{bait::ResultExt, bog::BogOkExt, ebog};
+use cli_boilerplate_automation::{
+    bait::ResultExt, bog::BogOkExt, ebog, text::parse_next_escape, wbog,
+};
 
-use crate::utils::text::split_shell_like;
+use crate::utils::text::split_whitespace_keep_single_quotes;
 
 #[derive(Debug, Default)]
 pub struct EnvOpts {
     pub ancestor: Option<usize>,
     pub opener: Option<String>,
+    pub display: Option<String>,
+    pub delim: Option<char>,
 }
 
 impl EnvOpts {
     pub fn init() -> Option<Self> {
-        let raw = std::env::var("FS_OPTS")._dbog()?;
-        log::debug!("FS_OPTS: {raw}");
-
-        let tokens = split_shell_like(&raw);
+        let raw = std::env::var("FS_OPTS").ok()?;
+        let tokens = split_whitespace_keep_single_quotes(&raw);
 
         let mut ret = Self::default();
 
@@ -32,6 +34,29 @@ impl EnvOpts {
                 }
                 "opener" => {
                     ret.opener = Some(v.to_string());
+                }
+                "display" => {
+                    ret.display = Some(v.to_string());
+                }
+                "delim" => {
+                    log::debug!("{v}, {}", v.len());
+                    let mut chars = v.chars();
+                    match chars.next() {
+                        Some('\\') => match parse_next_escape(&mut chars) {
+                            Ok(c) => ret.delim = Some(c),
+                            Err(orig) => {
+                                wbog!("Invalid escape for delimiter: {v}");
+                            }
+                        },
+                        Some(c) => {
+                            if chars.next().is_some() {
+                                wbog!("Multi-character delimiter was ignored");
+                            } else {
+                                ret.delim = Some(c)
+                            }
+                        }
+                        None => {}
+                    }
                 }
                 _ => {
                     ebog!("Unknown FS_OPTS key: {k}");

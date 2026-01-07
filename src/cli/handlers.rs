@@ -5,6 +5,7 @@ use cli_boilerplate_automation::{
 };
 use globset::GlobBuilder;
 use std::{
+    env::{current_dir, set_current_dir},
     path::PathBuf,
     process::{Command, exit},
 };
@@ -20,7 +21,7 @@ use cli_boilerplate_automation::{
 
 use super::{
     matchmaker::mm_get,
-    paths::{config_path, current_exe, cwd, home_dir, lessfilter_cfg_path, lz_path, mm_cfg_path},
+    paths::{__cwd, config_path, current_exe, home_dir, lessfilter_cfg_path, lz_path, mm_cfg_path},
     tool_types::*,
     types::*,
 };
@@ -46,7 +47,9 @@ use crate::{
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
-    utils::{colors::display_ratatui_colors, filetypes::FileType, path::paths_base},
+    utils::{
+        colors::display_ratatui_colors, filetypes::FileType, path::paths_base, text::path_formatter,
+    },
 };
 // #[ext(CliResultExt)]
 // impl Result<(), CliError> {
@@ -78,7 +81,7 @@ async fn handle_open(
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
         *APP::TO_OPEN.lock().unwrap() = cmd.files;
-        cfg.global.current.no_multi = true;
+        cfg.global.interface.no_multi = true;
         let pane = FsPane::new_launch();
 
         let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
@@ -188,7 +191,7 @@ async fn handle_dirs(
         // fallback to interactive if no match
         // todo: numbers on side to select
         cfg.global.interface.alt_accept = true;
-        cfg.global.current.no_multi = true;
+        cfg.global.interface.no_multi = true;
         TEMP::set_initial_relative_path(cfg.styles.path.relative);
         cfg.styles.path.relative = false;
     } else if let Some(all) = cmd.list {
@@ -247,17 +250,15 @@ async fn handle_default(
     }
     // _dbg!(cli, cmd, cfg);
     let pool = Pool::new(cfg.db_path()).await?;
-    let pane = if !atty::is(atty::Stream::Stdin) {
-        FsPane::new_stream(AbsPath::new_unchecked(cwd().to_path_buf()), cmd.vis)
-    } else
-    // if any args are specified
-    if cmd.cd {
+    let pane = if !atty::is(atty::Stream::Stdin) && !cmd.no_read {
+        FsPane::new_stream(AbsPath::new_unchecked(__cwd().to_path_buf()), cmd.vis)
+    } else if cmd.cd {
         cmd.paths.append(&mut cmd.fd); // fd is not supported
         cfg.global.interface.alt_accept = true;
-        cfg.global.current.no_multi = true;
+        cfg.global.interface.no_multi = true;
         cfg.db.show_missing = false;
 
-        let cwd = AbsPath::new_unchecked(cwd());
+        let cwd = AbsPath::new_unchecked(__cwd());
         FsPane::new_fd_from_command(cmd, cwd)
     } else
     // any fd arg is specified
@@ -271,9 +272,10 @@ async fn handle_default(
             // last item is a pattern
             AbsPath::new_unchecked(
                 if cfg.global.fd.default_search_in_home {
+                    set_current_dir(home_dir())._elog();
                     home_dir()
                 } else {
-                    cwd()
+                    __cwd()
                 }
                 .to_path_buf(),
             )
@@ -281,14 +283,17 @@ async fn handle_default(
             if !cmd.fd.iter().any(|x| x == "--glob" || x == "-g") {
                 cmd.paths.push(".".into()); // match all pattern
             }
-            AbsPath::new_unchecked(cwd().to_path_buf())
+            AbsPath::new_unchecked(__cwd().to_path_buf())
         } else {
-            AbsPath::new(if cfg.global.fd.reduce_paths {
+            AbsPath::new_unchecked(if cfg.global.fd.reduce_paths {
                 paths_base(&cmd.paths[0..cmd.paths.len() - 1])
             } else {
-                cmd.paths.remove(0).into()
+                cmd.paths.remove(0).abs(current_dir().__ebog())
             })
         };
+        set_current_dir(&cwd)
+            .prefix(format!("Failed to enter {}", cwd.to_string_lossy()))
+            .__ebog();
 
         let mut conn = pool.get_conn(DbTable::dirs).await?;
         // spawn cost is 1 microsecond
@@ -309,20 +314,32 @@ async fn handle_default(
                 ),
             );
 
-            let stdout = match Command::new(prog)
-                .args(args)
-                .current_dir(&cwd)
-                .spawn_piped()
-                ._ebog()
-            {
+            let stdout = match Command::new(prog).args(args).spawn_piped()._ebog() {
                 Some(s) => s,
                 None => return Err(CliError::Handled),
             };
 
             let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
                 let path = PathBuf::from(line);
-                if cmd.vis.filter(&path) {
-                    prints!(path.to_string_lossy())
+                let mut push = true;
+                // most checks were already handled by fd
+                if cmd.vis.hidden_files && path.is_hidden() {
+                    if cmd.vis.dirs {
+                        push = path.is_dir();
+                    } else {
+                        push = !path.is_dir()
+                    }
+                };
+                if !cmd.vis.all() {
+                    push = path.exists()
+                }
+                if push {
+                    if let Some(template) = &cmd.list_fmt {
+                        let s = path_formatter(template, &AbsPath::new(path));
+                        prints!(s)
+                    } else {
+                        prints!(path.to_string_lossy())
+                    }
                 }
                 Ok(())
             });
@@ -337,7 +354,7 @@ async fn handle_default(
         }
 
         if cmd.list {
-            let iter = list_dir(cwd(), cmd.vis, 1); // cwd is abs so we can add results as unchecked
+            let iter = list_dir(__cwd(), cmd.vis, 1); // cwd is abs so we can add results as unchecked
             let sort = sort.unwrap_or_default();
 
             match sort {
@@ -363,7 +380,7 @@ async fn handle_default(
             return Ok(());
         };
         FsPane::new_nav(
-            AbsPath::new_unchecked(cwd()),
+            AbsPath::new_unchecked(__cwd()),
             vis,
             sort.unwrap_or(cfg.global.panes.nav.default_sort),
         )
