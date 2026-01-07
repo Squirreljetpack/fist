@@ -11,6 +11,7 @@ use matchmaker::{
     nucleo::{Color, Indexed, Modifier, Span, Style},
     render::{Effect, Effects},
 };
+use tokio::task::spawn_blocking;
 
 use crate::{
     abspath::AbsPath,
@@ -72,9 +73,9 @@ pub enum FsAction {
     /// Display current filters.
     Filters,
     /// Display the current stack.
-    Stack,
+    Stash,
     /// Clear the stack.
-    ClearStack,
+    ClearStash,
 
     /// Show all* available actions on the current item(s).
     /// (E to interact).
@@ -99,10 +100,13 @@ pub enum FsAction {
     CopyPath,
     /// Create a new file. (todo)
     New,
+    /// Create a new directory. (todo)
+    NewDir,
     /// Stash file (to stack) in Symlink mode.
     Symlink,
-    /// Save the file to the backup directory. (todo)
-    Backup,
+    /// Save the file to the backup directory.
+    /// On the prompt, this invokes [Preset::Alternate].
+    Backup, // the extra behavior is a bit weird, dunno how to handle.
     /// Delete the file using system trash.
     Trash,
     /// Permanently delete the file. (todo: confirmation).
@@ -110,7 +114,13 @@ pub enum FsAction {
     /// Paste all stack items into the current or specified directory
     Paste(PathBuf), // dump Stack
     /// Execute according to [`crate::lessfilter::RulesConfig`]
-    Handler(Preset, bool),
+    Handler(Preset, bool, Option<bool>),
+
+    // other
+    // --------------------------------------------
+    /// Jump and accept
+    /// 0 jumps to menu
+    AutoJump(u8),
 }
 // print, accept
 
@@ -276,7 +286,7 @@ pub fn fsaction_aliaser(
 
                     acs![Action::Execute(GLOBAL::with_cfg(|c| c
                         .interface
-                        .advance_cmd
+                        .advance_command
                         .clone())),]
                 } else {
                     acs![]
@@ -311,7 +321,7 @@ pub fn fsaction_aliaser(
                 acs![]
             }
             //  ------------- Overlay aliases --------------
-            FsAction::Stack => {
+            FsAction::Stash => {
                 acs![Action::Overlay(0)]
             }
             FsAction::Filters => {
@@ -330,7 +340,11 @@ pub fn fsaction_aliaser(
             // FsAction::Category => {
             //     acs![Action::Overlay(3)]
             // }
-            FsAction::Handler(p, page) => {
+            FsAction::Backup if state.picker_ui.results.cursor_disabled => {
+                let cmd = Preset::Alternate.to_command_string();
+                acs![Action::Execute(cmd)]
+            }
+            FsAction::Handler(p, page, header) => {
                 let mut cmd = p.to_command_string();
                 if page {
                     let pp = else_default!(
@@ -343,6 +357,31 @@ pub fn fsaction_aliaser(
                     cmd.push_str(pp);
                 }
                 acs![Action::Execute(cmd)]
+            }
+
+            FsAction::AutoJump(digit) => {
+                if raw_input {
+                    let c = (b'0' + (digit % 10)) as char;
+                    acs![Action::Input(c)]
+                } else if digit > 0 {
+                    if !raw_input && GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                        // todo, probably redesign this action
+                        acs![
+                            Action::Pos((digit - 1) as i32),
+                            Action::Print("{=}".into()),
+                            Action::Quit(0.into())
+                        ]
+                    } else {
+                        acs![Action::Pos((digit - 1) as i32), Action::Accept]
+                    }
+                } else if ENTERED_PROMPT
+                    .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
+                    .is_ok()
+                {
+                    acs![Action::Custom(FsAction::EnterPrompt(true))]
+                } else {
+                    acs![]
+                }
             }
             _ => acs![Action::Custom(fa)],
         },
@@ -387,7 +426,26 @@ pub fn fsaction_aliaser(
                         .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
                         .is_ok()
                 {
-                    acs![Action::Custom(FsAction::EnterPrompt(false))]
+                    if i > 1 {
+                        acs![
+                            Action::Custom(FsAction::EnterPrompt(false)),
+                            Action::Down((i - 1).into())
+                        ]
+                    } else {
+                        acs![Action::Custom(FsAction::EnterPrompt(false))]
+                    }
+                } else {
+                    acs![a]
+                }
+            }
+            Action::Pos(_) => {
+                if state.overlay_index.is_none()
+                    && state.picker_ui.results.cursor_disabled
+                    && ENTERED_PROMPT
+                        .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
+                        .is_ok()
+                {
+                    acs![Action::Custom(FsAction::EnterPrompt(false)), a]
                 } else {
                     acs![a]
                 }
@@ -398,13 +456,17 @@ pub fn fsaction_aliaser(
             // The intention is to feed into a shell function
             // Might make more sense as a custom action
             Action::Print(ref s) if s.is_empty() => {
-                if state.picker_ui.results.cursor_disabled
+                if state.overlay_index.is_some() {
+                    return acs![Action::Accept];
+                } else if state.picker_ui.results.cursor_disabled
                     && let Some(p) = STACK::cwd()
                 {
+                    // print cwd
                     let s = p.to_string_lossy().to_string();
                     GLOBAL::db().bump(true, p);
                     PRINT_HANDLE.with(|x| x.push(s));
                 } else {
+                    // print selected
                     state.map_selected_to_vec(|item| {
                         let s = item.display().to_string();
                         GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
@@ -443,6 +505,12 @@ pub fn fsaction_aliaser(
                     }
                 }
             }
+            Action::Reload(s)
+                if s.is_empty() && STACK::with_current(|c| matches!(c, FsPane::Stream { .. })) =>
+            {
+                TOAST::push_msg("Cannot reload streams", false);
+                acs![]
+            }
             _ => acs![a],
         },
     }
@@ -460,21 +528,31 @@ pub fn fsaction_handler(
 
             // set prompt
             if enter {
-                if let Some(cwd) = STACK::cwd() {
+                let prompt = if let Some(cwd) = STACK::cwd() {
                     let content = format_cwd_prompt(
                         &GLOBAL::with_cfg(|c| c.interface.cwd_prompt.clone()),
                         &cwd,
                     );
-                    let prompt = Span::styled(
+                    Span::styled(
                         content,
                         Style::default()
                             .fg(Color::Blue)
                             .add_modifier(Modifier::ITALIC),
-                    );
-                    efx![Effect::DisableCursor(enter), Effect::Prompt(prompt)]
+                    )
                 } else {
-                    efx![]
-                }
+                    let content = state.picker_ui.input.config.prompt.clone();
+                    Span::styled(
+                        content,
+                        Style::default()
+                            .fg(Color::Blue)
+                            .add_modifier(Modifier::ITALIC),
+                    )
+                };
+                efx![
+                    Effect::SetIndex(0),
+                    Effect::DisableCursor(enter),
+                    Effect::Prompt(prompt)
+                ]
             } else {
                 efx![
                     Effect::DisableCursor(enter),
@@ -536,22 +614,31 @@ pub fn fsaction_handler(
             state.map_selected_to_vec(|s| {
                 items.push(s.path.inner());
             });
-            tokio::spawn(async {
-                for i in items {
-                    match trash::delete(&i) {
+            // not heavy computationally, but still blocking...
+            spawn_blocking(|| {
+                for path in items {
+                    match trash::delete(&path) {
                         Ok(()) => {
-                            TOAST::push(ToastStyle::Success, "Trashed: ", [short_display(&i)]);
+                            TOAST::push(ToastStyle::Success, "Trashed: ", [short_display(&path)]);
                         }
                         Err(e) => {
+                            log::error!("Failed to trash {}: {e}", path.to_string_lossy());
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Failed to trash: ",
-                                [short_display(&i)],
+                                [short_display(&path)],
                             );
                         }
                     }
                 }
             });
+            efx![]
+        }
+        FsAction::New => {
+            efx![]
+        }
+        FsAction::NewDir => {
+            // todo: launch menu overlay
             efx![]
         }
         FsAction::Delete => {
@@ -561,22 +648,23 @@ pub fn fsaction_handler(
             });
 
             tokio::spawn(async move {
-                for i in items {
-                    let result = if i.is_dir() {
-                        std::fs::remove_dir_all(&i)
+                for path in items {
+                    let result = if path.is_dir() {
+                        tokio::fs::remove_dir_all(&path).await
                     } else {
-                        std::fs::remove_file(&i)
+                        tokio::fs::remove_file(&path).await
                     };
 
                     match result {
                         Ok(()) => {
-                            TOAST::push(ToastStyle::Success, "Deleted: ", [short_display(&i)]);
+                            TOAST::push(ToastStyle::Success, "Deleted: ", [short_display(&path)]);
                         }
                         Err(e) => {
+                            log::error!("Failed to delete {}: {e}", path.to_string_lossy());
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Failed to delete: ",
-                                [short_display(&i)],
+                                [short_display(&path)],
                             );
                         }
                     }
@@ -616,7 +704,7 @@ pub fn fsaction_handler(
             STASH::transfer_all(&base, true);
             efx![]
         }
-        FsAction::ClearStack => {
+        FsAction::ClearStash => {
             STASH::clear_invalid_and_completed();
             TOAST::push_notice(ToastStyle::Normal, "Stack cleared");
             efx![]

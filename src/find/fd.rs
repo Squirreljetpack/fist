@@ -3,7 +3,7 @@ use std::{ffi::OsString, path::PathBuf};
 use cli_boilerplate_automation::{vec_, wbog};
 
 use crate::{
-    cli::paths::{cwd, home_dir},
+    cli::paths,
     config::FdConfig,
     filters::{SortOrder, Visibility},
     utils::{categories::FileCategory, filetypes::FileType},
@@ -96,8 +96,6 @@ pub fn build_fd_args(
         }
     }
 
-    let cwd = cwd().to_path_buf();
-
     // add vis flags
     if vis.all() {
         ret.push("--hidden".into());
@@ -128,11 +126,11 @@ pub fn build_fd_args(
                 .cloned()
                 .unwrap_or_else(default_exclusions);
 
-            if cwd == home_dir() {
+            if paths::__cwd() == paths::home_dir() {
                 if let Some(excls) = cfg.exclusions.get(&PathBuf::from("~")) {
                     exclusions.extend(excls.iter().cloned());
                 }
-            } else if let Some(excls) = cfg.exclusions.get(&cwd) {
+            } else if let Some(excls) = cfg.exclusions.get(paths::__cwd()) {
                 exclusions.extend(excls.iter().cloned());
             }
 
@@ -145,12 +143,13 @@ pub fn build_fd_args(
         }
     }
 
-    // add search paths
+    // pattern is the last arg
     if let Some(pattern) = paths.last() {
         ret.push("--and".into());
         ret.push(pattern.clone());
     }
 
+    // add search paths
     for p in &paths[..paths.len().saturating_sub(1)] {
         ret.push("--search-path".into());
         ret.push(p.clone());

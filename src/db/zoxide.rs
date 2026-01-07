@@ -1,44 +1,108 @@
 use chrono::Utc;
-use cli_boilerplate_automation::impl_transparent_wrapper;
+use cli_boilerplate_automation::{
+    bait::ResultExt, bog::BogOkExt, impl_transparent_wrapper, prints,
+};
 use std::path::Path;
 
-use crate::db::{Entry, Epoch};
+use crate::db::{Connection, DbSortOrder, Entry, Epoch};
 
-/// s2 maps monotonically and injectively into s1
-fn is_monotonic_substring(
-    s1: &str,
-    s2: &str,
-) -> bool {
-    let mut prev_index = 0;
-    let s1_chars: Vec<char> = s1.chars().collect();
-
-    for c in s2.chars() {
-        let mut found = false;
-        while prev_index < s1_chars.len() {
-            if s1_chars[prev_index] == c {
-                found = true;
-                prev_index += 1;
-                break;
-            }
-            prev_index += 1;
-        }
-        if !found {
-            return false;
-        }
-    }
-    true
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct DbConfig {
+    /// Ignore files matching these globs
     pub exclude: Vec<String>,
-    pub filter_missing: bool,
-    pub remove_missing: bool,
-    pub resolve_symlinks: bool,
-    pub filter_before: TtlDays,
-    pub base_dir: Option<String>,
+    /// Whether to show missing files in queries.
+    /// This is set to false by the binary when called with the "--cd" flag.
+    pub show_missing: bool,
+    /// Lazily remove nonexistant entries older than this many days
+    pub missing_expiry: TtlDays,
+
+    /// Lazily remove entries older than this many days
+    pub atime_expiry: TtlDays,
+
+    /// What to do when the best match by [`crate::db::Connection::print_best_by_frecency`] is the current directory
     pub refind: RetryStrat,
+
+    /// Whether to save resolved paths (todo)
+    pub resolve_symlinks: bool,
+    /// Experimental
+    pub base_dir: Option<String>,
+}
+
+impl Default for DbConfig {
+    fn default() -> Self {
+        Self {
+            exclude: Default::default(),
+            show_missing: Default::default(),
+            missing_expiry: TtlDays(7),
+            resolve_symlinks: Default::default(),
+            atime_expiry: Default::default(),
+            base_dir: Default::default(),
+            refind: Default::default(),
+        }
+    }
+}
+
+impl Connection {
+    /// some optimizations on the [`Self::get_entries`] for faster printing
+    /// Abuses RetryStrat as a signal: Next => Success, None => NoMatch
+    pub async fn print_best_by_frecency(
+        mut self,
+        db_filter: &DbFilter,
+    ) -> RetryStrat {
+        let mut remove = Vec::new();
+        let mut found = None;
+
+        let mut entries = self
+            .get_entries_range(0, 0, DbSortOrder::none)
+            .await
+            .__ebog();
+
+        entries.sort_by_key(|e| std::cmp::Reverse(db_filter.score(e)));
+
+        for e in entries {
+            match db_filter.filter(&e.path, e.atime) {
+                None => {
+                    remove.push(e.path.clone());
+                }
+                Some(true) => {
+                    if let Ok(cwd) = std::env::current_dir()
+                        && cwd.as_path() == e.path.as_path()
+                    {
+                        match db_filter.refind {
+                            RetryStrat::Next => continue,
+                            RetryStrat::None => {}
+                            RetryStrat::Search => {
+                                if !remove.is_empty() {
+                                    tokio::spawn(async move {
+                                        self.remove_entries(&remove).await._elog();
+                                    });
+                                }
+                                return RetryStrat::Search;
+                            }
+                        }
+                    };
+                    prints!(e.path.to_string_lossy());
+                    found = Some(e.path);
+                    break;
+                }
+                Some(false) => {}
+            }
+        }
+
+        if let Some(p) = found.as_ref() {
+            self.bump(p, 1).await._elog();
+        };
+        if !remove.is_empty() {
+            self.remove_entries(&remove).await._elog();
+        }
+
+        if found.is_some() {
+            RetryStrat::Next
+        } else {
+            RetryStrat::None
+        }
+    }
 }
 
 #[derive(Default, Copy, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -57,13 +121,13 @@ pub enum RetryStrat {
 #[derive(Debug, Clone)]
 pub struct DbFilter {
     now: Epoch,
-    keywords: Vec<String>,
+    pub keywords: Vec<String>,
     // exclude: GlobSet,
-    filter_before: Epoch,
+    atime_expiration: Epoch,
 
-    filter_missing: bool,
-    remove_missing: bool,
-    resolve_symlinks: bool,
+    pub show_missing: bool,
+    pub missing_expiration: Epoch,
+    pub resolve_symlinks: bool,
     /// filter_before is stored as epoch seconds
     base_dir: Option<String>,
     pub refind: RetryStrat,
@@ -72,26 +136,34 @@ pub struct DbFilter {
 impl DbFilter {
     pub fn new(config: &DbConfig) -> Self {
         let now = Utc::now().timestamp();
-        let filter_before = now - config.filter_before.0 * 24 * 60 * 60; // convert TTL days to seconds
+        let atime_expiry = now - config.atime_expiry.0 * 24 * 60 * 60; // convert TTL days to seconds
+        let missing_expiry = now - config.missing_expiry.0 * 24 * 60 * 60; // convert TTL days to seconds
 
         DbFilter {
             now,
             keywords: Default::default(),
             // exclude,
-            filter_before,
+            atime_expiration: atime_expiry,
 
-            filter_missing: config.filter_missing,
-            remove_missing: config.remove_missing,
+            show_missing: config.show_missing,
+            missing_expiration: missing_expiry,
             resolve_symlinks: config.resolve_symlinks,
             refind: config.refind,
             base_dir: config.base_dir.clone(),
         }
     }
 
-    pub fn keywords(
+    pub fn with_keywords(
         mut self,
         keywords: Vec<String>,
     ) -> Self {
+        self.keywords = keywords;
+        self
+    }
+    pub fn keywords(
+        &mut self,
+        keywords: Vec<String>,
+    ) -> &mut Self {
         self.keywords = keywords;
         self
     }
@@ -114,7 +186,7 @@ impl DbFilter {
         //     log::debug!("filtered by: exclude");
         //     return Some(false);
         // }
-        if atime <= self.filter_before {
+        if atime <= self.atime_expiration {
             log::debug!("filtered by: atime");
             return None;
         }
@@ -124,7 +196,7 @@ impl DbFilter {
         }
         if !self.filter_by_exists(path) {
             log::debug!("filtered by: exist");
-            return if self.remove_missing {
+            return if atime <= self.missing_expiration {
                 None
             } else {
                 Some(false)
@@ -174,17 +246,18 @@ impl DbFilter {
         &self,
         path: &Path,
     ) -> bool {
-        if !self.filter_missing {
+        if self.show_missing {
             return true;
         }
+        path.exists()
 
-        let resolver = if self.resolve_symlinks {
-            std::fs::symlink_metadata
-        } else {
-            std::fs::metadata
-        };
+        // let resolver = if self.resolve_symlinks {
+        //     std::fs::symlink_metadata
+        // } else {
+        //     std::fs::metadata
+        // };
 
-        resolver(path).map(|meta| meta.is_dir()).unwrap_or(false)
+        // resolver(path).map(|meta| meta.is_dir()).unwrap_or(false)
     }
 
     /// zoxide algorithm with some adjustments:
@@ -249,6 +322,31 @@ impl DbFilter {
 
         true
     }
+}
+
+/// s2 maps monotonically and injectively into s1
+fn is_monotonic_substring(
+    s1: &str,
+    s2: &str,
+) -> bool {
+    let mut prev_index = 0;
+    let s1_chars: Vec<char> = s1.chars().collect();
+
+    for c in s2.chars() {
+        let mut found = false;
+        while prev_index < s1_chars.len() {
+            if s1_chars[prev_index] == c {
+                found = true;
+                prev_index += 1;
+                break;
+            }
+            prev_index += 1;
+        }
+        if !found {
+            return false;
+        }
+    }
+    true
 }
 
 // Transparent wrappers for type safety

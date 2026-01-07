@@ -45,8 +45,9 @@ pub fn current_exe() -> std::ffi::OsString {
         .unwrap_or(BINARY_SHORT.into())
 }
 
-// the absolute current directory
-expr_as_path_fn!(cwd, current_dir().__ebog());
+// the absolute current directory AT INITIALIZATION
+expr_as_path_fn!(__cwd, current_dir().__ebog());
+
 // the absolute home directory, or root
 expr_as_path_fn!(home_dir, dirs::home_dir().unwrap_or(root_dir()));
 
@@ -77,4 +78,3 @@ expr_as_path_fn!(
     cache_dir().join("fist_metadata_viewer")
 );
 expr_as_path_fn!(binary_viewer_path, cache_dir().join("fist_binary_viewer"));
-expr_as_path_fn!(header_viewer_path, cache_dir().join("fist_header_viewer"));

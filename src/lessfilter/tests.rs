@@ -21,7 +21,10 @@ fn get_best_action<'a>(
     path: &Path,
 ) -> Option<&'a Action> {
     let apath = AbsPath::new(path.to_path_buf());
-    let data = FileData::new(apath, true);
+    let test = TestSettings {
+        ..Default::default()
+    };
+    let data = FileData::new(apath, &test);
     rules.get_best_match(path, data).and_then(|arr| arr.first())
 }
 
@@ -106,7 +109,7 @@ fn test_image_file_matching() {
     let extended_action = get_best_action(&rules.extended, &path).unwrap();
     let extended_progs = extended_action.to_progs(&path, Preset::Extended);
     assert_eq!(extended_progs.0.len(), 3);
-    assert_eq!(extended_progs.0[0][0], OsString::from("echo")); // header
+    assert!(extended_progs.0[0].is_empty()); // header
     assert_eq!(extended_progs.0[1][0], OsString::from("chafa")); // image viewer
     assert_eq!(extended_progs.0[2][0], metadata_viewer_path()); // metadata
 }
@@ -154,7 +157,10 @@ fn debug_mime_types() {
     // Empty PNG file
     let empty_png_path = dir.path().join("empty.png");
     File::create(&empty_png_path).unwrap();
-    let empty_png_data = FileData::new(AbsPath::new(empty_png_path.clone()), true);
+    let empty_png_data = FileData::new(
+        AbsPath::new(empty_png_path.clone()),
+        &TestSettings::default(),
+    );
     println!("Empty PNG mime: {:?}", empty_png_data.mime); // Expected: image/png (from extension guess) or application/octet-stream (if infer fails)
 
     // Valid PNG file
@@ -164,7 +170,10 @@ fn debug_mime_types() {
         .unwrap()
         .write_all(&png_header)
         .unwrap();
-    let valid_png_data = FileData::new(AbsPath::new(valid_png_path.clone()), true);
+    let valid_png_data = FileData::new(
+        AbsPath::new(valid_png_path.clone()),
+        &TestSettings::default(),
+    );
     println!("Valid PNG mime: {:?}", valid_png_data.mime); // Expected: image/png
 
     // ELF header (binary)
@@ -173,7 +182,7 @@ fn debug_mime_types() {
         .unwrap()
         .write_all(b"\x7FELF\x02\x01\x01\x00")
         .unwrap();
-    let elf_data = FileData::new(AbsPath::new(elf_path.clone()), true);
+    let elf_data = FileData::new(AbsPath::new(elf_path.clone()), &TestSettings::default());
     println!("ELF mime: {:?}", elf_data.mime); // Expected: application/x-elf or application/octet-stream
 
     // Generic binary
@@ -182,6 +191,9 @@ fn debug_mime_types() {
         .unwrap()
         .write_all(b"\xDE\xAD\xBE\xEF")
         .unwrap();
-    let generic_bin_data = FileData::new(AbsPath::new(generic_bin_path.clone()), true);
+    let generic_bin_data = FileData::new(
+        AbsPath::new(generic_bin_path.clone()),
+        &TestSettings::default(),
+    );
     println!("Generic binary mime: {:?}", generic_bin_data.mime); // Expected: application/octet-stream
 }

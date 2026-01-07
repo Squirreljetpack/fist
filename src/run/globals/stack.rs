@@ -1,6 +1,6 @@
 #![allow(clippy::upper_case_acronyms)]
 
-use std::cell::RefCell;
+use std::{cell::RefCell, env::current_dir};
 
 use log::{self};
 use matchmaker::SSS;
@@ -143,7 +143,7 @@ impl STACK {
     pub fn cwd() -> Option<AbsPath> {
         STACK.with(|cell| {
             let Self { stack, index, .. } = &*cell.borrow();
-            for s in stack[0..*index + 1].iter().rev() {
+            for s in stack[0..=*index].iter().rev() {
                 match s {
                     FsPane::Files { .. } | FsPane::Folders { .. } => {}
                     FsPane::Nav { cwd, .. }
@@ -154,7 +154,11 @@ impl STACK {
                     _ => return None,
                 }
             }
-            None
+            if matches!(stack[*index], FsPane::Files { .. } | FsPane::Folders { .. }) {
+                current_dir().ok().map(AbsPath::new_unchecked)
+            } else {
+                None
+            }
         })
     }
     pub fn nav_cwd() -> Option<AbsPath> {

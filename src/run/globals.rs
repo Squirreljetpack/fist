@@ -15,7 +15,10 @@ use matchmaker::{
     preview::AppendOnly,
     render::{Effect, Effects},
 };
-use ratatui::text::{Line, Span};
+use ratatui::{
+    style::Style,
+    text::{Line, Span},
+};
 use tokio;
 
 use crate::config::GlobalConfig;
@@ -68,7 +71,7 @@ impl TEMP {
         INPUT_BAR_CONTENT.replace((s, Some(p)));
     }
 
-    pub fn set_original_relative_path(relative: bool) {
+    pub fn set_initial_relative_path(relative: bool) {
         ORIGINAL_RELATIVE_PATH.replace(Some(relative));
     }
     pub fn take_original_relative_path() -> Option<bool> {
@@ -106,14 +109,14 @@ impl GLOBAL {
             | FsPane::Fd { sort, .. }
             | FsPane::Stream { sort, .. } => *sort,
             FsPane::Folders { sort, .. } | FsPane::Files { sort, .. } => (*sort).into(),
-            _ => cfg.interface.default_sort.unwrap_or_default(),
+            _ => Default::default(),
         };
         let visibility = match &pane {
             FsPane::Nav { vis, .. }
             | FsPane::Custom { vis, .. }
             | FsPane::Fd { vis, .. }
             | FsPane::Stream { vis, .. } => *vis,
-            _ => cfg.interface.default_visibility.unwrap_or_default(),
+            _ => Default::default(),
         };
         debug!("Initial filters: {sort}, {visibility:?}");
         FILTERS::set(sort, visibility);
@@ -211,6 +214,50 @@ impl TOAST {
         debug!("Clearing {state:?}");
         GLOBAL::send_efx(efx![Effect::ClearFooter]);
     }
+
+    // todo: maintain a counter
+    pub fn push_skipped() {
+        let mut state = TOAST.lock().unwrap();
+
+        const SKIPPED: &str = "Skipped";
+
+        if let Some((_, ToastContent::Line(existing))) = state.iter_mut().find(|(span, content)| {
+            span.content.is_empty()
+                && matches!(
+                    content,
+                    ToastContent::Line(l)
+                    if l.spans.first().map(|s| s.content.starts_with(SKIPPED)) == Some(true)
+                )
+        }) {
+            let first = &existing.spans[0].content;
+
+            let next = if first == SKIPPED {
+                2
+            } else {
+                first
+                    .strip_prefix(SKIPPED)
+                    .and_then(|rest| {
+                        rest.trim_start_matches('(')
+                            .trim_end_matches(')')
+                            .parse::<usize>()
+                            .ok()
+                    })
+                    .map(|n| n + 1)
+                    .unwrap_or(2)
+            };
+
+            existing.spans[0] =
+                Span::styled(format!("{SKIPPED} ({next})"), Style::new().dim().italic());
+        } else {
+            let prefix_span = Span::raw("");
+            let line = Line::from(Span::styled(SKIPPED, Style::new().dim().italic()));
+            state.push((prefix_span, ToastContent::Line(line)));
+        }
+
+        let toast = make_toast(&state);
+        GLOBAL::send_efx(efx![Effect::Footer(toast)]);
+    }
+
     pub fn clear_msgs() {
         let mut state = TOAST.lock().unwrap();
 
@@ -264,7 +311,8 @@ impl TOAST {
         GLOBAL::send_efx(efx![Effect::Footer(toast)]);
     }
 
-    /// Push a message with empty prefix
+    /// Push a message with empty prefix.
+    /// `replace = true` clears all previous messages of this type.
     pub fn push_msg(
         line: impl Into<Line<'static>>,
         replace: bool,
@@ -272,9 +320,7 @@ impl TOAST {
         let mut state = TOAST.lock().unwrap();
 
         if replace {
-            if let Some(pos) = state.iter().position(|(span, _)| span.content.is_empty()) {
-                state.remove(pos);
-            }
+            state.retain(|(prefix, _)| !prefix.content.is_empty());
         }
 
         let prefix_span = Span::raw("");
@@ -288,8 +334,7 @@ impl TOAST {
         msg: impl Into<std::borrow::Cow<'static, str>>,
     ) {
         let mut state = TOAST.lock().unwrap();
-        let prefix: &'static str = style.into();
-        let prefix_span = Span::styled(prefix, style.to_style());
+        let prefix_span = Span::styled(format!("{style}: "), style.to_style());
         state.push((prefix_span, ToastContent::Line(msg.into().into())));
 
         let toast = make_toast(&state);

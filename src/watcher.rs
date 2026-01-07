@@ -2,6 +2,7 @@ use crate::run::fsaction::FsAction;
 use matchmaker::{action::Action, event::RenderSender, message::RenderCommand, render::Effect};
 use notify::{
     Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher,
+    event::ModifyKind,
 };
 use std::{
     path::PathBuf,
@@ -75,7 +76,9 @@ impl FsWatcher {
                 move |res: Result<Event, notify::Error>| {
                     if let Ok(event) = res {
                         match event.kind {
-                            EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_) => {
+                            EventKind::Create(_)
+                            | EventKind::Modify(ModifyKind::Name(_))
+                            | EventKind::Remove(_) => {
                                 log::debug!("WatcherEvent: {:?}", event.kind);
 
                                 // todo: async to preserve last event

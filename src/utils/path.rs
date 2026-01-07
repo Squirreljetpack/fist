@@ -1,12 +1,14 @@
-use crate::cli::paths::cwd;
-use cli_boilerplate_automation::bath::PathExt;
-use std::path::PathBuf;
+use cli_boilerplate_automation::{bath::PathExt, bog::BogOkExt};
+use std::{env::current_dir, path::PathBuf};
 
 pub fn paths_base<P>(paths: impl IntoIterator<Item = P>) -> PathBuf
 where
     P: AsRef<std::path::Path>,
 {
-    let mut iter = paths.into_iter().map(|p| p.as_ref().abs(cwd())).peekable();
+    let mut iter = paths
+        .into_iter()
+        .map(|p| p.as_ref().abs(current_dir().__ebog()))
+        .peekable();
 
     let first = match iter.peek() {
         Some(p) => p.clone(),

@@ -1,5 +1,6 @@
 mod program;
 use std::ffi::OsString;
+pub mod utils;
 
 use crate::abspath::AbsPath;
 use cli_boilerplate_automation::bog::BogOkExt;
@@ -9,6 +10,8 @@ pub use program::*;
 use crate::db::{Connection, DbTable};
 use crate::errors::CliError;
 
+/// # note
+/// Relative paths are resolved relative to the initial cwd
 pub async fn open_wrapped(
     mut conn: Connection,
     prog: Option<Program>,

@@ -58,7 +58,6 @@ pub trait Test<I: ?Sized> {
     ) -> bool;
 }
 
-// todo: rayon?
 impl<T, A> RuleMatcher<T, A> {
     pub fn new() -> Self {
         Self { rules: Vec::new() }
@@ -79,6 +78,7 @@ impl<T, A> RuleMatcher<T, A> {
     /// - last one wins in tie
     /// - 0 score does not count
     /// - Early exit on 255
+    #[cfg(not(test))]
     pub fn get_best_match<I: ?Sized>(
         &self,
         item: &I,
@@ -86,14 +86,7 @@ impl<T, A> RuleMatcher<T, A> {
     ) -> Option<&A>
     where
         T: Test<I>,
-        A: Debug,
-        I: Debug,
-        T::Context: Debug,
     {
-        #[cfg(test)]
-        {
-            eprintln!("scoring: {context:?}");
-        }
         let mut best_id: Option<&A> = None;
         let mut best_score: u8 = 0;
 
@@ -104,11 +97,6 @@ impl<T, A> RuleMatcher<T, A> {
                 if r.1.passes(item, &context) {
                     score = r.0.modify(score);
                 }
-            }
-
-            #[cfg(test)]
-            {
-                eprintln!("rule id: {:?}, score: {}", id, score);
             }
 
             if score >= best_score && score > 0 {
@@ -123,29 +111,47 @@ impl<T, A> RuleMatcher<T, A> {
 
         best_id
     }
-    // fn get_best_match<I>(
-    //     &self,
-    //     item: &I,
-    //     context: T::Context,
-    // ) -> Option<&A>
-    // where
-    //     T: Test<I>,
-    // {
-    //     self.rules
-    //         .iter()
-    //         .map(|(rules, id)| {
-    //             let score = rules.iter().fold(0u8, |s, r| {
-    //                 if !r.1.passes(item, &context) {
-    //                     s
-    //                 } else {
-    //                     r.0.modify(s)
-    //                 }
-    //             });
-    //             (id, score)
-    //         })
-    //         .max_by_key(|(_, score)| *score)
-    //         .and_then(|(id, score)| (score > 0).then_some(id))
-    // }
+
+    #[allow(clippy::multiple_bound_locations)]
+    #[cfg(test)]
+    pub fn get_best_match<I: ?Sized>(
+        &self,
+        item: &I,
+        context: T::Context,
+    ) -> Option<&A>
+    where
+        T: Test<I>,
+        A: std::fmt::Debug,
+        I: std::fmt::Debug,
+        T::Context: std::fmt::Debug,
+    {
+        let mut best_id: Option<&A> = None;
+        let mut best_score: u8 = 0;
+
+        for (rules, id) in &self.rules {
+            let mut score = 0u8;
+
+            for r in rules {
+                if r.1.passes(item, &context) {
+                    score = r.0.modify(score);
+                }
+            }
+
+            eprintln!("rule id: {:?}, score: {}", id, score);
+
+            if score >= best_score && score > 0 {
+                best_score = score;
+                best_id = Some(id);
+
+                if best_score == u8::MAX {
+                    break;
+                }
+            }
+        }
+
+        eprintln!("best match: {:?}", best_id);
+        best_id
+    }
 
     // returns (top_score, best_scores)
     fn get_best_matches_with_score<'a, I: ?Sized>(
@@ -232,8 +238,9 @@ impl<T, A> RuleMatcher<T, A> {
     }
 }
 
-// ---------- score, Test ----------------
-/// When parsing a string into a (Score, Test), the default value when the score is unspecified.
+// ---------- Score, Test ----------------
+/// When parsing a string into a (Score, Test), the default value from [`DefaultScore`] is used when the score is unspecified.
+/// Scores accumulate in sequential order into the final score of a rule.
 ///
 /// A rule is deserialized as a sequence of (Score, Test)'s.
 ///

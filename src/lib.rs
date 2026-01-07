@@ -6,6 +6,7 @@ pub mod db;
 pub mod errors;
 pub mod filters;
 pub mod find;
+pub mod fs;
 pub mod lessfilter;
 pub mod run;
 pub mod spawn;

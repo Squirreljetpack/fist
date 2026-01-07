@@ -3,3 +3,6 @@
 
 [panes.nav]
     show_preview=true
+
+[misc]
+    append_mode_logging=true

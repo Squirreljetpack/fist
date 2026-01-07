@@ -1,4 +1,7 @@
 [tui]
 percentage = 50
 min = 10
-max = 22
+max = 25
+
+[preview]
+wrap = true

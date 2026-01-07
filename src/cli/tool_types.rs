@@ -65,6 +65,9 @@ pub struct LessfilterCommand {
 
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub paths: Vec<PathBuf>,
+
+    #[arg(long, action = clap::ArgAction::Set)]
+    pub header: Option<bool>,
 }
 
 #[derive(Debug, Parser, Clone)]

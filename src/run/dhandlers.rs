@@ -1,19 +1,16 @@
-use std::{ffi::OsString, process::Stdio, sync::atomic::Ordering};
+use std::{ffi::OsString, process::Command, sync::atomic::Ordering};
 
 use cli_boilerplate_automation::{
     bog::BogOkExt,
-    broc::{SHELL, exec_script, spawn_script},
-    env_vars, prints,
+    broc::{CommandExt, SHELL, tty_or_inherit},
+    else_default, env_vars, prints,
 };
 use easy_ext::ext;
 use log::{debug, info};
 use matchmaker::{
     Matchmaker, efx,
     message::{Event, Interrupt},
-    nucleo::{
-        Indexed,
-        injector::{IndexedInjector, Injector},
-    },
+    nucleo::{Indexed, injector::IndexedInjector},
     preview::AppendOnly,
     render::{Effect, Effects},
 };
@@ -75,6 +72,7 @@ pub fn sync_handler<'a>(
 }
 
 #[ext(MMExt)]
+// overrides to support static formatter
 impl Matchmaker<Indexed<PathItem>, PathItem> {
     pub fn register_reload_handler_(&mut self) {
         self.register_interrupt_handler(Interrupt::Reload("".into()), move |state, interrupt| {
@@ -107,7 +105,7 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
                     }
                 }
 
-                let injector = IndexedInjector::new(state.injector(), 0);
+                let injector = IndexedInjector::new_globally_indexed(state.injector());
                 STACK::populate(injector, || {});
             }
             if !RESTORE_INPUT.load(Ordering::Acquire) {
@@ -133,26 +131,25 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
             let Interrupt::Execute(template) = interrupt else {
                 unreachable!()
             };
-            let Some(t) = state.current_raw() else {
-                return efx![];
-            };
 
             if !template.is_empty() {
-                let cmd = mm_formatter(t, template);
+                let path = else_default!(if state.picker_ui.results.cursor_disabled {
+                    STACK::cwd()
+                } else {
+                    state.current_raw().map(|t| t.inner.path.clone())
+                });
+                let cmd = crate::utils::text::path_formatter(template, &path);
 
-                let mut vars = state.make_env_vars();
-                let preview_cmd = mm_formatter(t, state.preview_payload());
-                let extra = env_vars!(
-                    "FZF_PREVIEW_COMMAND" => preview_cmd,
-                );
-                vars.extend(extra);
+                let vars = state.make_env_vars();
 
                 if let Some(cwd) = STACK::cwd() {
                     std::env::set_current_dir(cwd)._ebog();
                 }
 
-                if let Some(mut child) =
-                    spawn_script(&cmd, vars, maybe_tty(), Stdio::inherit(), Stdio::inherit())
+                if let Some(mut child) = Command::from_script(&cmd)
+                    .envs(vars)
+                    .stdin(tty_or_inherit())
+                    ._spawn()
                 {
                     match child.wait() {
                         Ok(i) => {
@@ -191,7 +188,8 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
                 }
 
                 debug!("Becoming: {cmd}");
-                exec_script(&cmd, vars);
+
+                Command::from_script(&cmd).envs(vars)._exec();
             }
             efx![]
         });
@@ -223,77 +221,3 @@ pub fn mm_formatter(
 ) -> String {
     crate::utils::text::path_formatter(template, &item.inner.path)
 }
-
-fn maybe_tty() -> Stdio {
-    if let Ok(mut tty) = std::fs::File::open("/dev/tty") {
-        let _ = std::io::Write::flush(&mut tty); // does nothing but seems logical
-        Stdio::from(tty)
-    } else {
-        log::error!("Failed to open /dev/tty");
-        Stdio::inherit()
-    }
-}
-
-// mod spawn {
-//     use std::process::{Child, Command};
-
-//     use crate::run::dhandlers::maybe_tty;
-//     use cli_boilerplate_automation::ebog;
-//     use cli_boilerplate_automation::{_log, bait::ResultExt, bog::BogOkExt, broc::SHELL};
-
-//     pub fn spawn_script(
-//         script: &str,
-//         vars: impl IntoIterator<Item = (String, String)>,
-//     ) -> Option<Child> {
-//         let (shell, arg) = &*SHELL;
-//         _log!("Spawning script: {script}");
-
-//         Command::new(shell)
-//             .arg(arg)
-//             .arg(script)
-//             .envs(vars)
-//             .stdin(maybe_tty())
-//             .spawn()
-//             .prefix(&format!("Could not spawn: {script}"))
-//             ._ebog()
-//     }
-
-//     pub fn exec_script(
-//         script: &str,
-//         vars: impl IntoIterator<Item = (String, String)>,
-//     ) -> ! {
-//         let (shell, arg) = &*SHELL;
-
-//         let mut cmd = Command::new(shell);
-//         cmd.arg(arg).arg(script).envs(vars);
-//         _log!("Spawning detached: {cmd:?}");
-
-//         #[cfg(not(windows))]
-//         {
-//             // replace current process
-//             use std::os::unix::process::CommandExt;
-//             let err = cmd.exec();
-//             use std::process::exit;
-
-//             ebog!("Could not exec {script:?}: {err}");
-//             exit(1);
-//         }
-
-//         #[cfg(windows)]
-//         {
-//             match command.status() {
-//                 Ok(status) => {
-//                     exit(
-//                         status
-//                             .code()
-//                             .unwrap_or(if status.success() { 0 } else { 1 }),
-//                     );
-//                 }
-//                 Err(err) => {
-//                     ebog!("Could not exec {script:?}: {err}");
-//                     exit(1);
-//                 }
-//             }
-//         }
-//     }
-// }

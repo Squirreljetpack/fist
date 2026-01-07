@@ -1,10 +1,11 @@
 //! CLI command handlers
 use clap::Parser;
 use cli_boilerplate_automation::{
-    bath::PathExt, bo::map_reader_lines, broc::CommandExt, bs::sort_by_mtime, else_default,
+    bath::PathExt, bo::map_reader_lines, broc::CommandExt, bs::sort_by_mtime,
 };
 use globset::GlobBuilder;
 use std::{
+    env::{current_dir, set_current_dir},
     path::PathBuf,
     process::{Command, exit},
 };
@@ -20,7 +21,7 @@ use cli_boilerplate_automation::{
 
 use super::{
     matchmaker::mm_get,
-    paths::{config_path, current_exe, cwd, home_dir, lessfilter_cfg_path, lz_path, mm_cfg_path},
+    paths::{__cwd, config_path, current_exe, home_dir, lessfilter_cfg_path, lz_path, mm_cfg_path},
     tool_types::*,
     types::*,
 };
@@ -46,7 +47,9 @@ use crate::{
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
-    utils::{colors::display_ratatui_colors, filetypes::FileType, path::paths_base},
+    utils::{
+        colors::display_ratatui_colors, filetypes::FileType, path::paths_base, text::path_formatter,
+    },
 };
 // #[ext(CliResultExt)]
 // impl Result<(), CliError> {
@@ -61,7 +64,6 @@ pub async fn handle_subcommand(
 ) -> Result<(), CliError> {
     match cli.subcommand {
         SubCmd::Open(cmd) => handle_open(cli.opts, cmd, cfg).await,
-        SubCmd::Apps(cmd) => handle_launch(cli.opts, cmd, cfg).await,
         SubCmd::Files(cmd) => handle_files(cli.opts, cmd, cfg).await,
         SubCmd::Dirs(cmd) => handle_dirs(cli.opts, cmd, cfg).await,
         SubCmd::Fd(cmd) => handle_default(cli.opts, cmd, cfg).await,
@@ -74,13 +76,27 @@ pub async fn handle_subcommand(
 async fn handle_open(
     cli: CliOpts,
     cmd: OpenCmd,
-    cfg: Config,
+    mut cfg: Config,
 ) -> Result<(), CliError> {
-    // _dbg!(cli, cmd, cfg);
-    let pool = Pool::new(cfg.db_path()).await?;
-    let conn = pool.get_conn(DbTable::apps).await?;
+    // fs :o or fs :o --with= files
+    if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
+        *APP::TO_OPEN.lock().unwrap() = cmd.files;
+        cfg.global.interface.no_multi = true;
+        let pane = FsPane::new_launch();
 
-    open_wrapped(conn, cmd.with.and_then(Program::from_os_string), &cmd.files).await
+        let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
+        let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
+
+        let pool = Pool::new(cfg.db_path()).await?;
+        start(pane, cfg, mm_cfg, pool).await
+    } else {
+        let pool = Pool::new(cfg.db_path()).await?;
+        let conn = pool.get_conn(DbTable::apps).await?;
+
+        let prog = cmd.with.and_then(Program::from_os_string);
+
+        open_wrapped(conn, prog, &cmd.files).await
+    }
 }
 
 // todo: partitioned info
@@ -117,26 +133,6 @@ async fn handle_info(
     Ok(())
 }
 
-async fn handle_launch(
-    cli: CliOpts,
-    cmd: AppsCmd,
-    cfg: Config,
-) -> Result<(), CliError> {
-    // _dbg!(cli, cmd, cfg);
-    *APP::TO_OPEN.lock().unwrap() = cmd.files;
-
-    let pane = FsPane::new_launch();
-
-    let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
-    let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
-
-    let pool = Pool::new(cfg.global.db_path()).await?;
-    start(pane, cfg, mm_cfg, pool).await
-    // get entries from db
-    // spawn update db
-    // lowpri: repopulate on db complete
-}
-
 // Need:
 async fn handle_files(
     cli: CliOpts,
@@ -152,7 +148,7 @@ async fn handle_files(
 
     let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
     let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
-    let pool = Pool::new(cfg.global.db_path()).await?;
+    let pool = Pool::new(cfg.db_path()).await?;
     start(pane, cfg, mm_cfg, pool).await
 }
 
@@ -177,9 +173,11 @@ async fn handle_dirs(
 ) -> Result<(), CliError> {
     let pool = Pool::new(cfg.db_path()).await?;
     if cmd.cd {
+        cfg.db.show_missing = false;
+
         if !cmd.query.is_empty() {
             let conn = pool.get_conn(DbTable::dirs).await?;
-            let db_filter = DbFilter::new(&cfg.db).keywords(cmd.query.clone());
+            let db_filter = DbFilter::new(&cfg.db).with_keywords(cmd.query.clone());
 
             match conn.print_best_by_frecency(&db_filter).await {
                 RetryStrat::Next => return Ok(()),
@@ -189,18 +187,21 @@ async fn handle_dirs(
                 _ => {}
             }
         };
+
         // fallback to interactive if no match
         // todo: numbers on side to select
         cfg.global.interface.alt_accept = true;
-        cfg.global.current.no_multi = true;
-        TEMP::set_original_relative_path(cfg.styles.path.relative);
+        cfg.global.interface.no_multi = true;
+        TEMP::set_initial_relative_path(cfg.styles.path.relative);
         cfg.styles.path.relative = false;
     } else if let Some(all) = cmd.list {
         let mut conn = pool.get_conn(DbTable::dirs).await?;
+
         if matches!(all, ListMode::All) {
-            cfg.db.filter_missing = true;
+            cfg.db.show_missing = true;
         }
-        let db_filter = DbFilter::new(&cfg.db).keywords(cmd.query.clone());
+        let db_filter = DbFilter::new(&cfg.db).with_keywords(cmd.query.clone());
+
         for e in conn.get_entries(cmd.sort, &db_filter).await? {
             match e.path.to_str() {
                 Some(s) => {
@@ -249,16 +250,15 @@ async fn handle_default(
     }
     // _dbg!(cli, cmd, cfg);
     let pool = Pool::new(cfg.db_path()).await?;
-    let pane = if !atty::is(atty::Stream::Stdin) {
-        FsPane::new_stream(AbsPath::new_unchecked(cwd().to_path_buf()), cmd.vis)
-    } else
-    // if any args are specified
-    if cmd.cd {
+    let pane = if !atty::is(atty::Stream::Stdin) && !cmd.no_read {
+        FsPane::new_stream(AbsPath::new_unchecked(__cwd().to_path_buf()), cmd.vis)
+    } else if cmd.cd {
         cmd.paths.append(&mut cmd.fd); // fd is not supported
         cfg.global.interface.alt_accept = true;
-        cfg.global.current.no_multi = true;
+        cfg.global.interface.no_multi = true;
+        cfg.db.show_missing = false;
 
-        let cwd = AbsPath::new_unchecked(cwd());
+        let cwd = AbsPath::new_unchecked(__cwd());
         FsPane::new_fd_from_command(cmd, cwd)
     } else
     // any fd arg is specified
@@ -272,9 +272,10 @@ async fn handle_default(
             // last item is a pattern
             AbsPath::new_unchecked(
                 if cfg.global.fd.default_search_in_home {
+                    set_current_dir(home_dir())._elog();
                     home_dir()
                 } else {
-                    cwd()
+                    __cwd()
                 }
                 .to_path_buf(),
             )
@@ -282,14 +283,17 @@ async fn handle_default(
             if !cmd.fd.iter().any(|x| x == "--glob" || x == "-g") {
                 cmd.paths.push(".".into()); // match all pattern
             }
-            AbsPath::new_unchecked(cwd().to_path_buf())
+            AbsPath::new_unchecked(__cwd().to_path_buf())
         } else {
-            AbsPath::new(if cfg.global.fd.reduce_paths {
+            AbsPath::new_unchecked(if cfg.global.fd.reduce_paths {
                 paths_base(&cmd.paths[0..cmd.paths.len() - 1])
             } else {
-                cmd.paths.remove(0).into()
+                cmd.paths.remove(0).abs(current_dir().__ebog())
             })
         };
+        set_current_dir(&cwd)
+            .prefix(format!("Failed to enter {}", cwd.to_string_lossy()))
+            .__ebog();
 
         let mut conn = pool.get_conn(DbTable::dirs).await?;
         // spawn cost is 1 microsecond
@@ -310,20 +314,32 @@ async fn handle_default(
                 ),
             );
 
-            let stdout = else_default!(
-                Command::new(prog)
-                .args(args)
-                .current_dir(&cwd)
-                .spawn_piped()
-                ._ebog()
-                ;
-                ?
-            );
+            let stdout = match Command::new(prog).args(args).spawn_piped()._ebog() {
+                Some(s) => s,
+                None => return Err(CliError::Handled),
+            };
 
             let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
                 let path = PathBuf::from(line);
-                if cmd.vis.filter(&path) {
-                    prints!(path.to_string_lossy())
+                let mut push = true;
+                // most checks were already handled by fd
+                if cmd.vis.hidden_files && path.is_hidden() {
+                    if cmd.vis.dirs {
+                        push = path.is_dir();
+                    } else {
+                        push = !path.is_dir()
+                    }
+                };
+                if !cmd.vis.all() {
+                    push = path.exists()
+                }
+                if push {
+                    if let Some(template) = &cmd.list_fmt {
+                        let s = path_formatter(template, &AbsPath::new(path));
+                        prints!(s)
+                    } else {
+                        prints!(path.to_string_lossy())
+                    }
                 }
                 Ok(())
             });
@@ -338,7 +354,7 @@ async fn handle_default(
         }
 
         if cmd.list {
-            let iter = list_dir(cwd(), cmd.vis, 1); // cwd is abs so we can add results as unchecked
+            let iter = list_dir(__cwd(), cmd.vis, 1); // cwd is abs so we can add results as unchecked
             let sort = sort.unwrap_or_default();
 
             match sort {
@@ -364,7 +380,7 @@ async fn handle_default(
             return Ok(());
         };
         FsPane::new_nav(
-            AbsPath::new_unchecked(cwd()),
+            AbsPath::new_unchecked(__cwd()),
             vis,
             sort.unwrap_or(cfg.global.panes.nav.default_sort),
         )
@@ -372,7 +388,7 @@ async fn handle_default(
 
     let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
     let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
-    let pool = Pool::new(cfg.global.db_path()).await?;
+    let pool = Pool::new(cfg.db_path()).await?;
     start(pane, cfg, mm_cfg, pool).await
 }
 
@@ -425,7 +441,7 @@ async fn handle_tools(
             let path = current_exe().basename();
             args.insert(0, format!("{path} :tool lessfilter").into());
 
-            let LessfilterCommand { preset, paths } = LessfilterCommand::parse_from(args);
+            let cmd = LessfilterCommand::parse_from(args);
 
             let cfg = load_type_or_default(
                 lessfilter_cfg_path(),
@@ -433,7 +449,7 @@ async fn handle_tools(
                 include_str!("../../assets/config/lessfilter.toml"),
             );
 
-            lessfilter::handle(preset, paths, cfg)
+            lessfilter::handle(cmd, cfg)
         }
         SubTool::Bump { mut args } => {
             let path = current_exe().basename();
@@ -450,19 +466,13 @@ async fn handle_tools(
 
             if reset {
                 if let Some(table) = table {
-                    let mut conn = Pool::new(cfg.global.db_path())
-                        .await?
-                        .get_conn(table)
-                        .await?;
+                    let mut conn = Pool::new(cfg.db_path()).await?.get_conn(table).await?;
                     conn.reset_table().await?;
                     ibog!("Deleted {table}");
                 } else {
-                    match std::fs::remove_file(cfg.global.db_path()) {
-                        Ok(()) => ibog!("Deleted {}", cfg.global.db_path().to_string_lossy()),
-                        Err(e) => ebog!(
-                            "Couldn't delete {}: {e}",
-                            cfg.global.db_path().to_string_lossy()
-                        ),
+                    match std::fs::remove_file(cfg.db_path()) {
+                        Ok(()) => ibog!("Deleted {}", cfg.db_path().to_string_lossy()),
+                        Err(e) => ebog!("Couldn't delete {}: {e}", cfg.db_path().to_string_lossy()),
                     }
                 }
                 return Ok(());
@@ -495,7 +505,7 @@ async fn handle_tools(
                     }
                 }
 
-                let mut conn = Pool::new(cfg.global.db_path())
+                let mut conn = Pool::new(cfg.db_path())
                     .await?
                     .get_conn(DbTable::dirs)
                     .await?;
@@ -512,7 +522,7 @@ async fn handle_tools(
                     conn.push_files_and_folders(push_vec).await?;
                 }
             } else {
-                let mut conn = Pool::new(cfg.global.db_path())
+                let mut conn = Pool::new(cfg.db_path())
                     .await?
                     .get_conn(table.unwrap_or(DbTable::dirs))
                     .await?;
