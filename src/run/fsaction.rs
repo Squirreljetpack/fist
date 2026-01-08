@@ -126,7 +126,7 @@ pub enum FsAction {
 
 impl ActionExt for FsAction {}
 
-// ------------- HANDLING ------------------
+// --------- HELPERS ------------
 
 fn enter_dir_pane(path: AbsPath) {
     TOAST::clear_msgs();
@@ -141,6 +141,8 @@ fn enter_dir_pane(path: AbsPath) {
     let pane = FsPane::new_nav(path, FILTERS::visibility(), FILTERS::sort());
     STACK::push(pane);
 }
+
+// -------------------- ALIASER ------------------------------------
 
 // note: since this happens before the batch process of actions, we do not support chaining custom actions
 // i.e. "current" saved inputs in chained actions, or consecutive nav actions
@@ -364,12 +366,11 @@ pub fn fsaction_aliaser(
                     let c = (b'0' + (digit % 10)) as char;
                     acs![Action::Input(c)]
                 } else if digit > 0 {
-                    if !raw_input && GLOBAL::with_cfg(|c| c.interface.alt_accept) {
-                        // todo, probably redesign this action
+                    if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
                         acs![
                             Action::Pos((digit - 1) as i32),
                             Action::Print("{=}".into()),
-                            Action::Quit(0.into())
+                            Action::Quit(Exit(0))
                         ]
                     } else {
                         acs![Action::Pos((digit - 1) as i32), Action::Accept]
@@ -450,21 +451,23 @@ pub fn fsaction_aliaser(
                     acs![a]
                 }
             }
+
             // We treat Print("") special, and comparably to Accept
             // It prints elements on seperate lines
             // then exits afterwards
             // The intention is to feed into a shell function
-            // Might make more sense as a custom action
-            Action::Print(ref s) if s.is_empty() => {
-                if state.overlay_index.is_some() {
-                    return acs![Action::Accept];
-                } else if state.picker_ui.results.cursor_disabled
+            // (Might make more sense as a custom action ?)
+            Action::Print(ref s)
+                if s.is_empty() && !GLOBAL::with_cfg(|c| c.interface.alt_accept) =>
+            {
+                if state.picker_ui.results.cursor_disabled
                     && let Some(p) = STACK::cwd()
                 {
                     // print cwd
                     let s = p.to_string_lossy().to_string();
                     GLOBAL::db().bump(true, p);
                     PRINT_HANDLE.with(|x| x.push(s));
+                    acs![Action::Quit(Exit(0))]
                 } else {
                     // print selected
                     state.map_selected_to_vec(|item| {
@@ -472,39 +475,91 @@ pub fn fsaction_aliaser(
                         GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
                         PRINT_HANDLE.with(|x| x.push(s));
                     });
+                    acs![Action::Quit(Exit(0))]
                 }
-                acs![Action::Quit(Exit(0))]
             }
-            // accepting on prompt opens the displayed directory
+            // on the prompt, alt_accept accept behaves similarly to !alt_accept
             Action::Accept
                 if state.picker_ui.results.cursor_disabled && state.overlay_index.is_none() =>
             {
+                // accepting on prompt opens the displayed directory
                 if let FsPane::Nav { cwd, .. } = STACK::current() {
-                    let path = cwd.inner().into();
-                    let pool = GLOBAL::db();
+                    if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                        // print cwd
+                        let s = cwd.to_string_lossy().to_string();
+                        GLOBAL::db().bump(true, cwd);
+                        PRINT_HANDLE.with(|x| x.push(s));
+                        acs![Action::Quit(Exit(0))]
+                    } else {
+                        let path = cwd.inner().into();
+                        let pool = GLOBAL::db();
 
-                    tokio::spawn(async move {
-                        let conn = pool.get_conn(crate::db::DbTable::dirs).await?;
-                        open_wrapped(conn, None, &[path]).await?;
-                        anyhow::Ok(())
-                    });
-                    acs![a]
+                        tokio::spawn(async move {
+                            let conn = pool.get_conn(crate::db::DbTable::dirs).await?;
+                            open_wrapped(conn, None, &[path]).await?;
+                            anyhow::Ok(())
+                        });
+
+                        acs![Action::Accept] // this won't activate a cursor item
+                    }
+                } else if let Some(cwd) = STACK::cwd() {
+                    // strange that the lock stays alive through the owned value lifetime
+                    // save input
+                    let (content, index) = (state.input.clone(), state.picker_ui.results.index());
+                    STACK::save_input(content, index);
+
+                    enter_dir_pane(cwd);
+
+                    acs![Action::Reload("".into()),]
                 } else {
-                    let cwd = STACK::cwd(); // strange that the lock stays alive through the owned value lifetime
-                    if let Some(cwd) = cwd {
-                        // save input
-                        let (content, index) =
-                            (state.input.clone(), state.picker_ui.results.index());
-                        STACK::save_input(content, index);
+                    acs![]
+                }
+            }
+            // ...in other cases alt_accept causes accept to behave as print
+            Action::Accept if GLOBAL::with_cfg(|c| c.interface.alt_accept) => {
+                if state.overlay_index.is_some() {
+                    acs![Action::Accept]
+                } else if state.picker_ui.results.cursor_disabled
+                    && let Some(p) = STACK::cwd()
+                {
+                    // print cwd
+                    let s = p.to_string_lossy().to_string();
+                    GLOBAL::db().bump(true, p);
+                    PRINT_HANDLE.with(|x| x.push(s));
+                    acs![Action::Quit(Exit(0))]
+                } else {
+                    // print selected
+                    state.map_selected_to_vec(|item| {
+                        let s = item.display().to_string();
+                        GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
+                        PRINT_HANDLE.with(|x| x.push(s));
+                    });
+                    acs![Action::Quit(Exit(0))]
+                }
+            }
+            // ... and print to behave as accept
+            Action::Print(ref s) if s.is_empty() => {
+                // on the prompt, alt_accept now launches
+                if state.picker_ui.results.cursor_disabled && state.overlay_index.is_none() {
+                    if let Some(cwd) = STACK::cwd() {
+                        let path = cwd.inner().into();
+                        let pool = GLOBAL::db();
 
-                        enter_dir_pane(cwd);
+                        tokio::spawn(async move {
+                            let conn = pool.get_conn(crate::db::DbTable::dirs).await?;
+                            open_wrapped(conn, None, &[path]).await?;
+                            anyhow::Ok(())
+                        });
 
-                        acs![Action::Reload("".into()),]
+                        acs![Action::Accept]
                     } else {
                         acs![]
                     }
+                } else {
+                    acs![Action::Accept]
                 }
             }
+
             Action::Reload(s)
                 if s.is_empty() && STACK::with_current(|c| matches!(c, FsPane::Stream { .. })) =>
             {

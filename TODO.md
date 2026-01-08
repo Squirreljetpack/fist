@@ -78,6 +78,8 @@ maybe when given paths which don't exist on cli, find should treat the query as 
 - Syncopated sorting?
 - Wrap the default command sort/visibility fields in option with optional struct, add config-powered default values and merge from those.
 
+- nav ignore?
+
 # Menu overlay
 
 Custom actions
@@ -122,3 +124,7 @@ we have some zsh specific scripts, posix/something crossplatform would be better
 
 # CLI
 better cli/env var handling: need a proc macro to generate a mirrored with every concrete value wrapped in option, then a fn to merge that config into the main config
+
+
+# CD
+better cd: swapping accept and print is too error prone, we need a global var

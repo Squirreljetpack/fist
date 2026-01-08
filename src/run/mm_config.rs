@@ -127,38 +127,38 @@ pub fn default_binds() -> BindMap<FsAction> {
     )
 }
 
-fn change_actions(
-    map: &mut BindMap<FsAction>,
-    alt_accept: bool,
-    no_multi: bool,
-) {
-    map.retain(|_, actions| {
-        let vec = &mut actions.0;
+// fn change_actions(
+//     map: &mut BindMap<FsAction>,
+//     // alt_accept: bool,
+//     no_multi: bool,
+// ) {
+//     map.retain(|_, actions| {
+//         let vec = &mut actions.0;
 
-        let mut i = 0;
-        while i < vec.len() {
-            let remove =
-                no_multi && matches!(vec[i], Action::Select | Action::Deselect | Action::Toggle);
+//         let mut i = 0;
+//         while i < vec.len() {
+//             let remove =
+//                 no_multi && matches!(vec[i], Action::Select | Action::Deselect | Action::Toggle);
 
-            if remove {
-                vec.remove(i);
-                continue; // don't advance index
-            }
+//             if remove {
+//                 vec.remove(i);
+//                 continue; // don't advance index
+//             }
 
-            if alt_accept {
-                match &mut vec[i] {
-                    Action::Accept => vec[i] = Action::Print(String::new()),
-                    Action::Print(s) if s.is_empty() => vec[i] = Action::Accept,
-                    _ => {}
-                }
-            }
+//             // if alt_accept {
+//             //     match &mut vec[i] {
+//             //         Action::Accept => vec[i] = Action::Print(String::new()),
+//             //         Action::Print(s) if s.is_empty() => vec[i] = Action::Accept,
+//             //         _ => {}
+//             //     }
+//             // }
 
-            i += 1;
-        }
+//             i += 1;
+//         }
 
-        !vec.is_empty() // retain only non-empty entries
-    });
-}
+//         !vec.is_empty() // retain only non-empty entries
+//     });
+// }
 
 pub fn get_mm_cfg(
     path: &Path,
@@ -175,13 +175,8 @@ pub fn get_mm_cfg(
         toml::from_str(include_str!("../../assets/config/mm.toml")).unwrap()
     };
 
-    let mut binds = default_binds();
+    let binds = default_binds();
     default_binds().append(&mut mm_cfg.binds);
-    change_actions(
-        &mut binds,
-        cfg.global.interface.alt_accept,
-        cfg.global.interface.no_multi,
-    );
     mm_cfg.binds = binds;
 
     // Render display

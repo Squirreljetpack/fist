@@ -3,7 +3,7 @@ use std::{ffi::OsString, path::PathBuf};
 use cli_boilerplate_automation::{vec_, wbog};
 
 use crate::{
-    cli::paths,
+    cli::paths::{self, __cwd, home_dir},
     config::FdConfig,
     filters::{SortOrder, Visibility},
     utils::{categories::FileCategory, filetypes::FileType},
@@ -126,11 +126,16 @@ pub fn build_fd_args(
                 .cloned()
                 .unwrap_or_else(default_exclusions);
 
+            // todo: check full/replaced for all paths
             if paths::__cwd() == paths::home_dir() {
                 if let Some(excls) = cfg.exclusions.get(&PathBuf::from("~")) {
                     exclusions.extend(excls.iter().cloned());
                 }
-            } else if let Some(excls) = cfg.exclusions.get(paths::__cwd()) {
+            } else if let Ok(stripped) = __cwd().strip_prefix(home_dir())
+                && let Some(excls) = cfg.exclusions.get(&PathBuf::from("~").join(stripped))
+            {
+                exclusions.extend(excls.iter().cloned());
+            } else if let Some(excls) = cfg.exclusions.get(__cwd()) {
                 exclusions.extend(excls.iter().cloned());
             }
 

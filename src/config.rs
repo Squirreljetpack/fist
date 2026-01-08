@@ -269,12 +269,21 @@ impl Default for NavPaneSettings {
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FdConfig {
+    /// A map of folders to exclusion globs which should be applied when in them.
+    /// ~ can be used in lieu of $HOME.
+    /// If a list is specified for the empty path "", that list will override the list of default exclusions for the platform, and apply everywhere.
+    /// Only one value (exclusion list) can apply to each path.
     pub exclusions: HashMap<PathBuf, Vec<String>>,
-    pub default_args: Vec<String>,
+
+    /// Arguments added to every fd command
     pub base_args: Vec<String>,
-    // pub default_args_file: Option<PathBuf>,
-    pub reduce_paths: bool,
+    /// When no path is given to fs, such as using `fs [pattern]`, whether to search in `$HOME` or the current directory.
     pub default_search_in_home: bool,
+    //  ---------------- Experimental/Nonstandard ---------------
+    /// When given a set of paths to search with `fs`
+    pub reduce_paths: bool,
+    /// The set of arguments applied to the end of `fs ::` when no `fd_args` were given.
+    pub default_args: Vec<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
