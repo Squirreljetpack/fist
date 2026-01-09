@@ -150,7 +150,7 @@ pub async fn start(
     // init history capabilities
     {
         let mut guard = DB_FILTER.lock().await;
-        *guard = Some(DbFilter::new(&cfg.db));
+        *guard = Some(DbFilter::new(&cfg.history));
     }
 
     // init global

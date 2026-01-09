@@ -11,7 +11,7 @@ show=
 
 usage() {
   cat >&2 <<'EOF'
-lz: eza wrapper
+liza: eza wrapper
 
 Filters:
   :a         all
@@ -157,18 +157,12 @@ eza_def=(eza --smart-group --time-style="iso")
 
 page() {
   $VERBOSE && echo $@ >&2
-  if [ "$FS_SUBPROCESS" = "false" ] && [ -t 0 ] && command -v $PAGER &>/dev/null; then
+  if [ "$MM_IN_APP" != "true" ] && [ -t 0 ] && command -v $PAGER &>/dev/null; then
     $@ | $PAGER
   else
     $@
   fi
 }
-
-if [ "$FS_SUBPROCESS" = "true" ] && [ -t 0 ] && command -v $PAGER &>/dev/null; then
-    exec 3> >($PAGER)
-else
-    exec 3>&1
-fi
 
 params=($all $parsed $nlong $long $args $pargs)
 
@@ -179,7 +173,7 @@ fi
 
 if [[ -z $show ]]; then
   $VERBOSE && print -u2 -- $eza_def $params
-  page false $eza_def $params
+  $eza_def $params
 else
   eza_def+=(--color=always)
   case $show in

@@ -9,16 +9,22 @@ pub fn print_shell(
         visual,
         z_sort,
         z_dot_args,
+        aliases,
     }: &ShellCommand,
     path: &str,
 ) {
-    let s = include_str!("../assets/shell.zsh")
+    let mut s = include_str!("../assets/shell/shell.zsh")
         .replacen("$${Z_NAME}", z_name, 1)
         .replace("$${Z_SORT}", z_sort.into())
         .replace("$${Z_DOT_ARGS}", z_dot_args)
         .replacen("$${ZZ_NAME}", zz_name, 1)
         .replace("$${BINARY_PATH}", path)
         .replace("$${VISUAL}", visual);
+
+    if *aliases {
+        s.push_str("\n\n");
+        s.push_str(include_str!("../assets/shell/aliases.shrc"));
+    }
 
     prints!(s)
 }

@@ -21,27 +21,29 @@ use crate::{
 #[strum(serialize_all = "lowercase")]
 pub enum Preset {
     #[clap(alias = "p")]
-    /// for [`matchmaker::preview`]
+    /// For the f:ist preview pane.
+    ///
+    /// see [`matchmaker::preview`]
     Preview,
     #[default]
     #[clap(alias = "d")]
-    /// for terminal display
+    /// For terminal display.
     Display,
     #[clap(alias = "x")]
-    /// for terminal interaction/verbose display
+    /// For terminal interaction/verbose display.
     Extended,
     #[clap(alias = "i")]
-    /// metadata/raw info
+    /// Metadata/raw info.
     Info,
     #[clap(alias = "o")]
-    /// System open
+    /// System open.
     ///
     /// (By deferring to fs :open)
     Open,
-    /// Alternate open (a preset dedicated to user customization)
+    /// Alternate (custom) open
     Alternate,
     #[clap(alias = "e")]
-    /// For [`crate::run::FsAction::Advance`]
+    // For [`crate::run::FsAction::Advance`]
     Edit,
     #[clap(skip)]
     /// Default preset for configuration only

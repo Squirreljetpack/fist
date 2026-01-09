@@ -10,8 +10,8 @@ use std::{collections::HashMap, path::PathBuf};
 
 use crate::{cli::BINARY_FULL, cli::paths::*, lessfilter::Preset};
 use crate::{
-    cli::paths::{lz_path, pager_path},
-    db::zoxide::DbConfig,
+    cli::paths::{liza_path, pager_path},
+    db::zoxide::HistoryConfig,
     filters::*,
     run::FsPane,
     ui::styles_config::StyleConfig,
@@ -22,24 +22,30 @@ use crate::{
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
-    /// store history
+    /// directory for storing history and other state.
     #[serde(default = "state_dir")]
     pub state_dir: PathBuf,
 
-    /// cache
+    /// cache directory.
     #[serde(default = "cache_dir")]
     pub cache_dir: PathBuf,
 
+    /// A container for settings whose values are accessed at runtime.
+    /// Its fields are included directly in (flattened into) the config.
     #[serde(flatten)]
     pub global: GlobalConfig,
 
+    /// All styling options not governed by match-maker.
     pub styles: StyleConfig,
 
+    /// Configure the filesystem watcher
     pub notify: WatcherConfig,
 
+    /// Miscellaneous and Tool specific options
     pub misc: MiscConfig,
 
-    pub db: DbConfig,
+    /// Settings related to saving to and retrieving from history.
+    pub history: HistoryConfig,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -47,12 +53,16 @@ pub struct GlobalConfig {
     #[serde(default)]
     pub interface: InterfaceConfig,
 
+    /// Configure behavior of filesystem actions.
     #[serde(default)]
     pub fs: FsConfig,
 
+    /// Configure behavior of the fd tool.
+    /// This affects [FsAction::Find](`crate::run::fsaction::FsAction::Find`) and the default subcommand.
     #[serde(default)]
     pub fd: FdConfig,
 
+    /// Configure behavior of filesystem actions.
     #[serde(default)]
     pub panes: PanesConfig,
 }
@@ -69,12 +79,13 @@ impl Config {
         }
     }
 
-    pub fn check_files(
+    // initialize helper files
+    pub fn check_scripts(
         &self,
         force: bool,
     ) {
         let files = [
-            (lz_path(), include_str!("../assets/scripts/lz")),
+            (liza_path(), include_str!("../assets/scripts/liza")),
             (pager_path(), include_str!("../assets/scripts/pager")),
             (
                 metadata_viewer_path(),
@@ -102,12 +113,15 @@ impl Config {
     }
 }
 
-/// Miscellaneous + Tool specific options
+/// Miscellaneous and Tool specific options.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MiscConfig {
+    /// How long to wait between consecutive clipboard actions
     pub clipboard_delay_ms: u64,
+    /// When --cd is specified, whether to error or begin search when no match is found.
     pub cd_fallback_search: bool,
+    /// Overwrite or append logs on application start.
     pub append_mode_logging: bool,
 }
 
@@ -125,17 +139,23 @@ impl Default for MiscConfig {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-/// Not recommended to change.
+/// Settings related to the behavior of the main interface.
+/// It is recommended not to change these.
 pub struct InterfaceConfig {
     // actions
+    /// The command template to execute when [FsAction::Advance](`crate::run::fsaction::FsAction::Advance`) is invoked on a file.
     pub advance_command: String,
+    /// If true, the functions of the Accept and Print actions will be swapped.
     pub alt_accept: bool,
+    /// Disables multi-select.
     pub no_multi: bool,
-    // When outside the prompt, whether to register paste as characters or an action.
+    /// When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
 
     // display
+    /// The prefix to display when the cursor is in the prompt.
     pub cwd_prompt: String,
+    /// Display a toast when current directory has no entries.
     pub toast_on_empty: bool, // todo
 }
 
@@ -168,6 +188,7 @@ impl Default for PanesSettings {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
+/// Pane-specific settings
 pub struct PanesConfig {
     pub app: PaneSettings,
     pub file: PaneSettings,

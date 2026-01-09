@@ -1,0 +1,11 @@
+function lessfilter() {
+  fs :tool lessfilter
+}
+function lz() {
+  fs :tool liza
+}
+
+alias l="fs :tool lessfilter display"
+alias la="fs :tool lessfilter extended"
+alias ll="fs :tool lessfilter info"
+alias n="fs :tool lessfilter edit"

@@ -1,66 +1,56 @@
 # Documentation: todo
 # in event of a tie, last one wins.
 [rules]
-  default=[
-    [["Metadata"], ["1|*/*"]],
-    [["Image"], ["1|image/*"]],
-    [["Text"], ["1|text/*"]],
-    [["Directory"], ["1|directory/*"]],
+default = [
+  [["Metadata"], ["1|*/*"]],
+  [["Image"], ["1|image/*"]],
+  [["Text"], ["1|text/*"]],
+  [["Directory"], ["1|directory/*"]],
+  [
+    ["Metadata"],
     [
-      ["Metadata"],
-      [
-        "1|application/zip",
-        "1|application/x-tar",
-        "1|application/x-gzip",
-        "1|application/x-bzip2",
-        "1|application/x-xz",
-        "1|.zip",
-        "1|.tar",
-        "1|.gz",
-        "1|.bz2",
-        "1|.xz",
-      ],
+      "1|application/zip",
+      "1|application/x-tar",
+      "1|application/x-gzip",
+      "1|application/x-bzip2",
+      "1|application/x-xz",
+      "1|.zip",
+      "1|.tar",
+      "1|.gz",
+      "1|.bz2",
+      "1|.xz",
     ],
-  ]
-  preview=[
-    [["sqlite"], ["application/vnd.sqlite3"]],
-  ]
+  ],
+]
+preview = [
+  [["sqlite"], ["application/vnd.sqlite3", "have:sqlite3"]],
+]
 
-  edit=[]
+edit = []
 
-  display=[]
+display = []
 
-  extended=[]
+extended = []
 
-  info=[]
+info = []
 
-  open=[]
+open = []
 
-  alternate=[
-    [["none"], ["*/*"]],
-  ]
+alternate = [
+  [["none"], ["*/*"]],
+]
 
 [actions]
-  sqlite='''
-have() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-if have sqlite3; then
-    sqlite3 {} "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;" |
-    while read -r tbl; do
-        [[ -n $tbl ]] || continue;
-        echo "== $tbl ($(sqlite3 {} "SELECT COUNT(*) FROM \"$tbl\";")) rows =="
-        sqlite3 {} <<EOF
+sqlite = '''
+sqlite3 {} "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;" |
+while read -r tbl; do
+    [[ -n $tbl ]] || continue;
+    echo "== $tbl ($(sqlite3 {} "SELECT COUNT(*) FROM \"$tbl\";")) rows =="
+    sqlite3 {} <<EOF
 .headers on
 .mode column
 SELECT * FROM "$tbl" LIMIT 5;
 EOF
     echo
-    done
-elif have file; then
-    file -bL {}
-else
-    echo "No viewer for {}"
-fi
+done
 '''

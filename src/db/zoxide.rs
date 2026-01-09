@@ -8,7 +8,7 @@ use crate::db::{Connection, DbSortOrder, Entry, Epoch};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct DbConfig {
+pub struct HistoryConfig {
     /// Ignore files matching these globs
     pub exclude: Vec<String>,
     /// Whether to show missing files in queries.
@@ -20,7 +20,7 @@ pub struct DbConfig {
     /// Lazily remove entries older than this many days
     pub atime_expiry: TtlDays,
 
-    /// What to do when the best match by [`crate::db::Connection::print_best_by_frecency`] is the current directory
+    /// What to do when the best match by [`Connection::print_best_by_frecency`] is the current directory
     pub refind: RetryStrat,
 
     /// Whether to save resolved paths (todo)
@@ -29,7 +29,7 @@ pub struct DbConfig {
     pub base_dir: Option<String>,
 }
 
-impl Default for DbConfig {
+impl Default for HistoryConfig {
     fn default() -> Self {
         Self {
             exclude: Default::default(),
@@ -134,7 +134,7 @@ pub struct DbFilter {
 }
 
 impl DbFilter {
-    pub fn new(config: &DbConfig) -> Self {
+    pub fn new(config: &HistoryConfig) -> Self {
         let now = Utc::now().timestamp();
         let atime_expiry = now - config.atime_expiry.0 * 24 * 60 * 60; // convert TTL days to seconds
         let missing_expiry = now - config.missing_expiry.0 * 24 * 60 * 60; // convert TTL days to seconds

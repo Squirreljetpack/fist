@@ -71,7 +71,7 @@ expr_as_path_fn!(
 expr_as_path_fn!(lessfilter_cfg_path, config_dir().join("lessfilter.toml"));
 
 // previewer scripts
-expr_as_path_fn!(lz_path, cache_dir().join("lz"));
+expr_as_path_fn!(liza_path, cache_dir().join("liza"));
 expr_as_path_fn!(pager_path, cache_dir().join("pager"));
 expr_as_path_fn!(
     metadata_viewer_path,

@@ -1,0 +1,6 @@
+#!/bin/zsh
+if (($#)); then
+	fs :o $@
+else
+	fs :o .
+fi

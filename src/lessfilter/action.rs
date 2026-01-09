@@ -63,19 +63,19 @@ impl Action {
             _ if matches!(preset, Preset::Default) => Default::default(),
             Action::Directory => match preset {
                 Preset::Preview => (
-                    arr![vec_![current_exe(), ":tool", "lz", ":u2", path]],
+                    arr![vec_![current_exe(), ":tool", "liza", ":u2", path]],
                     [true, false, true], // read + execute
                 ),
                 Preset::Display => (
-                    arr![vec_![current_exe(), ":tool", "lz", ":u", path]],
+                    arr![vec_![current_exe(), ":tool", "liza", ":u", path]],
                     [true, false, true],
                 ),
                 Preset::Extended => (
-                    arr![vec_![current_exe(), ":tool", "lz", ":sa", path]],
+                    arr![vec_![current_exe(), ":tool", "liza", ":sa", path]],
                     [true, false, true],
                 ),
                 Preset::Info => (
-                    arr![vec_![current_exe(), ":tool", "lz", ":x", path]],
+                    arr![vec_![current_exe(), ":tool", "liza", ":x", path]],
                     [true, false, true],
                 ),
                 Preset::Open | Preset::Alternate => (
