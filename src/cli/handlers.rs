@@ -21,7 +21,9 @@ use cli_boilerplate_automation::{
 
 use super::{
     matchmaker::mm_get,
-    paths::{__cwd, config_path, current_exe, home_dir, lessfilter_cfg_path, liza_path, mm_cfg_path},
+    paths::{
+        __cwd, config_path, current_exe, home_dir, lessfilter_cfg_path, liza_path, mm_cfg_path,
+    },
     tool_types::*,
     types::*,
 };
@@ -257,9 +259,29 @@ async fn handle_default(
         cfg.global.interface.alt_accept = true;
         cfg.global.interface.no_multi = true;
         cfg.history.show_missing = false;
-        // todo, lowpri: should we interpret paths literally or as zoxide args
 
-        let cwd = AbsPath::new_unchecked(__cwd());
+        // treat paths as zoxide args
+        let cwd = if cmd.paths.len() > 1 {
+            let conn = pool.get_conn(DbTable::dirs).await?;
+            let kw: Vec<String> = cmd
+                .paths
+                .drain(..cmd.paths.len() - 1)
+                .map(|f| f.to_string_lossy().into_owned())
+                .collect();
+            let db_filter = DbFilter::new(&cfg.history).with_keywords(kw);
+
+            match conn.return_best_by_frecency(&db_filter).await {
+                None | Some(None) => {
+                    // lowpri: cd_fallback_search?
+                    return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
+                }
+                Some(Some(p)) => p,
+            }
+        // search in current directory
+        } else {
+            AbsPath::new_unchecked(__cwd())
+        };
+
         FsPane::new_fd_from_command(cmd, cwd)
     } else
     // any fd arg is specified

@@ -4,7 +4,10 @@ use cli_boilerplate_automation::{
 };
 use std::path::Path;
 
-use crate::db::{Connection, DbSortOrder, Entry, Epoch};
+use crate::{
+    abspath::AbsPath,
+    db::{Connection, DbSortOrder, Entry, Epoch},
+};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -102,6 +105,63 @@ impl Connection {
         } else {
             RetryStrat::None
         }
+    }
+
+    pub async fn return_best_by_frecency(
+        mut self,
+        db_filter: &DbFilter,
+    ) -> Option<Option<AbsPath>> {
+        let mut remove = Vec::new();
+        let mut found = None;
+
+        let mut entries = self
+            .get_entries_range(0, 0, DbSortOrder::none)
+            .await
+            .__ebog();
+
+        entries.sort_by_key(|e| std::cmp::Reverse(db_filter.score(e)));
+
+        for e in entries {
+            match db_filter.filter(&e.path, e.atime) {
+                None => {
+                    remove.push(e.path.clone());
+                }
+                Some(true) => {
+                    if let Ok(cwd) = std::env::current_dir()
+                        && cwd.as_path() == e.path.as_path()
+                    {
+                        match db_filter.refind {
+                            RetryStrat::Next => continue,
+                            RetryStrat::None => {}
+                            RetryStrat::Search => {
+                                if !remove.is_empty() {
+                                    tokio::spawn(async move {
+                                        self.remove_entries(&remove).await._elog();
+                                    });
+                                }
+                                return None;
+                            }
+                        }
+                    };
+                    found = Some(e.path);
+                    break;
+                }
+                Some(false) => {}
+            }
+        }
+
+        let _found = found.clone();
+
+        tokio::spawn(async move {
+            if let Some(p) = _found.as_ref() {
+                self.bump(p, 1).await._elog();
+            };
+            if !remove.is_empty() {
+                self.remove_entries(&remove).await._elog();
+            }
+        });
+
+        Some(found)
     }
 }
 

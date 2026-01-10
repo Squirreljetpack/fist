@@ -120,7 +120,7 @@ pub enum FsAction {
     // --------------------------------------------
     /// Jump and accept
     /// 0 jumps to menu
-    AutoJump(u8),
+    AutoJump(u8, bool),
 }
 // print, accept
 
@@ -151,7 +151,18 @@ pub fn fsaction_aliaser(
     state: &MMState<'_>,
 ) -> Actions<FsAction> {
     #[allow(non_snake_case)]
-    let RELOAD: Actions<FsAction> = acs![Action::ClearAll, Action::Reload("".to_string())];
+    let RELOAD = |enter_prompt: bool| {
+        if enter_prompt {
+            acs![
+                Action::ClearAll,
+                Action::Reload("".to_string()),
+                Action::Custom(FsAction::EnterPrompt(true))
+            ]
+        } else {
+            acs![Action::ClearAll, Action::Reload("".to_string()),]
+        }
+    };
+
     let raw_input = state.picker_ui.results.cursor_disabled || state.overlay_index.is_some();
 
     match a {
@@ -169,13 +180,9 @@ pub fn fsaction_aliaser(
                 );
                 STACK::push(pane);
 
-                // we enter prompt because editing is likely
-                acs![
-                    Action::ClearAll,
-                    Action::Reload("".to_string()),
-                    Action::Custom(FsAction::EnterPrompt(true))
-                ]
+                RELOAD(GLOBAL::with_cfg(|c| c.panes.fd.enter_prompt))
             }
+
             FsAction::History => {
                 // save input
                 let (content, index) = (state.input.clone(), state.picker_ui.results.index());
@@ -183,11 +190,7 @@ pub fn fsaction_aliaser(
 
                 STACK::swap_history();
 
-                acs![
-                    Action::ClearAll,
-                    Action::Reload("".to_string()),
-                    Action::Custom(FsAction::EnterPrompt(true))
-                ]
+                RELOAD(GLOBAL::with_cfg(|c| c.panes.history.enter_prompt))
             }
             FsAction::Jump(d, c) => {
                 if raw_input {
@@ -219,7 +222,7 @@ pub fn fsaction_aliaser(
                 // pane
                 enter_dir_pane(path);
 
-                RELOAD
+                RELOAD(GLOBAL::with_cfg(|c| c.panes.nav.enter_prompt))
             }
             FsAction::Parent => {
                 if raw_input {
@@ -257,7 +260,7 @@ pub fn fsaction_aliaser(
                 // pane
                 enter_dir_pane(path);
 
-                RELOAD
+                RELOAD(GLOBAL::with_cfg(|c| c.panes.nav.enter_prompt))
             }
             FsAction::Advance => {
                 if raw_input {
@@ -279,7 +282,7 @@ pub fn fsaction_aliaser(
                     // pane
                     enter_dir_pane(item.path.clone());
 
-                    RELOAD
+                    RELOAD(GLOBAL::with_cfg(|c| c.panes.nav.enter_prompt))
                 } else if item.path.exists() {
                     // record
                     if item.path.is_file() {
@@ -300,7 +303,11 @@ pub fn fsaction_aliaser(
                 STACK::save_input(content, index);
 
                 // adjust stack
-                if STACK::stack_prev() { RELOAD } else { acs![] }
+                if STACK::stack_prev() {
+                    RELOAD(false)
+                } else {
+                    acs![]
+                }
             }
             FsAction::Forward => {
                 // save input
@@ -310,10 +317,24 @@ pub fn fsaction_aliaser(
                 // adjust stack
                 if STACK::stack_next() {
                     // restore input
-                    RELOAD
+                    RELOAD(false)
                 } else {
                     acs![]
                 }
+            }
+            FsAction::Rg => {
+                // save input
+                let (content, index) = (state.input.clone(), state.picker_ui.results.index());
+                STACK::save_input(content, index);
+
+                // let pane = FsPane::new_fd(
+                //     STACK::cwd().unwrap_or_default(),
+                //     FILTERS::sort(),
+                //     FILTERS::visibility(),
+                // );
+                // STACK::push(pane);
+
+                RELOAD(GLOBAL::with_cfg(|c| c.panes.rg.enter_prompt))
             }
             FsAction::SaveInput => {
                 let (content, index) = (state.input.clone(), state.picker_ui.results.index());
@@ -361,8 +382,8 @@ pub fn fsaction_aliaser(
                 acs![Action::Execute(cmd)]
             }
 
-            FsAction::AutoJump(digit) => {
-                if raw_input {
+            FsAction::AutoJump(digit, char_if_raw_input) => {
+                if char_if_raw_input && raw_input {
                     let c = (b'0' + (digit % 10)) as char;
                     acs![Action::Input(c)]
                 } else if digit > 0 {

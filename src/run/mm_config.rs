@@ -98,6 +98,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         // preview
         key!('?') => Action::Preview(Preset::Preview.to_command_string()),
         key!(alt - '/') => Action::Preview(Preset::Display.to_command_string_with_header()),
+        key!(ctrl-shift-h) => Action::Help("".into()),
         key!(alt-shift-h) => Action::Help("".into()),
         // spawning
         key!(alt-s) => Action::Execute("$SHELL".into()),
@@ -114,16 +115,16 @@ pub fn default_binds() -> BindMap<FsAction> {
 
         key!(ctrl-shift-'/') => Action::CyclePreview,
         key!(alt-r) => Action::Reload("".to_string()),
-        key!(ctrl-0) => FsAction::AutoJump(0),
-        key!(ctrl-1) => FsAction::AutoJump(1),
-        key!(ctrl-2) => FsAction::AutoJump(2),
-        key!(ctrl-3) => FsAction::AutoJump(3),
-        key!(ctrl-4) => FsAction::AutoJump(4),
-        key!(ctrl-5) => FsAction::AutoJump(5),
-        key!(ctrl-6) => FsAction::AutoJump(6),
-        key!(ctrl-7) => FsAction::AutoJump(7),
-        key!(ctrl-8) => FsAction::AutoJump(8),
-        key!(ctrl-9) => FsAction::AutoJump(9),
+        key!(ctrl-0) => FsAction::AutoJump(0, false),
+        key!(ctrl-1) => FsAction::AutoJump(1, false),
+        key!(ctrl-2) => FsAction::AutoJump(2, false),
+        key!(ctrl-3) => FsAction::AutoJump(3, false),
+        key!(ctrl-4) => FsAction::AutoJump(4, false),
+        key!(ctrl-5) => FsAction::AutoJump(5, false),
+        key!(ctrl-6) => FsAction::AutoJump(6, false),
+        key!(ctrl-7) => FsAction::AutoJump(7, false),
+        key!(ctrl-8) => FsAction::AutoJump(8, false),
+        key!(ctrl-9) => FsAction::AutoJump(9, false),
     )
 }
 

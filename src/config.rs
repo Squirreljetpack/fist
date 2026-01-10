@@ -1,6 +1,6 @@
 use cli_boilerplate_automation::{
     bait::ResultExt,
-    bath::{RenamePolicy, basename},
+    bath::{_filename, RenamePolicy},
     bo::write_str,
     bog::BogOkExt,
     bs::{create_dir, set_executable},
@@ -106,7 +106,7 @@ impl Config {
                 if !force
                 // less noise for debug
                 {
-                    ibog!("{} saved to: {}", basename(path), path.to_string_lossy());
+                    ibog!("{} saved to: {}", _filename(path), path.to_string_lossy());
                 }
             }
         }
@@ -123,6 +123,9 @@ pub struct MiscConfig {
     pub cd_fallback_search: bool,
     /// Overwrite or append logs on application start.
     pub append_mode_logging: bool,
+    /// Pass the spawning command to this instead of invoking it directly.
+    // todo
+    pub spawn_with: Vec<String>,
 }
 
 impl Default for MiscConfig {
@@ -131,6 +134,7 @@ impl Default for MiscConfig {
             clipboard_delay_ms: 20,
             cd_fallback_search: false,
             append_mode_logging: false,
+            spawn_with: Vec::new(),
         }
     }
 }
@@ -191,8 +195,7 @@ impl Default for PanesSettings {
 /// Pane-specific settings
 pub struct PanesConfig {
     pub app: PaneSettings,
-    pub file: PaneSettings,
-    pub dir: PaneSettings,
+    pub history: PaneSettings,
     pub nav: NavPaneSettings,
     pub stream: PaneSettings,
     pub fd: PaneSettings,
@@ -202,6 +205,7 @@ pub struct PanesConfig {
     pub settings: PanesSettings,
 }
 
+// enter prompt by default because it is less surprising
 impl Default for PanesConfig {
     fn default() -> Self {
         Self {
@@ -209,13 +213,22 @@ impl Default for PanesConfig {
                 show_preview: Some(false),
                 ..PaneSettings::default()
             },
-            file: PaneSettings::default(),
-            dir: PaneSettings::default(),
+            history: PaneSettings {
+                ..PaneSettings::default()
+            },
             nav: NavPaneSettings::default(),
-            fd: PaneSettings::default(),
-            rg: PaneSettings::default(),
-            custom: PaneSettings::default(),
-            stream: PaneSettings::default(),
+            fd: PaneSettings {
+                ..PaneSettings::default()
+            },
+            rg: PaneSettings {
+                ..PaneSettings::default()
+            },
+            custom: PaneSettings {
+                ..PaneSettings::default()
+            },
+            stream: PaneSettings {
+                ..PaneSettings::default()
+            },
 
             settings: PanesSettings::default(),
         }
@@ -231,8 +244,7 @@ impl FsPane {
             FsPane::Custom { .. } => panes.custom.prompt.clone(),
             FsPane::Stream { .. } => panes.stream.prompt.clone(),
             FsPane::Fd { .. } => panes.fd.prompt.clone(),
-            FsPane::Files { .. } => panes.file.prompt.clone(),
-            FsPane::Folders { .. } => panes.dir.prompt.clone(),
+            FsPane::Files { .. } | FsPane::Folders { .. } => panes.history.prompt.clone(),
             FsPane::Launch { .. } => panes.app.prompt.clone(),
             FsPane::Nav { .. } => panes.nav.prompt.clone(),
             FsPane::Rg { .. } => panes.rg.prompt.clone(),
@@ -247,21 +259,31 @@ impl FsPane {
             FsPane::Custom { .. } => panes.custom.show_preview,
             FsPane::Stream { .. } => panes.stream.show_preview,
             FsPane::Fd { .. } => panes.fd.show_preview,
-            FsPane::Files { .. } => panes.file.show_preview,
-            FsPane::Folders { .. } => panes.dir.show_preview,
+            FsPane::Files { .. } | FsPane::Folders { .. } => panes.history.show_preview,
             FsPane::Launch { .. } => panes.app.show_preview,
             FsPane::Nav { .. } => panes.nav.show_preview,
             FsPane::Rg { .. } => panes.rg.show_preview,
         }
     }
 }
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<bool>,
+    /// Whether to enter the prompt when switching to this pane
+    pub enter_prompt: bool,
+}
+impl Default for PaneSettings {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            show_preview: None,
+            enter_prompt: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -271,7 +293,8 @@ pub struct NavPaneSettings {
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<bool>,
-
+    pub enter_prompt: bool,
+    // ----------------------------
     pub default_sort: SortOrder,
     pub default_visibility: Visibility,
 }
@@ -281,6 +304,8 @@ impl Default for NavPaneSettings {
         Self {
             prompt: None,
             show_preview: None,
+            enter_prompt: false,
+
             default_sort: SortOrder::mtime,
             default_visibility: Default::default(),
         }

@@ -97,23 +97,22 @@ pub fn spawn(words: &[OsString]) -> Option<Child> {
     }
     if has("pueue") {
         // create the script for pueue to eval
-        let script = format_sh_command(words);
-
-        let args = vec!["add".into(), "--".into(), script];
-        let ret = Command::new("pueue").args(args).spawn_detached();
-
-        let pueue_ok = std::process::Command::new("pueue").arg("status").success();
+        let script = format_sh_command::<true>(words); // pueue is faulty on single quotes
+        let words = ["pueue", "add", "--"];
+        let pueue_ok = std::process::Command::new(words[0]).arg("status").success();
 
         if pueue_ok {
-            return ret;
+            return Command::new(words[0])
+                .args(&words[1..])
+                .arg(script)
+                .spawn_detached();
         }
-        // if pueued is down, retry
     }
     cfg_if! {
         if #[cfg(target_os = "windows")] {
             script = "";
             // todo: dunno how to format the script
-            cli_boilerplate_automation::broc::spawn_script(script, vars, Stdio::null(), Stdio::null(), Stdio::null())
+            Command::new(words[0].clone()).args(&words[1..]).spawn_detached()
         } else {
             // spawn the program directly
             Command::new(words[0].clone()).args(&words[1..]).spawn_detached()

@@ -61,7 +61,11 @@ fn make_mm(
     );
     let injector = IndexedInjector::new_globally_indexed(worker.injector());
 
-    let selector = Selector::new_with_validator(Indexed::identifier, exist_validator);
+    let mut selector = Selector::new_with_validator(Indexed::identifier, exist_validator);
+    if cfg.global.interface.no_multi {
+        selector = selector.disabled()
+    }
+
     let formatter =
         Arc::new(worker.make_format_fn::<true>(|item: &Indexed<PathItem>| item.inner.display()));
 

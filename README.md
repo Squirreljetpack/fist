@@ -56,6 +56,7 @@ Call as:
 - `ctrl-l`: Full preview.
 - `/` and `~`: Jump to home
 
+For a full list of binds within the app, type `ctrl-shift-h`.\
 For more information on bindings, see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
 
 # Shell integration

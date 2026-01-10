@@ -5,7 +5,6 @@ use mime_guess::{Mime, mime};
 
 // wrapper cuz we can't add a param to Mime
 
-
 #[derive(Debug)]
 pub struct Myme {
     pub mime: Mime,

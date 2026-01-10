@@ -114,17 +114,20 @@ Per-pane extensions:
 - undo redo on file actions (copy/etc.)
   error on empty?
 - async push for display_script
+- pueue should be optional, especially since it doesn't handle single quotes correctly: pass cfg down to spawn or use a global?
 
 # Scripts
 
 we have some zsh specific scripts, posix/something crossplatform would be better.
 
 # UI
+
 ...
 
 # CLI
+
 better cli/env var handling: need a proc macro to generate a mirrored with every concrete value wrapped in option, then a fn to merge that config into the main config
 
-
 # CD
+
 better cd: swapping accept and print is too error prone, we need a global var
