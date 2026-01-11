@@ -174,10 +174,10 @@ impl StackOverlay {
                 } else {
                     let style = Style::default();
                     Row::new(vec![
+                        Cell::from(kind),
                         Cell::from(path),
                         Cell::from(dst),
                         Cell::from(size),
-                        Cell::from(kind),
                     ])
                 }
             })
@@ -223,8 +223,7 @@ impl Overlay for StackOverlay {
         ui_area: &Rect,
     ) -> Result<Rect, [u16; 2]> {
         STASH::with(|scratch| {
-            let items = &scratch.stack;
-            self.save_widths(items, ui_area.width);
+            self.save_widths(scratch, ui_area.width);
         });
         Err([self.width(), 0])
     }
@@ -234,7 +233,7 @@ impl Overlay for StackOverlay {
         action: &Action<Self::A>,
     ) -> OverlayEffect {
         if self.editing.is_none() {
-            let len = STASH::with(|s| s.stack.len());
+            let len = STASH::with(|s| s.len());
             if len == 0 {
                 return OverlayEffect::Disable;
             }
@@ -326,8 +325,7 @@ impl Overlay for StackOverlay {
         mut area: matchmaker::ui::Rect,
     ) {
         STASH::with(|scratch| {
-            let items = &scratch.stack;
-            if items.is_empty() {
+            if scratch.is_empty() {
                 self.table_state.select(None);
                 let msg = "Scratch is empty";
                 area.height = 3 + self.config.border.height();
@@ -345,7 +343,7 @@ impl Overlay for StackOverlay {
             }
 
             // 1. ensure state
-            let len = items.len();
+            let len = scratch.len();
             if let Some(selected) = self.table_state.selected() {
                 if selected >= len {
                     self.table_state.select(Some(len - 1));
@@ -355,7 +353,7 @@ impl Overlay for StackOverlay {
             }
 
             // 2. make table from config
-            let table = self.make_table(items);
+            let table = self.make_table(scratch);
 
             // 3. render
             frame.render_widget(Clear, area);

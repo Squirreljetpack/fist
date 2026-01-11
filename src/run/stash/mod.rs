@@ -20,7 +20,7 @@ use crate::{
 };
 
 pub struct Stack {
-    pub stack: Vec<StackItem>, // not indexmap because need const
+    stack: Vec<StackItem>, // not indexmap because need const
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, strum_macros::Display)]
@@ -183,27 +183,55 @@ impl Stack {
     }
 }
 
+impl std::ops::Deref for Stack {
+    type Target = Vec<StackItem>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.stack
+    }
+}
+
 // helpers
 
-pub fn toggle_insert<T: PartialEq>(
+// pub fn toggle_insert<T: PartialEq>(
+//     list: &mut Vec<T>,
+//     item: T,
+// ) {
+//     if let Some(i) = list.iter().position(|x| *x == item) {
+//         list.remove(i);
+//     } else {
+//         list.push(item);
+//     }
+// }
+
+pub fn insert_once<T: PartialEq>(
     list: &mut Vec<T>,
     item: T,
+    stable: bool,
 ) {
-    if let Some(i) = list.iter().position(|x| *x == item) {
-        list.remove(i);
+    if stable {
+        if !list.contains(&item) {
+            list.push(item);
+        }
     } else {
+        if let Some(i) = list.iter().position(|x| *x == item) {
+            list.remove(i);
+        }
         list.push(item);
     }
 }
 
-pub fn stable_insert<T: PartialEq>(
-    list: &mut Vec<T>,
-    item: T,
-) {
-    if !list.contains(&item) {
-        list.push(item);
+impl PartialEq for StackItem {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
+        self.path == other.path
     }
 }
+
+impl Eq for StackItem {}
+
 // -------- GLOBAL ---------
 thread_local! {
     static SCRATCH_: RefCell<Stack> = const { RefCell::new(Stack::new()) };
@@ -214,7 +242,7 @@ pub struct STASH;
 impl STASH {
     pub fn insert(items: impl IntoIterator<Item = StackItem>) {
         for item in items {
-            SCRATCH_.with_borrow_mut(|s| stable_insert(&mut s.stack, item));
+            SCRATCH_.with_borrow_mut(|s| insert_once(&mut s.stack, item, false));
         }
     }
 
@@ -285,27 +313,5 @@ impl STASH {
         SCRATCH_.with_borrow_mut(|s| {
             s.stack.retain(|item| !item.status.state.is_complete());
         });
-    }
-}
-
-// ------- BOILERPLATE ---------
-impl PartialEq for StackItem {
-    fn eq(
-        &self,
-        other: &Self,
-    ) -> bool {
-        self.path == other.path && self.kind == other.kind
-    }
-}
-
-// usually also implement Eq if PartialEq is total
-impl Eq for StackItem {}
-
-impl std::hash::Hash for StackItem {
-    fn hash<H: std::hash::Hasher>(
-        &self,
-        state: &mut H,
-    ) {
-        self.path.hash(state);
     }
 }
