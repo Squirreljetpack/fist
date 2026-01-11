@@ -95,6 +95,10 @@ impl Config {
                 binary_viewer_path(),
                 include_str!("../assets/scripts/fist_binary_viewer"),
             ),
+            (
+                show_error_path(),
+                include_str!("../assets/scripts/fist_show_error"),
+            ),
         ];
 
         for (path, script) in files {

@@ -1,0 +1,7 @@
+#!/bin/sh
+for param; do
+  echo $param
+done
+echo
+printf "(Press Enter to continue) "
+read

@@ -77,4 +77,5 @@ expr_as_path_fn!(
     metadata_viewer_path,
     cache_dir().join("fist_metadata_viewer")
 );
+expr_as_path_fn!(show_error_path, cache_dir().join("fist_show_error"));
 expr_as_path_fn!(binary_viewer_path, cache_dir().join("fist_binary_viewer"));

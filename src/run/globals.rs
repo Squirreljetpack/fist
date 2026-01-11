@@ -6,7 +6,7 @@ use std::{
 };
 
 use arboard::Clipboard;
-use cli_boilerplate_automation::{bait::ResultExt, bog::BogUnwrapExt, else_default};
+use cli_boilerplate_automation::{bait::ResultExt, bog::BogUnwrapExt};
 use log::{self, debug, error};
 use matchmaker::{
     action::Action,
@@ -40,7 +40,6 @@ mod stack;
 pub use stack::*;
 
 // --------------- FSACTION STATE -------------------
-pub static ENTERED_PROMPT: AtomicBool = AtomicBool::new(false);
 pub static RESTORE_INPUT: AtomicBool = AtomicBool::new(false); // triggered by reload, and checked by sync_handler
 thread_local! {
     pub static PRINT_HANDLE: AppendOnly<String> = AppendOnly::new();
@@ -157,7 +156,7 @@ impl GLOBAL {
     // ------------ SENDERS --------------
     pub fn send_efx(effects: Effects) {
         let tx = RENDER_TX.lock().unwrap();
-        let tx = else_default!(tx.as_ref().ebog("render_tx missing"));
+        let tx = tx.as_ref().expect("render tx missing");
 
         for s in effects {
             tx.send(matchmaker::message::RenderCommand::Effect(s))
@@ -168,7 +167,7 @@ impl GLOBAL {
 
     pub fn send_fsaction(fa: FsAction) {
         let tx = RENDER_TX.lock().unwrap();
-        let tx = else_default!(tx.as_ref().ebog("render_tx missing"));
+        let tx = tx.as_ref().expect("render tx missing");
 
         tx.send(matchmaker::message::RenderCommand::Action(Action::Custom(
             fa,
@@ -177,11 +176,18 @@ impl GLOBAL {
         .ok();
     }
 
+    // pub fn send_render_command(msg: matchmaker::message::RenderCommand<FsAction>) {
+    //     let tx = RENDER_TX.lock().unwrap();
+    //     let tx = tx.as_ref().expect("render tx missing");
+
+    //     tx.send(msg).elog().ok();
+    // }
+
     /// must be called in initializing thread
     pub fn send_watcher(msg: WatcherMessage) {
         WATCHER_TX.with(|tx| {
             let tx = tx.borrow();
-            let tx = else_default!(tx.as_ref().ebog("watcher_tx missing"));
+            let tx = tx.as_ref().expect("watcher tx missing");
             tx.send(msg)._elog();
         });
     }

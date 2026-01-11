@@ -252,7 +252,14 @@ async fn handle_default(
     }
     // _dbg!(cli, cmd, cfg);
     let pool = Pool::new(cfg.db_path()).await?;
-    let pane = if !atty::is(atty::Stream::Stdin) && !cmd.no_read {
+    let pane = if !atty::is(atty::Stream::Stdin) && !cmd.no_read && !cmd.list {
+        if cmd.cd {
+            cfg.global.interface.alt_accept = true;
+            cfg.global.interface.no_multi = true;
+            cfg.history.show_missing = false;
+            TEMP::set_initial_relative_path(cfg.styles.path.relative);
+            cfg.styles.path.relative = false;
+        };
         FsPane::new_stream(AbsPath::new_unchecked(__cwd().to_path_buf()), cmd.vis)
     } else if cmd.cd {
         cmd.paths.append(&mut cmd.fd); // fd is not supported
@@ -277,7 +284,7 @@ async fn handle_default(
                 }
                 Some(Some(p)) => p,
             }
-        // search in current directory
+            // search in current directory
         } else {
             AbsPath::new_unchecked(__cwd())
         };
