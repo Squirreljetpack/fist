@@ -114,7 +114,8 @@ impl GLOBAL {
             FsPane::Nav { vis, .. }
             | FsPane::Custom { vis, .. }
             | FsPane::Fd { vis, .. }
-            | FsPane::Stream { vis, .. } => *vis,
+            | FsPane::Stream { vis, .. }
+            | FsPane::Rg { vis, .. } => *vis,
             _ => Default::default(),
         };
         debug!("Initial filters: {sort}, {visibility:?}");

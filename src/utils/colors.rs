@@ -35,7 +35,7 @@ pub fn display_ratatui_colors() -> std::io::Result<()> {
             .constraints(
                 colors
                     .iter()
-                    .map(|_| Constraint::Length(3))
+                    .map(|_| Constraint::Length(5))
                     .collect::<Vec<_>>(),
             )
             .split(f.area());

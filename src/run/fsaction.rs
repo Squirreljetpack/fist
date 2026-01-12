@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use cli_boilerplate_automation::{bait::OptionExt, bath::PathExt, else_default, prints};
+use cli_boilerplate_automation::{bath::PathExt, bog::BogUnwrapExt, else_default, prints};
 use matchmaker::{
     acs,
     action::{Action, ActionExt, Actions, Count, Exit},
@@ -23,7 +23,7 @@ use crate::{
     run::{
         fspane::FsPane,
         item::short_display,
-        stash::{STASH, StackItem},
+        stash::{STASH, StashItem},
         state::{APP, FILTERS, GLOBAL, STACK, TEMP, TOAST},
     },
     spawn::open_wrapped,
@@ -133,7 +133,7 @@ fn enter_dir_pane(path: AbsPath) {
     // record
     GLOBAL::db().bump(true, path.clone());
     // this happens after the reload, so that the config dependent prompt marker gets applied
-    GLOBAL::send_efx(efx![Effect::RestoreInputPromptMarker]);
+    GLOBAL::send_efx(efx![Effect::RestoreInputPrefix]);
     // todo: somehow change the render inputui config
     // always clear
 
@@ -373,8 +373,9 @@ pub fn fsaction_aliaser(
                     let pp = else_default!(
                         pager_path()
                             .to_str()
-                            .elog("Invalid encoding for pager path")
-                            .ok()
+                            .ebog(
+                                "Pager path could not be decoded, please check your installation's cache directory."
+                            )
                     );
                     cmd.push_str(" | ");
                     cmd.push_str(pp);
@@ -645,10 +646,7 @@ pub fn fsaction_handler(
                     Effect::Prompt(prompt)
                 ]
             } else {
-                efx![
-                    Effect::DisableCursor(enter),
-                    Effect::RestoreInputPromptMarker
-                ]
+                efx![Effect::DisableCursor(enter), Effect::RestoreInputPrefix]
             }
         }
 
@@ -661,7 +659,7 @@ pub fn fsaction_handler(
             STASH::insert(state.map_selected_to_vec(|s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
-                StackItem::mv(s.path.clone())
+                StashItem::mv(s.path.clone())
             }));
             if !toast_vec.is_empty() {
                 TOAST::push(ToastStyle::Normal, "Cut: ", toast_vec);
@@ -678,7 +676,7 @@ pub fn fsaction_handler(
             STASH::insert(state.map_selected_to_vec(|s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
-                StackItem::cp(s.path.clone())
+                StashItem::cp(s.path.clone())
             }));
             if !toast_vec.is_empty() {
                 TOAST::push(ToastStyle::Normal, "Copied: ", toast_vec);
@@ -690,7 +688,7 @@ pub fn fsaction_handler(
             let mut toast_vec = vec![];
             STASH::insert(state.map_selected_to_vec(|s| {
                 toast_vec.push(short_display(&s.path));
-                StackItem::cp(s.path.clone())
+                StashItem::cp(s.path.clone())
             }));
             if !toast_vec.is_empty() {
                 TOAST::push(ToastStyle::Normal, "Stashed: ", toast_vec);
@@ -792,7 +790,7 @@ pub fn fsaction_handler(
                 }
                 AbsPath::new_unchecked(dest_base)
             };
-            STASH::transfer_all(&base, true);
+            STASH::transfer_all(base, false);
             efx![]
         }
         FsAction::ClearStash => {
@@ -824,7 +822,7 @@ pub fn fsaction_handler(
                     );
                     efx![Effect::Prompt(prompt)]
                 } else {
-                    efx![Effect::RestoreInputPromptMarker]
+                    efx![Effect::RestoreInputPrefix]
                 }
             } else if let Some(e) = FILTERS::with_mut(|_sort, vis| {
                 (vis.dirs, vis.files) = match (vis.dirs, vis.files) {
@@ -852,7 +850,7 @@ pub fn fsaction_handler(
                                 .add_modifier(Modifier::ITALIC),
                         )))
                     } else {
-                        Some(Effect::RestoreInputPromptMarker)
+                        Some(Effect::RestoreInputPrefix)
                     }
                 } else {
                     None
@@ -899,7 +897,7 @@ pub fn paste_handler(
             TOAST::push_notice(ToastStyle::Normal, "No current directory.");
             return String::new();
         };
-        STASH::transfer_all(&base, true);
+        STASH::transfer_all(base, false);
         String::new()
     }
 }

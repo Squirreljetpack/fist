@@ -52,6 +52,7 @@ pub fn handle(
     for path in paths {
         let apath = AbsPath::new(path.clone());
         let data = FileData::new(apath.clone(), &cfg.test);
+        log::debug!("file data: {data:?}");
 
         let rule = else_default!(rules.get_best_match(&path, data).ebog(format!("No rule for {}", path.to_string_lossy())); !);
         if rule.is_empty() {
@@ -63,6 +64,7 @@ pub fn handle(
             show_header(&path);
             succeeded = true;
         }
+        log::debug!("rule found: {rule:?}");
         for action in rule.iter() {
             log::debug!("Action: {action:?}");
             if let Action::Custom(s) = action {

@@ -1,7 +1,14 @@
 mod status;
 pub use status::*;
+use tokio::task::spawn_blocking;
 
-use std::{borrow::BorrowMut, cell::RefCell, path::MAIN_SEPARATOR, sync::atomic::Ordering};
+use std::{
+    borrow::BorrowMut,
+    cell::RefCell,
+    ffi::OsString,
+    path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+    sync::atomic::Ordering,
+};
 
 use cli_boilerplate_automation::{
     bath::{PathExt, auto_dest_for_src},
@@ -20,30 +27,30 @@ use crate::{
 };
 
 pub struct Stack {
-    stack: Vec<StackItem>, // not indexmap because need const
+    stack: Vec<StashItem>, // not indexmap because need const
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, strum_macros::Display)]
 #[strum(serialize_all = "lowercase")]
-pub enum StackAction {
+pub enum StashAction {
     Copy,
     Move,
     Symlink,
 }
 
-#[derive(Debug)]
-pub struct StackItem {
-    pub kind: StackAction,
+#[derive(Debug, Clone)]
+pub struct StashItem {
+    pub kind: StashAction,
     pub path: AbsPath,
-    pub status: StackItemStatus,
-    pub dest: String,
+    pub status: StashItemStatus,
+    pub dest: OsString,
 }
 
-impl StackItem {
+impl StashItem {
     pub fn cp(path: AbsPath) -> Self {
         Self {
-            kind: StackAction::Copy,
-            status: StackItemStatus::new(&path),
+            kind: StashAction::Copy,
+            status: StashItemStatus::new(&path),
             path,
             dest: Default::default(),
         }
@@ -51,8 +58,8 @@ impl StackItem {
 
     pub fn mv(path: AbsPath) -> Self {
         Self {
-            kind: StackAction::Move,
-            status: StackItemStatus::new(&path),
+            kind: StashAction::Move,
+            status: StashItemStatus::new(&path),
             path,
             dest: Default::default(),
         }
@@ -60,116 +67,114 @@ impl StackItem {
 
     pub fn sym(path: AbsPath) -> Self {
         Self {
-            kind: StackAction::Symlink,
-            status: StackItemStatus::new(&path),
+            kind: StashAction::Symlink,
+            status: StashItemStatus::new(&path),
             path,
             dest: Default::default(),
         }
     }
 
-    // spawn a task, pass the synced progress data to the task, on completion, change the status
-    pub fn transfer(&self) {
-        let src = self.path.clone();
-        let status = self.status.clone();
+    // blocking
+    // on completion, change the status
+    pub fn transfer(self) {
+        log::debug!("Transferring: {self:?}");
+
+        let src = self.path;
+        let dst = self.dest;
+        let status = self.status;
         let action = self.kind;
-        let dst = auto_dest_for_src(
-            &self.path,
-            &self.dest,
-            &GLOBAL::with_cfg(|c| c.fs.rename_policy.clone()),
-        );
 
-        status.state.store(StackItemState::Started);
+        status.state.store(StashItemState::Started);
 
-        if matches!(action, StackAction::Symlink) {
+        if matches!(action, StashAction::Symlink) {
             match symlink(&src, &dst) {
                 Ok(()) => {
-                    status.state.store(StackItemState::CompleteOk);
+                    status.state.store(StashItemState::CompleteOk);
                 }
                 Err(_) => {
-                    status.state.store(StackItemState::CompleteErr);
+                    status.state.store(StashItemState::CompleteErr);
                 }
             }
         }
 
-        let progress = status.progress.clone();
-        let state = status.state.clone();
-        let size = status.size.clone();
+        let StashItemStatus {
+            state,
+            progress,
+            size,
+        } = status;
 
-        log::debug!("Transferring: {self:?} -> dst: {dst:?}");
+        let result = if src.is_dir() {
+            // options: todo
+            let mut options = dir::CopyOptions::new();
+            options.overwrite = true;
 
-        tokio::task::spawn_blocking(move || {
-            let result = if src.is_dir() {
-                // options: todo
-                let mut options = dir::CopyOptions::new();
-                options.overwrite = true;
-
-                let progress_handler = move |p: dir::TransitProcess| {
-                    // store progress
-                    let fraction = if p.total_bytes > 0 {
-                        size.store(p.total_bytes, Ordering::Relaxed);
-                        p.copied_bytes * 255 / p.total_bytes
-                    } else {
-                        0
-                    };
-                    progress.clone().store(fraction as u8, Ordering::Relaxed);
-
-                    fs_extra::dir::TransitProcessResult::ContinueOrAbort
+            let progress_handler = move |p: dir::TransitProcess| {
+                // store progress
+                let fraction = if p.total_bytes > 0 {
+                    size.store(p.total_bytes, Ordering::Relaxed);
+                    p.copied_bytes * 255 / p.total_bytes
+                } else {
+                    0
                 };
+                progress.clone().store(fraction as u8, Ordering::Relaxed);
 
-                match action {
-                    StackAction::Copy => {
-                        dir::copy_with_progress(&src, &dst, &options, progress_handler)
-                    }
-                    StackAction::Move => {
-                        dir::move_dir_with_progress(&src, &dst, &options, progress_handler)
-                    }
-                    _ => {
-                        unreachable!()
-                    }
-                }
-            } else {
-                // options: todo
-                let mut options = file::CopyOptions::new();
-                options.overwrite = true;
-
-                let progress_handler = move |p: file::TransitProcess| {
-                    // store progress
-                    let fraction = if p.total_bytes > 0 {
-                        size.store(p.total_bytes, Ordering::Relaxed);
-                        p.copied_bytes * 255 / p.total_bytes
-                    } else {
-                        0
-                    };
-                    progress.clone().store(fraction as u8, Ordering::Relaxed);
-                };
-
-                match action {
-                    StackAction::Copy => {
-                        file::copy_with_progress(&src, &dst, &options, progress_handler)
-                    }
-                    StackAction::Move => {
-                        file::move_file_with_progress(&src, &dst, &options, progress_handler)
-                    }
-                    _ => {
-                        unreachable!()
-                    }
-                }
+                fs_extra::dir::TransitProcessResult::ContinueOrAbort
             };
 
-            if let Err(e) = result {
-                log::error!(
-                    "Transfer error for {} -> {}: {e}",
-                    src,
-                    dst.to_string_lossy()
-                );
-                state.store(StackItemState::CompleteErr);
-                TOAST::push(ToastStyle::Error, "Failed: ", [short_display(&src)]);
-            } else {
-                state.store(StackItemState::CompleteOk);
-                let display = short_display(&src); // dst.to_string_lossy().to_string().into()
-                TOAST::push(ToastStyle::Success, "Complete: ", [display]);
+            match action {
+                StashAction::Copy => {
+                    dir::copy_with_progress(&src, &dst, &options, progress_handler)
+                }
+                StashAction::Move => {
+                    dir::move_dir_with_progress(&src, &dst, &options, progress_handler)
+                }
+                _ => {
+                    unreachable!()
+                }
             }
-        });
+        } else {
+            // options: todo
+            let mut options = file::CopyOptions::new();
+            options.overwrite = true;
+
+            let progress_handler = move |p: file::TransitProcess| {
+                // store progress
+                let fraction = if p.total_bytes > 0 {
+                    size.store(p.total_bytes, Ordering::Relaxed);
+                    p.copied_bytes * 255 / p.total_bytes
+                } else {
+                    0
+                };
+                progress.clone().store(fraction as u8, Ordering::Relaxed);
+            };
+
+            match action {
+                StashAction::Copy => {
+                    file::copy_with_progress(&src, &dst, &options, progress_handler)
+                }
+                StashAction::Move => {
+                    file::move_file_with_progress(&src, &dst, &options, progress_handler)
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+        };
+
+        if let Err(e) = result {
+            log::error!(
+                "Transfer error for {} -> {}: {e}",
+                src,
+                dst.to_string_lossy()
+            );
+            state.store(StashItemState::CompleteErr);
+            let display = short_display(&src);
+            TOAST::push(ToastStyle::Error, "Failed: ", [display]);
+        } else {
+            state.store(StashItemState::CompleteOk);
+            let display = short_display(&src);
+            TOAST::push(ToastStyle::Success, "Complete: ", [display]);
+        }
     }
 
     pub fn display(&self) -> String {
@@ -184,7 +189,7 @@ impl Stack {
 }
 
 impl std::ops::Deref for Stack {
-    type Target = Vec<StackItem>;
+    type Target = Vec<StashItem>;
 
     fn deref(&self) -> &Self::Target {
         &self.stack
@@ -221,7 +226,7 @@ pub fn insert_once<T: PartialEq>(
     }
 }
 
-impl PartialEq for StackItem {
+impl PartialEq for StashItem {
     fn eq(
         &self,
         other: &Self,
@@ -230,87 +235,119 @@ impl PartialEq for StackItem {
     }
 }
 
-impl Eq for StackItem {}
+impl Eq for StashItem {}
 
 // -------- GLOBAL ---------
 thread_local! {
-    static SCRATCH_: RefCell<Stack> = const { RefCell::new(Stack::new()) };
+    static STASH_: RefCell<Stack> = const { RefCell::new(Stack::new()) };
 }
 
 pub struct STASH;
 
 impl STASH {
-    pub fn insert(items: impl IntoIterator<Item = StackItem>) {
+    pub fn insert(items: impl IntoIterator<Item = StashItem>) {
         for item in items {
-            SCRATCH_.with_borrow_mut(|s| insert_once(&mut s.stack, item, false));
+            STASH_.with_borrow_mut(|s| insert_once(&mut s.stack, item, false));
         }
     }
 
     pub fn accept(index: usize) {
-        SCRATCH_.with_borrow(|s| s.stack[index].transfer());
+        STASH_.with_borrow(|s| {
+            let mut item = s.stack[index].clone();
+            item.dest = GLOBAL::with_cfg(|c| {
+                auto_dest_for_src(&item.path, &item.dest, &c.fs.rename_policy)
+            })
+            .into();
+            spawn_blocking(|| item.transfer());
+        });
     }
 
     pub fn remove(index: usize) {
-        SCRATCH_.with_borrow_mut(|s| s.stack.remove(index));
+        STASH_.with_borrow_mut(|s| s.stack.remove(index));
     }
 
     pub fn with<R>(f: impl FnOnce(&Stack) -> R) -> R {
-        SCRATCH_.with(|cell| f(&cell.borrow()))
+        STASH_.with(|cell| f(&cell.borrow()))
     }
 
     pub fn with_mut<R>(f: impl FnOnce(&mut Stack) -> R) -> R {
-        SCRATCH_.with_borrow_mut(|cell| f(cell.borrow_mut()))
+        STASH_.with_borrow_mut(|cell| f(cell.borrow_mut()))
     }
 
     // call on overlay enable
     pub fn check_validity() {
-        SCRATCH_.with_borrow(|s| {
+        STASH_.with_borrow(|s| {
             for item in &s.stack {
-                if !item.path.exists() {
-                    item.status.state.store(StackItemState::PendingErr)
+                if item.status.state.is_pending() && !item.path.exists() {
+                    item.status.state.store(StashItemState::PendingErr)
                 }
             }
+            log::debug!("stash validated.");
         });
     }
+
+    /// spawns a queue to transfer all items
     pub fn transfer_all(
-        base: &AbsPath,
-        include_completed: bool,
+        base: AbsPath,
+        include_completed: bool, // not sure if we ever want this
     ) {
-        let mut toast_vec = Vec::new();
-
-        STASH::with_mut(|s| {
-            for item in s.stack.iter_mut() {
-                let item_state = item.status.state.load();
-                if item_state == StackItemState::Pending
-                    || (include_completed
-                        && matches!(
-                            item_state,
-                            StackItemState::CompleteErr | StackItemState::CompleteOk
-                        ))
-                {
-                    let mut resolved = item.dest.abs(base).to_string_lossy().to_string();
-
-                    if item.dest.ends_with(MAIN_SEPARATOR) || item.dest.is_empty() {
-                        resolved.push(MAIN_SEPARATOR);
+        let queue: Vec<_> = STASH::with_mut(|s| {
+            s.iter()
+                .cloned()
+                .filter_map(|mut item| {
+                    // normalize dest
+                    let mut base_dest: OsString = item.dest.abs(&base).into();
+                    // empty dest -> paste into current
+                    if item.dest.to_string_lossy().ends_with(MAIN_SEPARATOR) || item.dest.is_empty()
+                    {
+                        base_dest.push(MAIN_SEPARATOR_STR);
                     };
-                    item.dest = resolved;
-
-                    item.transfer();
-                    // > 10 mb
-                    if item.status.size.load(Ordering::Acquire) > 1024 * 1024 * 10 {
-                        toast_vec.push(short_display(&item.path));
-                    }
-                }
-            }
+                    item.dest = GLOBAL::with_cfg(|c| {
+                        auto_dest_for_src(&item.path, &base_dest, &c.fs.rename_policy)
+                    })
+                    .into();
+                    let ret = match item.status.state.load() {
+                        StashItemState::Pending => true,
+                        StashItemState::CompleteErr | StashItemState::CompleteOk
+                            if include_completed =>
+                        {
+                            true
+                        }
+                        _ => false,
+                    };
+                    ret.then_some(item)
+                })
+                .collect()
         });
 
-        if !toast_vec.is_empty() {
-            TOAST::push(ToastStyle::Normal, "Started: ", toast_vec);
-        }
+        if !queue.is_empty() {
+            TOAST::push_notice(
+                ToastStyle::Normal,
+                format!("Starting {} items.", queue.len()),
+            );
+        };
+        spawn_blocking(move || {
+            for item in queue {
+                item.transfer();
+            }
+        });
     }
 
     pub fn clear_invalid_and_completed() {
-        SCRATCH_.with_borrow_mut(|s| {
+        STASH_.with_borrow_mut(|s| {
+            s.stack.retain(|item| {
+                !matches!(
+                    item.status.state.load(),
+                    StashItemState::CompleteOk
+                        | StashItemState::CompleteErr
+                        | StashItemState::PendingErr
+                )
+            });
+        });
+    }
+
+    pub fn clear_completed() {
+        STASH_.with_borrow_mut(|s| {
             s.stack.retain(|item| !item.status.state.is_complete());
         });
     }

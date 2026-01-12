@@ -137,3 +137,4 @@ better cd: swapping accept and print is too error prone, we need a global var
 
 # Bugs
 - sync handler never runs if no elements
+- copy/cut cause lag

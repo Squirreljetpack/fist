@@ -1,7 +1,7 @@
 use crate::{
     run::{
         fsaction::FsAction,
-        stash::{STASH, StackAction, StackItem, StackItemState, StackItemStatus},
+        stash::{STASH, StashAction, StashItem, StashItemState, StashItemStatus},
     },
     utils::format_size,
 };
@@ -79,17 +79,6 @@ impl StackOverlay {
         self.editing = Some(e);
     }
 
-    pub fn cursor_prev(&mut self) {
-        if let Some(i) = self.table_state.selected_mut() {
-            *i = i.saturating_sub(1);
-        }
-    }
-    pub fn cursor_next(&mut self) {
-        if let Some(i) = self.table_state.selected_mut() {
-            *i = i.saturating_add(1);
-        }
-    }
-
     pub fn width(&self) -> u16 {
         self.widths.iter().sum::<u16>() + self.config.border.width()
     }
@@ -97,28 +86,21 @@ impl StackOverlay {
     /// Computes and stores the column widths for Path, Size, and Flags
     pub fn save_widths(
         &mut self,
-        items: &[StackItem],
-        available_w: u16,
+        items: &[StashItem],
+        available_ui_w: u16,
     ) {
         // Pre-render Size column
         let size_col: Vec<_> = items
             .iter()
-            .map(|item| item.status.render(&self.config))
+            .map(|item| format_size(item.status.size.load(Ordering::Relaxed)))
             .collect();
 
         // Compute max widths
-        let mut actions_w = self.headers[0].len() as u16 + 1;
+        let mut kind_w = self.headers[0].len() as u16 + 1;
 
         for item in items {
-            actions_w = actions_w.max(item.kind.to_string().len() as u16);
+            kind_w = kind_w.max(item.kind.to_string().len() as u16);
         }
-
-        let mut size_w = self.headers[3].len() as u16;
-        for s in &size_col {
-            size_w = size_w.max(s.width() as u16);
-        }
-
-        let dst_w = self.headers[2].len() as u16;
 
         let mut path_w = 16;
 
@@ -126,8 +108,19 @@ impl StackOverlay {
             path_w = path_w.max(item.display().width() as u16);
         }
 
-        let available_path_w = available_w
-            .saturating_sub(size_w + actions_w + dst_w + path_w)
+        let mut dst_w = self.headers[2].len() as u16;
+        for item in items {
+            dst_w = dst_w.max(item.dest.to_string_lossy().width() as u16);
+        }
+
+        let mut size_w = self.headers[3].len() as u16;
+        for s in &size_col {
+            size_w = size_w.max(s.width() as u16 + 1);
+        }
+
+        let available_path_w = available_ui_w
+            .saturating_sub(self.config.border.width())
+            .saturating_sub(kind_w + dst_w + size_w)
             .max(16);
 
         if path_w >= available_path_w {
@@ -137,13 +130,13 @@ impl StackOverlay {
             path_w += 1
         }
 
-        self.widths = [actions_w, path_w, dst_w, size_w];
+        self.widths = [kind_w, path_w, dst_w, size_w];
     }
 
     /// Creates a `Table` widget from a slice of `StackItem`s using stored column widths
     pub fn make_table(
         &self,
-        items: &[StackItem],
+        items: &[StashItem],
     ) -> Table<'static> {
         let config = &self.config;
         let header =
@@ -154,13 +147,20 @@ impl StackOverlay {
             .enumerate()
             .map(|(i, item)| {
                 let kind = item.kind.to_string().pad(1, 1);
+
+                let dst = item.dest.to_string_lossy().pad(1, 1);
+                let (size, overflow) = item.status.render(config);
                 let path = Span::from(
                     item.display()
-                        .truncate_left(self.widths[1] as usize - self.left_pad as usize)
+                        .truncate_left(
+                            self.widths[1]
+                                .saturating_sub(overflow)
+                                .max(self.headers[1].width() as u16)
+                                as usize
+                                - self.left_pad as usize,
+                        )
                         .pad(self.left_pad as usize, 1),
                 );
-                let dst = item.dest.pad(1, 1);
-                let size = item.status.render(config);
 
                 if Some(i) == self.table_state.selected() {
                     // manual highlight to keep cell styles
@@ -198,10 +198,11 @@ impl Overlay for StackOverlay {
         &mut self,
         area: &Rect,
     ) {
+        self.table_state = Default::default();
         STASH::check_validity();
     }
     fn on_disable(&mut self) {
-        STASH::clear_invalid_and_completed();
+        STASH::clear_completed();
     }
     fn handle_input(
         &mut self,
@@ -225,6 +226,7 @@ impl Overlay for StackOverlay {
         STASH::with(|scratch| {
             self.save_widths(scratch, ui_area.width);
         });
+        log::debug!("Stash widths: {:?}", self.widths);
         Err([self.width(), 0])
     }
 
@@ -240,17 +242,23 @@ impl Overlay for StackOverlay {
 
             match action {
                 Action::Up(x) => {
-                    for _ in 0..x.0 {
-                        self.cursor_prev();
+                    if let Some(i) = self.table_state.selected_mut() {
+                        let len = len as isize;
+                        let cur = *i as isize;
+                        let next = (cur - x.0 as isize).rem_euclid(len);
+                        *i = next as usize;
                     }
                 }
+
                 Action::Down(x) => {
-                    if let Some(i) = self.table_state.selected() {
-                        for _ in 0..(len.saturating_sub(i + 1).max(x.0 as usize)) {
-                            self.cursor_next();
-                        }
+                    if let Some(i) = self.table_state.selected_mut() {
+                        let len = len as isize;
+                        let cur = *i as isize;
+                        let next = (cur + x.0 as isize).rem_euclid(len);
+                        *i = next as usize;
                     }
                 }
+
                 Action::Accept | Action::Select => {
                     if let Some(i) = self.table_state.selected() {
                         STASH::accept(i);
@@ -359,5 +367,44 @@ impl Overlay for StackOverlay {
             frame.render_widget(Clear, area);
             frame.render_stateful_widget(table, area, &mut self.table_state);
         });
+    }
+}
+
+impl StashItemStatus {
+    pub fn render(
+        &self,
+        cfg: &StackConfig,
+    ) -> (Span<'static>, u16) {
+        let size = self.size.load(Ordering::Relaxed);
+        let progress = self.progress.load(Ordering::Relaxed);
+        let state = self.state.load();
+
+        let (bar_text, overflow) = if matches!(state, StashItemState::Started) {
+            let filled_width = ((progress as f32 / 255.0) * cfg.bar_width.0 as f32).round() as u8;
+            let empty_width = cfg.bar_width.0 - filled_width;
+            let progress_text = format!("{:.1}%", (progress as f32 / 255.0) * 100.0);
+
+            (
+                format!(
+                    "[{}{} {}]", // bar_width + 8
+                    "█".repeat(filled_width as usize),
+                    "░".repeat(empty_width as usize),
+                    progress_text
+                ),
+                8,
+            )
+        } else {
+            (format_size(size).pad(0, 1), 1)
+        };
+
+        let style = match state {
+            StashItemState::Pending => Style::default(),
+            StashItemState::Started => Style::default().fg(Color::Cyan),
+            StashItemState::CompleteOk => Style::default().fg(Color::Green),
+            StashItemState::PendingErr => Style::default().fg(Color::LightRed),
+            StashItemState::CompleteErr => Style::default().fg(Color::Red),
+        };
+
+        (Span::styled(bar_text, style), overflow)
     }
 }

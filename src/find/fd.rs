@@ -88,6 +88,7 @@ pub fn build_fd_args(
                 // }
             }
             FileTypeArg::Ext(inner) => {
+                ret.push("-e".into());
                 ret.push(inner.into());
             }
             FileTypeArg::Group(_grp) => {
@@ -207,8 +208,8 @@ impl std::str::FromStr for FileTypeArg {
         let s_lower = s.to_lowercase();
 
         // extension if starts with "."
-        if s_lower.starts_with('.') {
-            return Ok(FileTypeArg::Ext(s_lower));
+        if let Some(s) = s_lower.strip_prefix('.') {
+            return Ok(FileTypeArg::Ext(s.to_string()));
         }
 
         // try parse as FileType

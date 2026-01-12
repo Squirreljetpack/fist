@@ -175,7 +175,7 @@ impl FsPane {
             complete: Default::default(),
             input: Default::default(), // probably will be filled later
             sort,
-            vis: vis.validate(),
+            vis: vis.validated(),
             types: Default::default(),
             fd_args: vec![],
         }
@@ -189,7 +189,7 @@ impl FsPane {
         Self::Nav {
             cwd,
             sort,
-            vis: vis.validate(),
+            vis: vis.validated(),
             depth: 1,
             input: Default::default(),
             complete: Default::default(),

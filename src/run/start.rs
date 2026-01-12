@@ -19,7 +19,7 @@ use crate::{
     db::{DbTable, Pool, zoxide::DbFilter},
     errors::CliError,
     run::{
-        dhandlers::{MMExt, sync_handler},
+        dhandlers::{MMExt, mm_formatter, sync_handler},
         fsaction::{fsaction_aliaser, fsaction_handler, paste_handler},
         fspane::FsPane,
         item::PathItem,
@@ -66,8 +66,11 @@ fn make_mm(
         selector = selector.disabled()
     }
 
-    let formatter =
-        Arc::new(worker.make_format_fn::<true>(|item: &Indexed<PathItem>| item.inner.display()));
+    // let formatter =
+    //     Arc::new(worker.make_format_fn::<true>(|item: &Indexed<PathItem>| item.inner.display()));
+    #[allow(clippy::type_complexity)]
+    let formatter: Arc<Box<dyn Fn(&Indexed<PathItem>, &str) -> String + Send + Sync>> =
+        Arc::new(Box::new(mm_formatter));
 
     let mut mm = Matchmaker::new(worker, selector);
 

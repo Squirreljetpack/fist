@@ -6,7 +6,7 @@ use crate::fs::{auto_dest, create_all, rename};
 use crate::run::fsaction::FsAction;
 use crate::run::globals::{GLOBAL, TEMP, TOAST};
 use crate::run::item::{PathItem, short_display};
-use crate::run::stash::{STASH, StackItem};
+use crate::run::stash::{STASH, StashItem};
 use crate::spawn::open_wrapped;
 use crate::ui::prompt_overlay::{PromptConfig, PromptOverlay};
 use crate::utils::text::{ToastStyle, bold_indices};
@@ -102,7 +102,7 @@ impl MenuItem {
             MenuItem::Rename => Some((PromptKind::Rename, Some(path.to_string_lossy().into()))),
             MenuItem::Cut | MenuItem::Copy => {
                 TOAST::push(ToastStyle::Normal, "Cut: ", [short_display(&path)]);
-                STASH::insert(vec![StackItem::mv(path)]);
+                STASH::insert(vec![StashItem::mv(path)]);
                 None
             }
             MenuItem::Trash => {
@@ -375,7 +375,7 @@ impl Overlay for MenuOverlay {
         self.prompt_kind = None;
         let (p, s) = TEMP::take_prompt();
         if let Some(p) = p {
-            self.set_prompt(p, Some(s.display().into()));
+            self.set_prompt(p, Some(s.path.basename()));
         }
         self.item = s;
     }

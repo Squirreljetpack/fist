@@ -97,7 +97,7 @@ pub fn spawn(words: &[OsString]) -> Option<Child> {
     }
     if has("pueue") {
         // create the script for pueue to eval
-        let script = format_sh_command::<true>(words); // pueue is faulty on single quotes
+        let script = format_sh_command::<false>(words);
         let words = ["pueue", "add", "--"];
         let pueue_ok = std::process::Command::new(words[0]).arg("status").success();
 

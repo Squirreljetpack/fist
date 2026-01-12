@@ -6,26 +6,17 @@ use std::{
     },
 };
 
-use cli_boilerplate_automation::text::StrExt;
-use ratatui::{
-    style::{Color, Style},
-    text::Span,
-};
-
-use crate::{
-    ui::stash_overlay::StackConfig,
-    utils::{file_size, format_size},
-};
+use crate::utils::file_size;
 
 #[derive(Default, Debug, Clone)]
-pub struct StackItemStatus {
-    pub state: AtomicStackItemState,
+pub struct StashItemStatus {
+    pub state: AtomicStashItemState,
     pub progress: Arc<AtomicU8>,
     /// bytes
     pub size: Arc<AtomicU64>,
 }
 
-impl StackItemStatus {
+impl StashItemStatus {
     pub fn new(path: &Path) -> Self {
         let size = Arc::new(AtomicU64::new(file_size(path)));
         Self {
@@ -36,47 +27,9 @@ impl StackItemStatus {
     }
 }
 
-impl StackItemStatus {
-    pub fn render(
-        &self,
-        cfg: &StackConfig,
-    ) -> Span<'static> {
-        let size = self.size.load(Ordering::Relaxed);
-        let progress = self.progress.load(Ordering::Relaxed);
-        let state = self.state.load();
-
-        let bar_text = if matches!(state, StackItemState::Started) {
-            let filled_width = progress * cfg.bar_width.0 / 255;
-            let empty_width = cfg.bar_width.0 - filled_width;
-            let progress_text = format!("{:.00}%", (progress as f32 / 255.0) * 100.0);
-
-            format!(
-                "[{}{} {}]",
-                "█".repeat(filled_width as usize),
-                "░".repeat(empty_width as usize),
-                progress_text
-            )
-        } else {
-            format_size(size)
-        }
-        .pad(1, 1);
-
-        let style = match state {
-            StackItemState::Pending => Style::default(),
-            StackItemState::Started => Style::default().fg(Color::Cyan),
-            StackItemState::CompleteOk => Style::default().fg(Color::Green),
-            StackItemState::PendingErr | StackItemState::CompleteErr => {
-                Style::default().fg(Color::Red)
-            }
-        };
-
-        Span::styled(bar_text, style)
-    }
-}
-
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum StackItemState {
+pub enum StashItemState {
     Pending = 0,
     PendingErr = 1,
     Started = 2,
@@ -85,11 +38,11 @@ pub enum StackItemState {
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct AtomicStackItemState {
+pub struct AtomicStashItemState {
     state: Arc<AtomicU8>,
 }
 
-impl AtomicStackItemState {
+impl AtomicStashItemState {
     pub fn new() -> Self {
         Self {
             state: Arc::new(AtomicU8::new(0)),
@@ -97,14 +50,14 @@ impl AtomicStackItemState {
     }
 
     #[inline]
-    pub fn load(&self) -> StackItemState {
+    pub fn load(&self) -> StashItemState {
         Self::decode(self.state.load(Ordering::Acquire))
     }
 
     #[inline]
     pub fn store(
         &self,
-        value: StackItemState,
+        value: StashItemState,
     ) {
         self.state.store(value as u8, Ordering::Release);
     }
@@ -112,9 +65,9 @@ impl AtomicStackItemState {
     #[inline]
     pub fn compare_exchange(
         &self,
-        current: StackItemState,
-        new: StackItemState,
-    ) -> Result<StackItemState, StackItemState> {
+        current: StashItemState,
+        new: StashItemState,
+    ) -> Result<StashItemState, StashItemState> {
         self.state
             .compare_exchange(
                 current as u8,
@@ -130,26 +83,31 @@ impl AtomicStackItemState {
     pub fn is_complete(&self) -> bool {
         matches!(
             self.load(),
-            StackItemState::CompleteOk | StackItemState::CompleteErr
+            StashItemState::CompleteOk | StashItemState::CompleteErr
         )
+    }
+
+    #[inline]
+    pub fn is_pending(&self) -> bool {
+        matches!(self.load(), StashItemState::Pending)
     }
 
     #[inline]
     pub fn is_error(&self) -> bool {
         matches!(
             self.load(),
-            StackItemState::PendingErr | StackItemState::CompleteErr
+            StashItemState::PendingErr | StashItemState::CompleteErr
         )
     }
 
     #[inline(always)]
-    fn decode(v: u8) -> StackItemState {
+    fn decode(v: u8) -> StashItemState {
         match v {
-            0 => StackItemState::Pending,
-            1 => StackItemState::PendingErr,
-            2 => StackItemState::Started,
-            3 => StackItemState::CompleteOk,
-            _ => StackItemState::CompleteErr,
+            0 => StashItemState::Pending,
+            1 => StashItemState::PendingErr,
+            2 => StashItemState::Started,
+            3 => StashItemState::CompleteOk,
+            _ => StashItemState::CompleteErr,
         }
     }
 }

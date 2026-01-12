@@ -1,6 +1,7 @@
 use std::{fs::File, io::Read, path::Path};
 
 use charset_normalizer_rs::from_path;
+use cli_boilerplate_automation::bait::BoolExt;
 use mime_guess::{Mime, mime};
 
 // wrapper cuz we can't add a param to Mime
@@ -27,14 +28,20 @@ impl Myme {
             guess.first().unwrap_or(mime::APPLICATION_OCTET_STREAM)
         };
 
-        let enc = detect_charset(path);
+        let enc = infer.and_then(|| detect_charset(path));
 
         Myme { mime, enc }
     }
 }
 
 fn detect_charset(path: &Path) -> Option<String> {
-    let result = from_path(path, None).ok()?;
-    let best_guess = result.get_best()?;
-    Some(best_guess.encoding().to_string())
+    let mut file = File::open(path).ok()?;
+
+    // Read at most 64 KB
+    let mut buf = Vec::new();
+    file.take(64 * 1024).read_to_end(&mut buf).ok()?;
+
+    let result = charset_normalizer_rs::from_bytes(&buf, None).ok()?;
+    let best = result.get_best()?;
+    Some(best.encoding().to_string())
 }

@@ -1,7 +1,9 @@
 #!/bin/sh
+# todo: this affects stdout, don't
+printf '\033[H\033[J'
 for param; do
-  echo $param
+  echo $param >&2
 done
-echo
-printf "(Press Enter to continue) "
-read
+echo >&2
+printf "(Press Enter to continue) " >&2
+read </dev/tty

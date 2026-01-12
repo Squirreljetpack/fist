@@ -64,6 +64,7 @@ pub async fn handle_subcommand(
     cli: Cli,
     cfg: Config,
 ) -> Result<(), CliError> {
+    log::debug!("{:?}", cli.subcommand);
     match cli.subcommand {
         SubCmd::Open(cmd) => handle_open(cli.opts, cmd, cfg).await,
         SubCmd::Files(cmd) => handle_files(cli.opts, cmd, cfg).await,
@@ -252,7 +253,9 @@ async fn handle_default(
     }
     // _dbg!(cli, cmd, cfg);
     let pool = Pool::new(cfg.db_path()).await?;
-    let pane = if !atty::is(atty::Stream::Stdin) && !cmd.no_read && !cmd.list {
+    let pane = if
+    // piped input
+    !atty::is(atty::Stream::Stdin) && !cmd.no_read && !cmd.list {
         if cmd.cd {
             cfg.global.interface.alt_accept = true;
             cfg.global.interface.no_multi = true;
@@ -262,7 +265,7 @@ async fn handle_default(
         };
         FsPane::new_stream(AbsPath::new_unchecked(__cwd().to_path_buf()), cmd.vis)
     } else if cmd.cd {
-        cmd.paths.append(&mut cmd.fd); // fd is not supported
+        cmd.paths.append(&mut cmd.fd); // fd opts are not supported
         cfg.global.interface.alt_accept = true;
         cfg.global.interface.no_multi = true;
         cfg.history.show_missing = false;
@@ -336,7 +339,7 @@ async fn handle_default(
                 "fd",
                 build_fd_args(
                     cmd.sort.unwrap_or_default(),
-                    cmd.vis.validate(),
+                    cmd.vis.validated(),
                     &cmd.types,
                     &cmd.paths,
                     &cmd.fd,
