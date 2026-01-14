@@ -1,6 +1,6 @@
 [package]
 name = "fist"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 license-file = "LICENSE"
 repository = "https://github.com/Squirreljetpack/fist"
@@ -62,10 +62,6 @@ path = "src/main.rs"
 [lints.clippy]
 new_without_default = "allow"
 collapsible_if = "allow"
-
-[patch.crates-io]
-match-maker = { path = "../matchmaker" }
-cli_boilerplate_automation = { path = "../cli_boilerplate_automation" }
 
 [features]
 default = ["image-defaults"]

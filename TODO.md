@@ -131,6 +131,8 @@ better cli/env var handling: need a proc macro to generate a mirrored with every
 # CD
 
 better cd: swapping accept and print is too error prone, we need a global var
+maybe add children with score 0?
+aging algorithm
 
 # Stash
 
