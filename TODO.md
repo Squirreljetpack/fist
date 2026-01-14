@@ -133,8 +133,10 @@ better cli/env var handling: need a proc macro to generate a mirrored with every
 better cd: swapping accept and print is too error prone, we need a global var
 
 # Stash
+
 - overridden actions should hide the overridden toast as well somehow.
 
 # Bugs
+
 - sync handler never runs if no elements
 - copy/cut cause lag

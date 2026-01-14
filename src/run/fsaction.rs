@@ -8,7 +8,7 @@ use matchmaker::{
     acs,
     action::{Action, ActionExt, Actions, Count, Exit},
     efx,
-    nucleo::{Color, Indexed, Modifier, Span, Style},
+    nucleo::{Color, Modifier, Span, Style},
     render::{Effect, Effects},
 };
 use tokio::task::spawn_blocking;
@@ -27,10 +27,11 @@ use crate::{
         state::{APP, FILTERS, GLOBAL, STACK, TEMP, TOAST},
     },
     spawn::open_wrapped,
+    ui::menu_overlay::PromptKind,
     utils::text::{ToastStyle, format_cwd_prompt},
 };
 
-#[derive(Debug, Clone, strum_macros::Display, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum FsAction {
     // Nav
@@ -53,9 +54,10 @@ pub enum FsAction {
     /// (Default bind: ctrl-g).
     History,
     /// Jump to a directory.
+    /// Relative paths are resolved relative to the home directory.
     /// # Note
     /// By default, '~' and '/' bind to Jump($HOME)
-    Jump(String, char),
+    Jump(PathBuf, Option<char>),
 
     /// Go back
     /// (Default bind: ctrl-z)
@@ -114,7 +116,9 @@ pub enum FsAction {
     /// Paste all stack items into the current or specified directory
     Paste(PathBuf), // dump Stack
     /// Execute according to [`crate::lessfilter::RulesConfig`]
-    Handler(Preset, bool, Option<bool>),
+    /// (preset, paging, header)
+    // nonbindable
+    Display(Preset, bool, Option<bool>),
 
     // other
     // --------------------------------------------
@@ -193,7 +197,7 @@ pub fn fsaction_aliaser(
                 RELOAD(GLOBAL::with_cfg(|c| c.panes.history.enter_prompt))
             }
             FsAction::Jump(d, c) => {
-                if raw_input {
+                if raw_input && let Some(c) = c {
                     return acs![Action::Input(c)];
                 }
 
@@ -207,7 +211,7 @@ pub fn fsaction_aliaser(
                 if !path.is_dir() {
                     TOAST::push_msg(
                         vec![
-                            Span::styled(d, Color::Red),
+                            Span::styled(d.to_string_lossy().to_string(), Color::Red),
                             Span::raw(" is not a directory!"),
                         ],
                         false,
@@ -266,7 +270,7 @@ pub fn fsaction_aliaser(
                 if raw_input {
                     return acs![Action::ForwardChar];
                 }
-                let Some(Indexed { inner: item, .. }) = state.current_raw() else {
+                let Some((_, ref item)) = state.current else {
                     return acs![];
                 };
                 if APP::in_app_pane() {
@@ -354,12 +358,29 @@ pub fn fsaction_aliaser(
                 if let Some((_, ref p)) = state.current
                     && !raw_input
                 {
-                    TEMP::set_prompt(None, p.clone());
+                    TEMP::set_prompt(None, Ok(p.clone()));
                     acs![Action::Overlay(2)]
                 } else {
                     acs![]
                 }
             }
+
+            FsAction::New => {
+                if let Some(cwd) = STACK::nav_cwd()
+                    && state.overlay_index.is_none()
+                {
+                    TEMP::set_prompt(Some(PromptKind::NewDir), Err(cwd));
+                    acs![Action::Overlay(2)]
+                }
+                // no support for creating outside of nav
+                else {
+                    acs![fa]
+                }
+            }
+            // FsAction::NewDir => {
+            //     // undecided
+            // }
+
             // FsAction::Category => {
             //     acs![Action::Overlay(3)]
             // }
@@ -367,16 +388,16 @@ pub fn fsaction_aliaser(
                 let cmd = Preset::Alternate.to_command_string();
                 acs![Action::Execute(cmd)]
             }
-            FsAction::Handler(p, page, header) => {
+            FsAction::Display(p, page, header) => {
                 let mut cmd = p.to_command_string();
                 if page {
                     let pp = else_default!(
-                        pager_path()
+                            pager_path()
                             .to_str()
                             .ebog(
                                 "Pager path could not be decoded, please check your installation's cache directory."
                             )
-                    );
+                        );
                     cmd.push_str(" | ");
                     cmd.push_str(pp);
                 }
@@ -445,10 +466,10 @@ pub fn fsaction_aliaser(
                 } else
                 // enter prompt
                 {
-                    acs![Action::Custom(FsAction::EnterPrompt(true))]
+                    acs![FsAction::EnterPrompt(true)]
                 }
             }
-            _ => acs![Action::Custom(fa)],
+            _ => acs![fa],
         },
         _ => match a {
             Action::Up(Count(i)) => {
@@ -478,7 +499,7 @@ pub fn fsaction_aliaser(
                             Action::Down((i - 1).into())
                         ]
                     } else {
-                        acs![Action::Custom(FsAction::EnterPrompt(false))]
+                        acs![FsAction::EnterPrompt(false)]
                     }
                 } else {
                     acs![a]
@@ -723,13 +744,6 @@ pub fn fsaction_handler(
             });
             efx![]
         }
-        FsAction::New => {
-            efx![]
-        }
-        FsAction::NewDir => {
-            // todo: launch menu overlay
-            efx![]
-        }
         FsAction::Delete => {
             let mut items = vec![];
             state.map_selected_to_vec(|s| {
@@ -903,10 +917,112 @@ pub fn paste_handler(
 }
 
 // ------------- BOILERPLATE ---------------
-impl std::str::FromStr for FsAction {
-    type Err = ();
+macro_rules! impl_display_and_from_str_enum {
+        (
+            units: $( $unit:ident ),* $(,)?;
+            tuples: $( $tuple:ident ),* $(,)?;
+            defaults: $( $tuple_default:ident ),* $(,)?;
+        ) => {
+            impl std::fmt::Display for FsAction {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    match self {
+                        /* ---------- unit variants ---------- */
+                        $( Self::$unit => write!(f, stringify!($unit)), )*
 
-    fn from_str(_: &str) -> Result<Self, Self::Err> {
-        Err(())
+                        /* ---------- tuple variants ---------- */
+                        $( Self::$tuple(inner) => write!(f, concat!(stringify!($tuple), "({})"), inner), )*
+
+                        /* ---------- pathbuf with defaults ---------- */
+                        $( Self::$tuple_default(inner) => {
+                            if inner.is_empty() {
+                                write!(f, stringify!($tuple_default))
+                            } else {
+                                write!(f, concat!(stringify!($tuple_default), "({})"), inner.to_string_lossy())
+                            }
+                        }, )*
+
+                        /* ---------- Manually parsed ---------- */
+                        Self::Jump(path, _) => {
+                            if path.is_empty() {
+                                write!(f, "Jump(⌂)")
+                            } else {
+                                write!(f, "Jump({})", path.display())
+                            }
+                        }
+                        Self::EnterPrompt(b) => write!(f, "EnterPrompt({b})"),
+                        Self::SaveInput => write!(f, "SaveInput"),
+                        Self::Display(preset, _, _) => write!(f, "Display({preset})"),
+                    }
+                }
+            }
+
+            impl std::str::FromStr for FsAction {
+                type Err = String;
+
+                fn from_str(s: &str) -> Result<Self, Self::Err> {
+                    let (name, data) = if let Some(pos) = s.find('(') {
+                        if s.ends_with(')') {
+                            (&s[..pos], Some(&s[pos + 1..s.len() - 1]))
+                        } else {
+                            (s, None)
+                        }
+                    } else {
+                        (s, None)
+                    };
+
+                    match name {
+                        /* ---------- unit variants ---------- */
+                        $( stringify!($unit) => {
+                            if data.is_some() {
+                                Err(format!("Unexpected data for {}", name))
+                            } else {
+                                Ok(Self::$unit)
+                            }
+                        }, )*
+
+                        /* ---------- tuple variants ---------- */
+                        $( stringify!($tuple) => {
+                            let val = data
+                            .ok_or_else(|| format!("Missing data for {}", name))?
+                            .parse()
+                            .map_err(|_| format!("Invalid data for {}", name))?;
+                            Ok(Self::$tuple(val))
+                        }, )*
+
+                        /* ---------- tuple default variants ---------- */
+                        $( stringify!($tuple_default) => {
+                            let val = match data {
+                                Some(v) => v
+                                .parse()
+                                .map_err(|_| format!("Invalid data for {}", name))?,
+                                None => Default::default(),
+                            };
+                            Ok(Self::$tuple_default(val))
+                        }, )*
+
+                        /* ---------- Manually parsed ---------- */
+                        "Jump" => {
+                            let path_str = data.ok_or_else(|| "Missing path for Jump")?;
+                            Ok(Self::Jump(path_str.into(), None))
+                        }
+                        _ => Err(format!("Unknown action {}", s)),
+                    }
+                }
+            }
+        };
     }
+impl_display_and_from_str_enum! {
+    units:
+    Advance, Parent, Find, Rg, History,
+    Undo, Forward,
+    Filters, Stash, ClearStash,
+    Menu, ToggleDirs, ToggleHidden,
+    Cut, Copy, CopyPath, New, NewDir,
+    Symlink, Backup, Trash, Delete;
+
+    tuples:
+    AutoJump;
+
+    defaults:
+    Paste;
 }

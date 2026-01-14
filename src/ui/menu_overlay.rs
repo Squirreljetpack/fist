@@ -45,6 +45,7 @@ impl Default for MenuConfig {
 #[derive(Debug, strum::Display, Clone, Copy)]
 pub enum PromptKind {
     New,
+    #[strum(serialize = "New folder")]
     NewDir,
     Rename,
 }
@@ -92,7 +93,8 @@ impl MenuItem {
         }
     }
 
-    /// Stateless action returning optional (PromptKind, optional extra title string)
+    /// Execute an action.
+    /// Returns an optional input to [`TEMP::set_prompt`]
     pub fn action(
         &self,
         path: AbsPath,
@@ -167,7 +169,7 @@ pub struct MenuOverlay {
     config: MenuConfig,
     prompt_kind: Option<PromptKind>,
     prompt: PromptOverlay,
-    item: PathItem,
+    target: Result<PathItem, AbsPath>,
     items: Vec<MenuItem>,
 }
 
@@ -192,7 +194,7 @@ impl MenuOverlay {
             config,
             prompt_kind: None,
             prompt: PromptOverlay::new(prompt_config),
-            item: PathItem::_uninit(),
+            target: Ok(PathItem::_uninit()),
             items,
         }
     }
@@ -217,8 +219,17 @@ impl MenuOverlay {
         Paragraph::new(lines).block(self.config.border.as_block())
     }
 
-    fn p(&self) -> AbsPath {
-        self.item.path.clone()
+    fn target_path(&self) -> AbsPath {
+        match &self.target {
+            Ok(p) => p.path.clone(),
+            Err(p) => p.clone(),
+        }
+    }
+    fn target_parent(&self) -> AbsPath {
+        match &self.target {
+            Ok(p) => p.path._parent(),
+            Err(p) => p.clone(),
+        }
     }
 
     fn set_prompt(
@@ -239,9 +250,15 @@ impl MenuOverlay {
         c: char,
     ) -> OverlayEffect {
         if let Some(item) = MenuItem::from_key(c) {
-            if let Some((prompt, extra)) = item.action(self.item.path.clone()) {
+            if let Some((prompt, extra)) = match &self.target {
+                Ok(target) => item.action(target.path.clone()),
+                Err(_) => {
+                    todo!()
+                }
+            } {
                 self.set_prompt(prompt, extra);
             }
+
             OverlayEffect::None
         } else if c == 'q' {
             OverlayEffect::Disable
@@ -256,9 +273,9 @@ impl MenuOverlay {
     ) -> OverlayEffect {
         match prompt {
             PromptKind::New => {
-                let current_item_path = self.p();
+                let current_item_parent = self.target_parent();
                 let input_path = Path::new(&self.prompt.input);
-                let dest = auto_dest(input_path, &current_item_path._parent()); // replaced if input is absolute
+                let dest = auto_dest(input_path, &current_item_parent); // replaced if input is absolute
                 let dest_slice = [dest];
 
                 tokio::spawn(async move {
@@ -283,9 +300,9 @@ impl MenuOverlay {
                 });
             }
             PromptKind::NewDir => {
-                let current_item_path = self.p();
+                let current_item_parent = self.target_parent();
                 let input_path = Path::new(&self.prompt.input);
-                let dest = AbsPath::new_unchecked(input_path.abs(current_item_path._parent()));
+                let dest = AbsPath::new_unchecked(input_path.abs(current_item_parent));
 
                 tokio::spawn(async move {
                     match std::fs::create_dir_all(&dest) {
@@ -303,7 +320,7 @@ impl MenuOverlay {
                 });
             }
             PromptKind::Rename => {
-                let old_path = self.p();
+                let old_path = self.target_path();
                 if old_path.file_name().is_none() {
                     OverlayEffect::None;
                 }
@@ -345,9 +362,13 @@ impl MenuOverlay {
     }
 
     pub fn accept(&mut self) -> OverlayEffect {
-        if let Some((prompt, extra)) = self.items[self.cursor].action(self.item.path.clone()) {
+        if let Some((prompt, extra)) = match &self.target {
+            Ok(target) => self.items[self.cursor].action(target.path.clone()),
+            Err(_) => todo!(),
+        } {
             self.set_prompt(prompt, extra);
         }
+
         OverlayEffect::None
     }
 
@@ -375,9 +396,9 @@ impl Overlay for MenuOverlay {
         self.prompt_kind = None;
         let (p, s) = TEMP::take_prompt();
         if let Some(p) = p {
-            self.set_prompt(p, Some(s.path.basename()));
+            self.set_prompt(p, s.as_ref().ok().map(|s| s.path.basename()));
         }
-        self.item = s;
+        self.target = s;
     }
 
     fn on_disable(&mut self) {

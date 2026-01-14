@@ -67,8 +67,8 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-z) => FsAction::Undo,
         key!(alt-z) => FsAction::Forward,
         key!(ctrl-shift-'z') => FsAction::Forward,
-        key!('/') => FsAction::Jump("".into(), '/'),
-        key!('~') => FsAction::Jump("".into(), '~'),
+        key!('/') => FsAction::Jump("".into(), Some('/')),
+        key!('~') => FsAction::Jump("".into(), Some('~')),
 
         // Display
         // ----------------------------------
@@ -93,7 +93,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         // these behave the same on the prompt
         key!(ctrl-x) => FsAction::Cut,
         key!(ctrl-c) => FsAction::Copy,
-        key!(ctrl-n) => FsAction::NewDir,
+        key!(ctrl-n) => FsAction::New,
 
         // preview
         key!('?') => Action::Preview(Preset::Preview.to_command_string()),
@@ -102,10 +102,10 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(alt-shift-h) => Action::Help("".into()),
         // spawning
         key!(alt-s) => Action::Execute("$SHELL".into()),
-        key!(ctrl-b) => FsAction::Handler(Preset::Open, false, None),
+        key!(ctrl-b) => FsAction::Display(Preset::Open, false, None),
         // display
-        key!(ctrl-l) => FsAction::Handler(Preset::Preview, true, None),
-        key!(alt-l) => FsAction::Handler(Preset::Extended, true, None),
+        key!(ctrl-l) => FsAction::Display(Preset::Preview, true, None),
+        key!(alt-l) => FsAction::Display(Preset::Extended, true, None),
 
 
         // misc

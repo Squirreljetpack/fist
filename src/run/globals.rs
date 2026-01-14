@@ -5,7 +5,7 @@ use std::{
     sync::{LazyLock, Mutex, atomic::AtomicBool},
 };
 
-use cli_boilerplate_automation::{bait::ResultExt, bog::BogUnwrapExt};
+use cli_boilerplate_automation::bait::ResultExt;
 use log::debug;
 use matchmaker::{
     action::Action,
@@ -45,7 +45,7 @@ thread_local! {
 // ------------- TRACKING -----------------------
 thread_local! {
     static PREV_DIRECTORY: RefCell<Option<AbsPath>> = const { RefCell::new(None) };
-    static INPUT_BAR_CONTENT: RefCell<(Option<PromptKind>, Option<PathItem>)> = const { RefCell::new((None, None)) };
+    static INPUT_BAR_CONTENT: RefCell<(Option<PromptKind>, Result<PathItem, AbsPath>)> = const { RefCell::new((None, Err(AbsPath::empty()))) };
     static ORIGINAL_RELATIVE_PATH: RefCell<Option<bool>> = const { RefCell::new(None) };
 }
 pub struct TEMP {}
@@ -57,15 +57,24 @@ impl TEMP {
         PREV_DIRECTORY.replace(path);
     }
 
-    pub fn take_prompt() -> (Option<PromptKind>, PathItem) {
+    pub fn take_prompt() -> (Option<PromptKind>, Result<PathItem, AbsPath>) {
         INPUT_BAR_CONTENT
-            .with_borrow_mut(|(p, s)| (p.take(), s.take()._ebog("Path missing for prompt")))
+            .with_borrow_mut(|(p, s)| (p.take(), std::mem::replace(s, Err(AbsPath::empty()))))
     }
+
+    /// If menu_prompt is set, menu starts an overlay
+    /// The Ok variant of menu_target describes the target,
+    /// while the Err variant corresponds to no target, in which case
+    /// only a restrictred subset of the menu actions is available.
+    ///
+    /// # Additional
+    /// When the prompt is set and the target is Ok, the target's filename is shown in the title of the input bar.
+    #[allow(unused_must_use)]
     pub fn set_prompt(
-        s: Option<PromptKind>,
-        p: PathItem,
+        menu_prompt: Option<PromptKind>,
+        menu_target: Result<PathItem, AbsPath>,
     ) {
-        INPUT_BAR_CONTENT.replace((s, Some(p)));
+        INPUT_BAR_CONTENT.replace((menu_prompt, menu_target));
     }
 
     pub fn set_initial_relative_path(relative: bool) {
