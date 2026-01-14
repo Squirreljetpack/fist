@@ -73,3 +73,14 @@ Fist integrates into [CommandSpace](https://github.com/Squirreljetpack/command-s
 - eza
 - ripgrep
 - matchmaker
+
+# Configuration
+
+### Miscellaneous
+
+The process which runs the command that spawns programs can be relegated to a process manager. For example, using [pueue](https://github.com/Nukesor/pueue):
+
+```
+[misc]
+spawn_with = ["pueue", "add", "-g", "apps", "--"]
+```

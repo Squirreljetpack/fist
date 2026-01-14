@@ -1,5 +1,6 @@
 mod program;
 use std::ffi::OsString;
+use std::sync::RwLock;
 pub mod utils;
 
 use crate::abspath::AbsPath;
@@ -39,8 +40,7 @@ pub async fn open_wrapped(
     Ok(())
 }
 
-use cfg_if::cfg_if;
-use cli_boilerplate_automation::broc::{CommandExt, format_sh_command, has};
+use cli_boilerplate_automation::broc::{CommandExt, format_sh_command};
 use std::process::{Child, Command};
 
 /// Open some files, optionally with a [`Program`]
@@ -90,32 +90,45 @@ pub fn open(
     spawn(&words)
 }
 
-/// submit words for shell to execute
+static SPAWN_WITH: RwLock<Vec<String>> = RwLock::new(Vec::new());
+
+pub fn init_spawn_with(cmd: Vec<String>) {
+    let mut guard = SPAWN_WITH.write().unwrap();
+    *guard = cmd;
+}
+
+/// submit words for shell/spawn_with to execute
 pub fn spawn(words: &[OsString]) -> Option<Child> {
     if words.is_empty() {
         return None;
     }
-    if has("pueue") {
-        // create the script for pueue to eval
-        let script = format_sh_command::<false>(words);
-        let words = ["pueue", "add", "--"];
-        let pueue_ok = std::process::Command::new(words[0]).arg("status").success();
 
-        if pueue_ok {
-            return Command::new(words[0])
-                .args(&words[1..])
+    if let Ok(guard) = SPAWN_WITH.read().as_ref()
+        && !guard.is_empty()
+    {
+        let script = format_sh_command(words, false);
+        let program = &guard[0];
+        let args = &guard[1..];
+
+        let ok = Command::new(program).arg("status").success();
+        if ok {
+            return Command::new(program)
+                .args(args)
                 .arg(script)
                 .spawn_detached();
         }
     }
-    cfg_if! {
+
+    cfg_if::cfg_if! {
         if #[cfg(target_os = "windows")] {
-            script = "";
             // todo: dunno how to format the script
-            Command::new(words[0].clone()).args(&words[1..]).spawn_detached()
+            Command::new(words[0].clone())
+                .args(&words[1..])
+                .spawn_detached()
         } else {
-            // spawn the program directly
-            Command::new(words[0].clone()).args(&words[1..]).spawn_detached()
+            Command::new(words[0].clone())
+                .args(&words[1..])
+                .spawn_detached()
         }
     }
 }

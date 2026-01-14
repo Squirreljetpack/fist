@@ -519,11 +519,7 @@ impl FsPane {
                         // initial population in order
                         entries.sort_by(|a, b| a.name.cmp(&b.name));
                         let mut conn = pool_clone.get_conn(DbTable::apps).await.elog()?;
-                        if conn.create_many(&entries).await? > 0
-                            && APP::RAN_RECACHE
-                                .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
-                                .is_ok()
-                        {
+                        if conn.create_many(&entries).await? > 0 {
                             GLOBAL::send_efx(efx![Effect::Reload]);
                         }
                         anyhow::Ok(())

@@ -16,7 +16,7 @@ use tokio::task::spawn_blocking;
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
-    cli::paths::{home_dir, pager_path},
+    cli::paths::{__home, pager_path},
     clipboard::{copy_files, copy_paths_as_text},
     filters::SortOrder,
     lessfilter::Preset,
@@ -197,7 +197,7 @@ pub fn fsaction_aliaser(
                     return acs![Action::Input(c)];
                 }
 
-                let path = d.abs(home_dir());
+                let path = d.abs(__home());
                 let path = AbsPath::new_unchecked(&path);
 
                 if Some(&path) == STACK::cwd().as_ref() {

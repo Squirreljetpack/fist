@@ -128,7 +128,6 @@ pub struct MiscConfig {
     /// Overwrite or append logs on application start.
     pub append_mode_logging: bool,
     /// Pass the spawning command to this instead of invoking it directly.
-    // todo
     pub spawn_with: Vec<String>,
 }
 

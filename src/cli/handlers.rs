@@ -22,7 +22,7 @@ use cli_boilerplate_automation::{
 use super::{
     matchmaker::mm_get,
     paths::{
-        __cwd, config_path, current_exe, home_dir, lessfilter_cfg_path, liza_path, mm_cfg_path,
+        __cwd, config_path, current_exe, __home, lessfilter_cfg_path, liza_path, mm_cfg_path,
     },
     tool_types::*,
     types::*,
@@ -65,6 +65,7 @@ pub async fn handle_subcommand(
     cfg: Config,
 ) -> Result<(), CliError> {
     log::debug!("{:?}", cli.subcommand);
+
     match cli.subcommand {
         SubCmd::Open(cmd) => handle_open(cli.opts, cmd, cfg).await,
         SubCmd::Files(cmd) => handle_files(cli.opts, cmd, cfg).await,
@@ -97,6 +98,8 @@ async fn handle_open(
         let conn = pool.get_conn(DbTable::apps).await?;
 
         let prog = cmd.with.and_then(Program::from_os_string);
+
+        crate::spawn::init_spawn_with(cfg.misc.spawn_with);
 
         open_wrapped(conn, prog, &cmd.files).await
     }
@@ -305,8 +308,8 @@ async fn handle_default(
             // last item is a pattern
             AbsPath::new_unchecked(
                 if cfg.global.fd.default_search_in_home {
-                    set_current_dir(home_dir())._elog();
-                    home_dir()
+                    set_current_dir(__home())._elog();
+                    __home()
                 } else {
                     __cwd()
                 }

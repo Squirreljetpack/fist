@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     abspath::AbsPath,
-    cli::paths::{__cwd, home_dir},
+    cli::paths::{__cwd, __home},
 };
 
 // strum::IntoStaticStr,
@@ -109,7 +109,7 @@ pub fn format_cwd_prompt(
     let mut out = String::with_capacity(template.len());
     let mut chars = template.chars().peekable();
     // collapse home
-    let cwd = if let Ok(stripped) = cwd.strip_prefix(home_dir()) {
+    let cwd = if let Ok(stripped) = cwd.strip_prefix(__home()) {
         &PathBuf::from("~").join(stripped)
     } else {
         cwd

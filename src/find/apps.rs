@@ -1,4 +1,4 @@
-use crate::{abspath::AbsPath, db::Entry};
+use crate::{abspath::AbsPath, cli::paths::__home, db::Entry};
 use ignore::WalkBuilder;
 
 #[cfg(target_os = "macos")]
@@ -6,7 +6,7 @@ pub fn collect_apps() -> Vec<Entry> {
     use crate::find::walker::build_overrides;
 
     let roots = [
-        "~/Applications",
+        &format!("{}/Applications", __home().to_string_lossy()),
         "/Applications",
         "/System/Applications",
         "/System/Library/CoreServices",
@@ -44,7 +44,10 @@ pub fn collect_apps() -> Vec<Entry> {
 
 #[cfg(target_os = "linux")]
 pub fn collect_apps() -> Vec<Entry> {
-    let dirs = ["/usr/share/applications", "~/.local/share/applications"];
+    let dirs = [
+        "/usr/share/applications",
+        &format!("{}/.local/share/applications", __home().to_string_lossy()),
+    ];
 
     let mut builder = WalkBuilder::new(dirs[0]);
     for d in &dirs[1..] {

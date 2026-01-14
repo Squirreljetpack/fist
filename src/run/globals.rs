@@ -5,9 +5,8 @@ use std::{
     sync::{LazyLock, Mutex, atomic::AtomicBool},
 };
 
-use arboard::Clipboard;
 use cli_boilerplate_automation::{bait::ResultExt, bog::BogUnwrapExt};
-use log::{self, debug, error};
+use log::debug;
 use matchmaker::{
     action::Action,
     efx,
@@ -25,7 +24,6 @@ use crate::config::GlobalConfig;
 use crate::{
     abspath::AbsPath,
     cli::env::EnvOpts,
-    clipboard::{CLIPBOARD, CLIPBOARD_SLEEP_MS},
     db::{Connection, DbSortOrder, Pool, zoxide::DbFilter},
     errors::DbError,
     run::{FsPane, fsaction::FsAction, item::PathItem},
@@ -99,7 +97,6 @@ impl GLOBAL {
         watcher_tx: WatcherSender,
         db_pool: Pool,
         pane: FsPane,
-        cb_sleep: u64,
     ) {
         // need to handle the patterns listened on by sync_handler
         let sort = match &pane {
@@ -126,17 +123,6 @@ impl GLOBAL {
         WATCHER_TX.with(|tx| *tx.borrow_mut() = Some(watcher_tx));
         DB.with(|d| *d.borrow_mut() = Some(db_pool));
         STACK::init(pane);
-
-        let err_prefix = "Failed to initialize clipboard";
-        if let Ok(mut cb) = CLIPBOARD.lock() {
-            match Clipboard::new() {
-                Ok(clipboard) => *cb = Some(clipboard),
-                Err(e) => error!("Failed to initialize clipboard: {e}"),
-            }
-            CLIPBOARD_SLEEP_MS.store(cb_sleep, std::sync::atomic::Ordering::Release);
-        } else {
-            error!("Failed to initialize clipboard");
-        }
     }
 
     /// must be called in initializing thread

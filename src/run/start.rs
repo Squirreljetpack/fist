@@ -15,6 +15,7 @@ use matchmaker::{
 };
 
 use crate::{
+    clipboard,
     config::Config,
     db::{DbTable, Pool, zoxide::DbFilter},
     errors::CliError,
@@ -161,14 +162,9 @@ pub async fn start(
     }
 
     // init global
-    GLOBAL::init(
-        cfg.global,
-        render_tx,
-        watcher_tx,
-        db_pool,
-        pane,
-        cfg.misc.clipboard_delay_ms,
-    );
+    GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane);
+    clipboard::init(cfg.misc.clipboard_delay_ms);
+    crate::spawn::init_spawn_with(cfg.misc.spawn_with);
     global_ui_init(cfg.styles);
 
     // start watcher

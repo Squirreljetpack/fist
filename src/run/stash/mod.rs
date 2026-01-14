@@ -18,7 +18,7 @@ use fs_extra::{dir, file};
 
 use crate::{
     abspath::AbsPath,
-    cli::paths::home_dir,
+    cli::paths::__home,
     run::{
         item::short_display,
         state::{GLOBAL, TOAST},
@@ -178,7 +178,7 @@ impl StashItem {
     }
 
     pub fn display(&self) -> String {
-        self.path.display_short(home_dir())
+        self.path.display_short(__home())
     }
 }
 
