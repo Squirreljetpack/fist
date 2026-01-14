@@ -1,14 +1,14 @@
 //! note: Action handler.
 //! State is managed externally: see [`super::global`] and [`super::thread_local`]
 
-use std::{path::PathBuf, sync::atomic::Ordering};
+use std::path::PathBuf;
 
-use cli_boilerplate_automation::{bait::OptionExt, bath::PathExt, else_default};
+use cli_boilerplate_automation::{bath::PathExt, bog::BogUnwrapExt, else_default, prints};
 use matchmaker::{
     acs,
     action::{Action, ActionExt, Actions, Count, Exit},
     efx,
-    nucleo::{Color, Indexed, Modifier, Span, Style},
+    nucleo::{Color, Modifier, Span, Style},
     render::{Effect, Effects},
 };
 use tokio::task::spawn_blocking;
@@ -16,21 +16,22 @@ use tokio::task::spawn_blocking;
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
-    cli::paths::{home_dir, pager_path},
+    cli::paths::{__home, pager_path},
     clipboard::{copy_files, copy_paths_as_text},
     filters::SortOrder,
     lessfilter::Preset,
     run::{
         fspane::FsPane,
         item::short_display,
-        stash::{STASH, StackItem},
-        state::{APP, ENTERED_PROMPT, FILTERS, GLOBAL, PRINT_HANDLE, STACK, TEMP, TOAST},
+        stash::{STASH, StashItem},
+        state::{APP, FILTERS, GLOBAL, STACK, TEMP, TOAST},
     },
     spawn::open_wrapped,
+    ui::menu_overlay::PromptKind,
     utils::text::{ToastStyle, format_cwd_prompt},
 };
 
-#[derive(Debug, Clone, strum_macros::Display, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum FsAction {
     // Nav
@@ -53,9 +54,10 @@ pub enum FsAction {
     /// (Default bind: ctrl-g).
     History,
     /// Jump to a directory.
+    /// Relative paths are resolved relative to the home directory.
     /// # Note
     /// By default, '~' and '/' bind to Jump($HOME)
-    Jump(String, char),
+    Jump(PathBuf, Option<char>),
 
     /// Go back
     /// (Default bind: ctrl-z)
@@ -114,7 +116,9 @@ pub enum FsAction {
     /// Paste all stack items into the current or specified directory
     Paste(PathBuf), // dump Stack
     /// Execute according to [`crate::lessfilter::RulesConfig`]
-    Handler(Preset, bool, Option<bool>),
+    /// (preset, paging, header)
+    // nonbindable
+    Display(Preset, bool, Option<bool>),
 
     // other
     // --------------------------------------------
@@ -126,14 +130,14 @@ pub enum FsAction {
 
 impl ActionExt for FsAction {}
 
-// ------------- HANDLING ------------------
+// --------- HELPERS ------------
 
 fn enter_dir_pane(path: AbsPath) {
     TOAST::clear_msgs();
     // record
     GLOBAL::db().bump(true, path.clone());
     // this happens after the reload, so that the config dependent prompt marker gets applied
-    GLOBAL::send_efx(efx![Effect::RestoreInputPromptMarker]);
+    GLOBAL::send_efx(efx![Effect::RestoreInputPrefix]);
     // todo: somehow change the render inputui config
     // always clear
 
@@ -142,6 +146,8 @@ fn enter_dir_pane(path: AbsPath) {
     STACK::push(pane);
 }
 
+// -------------------- ALIASER ------------------------------------
+
 // note: since this happens before the batch process of actions, we do not support chaining custom actions
 // i.e. "current" saved inputs in chained actions, or consecutive nav actions
 pub fn fsaction_aliaser(
@@ -149,7 +155,18 @@ pub fn fsaction_aliaser(
     state: &MMState<'_>,
 ) -> Actions<FsAction> {
     #[allow(non_snake_case)]
-    let RELOAD: Actions<FsAction> = acs![Action::ClearAll, Action::Reload("".to_string())];
+    let RELOAD = |enter_prompt: bool| {
+        if enter_prompt {
+            acs![
+                Action::ClearAll,
+                Action::Reload("".to_string()),
+                Action::Custom(FsAction::EnterPrompt(true))
+            ]
+        } else {
+            acs![Action::ClearAll, Action::Reload("".to_string()),]
+        }
+    };
+
     let raw_input = state.picker_ui.results.cursor_disabled || state.overlay_index.is_some();
 
     match a {
@@ -167,13 +184,9 @@ pub fn fsaction_aliaser(
                 );
                 STACK::push(pane);
 
-                // we enter prompt because editing is likely
-                acs![
-                    Action::ClearAll,
-                    Action::Reload("".to_string()),
-                    Action::Custom(FsAction::EnterPrompt(true))
-                ]
+                RELOAD(GLOBAL::with_cfg(|c| c.panes.fd.enter_prompt))
             }
+
             FsAction::History => {
                 // save input
                 let (content, index) = (state.input.clone(), state.picker_ui.results.index());
@@ -181,18 +194,14 @@ pub fn fsaction_aliaser(
 
                 STACK::swap_history();
 
-                acs![
-                    Action::ClearAll,
-                    Action::Reload("".to_string()),
-                    Action::Custom(FsAction::EnterPrompt(true))
-                ]
+                RELOAD(GLOBAL::with_cfg(|c| c.panes.history.enter_prompt))
             }
             FsAction::Jump(d, c) => {
-                if raw_input {
+                if raw_input && let Some(c) = c {
                     return acs![Action::Input(c)];
                 }
 
-                let path = d.abs(home_dir());
+                let path = d.abs(__home());
                 let path = AbsPath::new_unchecked(&path);
 
                 if Some(&path) == STACK::cwd().as_ref() {
@@ -202,7 +211,7 @@ pub fn fsaction_aliaser(
                 if !path.is_dir() {
                     TOAST::push_msg(
                         vec![
-                            Span::styled(d, Color::Red),
+                            Span::styled(d.to_string_lossy().to_string(), Color::Red),
                             Span::raw(" is not a directory!"),
                         ],
                         false,
@@ -217,7 +226,7 @@ pub fn fsaction_aliaser(
                 // pane
                 enter_dir_pane(path);
 
-                RELOAD
+                RELOAD(GLOBAL::with_cfg(|c| c.panes.nav.enter_prompt))
             }
             FsAction::Parent => {
                 if raw_input {
@@ -255,13 +264,13 @@ pub fn fsaction_aliaser(
                 // pane
                 enter_dir_pane(path);
 
-                RELOAD
+                RELOAD(GLOBAL::with_cfg(|c| c.panes.nav.enter_prompt))
             }
             FsAction::Advance => {
                 if raw_input {
                     return acs![Action::ForwardChar];
                 }
-                let Some(Indexed { inner: item, .. }) = state.current_raw() else {
+                let Some((_, ref item)) = state.current else {
                     return acs![];
                 };
                 if APP::in_app_pane() {
@@ -277,7 +286,7 @@ pub fn fsaction_aliaser(
                     // pane
                     enter_dir_pane(item.path.clone());
 
-                    RELOAD
+                    RELOAD(GLOBAL::with_cfg(|c| c.panes.nav.enter_prompt))
                 } else if item.path.exists() {
                     // record
                     if item.path.is_file() {
@@ -298,7 +307,11 @@ pub fn fsaction_aliaser(
                 STACK::save_input(content, index);
 
                 // adjust stack
-                if STACK::stack_prev() { RELOAD } else { acs![] }
+                if STACK::stack_prev() {
+                    RELOAD(false)
+                } else {
+                    acs![]
+                }
             }
             FsAction::Forward => {
                 // save input
@@ -308,10 +321,24 @@ pub fn fsaction_aliaser(
                 // adjust stack
                 if STACK::stack_next() {
                     // restore input
-                    RELOAD
+                    RELOAD(false)
                 } else {
                     acs![]
                 }
+            }
+            FsAction::Rg => {
+                // save input
+                let (content, index) = (state.input.clone(), state.picker_ui.results.index());
+                STACK::save_input(content, index);
+
+                // let pane = FsPane::new_fd(
+                //     STACK::cwd().unwrap_or_default(),
+                //     FILTERS::sort(),
+                //     FILTERS::visibility(),
+                // );
+                // STACK::push(pane);
+
+                RELOAD(GLOBAL::with_cfg(|c| c.panes.rg.enter_prompt))
             }
             FsAction::SaveInput => {
                 let (content, index) = (state.input.clone(), state.picker_ui.results.index());
@@ -331,12 +358,29 @@ pub fn fsaction_aliaser(
                 if let Some((_, ref p)) = state.current
                     && !raw_input
                 {
-                    TEMP::set_prompt(None, p.clone());
+                    TEMP::set_prompt(None, Ok(p.clone()));
                     acs![Action::Overlay(2)]
                 } else {
                     acs![]
                 }
             }
+
+            FsAction::New => {
+                if let Some(cwd) = STACK::nav_cwd()
+                    && state.overlay_index.is_none()
+                {
+                    TEMP::set_prompt(Some(PromptKind::NewDir), Err(cwd));
+                    acs![Action::Overlay(2)]
+                }
+                // no support for creating outside of nav
+                else {
+                    acs![fa]
+                }
+            }
+            // FsAction::NewDir => {
+            //     // undecided
+            // }
+
             // FsAction::Category => {
             //     acs![Action::Overlay(3)]
             // }
@@ -344,15 +388,16 @@ pub fn fsaction_aliaser(
                 let cmd = Preset::Alternate.to_command_string();
                 acs![Action::Execute(cmd)]
             }
-            FsAction::Handler(p, page, header) => {
+            FsAction::Display(p, page, header) => {
                 let mut cmd = p.to_command_string();
                 if page {
                     let pp = else_default!(
-                        pager_path()
+                            pager_path()
                             .to_str()
-                            .elog("Invalid encoding for pager path")
-                            .ok()
-                    );
+                            .ebog(
+                                "Pager path could not be decoded, please check your installation's cache directory."
+                            )
+                        );
                     cmd.push_str(" | ");
                     cmd.push_str(pp);
                 }
@@ -360,30 +405,71 @@ pub fn fsaction_aliaser(
             }
 
             FsAction::AutoJump(digit) => {
-                if raw_input {
-                    let c = (b'0' + (digit % 10)) as char;
-                    acs![Action::Input(c)]
-                } else if digit > 0 {
-                    if !raw_input && GLOBAL::with_cfg(|c| c.interface.alt_accept) {
-                        // todo, probably redesign this action
+                if state.overlay_index.is_some()
+                // in overlay
+                {
+                    if digit == 0 {
+                        acs![Action::Pos(0)]
+                    } else {
+                        acs![Action::Pos(digit as i32 - 1)]
+                    }
+                } else
+                // in prompt
+                if state.picker_ui.results.cursor_disabled {
+                    if digit > 0 {
+                        acs![
+                            Action::Custom(FsAction::EnterPrompt(false)),
+                            Action::Pos(digit as i32)
+                        ]
+                    } else {
+                        // accept
+                        if let Some(cwd) = STACK::cwd() {
+                            // same as Accept on ::Nav
+                            if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                                // print cwd
+                                let s = cwd.to_string_lossy().to_string();
+                                GLOBAL::db().bump(true, cwd);
+                                prints!(s);
+                                acs![Action::Quit(Exit(0))]
+                            } else {
+                                let path = cwd.inner().into();
+                                let pool = GLOBAL::db();
+
+                                tokio::spawn(async move {
+                                    let conn = pool.get_conn(crate::db::DbTable::dirs).await?;
+                                    open_wrapped(conn, None, &[path]).await?;
+                                    anyhow::Ok(())
+                                });
+
+                                acs![Action::Accept] // this won't activate a cursor item
+                            }
+                        } else {
+                            acs![]
+                        }
+                    }
+                } else
+                // not in prompt
+                if digit > 0 {
+                    // accept
+                    if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
                         acs![
                             Action::Pos((digit - 1) as i32),
                             Action::Print("{=}".into()),
-                            Action::Quit(0.into())
+                            Action::Quit(Exit(0))
                         ]
-                    } else {
-                        acs![Action::Pos((digit - 1) as i32), Action::Accept]
+                    } else
+                    // advance
+                    {
+                        GLOBAL::send_fsaction(FsAction::Advance);
+                        acs![Action::Pos((digit - 1) as i32)]
                     }
-                } else if ENTERED_PROMPT
-                    .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
-                    .is_ok()
+                } else
+                // enter prompt
                 {
-                    acs![Action::Custom(FsAction::EnterPrompt(true))]
-                } else {
-                    acs![]
+                    acs![FsAction::EnterPrompt(true)]
                 }
             }
-            _ => acs![Action::Custom(fa)],
+            _ => acs![fa],
         },
         _ => match a {
             Action::Up(Count(i)) => {
@@ -392,119 +478,149 @@ pub fn fsaction_aliaser(
                 if state.overlay_index.is_some() {
                     acs![a]
                 } else if state.picker_ui.results.cursor_disabled {
-                    if ENTERED_PROMPT
-                        .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
-                        .is_ok()
-                    {
-                        acs![
-                            Action::Custom(FsAction::EnterPrompt(false)),
-                            Action::Up(Count(i))
-                        ]
-                    } else {
-                        acs![a]
-                    }
+                    acs![
+                        Action::Custom(FsAction::EnterPrompt(false)),
+                        Action::Up(Count(i))
+                    ]
                 } else if i as u32 <= state.picker_ui.results.index() {
                     acs![a]
                 } else {
                     // entering the prompt
-                    if ENTERED_PROMPT
-                        .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
-                        .is_ok()
-                    {
-                        acs![Action::Custom(FsAction::EnterPrompt(true))]
-                    } else {
-                        acs![]
-                    }
+                    acs![Action::Custom(FsAction::EnterPrompt(true))]
                 }
             }
             Action::Down(Count(i)) => {
                 TOAST::clear();
 
-                if state.overlay_index.is_none()
-                    && state.picker_ui.results.cursor_disabled
-                    && ENTERED_PROMPT
-                        .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
-                        .is_ok()
-                {
+                if state.overlay_index.is_none() && state.picker_ui.results.cursor_disabled {
                     if i > 1 {
                         acs![
                             Action::Custom(FsAction::EnterPrompt(false)),
                             Action::Down((i - 1).into())
                         ]
                     } else {
-                        acs![Action::Custom(FsAction::EnterPrompt(false))]
+                        acs![FsAction::EnterPrompt(false)]
                     }
                 } else {
                     acs![a]
                 }
             }
             Action::Pos(_) => {
-                if state.overlay_index.is_none()
-                    && state.picker_ui.results.cursor_disabled
-                    && ENTERED_PROMPT
-                        .compare_exchange(false, true, Ordering::AcqRel, Ordering::SeqCst)
-                        .is_ok()
-                {
+                if state.overlay_index.is_none() && state.picker_ui.results.cursor_disabled {
                     acs![Action::Custom(FsAction::EnterPrompt(false)), a]
                 } else {
                     acs![a]
                 }
             }
+
             // We treat Print("") special, and comparably to Accept
             // It prints elements on seperate lines
             // then exits afterwards
             // The intention is to feed into a shell function
-            // Might make more sense as a custom action
-            Action::Print(ref s) if s.is_empty() => {
+            // (Might make more sense as a custom action ?)
+            Action::Print(ref s)
+                if s.is_empty() && !GLOBAL::with_cfg(|c| c.interface.alt_accept) =>
+            {
+                if state.picker_ui.results.cursor_disabled
+                    && let Some(p) = STACK::cwd()
+                {
+                    // print cwd
+                    let s = p.to_string_lossy().to_string();
+                    GLOBAL::db().bump(true, p);
+                    prints!(s);
+                    acs![Action::Quit(Exit(0))]
+                } else {
+                    // print selected
+                    state.map_selected_to_vec(|item| {
+                        let s = item.display().to_string();
+                        GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
+                        prints!(s);
+                    });
+                    acs![Action::Quit(Exit(0))]
+                }
+            }
+            // on the prompt, alt_accept accept behaves similarly to !alt_accept
+            Action::Accept
+                if state.picker_ui.results.cursor_disabled && state.overlay_index.is_none() =>
+            {
+                // accepting on prompt opens the displayed directory
+                if let FsPane::Nav { cwd, .. } = STACK::current() {
+                    if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                        // print cwd
+                        let s = cwd.to_string_lossy().to_string();
+                        GLOBAL::db().bump(true, cwd);
+                        prints!(s);
+                        acs![Action::Quit(Exit(0))]
+                    } else {
+                        let path = cwd.inner().into();
+                        let pool = GLOBAL::db();
+
+                        tokio::spawn(async move {
+                            let conn = pool.get_conn(crate::db::DbTable::dirs).await?;
+                            open_wrapped(conn, None, &[path]).await?;
+                            anyhow::Ok(())
+                        });
+
+                        acs![Action::Accept] // this won't activate a cursor item
+                    }
+                } else if let Some(cwd) = STACK::cwd() {
+                    // strange that the lock stays alive through the owned value lifetime
+                    // save input
+                    let (content, index) = (state.input.clone(), state.picker_ui.results.index());
+                    STACK::save_input(content, index);
+
+                    enter_dir_pane(cwd);
+
+                    acs![Action::Reload("".into()),]
+                } else {
+                    acs![]
+                }
+            }
+            // ...in other cases alt_accept causes accept to behave as print
+            Action::Accept if GLOBAL::with_cfg(|c| c.interface.alt_accept) => {
                 if state.overlay_index.is_some() {
-                    return acs![Action::Accept];
+                    acs![Action::Accept]
                 } else if state.picker_ui.results.cursor_disabled
                     && let Some(p) = STACK::cwd()
                 {
                     // print cwd
                     let s = p.to_string_lossy().to_string();
                     GLOBAL::db().bump(true, p);
-                    PRINT_HANDLE.with(|x| x.push(s));
+                    prints!(s);
+                    acs![Action::Quit(Exit(0))]
                 } else {
                     // print selected
                     state.map_selected_to_vec(|item| {
                         let s = item.display().to_string();
                         GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
-                        PRINT_HANDLE.with(|x| x.push(s));
+                        prints!(s);
                     });
+                    acs![Action::Quit(Exit(0))]
                 }
-                acs![Action::Quit(Exit(0))]
             }
-            // accepting on prompt opens the displayed directory
-            Action::Accept
-                if state.picker_ui.results.cursor_disabled && state.overlay_index.is_none() =>
-            {
-                if let FsPane::Nav { cwd, .. } = STACK::current() {
-                    let path = cwd.inner().into();
-                    let pool = GLOBAL::db();
+            // ... and print to behave as accept
+            Action::Print(ref s) if s.is_empty() => {
+                // on the prompt, alt_accept now launches
+                if state.picker_ui.results.cursor_disabled && state.overlay_index.is_none() {
+                    if let Some(cwd) = STACK::cwd() {
+                        let path = cwd.inner().into();
+                        let pool = GLOBAL::db();
 
-                    tokio::spawn(async move {
-                        let conn = pool.get_conn(crate::db::DbTable::dirs).await?;
-                        open_wrapped(conn, None, &[path]).await?;
-                        anyhow::Ok(())
-                    });
-                    acs![a]
-                } else {
-                    let cwd = STACK::cwd(); // strange that the lock stays alive through the owned value lifetime
-                    if let Some(cwd) = cwd {
-                        // save input
-                        let (content, index) =
-                            (state.input.clone(), state.picker_ui.results.index());
-                        STACK::save_input(content, index);
+                        tokio::spawn(async move {
+                            let conn = pool.get_conn(crate::db::DbTable::dirs).await?;
+                            open_wrapped(conn, None, &[path]).await?;
+                            anyhow::Ok(())
+                        });
 
-                        enter_dir_pane(cwd);
-
-                        acs![Action::Reload("".into()),]
+                        acs![Action::Accept]
                     } else {
                         acs![]
                     }
+                } else {
+                    acs![Action::Accept]
                 }
             }
+
             Action::Reload(s)
                 if s.is_empty() && STACK::with_current(|c| matches!(c, FsPane::Stream { .. })) =>
             {
@@ -523,9 +639,6 @@ pub fn fsaction_handler(
     match a {
         // nonbindable
         FsAction::EnterPrompt(enter) => {
-            // finish debounce
-            ENTERED_PROMPT.store(false, Ordering::SeqCst);
-
             // set prompt
             if enter {
                 let prompt = if let Some(cwd) = STACK::cwd() {
@@ -554,10 +667,7 @@ pub fn fsaction_handler(
                     Effect::Prompt(prompt)
                 ]
             } else {
-                efx![
-                    Effect::DisableCursor(enter),
-                    Effect::RestoreInputPromptMarker
-                ]
+                efx![Effect::DisableCursor(enter), Effect::RestoreInputPrefix]
             }
         }
 
@@ -570,7 +680,7 @@ pub fn fsaction_handler(
             STASH::insert(state.map_selected_to_vec(|s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
-                StackItem::mv(s.path.clone())
+                StashItem::mv(s.path.clone())
             }));
             if !toast_vec.is_empty() {
                 TOAST::push(ToastStyle::Normal, "Cut: ", toast_vec);
@@ -587,7 +697,7 @@ pub fn fsaction_handler(
             STASH::insert(state.map_selected_to_vec(|s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
-                StackItem::cp(s.path.clone())
+                StashItem::cp(s.path.clone())
             }));
             if !toast_vec.is_empty() {
                 TOAST::push(ToastStyle::Normal, "Copied: ", toast_vec);
@@ -599,7 +709,7 @@ pub fn fsaction_handler(
             let mut toast_vec = vec![];
             STASH::insert(state.map_selected_to_vec(|s| {
                 toast_vec.push(short_display(&s.path));
-                StackItem::cp(s.path.clone())
+                StashItem::cp(s.path.clone())
             }));
             if !toast_vec.is_empty() {
                 TOAST::push(ToastStyle::Normal, "Stashed: ", toast_vec);
@@ -632,13 +742,6 @@ pub fn fsaction_handler(
                     }
                 }
             });
-            efx![]
-        }
-        FsAction::New => {
-            efx![]
-        }
-        FsAction::NewDir => {
-            // todo: launch menu overlay
             efx![]
         }
         FsAction::Delete => {
@@ -701,7 +804,7 @@ pub fn fsaction_handler(
                 }
                 AbsPath::new_unchecked(dest_base)
             };
-            STASH::transfer_all(&base, true);
+            STASH::transfer_all(base, false);
             efx![]
         }
         FsAction::ClearStash => {
@@ -733,7 +836,7 @@ pub fn fsaction_handler(
                     );
                     efx![Effect::Prompt(prompt)]
                 } else {
-                    efx![Effect::RestoreInputPromptMarker]
+                    efx![Effect::RestoreInputPrefix]
                 }
             } else if let Some(e) = FILTERS::with_mut(|_sort, vis| {
                 (vis.dirs, vis.files) = match (vis.dirs, vis.files) {
@@ -761,7 +864,7 @@ pub fn fsaction_handler(
                                 .add_modifier(Modifier::ITALIC),
                         )))
                     } else {
-                        Some(Effect::RestoreInputPromptMarker)
+                        Some(Effect::RestoreInputPrefix)
                     }
                 } else {
                     None
@@ -808,16 +911,118 @@ pub fn paste_handler(
             TOAST::push_notice(ToastStyle::Normal, "No current directory.");
             return String::new();
         };
-        STASH::transfer_all(&base, true);
+        STASH::transfer_all(base, false);
         String::new()
     }
 }
 
 // ------------- BOILERPLATE ---------------
-impl std::str::FromStr for FsAction {
-    type Err = ();
+macro_rules! impl_display_and_from_str_enum {
+        (
+            units: $( $unit:ident ),* $(,)?;
+            tuples: $( $tuple:ident ),* $(,)?;
+            defaults: $( $tuple_default:ident ),* $(,)?;
+        ) => {
+            impl std::fmt::Display for FsAction {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    match self {
+                        /* ---------- unit variants ---------- */
+                        $( Self::$unit => write!(f, stringify!($unit)), )*
 
-    fn from_str(_: &str) -> Result<Self, Self::Err> {
-        Err(())
+                        /* ---------- tuple variants ---------- */
+                        $( Self::$tuple(inner) => write!(f, concat!(stringify!($tuple), "({})"), inner), )*
+
+                        /* ---------- pathbuf with defaults ---------- */
+                        $( Self::$tuple_default(inner) => {
+                            if inner.is_empty() {
+                                write!(f, stringify!($tuple_default))
+                            } else {
+                                write!(f, concat!(stringify!($tuple_default), "({})"), inner.to_string_lossy())
+                            }
+                        }, )*
+
+                        /* ---------- Manually parsed ---------- */
+                        Self::Jump(path, _) => {
+                            if path.is_empty() {
+                                write!(f, "Jump(⌂)")
+                            } else {
+                                write!(f, "Jump({})", path.display())
+                            }
+                        }
+                        Self::EnterPrompt(b) => write!(f, "EnterPrompt({b})"),
+                        Self::SaveInput => write!(f, "SaveInput"),
+                        Self::Display(preset, _, _) => write!(f, "Display({preset})"),
+                    }
+                }
+            }
+
+            impl std::str::FromStr for FsAction {
+                type Err = String;
+
+                fn from_str(s: &str) -> Result<Self, Self::Err> {
+                    let (name, data) = if let Some(pos) = s.find('(') {
+                        if s.ends_with(')') {
+                            (&s[..pos], Some(&s[pos + 1..s.len() - 1]))
+                        } else {
+                            (s, None)
+                        }
+                    } else {
+                        (s, None)
+                    };
+
+                    match name {
+                        /* ---------- unit variants ---------- */
+                        $( stringify!($unit) => {
+                            if data.is_some() {
+                                Err(format!("Unexpected data for {}", name))
+                            } else {
+                                Ok(Self::$unit)
+                            }
+                        }, )*
+
+                        /* ---------- tuple variants ---------- */
+                        $( stringify!($tuple) => {
+                            let val = data
+                            .ok_or_else(|| format!("Missing data for {}", name))?
+                            .parse()
+                            .map_err(|_| format!("Invalid data for {}", name))?;
+                            Ok(Self::$tuple(val))
+                        }, )*
+
+                        /* ---------- tuple default variants ---------- */
+                        $( stringify!($tuple_default) => {
+                            let val = match data {
+                                Some(v) => v
+                                .parse()
+                                .map_err(|_| format!("Invalid data for {}", name))?,
+                                None => Default::default(),
+                            };
+                            Ok(Self::$tuple_default(val))
+                        }, )*
+
+                        /* ---------- Manually parsed ---------- */
+                        "Jump" => {
+                            let path_str = data.ok_or_else(|| "Missing path for Jump")?;
+                            Ok(Self::Jump(path_str.into(), None))
+                        }
+                        _ => Err(format!("Unknown action {}", s)),
+                    }
+                }
+            }
+        };
     }
+impl_display_and_from_str_enum! {
+    units:
+    Advance, Parent, Find, Rg, History,
+    Undo, Forward,
+    Filters, Stash, ClearStash,
+    Menu, ToggleDirs, ToggleHidden,
+    Cut, Copy, CopyPath, New, NewDir,
+    Symlink, Backup, Trash, Delete;
+
+    tuples:
+    AutoJump;
+
+    defaults:
+    Paste;
 }

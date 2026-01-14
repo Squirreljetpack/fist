@@ -1,4 +1,4 @@
-use std::{ffi::OsString, process::Command, sync::atomic::Ordering};
+use std::{ffi::OsString, process::Command};
 
 use cli_boilerplate_automation::{
     bog::BogOkExt,
@@ -20,7 +20,7 @@ use crate::{
     run::{
         fspane::FsPane,
         item::PathItem,
-        state::{FILTERS, RESTORE_INPUT, STACK, TEMP},
+        state::{FILTERS, STACK, TEMP},
     },
 };
 
@@ -51,20 +51,18 @@ pub fn sync_handler<'a>(
             .position(|x| x.inner.path == seek)
     {
         efx![Effect::SetIndex(i as u32)]
-    } else if RESTORE_INPUT
-    .compare_exchange(true, false, Ordering::Acquire, Ordering::Acquire)
-    .is_ok()
-    // this part is exclusive to [`FsAction::Undo`] and Forward, which is when the input can be taken from stack.
-    && let Some((input, index)) = STACK::get_maybe_input()
-    {
+    } else
+    // if RESTORE_INPUT
+    // .compare_exchange(true, false, Ordering::Acquire, Ordering::Acquire)
+    // .is_ok() &&
+
+    // this part is exclusive to [`FsAction::Undo`], Forward and watcher reload.
+    if let Some((input, index)) = STACK::get_maybe_input() {
         let il = input.len() as u16;
-        // refreshing selections should be the responsibility of the caller
-        // However, we want to keep selections on file watch events, hence the above
         efx![
             Effect::Input((input, il)),
             Effect::SetIndex(index),
             Effect::RevalidateSelectons,
-            Effect::RestoreInputPromptMarker
         ]
     } else {
         efx![]
@@ -100,15 +98,23 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
                     // - this signals to restore that saved input
                     // - technically we should set this only if input was saved, but the check needs to be done by sync_handler anyway
 
-                    if STACK::has_saved_input() {
-                        RESTORE_INPUT.store(true, Ordering::Release);
-                    }
+                    // if STACK::has_saved_input() {
+                    //     RESTORE_INPUT.store(true, Ordering::Release);
+                    // }
                 }
 
                 let injector = IndexedInjector::new_globally_indexed(state.injector());
                 STACK::populate(injector, || {});
             }
-            if !RESTORE_INPUT.load(Ordering::Acquire) {
+
+            if STACK::has_saved_input() {
+                // todo: clear selections if not pure reload
+                efx![]
+            } else {
+                // rules out:
+                // - file watch event
+                // - undo/redo with save
+
                 // i.e., [`FsAction::Find`]: stay in prompt
                 if state.picker_ui.results.cursor_disabled {
                     efx![Effect::Input(Default::default()), Effect::ClearSelections]
@@ -117,11 +123,9 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
                         Effect::Input(Default::default()),
                         Effect::SetIndex(0),
                         Effect::ClearSelections,
-                        Effect::RestoreInputPromptMarker
+                        Effect::RestoreInputPrefix
                     ]
                 }
-            } else {
-                efx!()
             }
         });
     }

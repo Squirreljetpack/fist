@@ -144,7 +144,7 @@ impl Visibility {
         }
     }
 
-    pub fn validate(mut self) -> Self {
+    pub fn validated(mut self) -> Self {
         if self.all {
             self.set_all(true);
         }

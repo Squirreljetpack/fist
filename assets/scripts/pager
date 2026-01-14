@@ -10,10 +10,10 @@ have() {
 # override/fallback
 if [[ -n "$FS_PAGER" && "${${(z)FS_PAGER}[1]}:t" != "$0:t" ]]; then
     ${(z)FS_PAGER} "$@"
-    return
+    exit
 elif ! have bat; then
-    cat
-    return
+    lessfilter "$@"
+    exit
 fi
 
 opts=()

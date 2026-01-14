@@ -1,6 +1,6 @@
 [tui]
 percentage = 50
-min = 10
+min = 22
 max = 25
 
 [preview]

@@ -15,11 +15,12 @@ use matchmaker::{
 };
 
 use crate::{
+    clipboard,
     config::Config,
     db::{DbTable, Pool, zoxide::DbFilter},
     errors::CliError,
     run::{
-        dhandlers::{MMExt, sync_handler},
+        dhandlers::{MMExt, mm_formatter, sync_handler},
         fsaction::{fsaction_aliaser, fsaction_handler, paste_handler},
         fspane::FsPane,
         item::PathItem,
@@ -61,9 +62,16 @@ fn make_mm(
     );
     let injector = IndexedInjector::new_globally_indexed(worker.injector());
 
-    let selector = Selector::new_with_validator(Indexed::identifier, exist_validator);
-    let formatter =
-        Arc::new(worker.make_format_fn::<true>(|item: &Indexed<PathItem>| item.inner.display()));
+    let mut selector = Selector::new_with_validator(Indexed::identifier, exist_validator);
+    if cfg.global.interface.no_multi {
+        selector = selector.disabled()
+    }
+
+    // let formatter =
+    //     Arc::new(worker.make_format_fn::<true>(|item: &Indexed<PathItem>| item.inner.display()));
+    #[allow(clippy::type_complexity)]
+    let formatter: Arc<Box<dyn Fn(&Indexed<PathItem>, &str) -> String + Send + Sync>> =
+        Arc::new(Box::new(mm_formatter));
 
     let mut mm = Matchmaker::new(worker, selector);
 
@@ -150,18 +158,13 @@ pub async fn start(
     // init history capabilities
     {
         let mut guard = DB_FILTER.lock().await;
-        *guard = Some(DbFilter::new(&cfg.db));
+        *guard = Some(DbFilter::new(&cfg.history));
     }
 
     // init global
-    GLOBAL::init(
-        cfg.global,
-        render_tx,
-        watcher_tx,
-        db_pool,
-        pane,
-        cfg.misc.clipboard_delay_ms,
-    );
+    GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane);
+    clipboard::init(cfg.misc.clipboard_delay_ms);
+    crate::spawn::init_spawn_with(cfg.misc.spawn_with);
     global_ui_init(cfg.styles);
 
     // start watcher

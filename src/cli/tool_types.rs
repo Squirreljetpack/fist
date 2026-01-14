@@ -1,6 +1,7 @@
 use std::{ffi::OsString, path::PathBuf};
 
 use clap::{ArgGroup, Parser, Subcommand};
+use cli_boilerplate_automation::bath::PathExt;
 
 use crate::{
     db::{DbSortOrder, DbTable},
@@ -12,8 +13,8 @@ use crate::{
 #[strum(serialize_all = "lowercase")]
 pub enum SubTool {
     Colors,
-    /// ls (eza wrapper)
-    Lz {
+    /// List directory (eza wrapper)
+    Liza {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<OsString>,
     },
@@ -47,8 +48,8 @@ pub struct ShellCommand {
     /// Name for open function.
     #[arg(long, default_value_t = String::from("zz"))]
     pub zz_name: String,
-    /// Command used by open function (we probably replace with lessfilter -e)
-    #[arg(long, default_value_t = String::from("${VISUAL:-code}"))]
+    /// Command used by open function
+    #[arg(long, default_value_t = format!("{} :tool lessfilter edit", crate::cli::paths::current_exe().basename()))]
     pub visual: String,
     /// Default sort order for the interactive jump menu
     #[arg(long, default_value_t = DbSortOrder::atime)]
@@ -56,6 +57,8 @@ pub struct ShellCommand {
     /// Default sort order the `z .` menu
     #[arg(long, default_value_t = String::from("-t d"))]
     pub z_dot_args: String,
+    #[arg(long, default_value_t)]
+    pub aliases: bool,
 }
 
 #[derive(Debug, Parser, Default, Clone)]

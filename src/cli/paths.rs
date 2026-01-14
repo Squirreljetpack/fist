@@ -49,7 +49,7 @@ pub fn current_exe() -> std::ffi::OsString {
 expr_as_path_fn!(__cwd, current_dir().__ebog());
 
 // the absolute home directory, or root
-expr_as_path_fn!(home_dir, dirs::home_dir().unwrap_or(root_dir()));
+expr_as_path_fn!(__home, dirs::home_dir().unwrap_or(root_dir()));
 
 // ------- FILES -------
 #[cfg(debug_assertions)]
@@ -71,10 +71,11 @@ expr_as_path_fn!(
 expr_as_path_fn!(lessfilter_cfg_path, config_dir().join("lessfilter.toml"));
 
 // previewer scripts
-expr_as_path_fn!(lz_path, cache_dir().join("lz"));
+expr_as_path_fn!(liza_path, cache_dir().join("liza"));
 expr_as_path_fn!(pager_path, cache_dir().join("pager"));
 expr_as_path_fn!(
     metadata_viewer_path,
     cache_dir().join("fist_metadata_viewer")
 );
+expr_as_path_fn!(show_error_path, cache_dir().join("fist_show_error"));
 expr_as_path_fn!(binary_viewer_path, cache_dir().join("fist_binary_viewer"));

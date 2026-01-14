@@ -56,6 +56,7 @@ Call as:
 - `ctrl-l`: Full preview.
 - `/` and `~`: Jump to home
 
+For a full list of binds within the app, type `ctrl-shift-h`.\
 For more information on bindings, see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
 
 # Shell integration
@@ -64,11 +65,26 @@ For more information on bindings, see [matchmaker](https://github.com/Squirrelje
 
 # Additional
 
-Fist integrates into [CommandSpace](https://github.com/Squirreljetpack/command-space), which you may also like.
-
-# Dependencies
+### Dependencies
 
 - fd-find
 - eza
 - ripgrep
-- matchmaker
+
+Conversely, fist integrates into [CommandSpace](https://github.com/Squirreljetpack/command-space), which you may also like to check out.
+
+### Notes
+
+- The `New` action creates a directory if the target ends with a path seperator[^1].
+
+- The process which runs the command that spawns programs can be relegated to a process manager. For example, using [pueue](https://github.com/Nukesor/pueue):
+
+```toml
+# config.toml
+
+[misc]
+spawn_with = ["pueue", "add", "-g", "apps", "--"]
+```
+
+
+[^1]: `/` on unix and `\` on windows

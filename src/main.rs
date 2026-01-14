@@ -47,19 +47,22 @@ async fn main() {
     if cli.opts.dump_config {
         let mm_cfg_path = cli.opts.mm_config.as_deref().unwrap_or(mm_cfg_path());
         let lessfilter_cfg_path = lessfilter_cfg_path();
-
         // if stdout: dump the default cfg (with comments)
         // + (if not yet existing), dump the default run cfg
         if atty::is(atty::Stream::Stdout) {
             let cfg_path = cli.opts.config.as_deref().unwrap_or(config_path());
-
             // todo: prompt about overwriting
             if write_str(cfg_path, include_str!("../assets/config/config.toml"))
                 ._ebog()
                 .is_some()
             {
-                ibog!("Wrote config to {}", cfg_path.to_string_lossy())
+                ibog!("Wrote config to {}", cfg_path.to_string_lossy());
+                // overwrite helper files
+                Config::default().check_scripts(true);
+            } else {
+                cfg.check_scripts(true);
             }
+
             if !mm_cfg_path.exists()
                 && write_str(mm_cfg_path, include_str!("../assets/config/mm.toml"))
                     ._ebog()
@@ -99,18 +102,19 @@ async fn main() {
     // ensure necessary directories/files (scripts) exist
     cfg.check_dirs_or_exit();
     #[cfg(debug_assertions)]
-    cfg.check_files(true);
+    cfg.check_scripts(true);
     #[cfg(not(debug_assertions))]
-    cfg.check_files(false);
+    cfg.check_scripts(false);
 
     // if atty is not stdin, (this may be a bit unexpected but shouldn't be a big problem)
-    if !atty::is(atty::Stream::Stdin)
-        && matches!(
-            cli.subcommand,
-            SubCmd::Tools(ToolsCmd { tool: Some(_), .. })
-        )
+    if !cfg.misc.append_mode_logging
+        && (std::env::var("MM_IN_APP").as_deref() == Ok("true")
+            || matches!(
+                cli.subcommand,
+                SubCmd::Tools(ToolsCmd { tool: Some(_), .. }) | SubCmd::Open(_)
+            ))
     {
-        // skip tool logging (mainly lessfilter)
+        // skip tool logging when not in append mode (mainly lessfilter)
     } else {
         init_logger(
             cli.opts.verbosity(),

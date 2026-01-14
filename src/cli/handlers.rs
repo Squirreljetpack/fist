@@ -21,7 +21,9 @@ use cli_boilerplate_automation::{
 
 use super::{
     matchmaker::mm_get,
-    paths::{__cwd, config_path, current_exe, home_dir, lessfilter_cfg_path, lz_path, mm_cfg_path},
+    paths::{
+        __cwd, config_path, current_exe, __home, lessfilter_cfg_path, liza_path, mm_cfg_path,
+    },
     tool_types::*,
     types::*,
 };
@@ -62,6 +64,8 @@ pub async fn handle_subcommand(
     cli: Cli,
     cfg: Config,
 ) -> Result<(), CliError> {
+    log::debug!("{:?}", cli.subcommand);
+
     match cli.subcommand {
         SubCmd::Open(cmd) => handle_open(cli.opts, cmd, cfg).await,
         SubCmd::Files(cmd) => handle_files(cli.opts, cmd, cfg).await,
@@ -95,6 +99,8 @@ async fn handle_open(
 
         let prog = cmd.with.and_then(Program::from_os_string);
 
+        crate::spawn::init_spawn_with(cfg.misc.spawn_with);
+
         open_wrapped(conn, prog, &cmd.files).await
     }
 }
@@ -117,7 +123,7 @@ async fn handle_info(
     if let Some(table) = cmd.table {
         let mut conn = pool.get_conn(table).await?;
 
-        let db_filter = DbFilter::new(&cfg.db);
+        let db_filter = DbFilter::new(&cfg.history);
         conn.switch_table(table);
         let entries = conn.get_entries(cmd.sort, &db_filter).await?;
 
@@ -173,11 +179,11 @@ async fn handle_dirs(
 ) -> Result<(), CliError> {
     let pool = Pool::new(cfg.db_path()).await?;
     if cmd.cd {
-        cfg.db.show_missing = false;
+        cfg.history.show_missing = false;
 
         if !cmd.query.is_empty() {
             let conn = pool.get_conn(DbTable::dirs).await?;
-            let db_filter = DbFilter::new(&cfg.db).with_keywords(cmd.query.clone());
+            let db_filter = DbFilter::new(&cfg.history).with_keywords(cmd.query.clone());
 
             match conn.print_best_by_frecency(&db_filter).await {
                 RetryStrat::Next => return Ok(()),
@@ -198,9 +204,9 @@ async fn handle_dirs(
         let mut conn = pool.get_conn(DbTable::dirs).await?;
 
         if matches!(all, ListMode::All) {
-            cfg.db.show_missing = true;
+            cfg.history.show_missing = true;
         }
-        let db_filter = DbFilter::new(&cfg.db).with_keywords(cmd.query.clone());
+        let db_filter = DbFilter::new(&cfg.history).with_keywords(cmd.query.clone());
 
         for e in conn.get_entries(cmd.sort, &db_filter).await? {
             match e.path.to_str() {
@@ -250,15 +256,45 @@ async fn handle_default(
     }
     // _dbg!(cli, cmd, cfg);
     let pool = Pool::new(cfg.db_path()).await?;
-    let pane = if !atty::is(atty::Stream::Stdin) && !cmd.no_read {
+    let pane = if
+    // piped input
+    !atty::is(atty::Stream::Stdin) && !cmd.no_read && !cmd.list {
+        if cmd.cd {
+            cfg.global.interface.alt_accept = true;
+            cfg.global.interface.no_multi = true;
+            cfg.history.show_missing = false;
+            TEMP::set_initial_relative_path(cfg.styles.path.relative);
+            cfg.styles.path.relative = false;
+        };
         FsPane::new_stream(AbsPath::new_unchecked(__cwd().to_path_buf()), cmd.vis)
     } else if cmd.cd {
-        cmd.paths.append(&mut cmd.fd); // fd is not supported
+        cmd.paths.append(&mut cmd.fd); // fd opts are not supported
         cfg.global.interface.alt_accept = true;
         cfg.global.interface.no_multi = true;
-        cfg.db.show_missing = false;
+        cfg.history.show_missing = false;
 
-        let cwd = AbsPath::new_unchecked(__cwd());
+        // treat paths as zoxide args
+        let cwd = if cmd.paths.len() > 1 {
+            let conn = pool.get_conn(DbTable::dirs).await?;
+            let kw: Vec<String> = cmd
+                .paths
+                .drain(..cmd.paths.len() - 1)
+                .map(|f| f.to_string_lossy().into_owned())
+                .collect();
+            let db_filter = DbFilter::new(&cfg.history).with_keywords(kw);
+
+            match conn.return_best_by_frecency(&db_filter).await {
+                None | Some(None) => {
+                    // lowpri: cd_fallback_search?
+                    return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
+                }
+                Some(Some(p)) => p,
+            }
+            // search in current directory
+        } else {
+            AbsPath::new_unchecked(__cwd())
+        };
+
         FsPane::new_fd_from_command(cmd, cwd)
     } else
     // any fd arg is specified
@@ -272,8 +308,8 @@ async fn handle_default(
             // last item is a pattern
             AbsPath::new_unchecked(
                 if cfg.global.fd.default_search_in_home {
-                    set_current_dir(home_dir())._elog();
-                    home_dir()
+                    set_current_dir(__home())._elog();
+                    __home()
                 } else {
                     __cwd()
                 }
@@ -306,7 +342,7 @@ async fn handle_default(
                 "fd",
                 build_fd_args(
                     cmd.sort.unwrap_or_default(),
-                    cmd.vis.validate(),
+                    cmd.vis.validated(),
                     &cmd.types,
                     &cmd.paths,
                     &cmd.fd,
@@ -403,7 +439,7 @@ async fn handle_tools(
     } else {
         mm_get([
             SubTool::Colors,
-            SubTool::Lz { args: args.clone() },
+            SubTool::Liza { args: args.clone() },
             SubTool::Shell { args: args.clone() },
             SubTool::Lessfilter { args: args.clone() },
             SubTool::Bump { args: args.clone() },
@@ -419,12 +455,7 @@ async fn handle_tools(
             display_ratatui_colors()?;
             Ok(())
         }
-        SubTool::Lz { args } => {
-            let mut cmd = Command::new(lz_path());
-            cmd.args(args);
-
-            exec(cmd);
-        }
+        SubTool::Liza { args } => Command::new(liza_path()).args(args)._exec(),
         SubTool::Shell { mut args } => {
             // note: this seems to already be the short path of the exe, not that im complaining
             let path = std::env::current_exe().prefix(executable_err_prefix)?;
@@ -484,7 +515,7 @@ async fn handle_tools(
 
                 use globset::{Glob, GlobSetBuilder};
                 let mut builder = GlobSetBuilder::new();
-                for pattern in &cfg.db.exclude {
+                for pattern in &cfg.history.exclude {
                     builder.add(Glob::new(pattern).unwrap());
                 }
                 let exclude = builder.build().unwrap();
@@ -534,7 +565,7 @@ async fn handle_tools(
 
                 let mut to_remove = Vec::new();
 
-                let db_filter = DbFilter::new(&cfg.db);
+                let db_filter = DbFilter::new(&cfg.history);
                 let entries = conn
                     .get_entries(DbSortOrder::none, &db_filter)
                     .await
@@ -562,36 +593,6 @@ async fn handle_tools(
 
             let TypesCommand { .. } = TypesCommand::parse_from(args);
             todo!()
-        }
-    }
-}
-
-pub fn exec(mut cmd: Command) -> ! {
-    let err_prefix = format!("Could not exec {}: ", cmd.get_program().to_string_lossy());
-    #[cfg(not(windows))]
-    {
-        use std::os::unix::process::CommandExt;
-        let err = cmd.exec();
-        use std::process::exit;
-
-        ebog!("Could not exec lz: {err}");
-        exit(1);
-    }
-
-    #[cfg(windows)]
-    {
-        match command.status() {
-            Ok(status) => {
-                exit(
-                    status
-                        .code()
-                        .unwrap_or(if status.success() { 0 } else { 1 }),
-                );
-            }
-            Err(err) => {
-                ebog!("Could not exec lz: {err}");
-                exit(1);
-            }
         }
     }
 }

@@ -1,5 +1,6 @@
 use arboard::{Clipboard, ImageData};
 use image::ImageReader;
+use log::error;
 use ratatui::text::Span;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -13,6 +14,19 @@ use crate::utils::text::ToastStyle;
 
 pub static CLIPBOARD: Mutex<Option<Clipboard>> = Mutex::new(None);
 pub static CLIPBOARD_SLEEP_MS: AtomicU64 = AtomicU64::new(20);
+
+pub fn init(cb_sleep: u64) {
+    let err_prefix = "Failed to initialize clipboard";
+    if let Ok(mut cb) = CLIPBOARD.lock() {
+        match Clipboard::new() {
+            Ok(clipboard) => *cb = Some(clipboard),
+            Err(e) => error!("Failed to initialize clipboard: {e}"),
+        }
+        CLIPBOARD_SLEEP_MS.store(cb_sleep, std::sync::atomic::Ordering::Release);
+    } else {
+        error!("Failed to initialize clipboard");
+    }
+}
 
 pub fn copy_texts(
     texts: Vec<String>,

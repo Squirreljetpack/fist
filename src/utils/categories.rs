@@ -15,7 +15,7 @@
 
 use std::path::Path;
 
-use cli_boilerplate_automation::bath::{basename, split_ext};
+use cli_boilerplate_automation::bath::{filename, split_ext};
 use phf::{Map, phf_map};
 
 // use crate::fs::File;
@@ -515,7 +515,7 @@ impl FileCategory {
     }
 
     pub fn get(path: &Path) -> Option<FileCategory> {
-        let name = basename(path);
+        let name = filename(path);
         let ext = split_ext(&name)[1];
 
         // Case-insensitive readme check

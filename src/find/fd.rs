@@ -3,7 +3,7 @@ use std::{ffi::OsString, path::PathBuf};
 use cli_boilerplate_automation::{vec_, wbog};
 
 use crate::{
-    cli::paths,
+    cli::paths::{self, __cwd, __home},
     config::FdConfig,
     filters::{SortOrder, Visibility},
     utils::{categories::FileCategory, filetypes::FileType},
@@ -88,6 +88,7 @@ pub fn build_fd_args(
                 // }
             }
             FileTypeArg::Ext(inner) => {
+                ret.push("-e".into());
                 ret.push(inner.into());
             }
             FileTypeArg::Group(_grp) => {
@@ -126,11 +127,16 @@ pub fn build_fd_args(
                 .cloned()
                 .unwrap_or_else(default_exclusions);
 
-            if paths::__cwd() == paths::home_dir() {
+            // todo: check full/replaced for all paths
+            if paths::__cwd() == paths::__home() {
                 if let Some(excls) = cfg.exclusions.get(&PathBuf::from("~")) {
                     exclusions.extend(excls.iter().cloned());
                 }
-            } else if let Some(excls) = cfg.exclusions.get(paths::__cwd()) {
+            } else if let Ok(stripped) = __cwd().strip_prefix(__home())
+                && let Some(excls) = cfg.exclusions.get(&PathBuf::from("~").join(stripped))
+            {
+                exclusions.extend(excls.iter().cloned());
+            } else if let Some(excls) = cfg.exclusions.get(__cwd()) {
                 exclusions.extend(excls.iter().cloned());
             }
 
@@ -202,8 +208,8 @@ impl std::str::FromStr for FileTypeArg {
         let s_lower = s.to_lowercase();
 
         // extension if starts with "."
-        if s_lower.starts_with('.') {
-            return Ok(FileTypeArg::Ext(s_lower));
+        if let Some(s) = s_lower.strip_prefix('.') {
+            return Ok(FileTypeArg::Ext(s.to_string()));
         }
 
         // try parse as FileType

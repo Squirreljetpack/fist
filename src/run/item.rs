@@ -8,7 +8,7 @@ use matchmaker::nucleo::{Color, Render, Span, Style, Text};
 
 use crate::{
     abspath::AbsPath,
-    cli::paths::home_dir,
+    cli::paths::__home,
     db::Entry,
     run::state::GLOBAL,
     ui::global::global_ui,
@@ -171,7 +171,7 @@ fn render(
 
     // collapse home to ~
     let path = if cfg.collapse_home
-        && let Ok(stripped) = path.strip_prefix(home_dir())
+        && let Ok(stripped) = path.strip_prefix(__home())
     {
         if stripped.is_empty() {
             return {
@@ -260,7 +260,7 @@ impl Eq for PathItem {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::paths::{__cwd, home_dir};
+    use crate::cli::paths::{__cwd, __home};
     use crate::ui::global::global_ui_init;
     use crate::ui::styles_config::{PathDisplayConfig, StyleConfig};
     use std::path::Path;
@@ -287,7 +287,7 @@ mod tests {
         // As a result, `path.is_dir()` inside the `render` function will always
         // be false for the paths constructed here.
 
-        let home = home_dir();
+        let home = __home();
         let cwd = __cwd();
 
         // A logical path inside the current working directory.

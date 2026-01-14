@@ -1,6 +1,6 @@
 use cli_boilerplate_automation::{
     bait::ResultExt,
-    bath::{RenamePolicy, basename},
+    bath::{_filename, RenamePolicy},
     bo::write_str,
     bog::BogOkExt,
     bs::{create_dir, set_executable},
@@ -10,8 +10,8 @@ use std::{collections::HashMap, path::PathBuf};
 
 use crate::{cli::BINARY_FULL, cli::paths::*, lessfilter::Preset};
 use crate::{
-    cli::paths::{lz_path, pager_path},
-    db::zoxide::DbConfig,
+    cli::paths::{liza_path, pager_path},
+    db::zoxide::HistoryConfig,
     filters::*,
     run::FsPane,
     ui::styles_config::StyleConfig,
@@ -22,24 +22,30 @@ use crate::{
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
-    /// store history
+    /// directory for storing history and other state.
     #[serde(default = "state_dir")]
     pub state_dir: PathBuf,
 
-    /// cache
+    /// cache directory.
     #[serde(default = "cache_dir")]
     pub cache_dir: PathBuf,
 
+    /// A container for settings whose values are accessed at runtime.
+    /// Its fields are included directly in (flattened into) the config.
     #[serde(flatten)]
     pub global: GlobalConfig,
 
+    /// All styling options not governed by match-maker.
     pub styles: StyleConfig,
 
+    /// Configure the filesystem watcher
     pub notify: WatcherConfig,
 
+    /// Miscellaneous and Tool specific options
     pub misc: MiscConfig,
 
-    pub db: DbConfig,
+    /// Settings related to saving to and retrieving from history.
+    pub history: HistoryConfig,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -47,12 +53,16 @@ pub struct GlobalConfig {
     #[serde(default)]
     pub interface: InterfaceConfig,
 
+    /// Configure behavior of filesystem actions.
     #[serde(default)]
     pub fs: FsConfig,
 
+    /// Configure behavior of the fd tool.
+    /// This affects [FsAction::Find](`crate::run::fsaction::FsAction::Find`) and the default subcommand.
     #[serde(default)]
     pub fd: FdConfig,
 
+    /// Configure behavior of filesystem actions.
     #[serde(default)]
     pub panes: PanesConfig,
 }
@@ -69,12 +79,13 @@ impl Config {
         }
     }
 
-    pub fn check_files(
+    // initialize helper files
+    pub fn check_scripts(
         &self,
         force: bool,
     ) {
         let files = [
-            (lz_path(), include_str!("../assets/scripts/lz")),
+            (liza_path(), include_str!("../assets/scripts/liza")),
             (pager_path(), include_str!("../assets/scripts/pager")),
             (
                 metadata_viewer_path(),
@@ -83,6 +94,10 @@ impl Config {
             (
                 binary_viewer_path(),
                 include_str!("../assets/scripts/fist_binary_viewer"),
+            ),
+            (
+                show_error_path(),
+                include_str!("../assets/scripts/fist_show_error"),
             ),
         ];
 
@@ -95,20 +110,25 @@ impl Config {
                 if !force
                 // less noise for debug
                 {
-                    ibog!("{} saved to: {}", basename(path), path.to_string_lossy());
+                    ibog!("{} saved to: {}", _filename(path), path.to_string_lossy());
                 }
             }
         }
     }
 }
 
-/// Miscellaneous + Tool specific options
+/// Miscellaneous and Tool specific options.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MiscConfig {
+    /// How long to wait between consecutive clipboard actions
     pub clipboard_delay_ms: u64,
+    /// When --cd is specified, whether to error or begin search when no match is found.
     pub cd_fallback_search: bool,
+    /// Overwrite or append logs on application start.
     pub append_mode_logging: bool,
+    /// Pass the spawning command to this instead of invoking it directly.
+    pub spawn_with: Vec<String>,
 }
 
 impl Default for MiscConfig {
@@ -117,6 +137,7 @@ impl Default for MiscConfig {
             clipboard_delay_ms: 20,
             cd_fallback_search: false,
             append_mode_logging: false,
+            spawn_with: Vec::new(),
         }
     }
 }
@@ -125,17 +146,23 @@ impl Default for MiscConfig {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-/// Not recommended to change.
+/// Settings related to the behavior of the main interface.
+/// It is recommended not to change these.
 pub struct InterfaceConfig {
     // actions
+    /// The command template to execute when [FsAction::Advance](`crate::run::fsaction::FsAction::Advance`) is invoked on a file.
     pub advance_command: String,
+    /// If true, the functions of the Accept and Print actions will be swapped.
     pub alt_accept: bool,
+    /// Disables multi-select.
     pub no_multi: bool,
-    // When outside the prompt, whether to register paste as characters or an action.
+    /// When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
 
     // display
+    /// The prefix to display when the cursor is in the prompt.
     pub cwd_prompt: String,
+    /// Display a toast when current directory has no entries.
     pub toast_on_empty: bool, // todo
 }
 
@@ -168,10 +195,10 @@ impl Default for PanesSettings {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
+/// Pane-specific settings
 pub struct PanesConfig {
     pub app: PaneSettings,
-    pub file: PaneSettings,
-    pub dir: PaneSettings,
+    pub history: PaneSettings,
     pub nav: NavPaneSettings,
     pub stream: PaneSettings,
     pub fd: PaneSettings,
@@ -181,6 +208,7 @@ pub struct PanesConfig {
     pub settings: PanesSettings,
 }
 
+// enter prompt by default because it is less surprising
 impl Default for PanesConfig {
     fn default() -> Self {
         Self {
@@ -188,13 +216,22 @@ impl Default for PanesConfig {
                 show_preview: Some(false),
                 ..PaneSettings::default()
             },
-            file: PaneSettings::default(),
-            dir: PaneSettings::default(),
+            history: PaneSettings {
+                ..PaneSettings::default()
+            },
             nav: NavPaneSettings::default(),
-            fd: PaneSettings::default(),
-            rg: PaneSettings::default(),
-            custom: PaneSettings::default(),
-            stream: PaneSettings::default(),
+            fd: PaneSettings {
+                ..PaneSettings::default()
+            },
+            rg: PaneSettings {
+                ..PaneSettings::default()
+            },
+            custom: PaneSettings {
+                ..PaneSettings::default()
+            },
+            stream: PaneSettings {
+                ..PaneSettings::default()
+            },
 
             settings: PanesSettings::default(),
         }
@@ -210,8 +247,7 @@ impl FsPane {
             FsPane::Custom { .. } => panes.custom.prompt.clone(),
             FsPane::Stream { .. } => panes.stream.prompt.clone(),
             FsPane::Fd { .. } => panes.fd.prompt.clone(),
-            FsPane::Files { .. } => panes.file.prompt.clone(),
-            FsPane::Folders { .. } => panes.dir.prompt.clone(),
+            FsPane::Files { .. } | FsPane::Folders { .. } => panes.history.prompt.clone(),
             FsPane::Launch { .. } => panes.app.prompt.clone(),
             FsPane::Nav { .. } => panes.nav.prompt.clone(),
             FsPane::Rg { .. } => panes.rg.prompt.clone(),
@@ -226,21 +262,31 @@ impl FsPane {
             FsPane::Custom { .. } => panes.custom.show_preview,
             FsPane::Stream { .. } => panes.stream.show_preview,
             FsPane::Fd { .. } => panes.fd.show_preview,
-            FsPane::Files { .. } => panes.file.show_preview,
-            FsPane::Folders { .. } => panes.dir.show_preview,
+            FsPane::Files { .. } | FsPane::Folders { .. } => panes.history.show_preview,
             FsPane::Launch { .. } => panes.app.show_preview,
             FsPane::Nav { .. } => panes.nav.show_preview,
             FsPane::Rg { .. } => panes.rg.show_preview,
         }
     }
 }
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<bool>,
+    /// Whether to enter the prompt when switching to this pane
+    pub enter_prompt: bool,
+}
+impl Default for PaneSettings {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            show_preview: None,
+            enter_prompt: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -250,7 +296,8 @@ pub struct NavPaneSettings {
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<bool>,
-
+    pub enter_prompt: bool,
+    // ----------------------------
     pub default_sort: SortOrder,
     pub default_visibility: Visibility,
 }
@@ -260,6 +307,8 @@ impl Default for NavPaneSettings {
         Self {
             prompt: None,
             show_preview: None,
+            enter_prompt: false,
+
             default_sort: SortOrder::mtime,
             default_visibility: Default::default(),
         }
@@ -269,12 +318,21 @@ impl Default for NavPaneSettings {
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FdConfig {
+    /// A map of folders to exclusion globs which should be applied when in them.
+    /// ~ can be used in lieu of $HOME.
+    /// If a list is specified for the empty path "", that list will override the list of default exclusions for the platform, and apply everywhere.
+    /// Only one value (exclusion list) can apply to each path.
     pub exclusions: HashMap<PathBuf, Vec<String>>,
-    pub default_args: Vec<String>,
+
+    /// Arguments added to every fd command
     pub base_args: Vec<String>,
-    // pub default_args_file: Option<PathBuf>,
-    pub reduce_paths: bool,
+    /// When no path is given to fs, such as using `fs [pattern]`, whether to search in `$HOME` or the current directory.
     pub default_search_in_home: bool,
+    //  ---------------- Experimental/Nonstandard ---------------
+    /// When given a set of paths to search with `fs`
+    pub reduce_paths: bool,
+    /// The set of arguments applied to the end of `fs ::` when no `fd_args` were given.
+    pub default_args: Vec<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

@@ -245,6 +245,7 @@ pub struct DefaultCommand {
     pub paths: Vec<OsString>,
     /// Args passed on verbatim to fd.
     #[arg(last = true, value_name = "FD_ARGS")]
+    // its neat that this works: using -- passes to fd only if paths has entries which is exactly what we want
     pub fd: Vec<OsString>,
     #[arg(long)]
     pub list: bool,

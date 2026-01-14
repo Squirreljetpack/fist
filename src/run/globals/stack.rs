@@ -191,9 +191,13 @@ impl STACK {
         STACK.with(|cell| {
             let Self { stack, index, .. } = &*cell.borrow();
             match &stack[*index] {
-                FsPane::Custom { input, .. } | FsPane::Nav { input, .. } => {
-                    input.0.is_empty() && input.1 == 0
-                }
+                FsPane::Custom { input, .. }
+                | FsPane::Nav { input, .. }
+                | FsPane::Fd { input, .. }
+                | FsPane::Stream { input, .. }
+                | FsPane::Rg { input, .. }
+                | FsPane::Files { input, .. }
+                | FsPane::Folders { input, .. } => !(input.0.is_empty() && input.1 == 0),
                 _ => false,
             }
         })

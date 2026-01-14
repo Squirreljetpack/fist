@@ -9,7 +9,7 @@ use serde::{Deserialize, Deserializer};
 use crate::abspath::AbsPath;
 use crate::arr;
 use crate::cli::BINARY_SHORT;
-use crate::cli::paths::{current_exe, metadata_viewer_path, pager_path};
+use crate::cli::paths::{current_exe, metadata_viewer_path, pager_path, show_error_path};
 use crate::lessfilter::file_rule::FileData;
 use crate::lessfilter::helpers::{header_viewer, image_viewer, infer_editor, infer_visual};
 use crate::lessfilter::{LessfilterConfig, Preset};
@@ -23,6 +23,7 @@ pub enum Action {
     Image,
     Metadata,
 
+    Open, // always system open
     Header,
     None,
     // todo: Url,
@@ -41,6 +42,7 @@ impl<'de> Deserialize<'de> for Action {
             "directory" => Ok(Action::Directory),
             "text" => Ok(Action::Text),
             "image" => Ok(Action::Image),
+            "open" => Ok(Action::Open),
             "metadata" => Ok(Action::Metadata),
             "header" => Ok(Action::Header),
             "none" => Ok(Action::None),
@@ -60,39 +62,39 @@ impl Action {
         preset: Preset,
     ) -> (ArrayVec<Vec<OsString>, 5>, [bool; 3]) {
         match self {
-            _ if matches!(preset, Preset::Default) => Default::default(),
+            _ if matches!(preset, Preset::Default) => Default::default(), // do nothing
+            Action::Directory | Action::Text | Action::Image | Action::Metadata
+                if matches!(preset, Preset::Open | Preset::Alternate) =>
+            {
+                (
+                    arr![vec_![current_exe(), ":open", "--", path]],
+                    [true, false, false],
+                )
+            }
             Action::Directory => match preset {
                 Preset::Preview => (
-                    arr![vec_![current_exe(), ":tool", "lz", ":u2", path]],
+                    arr![vec_![current_exe(), ":tool", "liza", ":u2", path]],
                     [true, false, true], // read + execute
                 ),
                 Preset::Display => (
-                    arr![vec_![current_exe(), ":tool", "lz", ":u", path]],
+                    arr![vec_![current_exe(), ":tool", "liza", ":u", path]],
                     [true, false, true],
                 ),
                 Preset::Extended => (
-                    arr![vec_![current_exe(), ":tool", "lz", ":sa", path]],
+                    arr![vec_![current_exe(), ":tool", "liza", ":sa", path]],
                     [true, false, true],
                 ),
                 Preset::Info => (
-                    arr![vec_![current_exe(), ":tool", "lz", ":x", path]],
-                    [true, false, true],
-                ),
-                Preset::Open | Preset::Alternate => (
-                    arr![vec_![current_exe(), ":open", path]],
+                    arr![vec_![current_exe(), ":tool", "liza", ":x", path]],
                     [true, false, true],
                 ),
                 Preset::Edit => (arr![infer_visual(path)], [true, false, true]),
-                Preset::Default => unreachable!(),
+                Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
             },
             Action::Text => match preset {
                 Preset::Edit => (arr![infer_editor(path)], [true, true, false]),
                 Preset::Info => (
                     arr![vec_![metadata_viewer_path(), path]],
-                    [true, false, false],
-                ),
-                Preset::Open | Preset::Alternate => (
-                    arr![vec_![current_exe(), ":open", path]],
                     [true, false, false],
                 ),
                 Preset::Extended => (arr![vec_![pager_path(), path]], [true, false, false]),
@@ -111,15 +113,23 @@ impl Action {
                     arr![header_viewer(path), vec_![metadata_viewer_path(), path]],
                     [true, false, false],
                 ),
-                Preset::Open | Preset::Alternate => (
-                    arr![vec_![current_exe(), ":open", path]],
+                Preset::Edit => (
+                    arr![vec_![current_exe(), ":open", "--", path]],
                     [true, false, false],
                 ),
                 _ => (arr![image_viewer(path)], [true, false, false]),
             },
+            Action::Open => (
+                arr![vec_![current_exe(), ":open", "--", path]],
+                [false, false, false],
+            ),
             Action::Metadata => match preset {
                 Preset::Extended => (
                     arr![vec_![metadata_viewer_path(), path]],
+                    [true, false, false],
+                ),
+                Preset::Edit => (
+                    arr![vec_![show_error_path(), "No handler configured."]],
                     [true, false, false],
                 ),
                 _ => (

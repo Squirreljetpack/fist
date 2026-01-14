@@ -4,11 +4,14 @@ use cli_boilerplate_automation::{
 };
 use std::path::Path;
 
-use crate::db::{Connection, DbSortOrder, Entry, Epoch};
+use crate::{
+    abspath::AbsPath,
+    db::{Connection, DbSortOrder, Entry, Epoch},
+};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct DbConfig {
+pub struct HistoryConfig {
     /// Ignore files matching these globs
     pub exclude: Vec<String>,
     /// Whether to show missing files in queries.
@@ -20,7 +23,7 @@ pub struct DbConfig {
     /// Lazily remove entries older than this many days
     pub atime_expiry: TtlDays,
 
-    /// What to do when the best match by [`crate::db::Connection::print_best_by_frecency`] is the current directory
+    /// What to do when the best match by [`Connection::print_best_by_frecency`] is the current directory
     pub refind: RetryStrat,
 
     /// Whether to save resolved paths (todo)
@@ -29,7 +32,7 @@ pub struct DbConfig {
     pub base_dir: Option<String>,
 }
 
-impl Default for DbConfig {
+impl Default for HistoryConfig {
     fn default() -> Self {
         Self {
             exclude: Default::default(),
@@ -103,6 +106,63 @@ impl Connection {
             RetryStrat::None
         }
     }
+
+    pub async fn return_best_by_frecency(
+        mut self,
+        db_filter: &DbFilter,
+    ) -> Option<Option<AbsPath>> {
+        let mut remove = Vec::new();
+        let mut found = None;
+
+        let mut entries = self
+            .get_entries_range(0, 0, DbSortOrder::none)
+            .await
+            .__ebog();
+
+        entries.sort_by_key(|e| std::cmp::Reverse(db_filter.score(e)));
+
+        for e in entries {
+            match db_filter.filter(&e.path, e.atime) {
+                None => {
+                    remove.push(e.path.clone());
+                }
+                Some(true) => {
+                    if let Ok(cwd) = std::env::current_dir()
+                        && cwd.as_path() == e.path.as_path()
+                    {
+                        match db_filter.refind {
+                            RetryStrat::Next => continue,
+                            RetryStrat::None => {}
+                            RetryStrat::Search => {
+                                if !remove.is_empty() {
+                                    tokio::spawn(async move {
+                                        self.remove_entries(&remove).await._elog();
+                                    });
+                                }
+                                return None;
+                            }
+                        }
+                    };
+                    found = Some(e.path);
+                    break;
+                }
+                Some(false) => {}
+            }
+        }
+
+        let _found = found.clone();
+
+        tokio::spawn(async move {
+            if let Some(p) = _found.as_ref() {
+                self.bump(p, 1).await._elog();
+            };
+            if !remove.is_empty() {
+                self.remove_entries(&remove).await._elog();
+            }
+        });
+
+        Some(found)
+    }
 }
 
 #[derive(Default, Copy, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -134,7 +194,7 @@ pub struct DbFilter {
 }
 
 impl DbFilter {
-    pub fn new(config: &DbConfig) -> Self {
+    pub fn new(config: &HistoryConfig) -> Self {
         let now = Utc::now().timestamp();
         let atime_expiry = now - config.atime_expiry.0 * 24 * 60 * 60; // convert TTL days to seconds
         let missing_expiry = now - config.missing_expiry.0 * 24 * 60 * 60; // convert TTL days to seconds

@@ -5,9 +5,8 @@ use std::{
     sync::{LazyLock, Mutex, atomic::AtomicBool},
 };
 
-use arboard::Clipboard;
-use cli_boilerplate_automation::{bait::ResultExt, bog::BogUnwrapExt, else_default};
-use log::{self, debug, error};
+use cli_boilerplate_automation::bait::ResultExt;
+use log::debug;
 use matchmaker::{
     action::Action,
     efx,
@@ -25,7 +24,6 @@ use crate::config::GlobalConfig;
 use crate::{
     abspath::AbsPath,
     cli::env::EnvOpts,
-    clipboard::{CLIPBOARD, CLIPBOARD_SLEEP_MS},
     db::{Connection, DbSortOrder, Pool, zoxide::DbFilter},
     errors::DbError,
     run::{FsPane, fsaction::FsAction, item::PathItem},
@@ -40,7 +38,6 @@ mod stack;
 pub use stack::*;
 
 // --------------- FSACTION STATE -------------------
-pub static ENTERED_PROMPT: AtomicBool = AtomicBool::new(false);
 pub static RESTORE_INPUT: AtomicBool = AtomicBool::new(false); // triggered by reload, and checked by sync_handler
 thread_local! {
     pub static PRINT_HANDLE: AppendOnly<String> = AppendOnly::new();
@@ -48,7 +45,7 @@ thread_local! {
 // ------------- TRACKING -----------------------
 thread_local! {
     static PREV_DIRECTORY: RefCell<Option<AbsPath>> = const { RefCell::new(None) };
-    static INPUT_BAR_CONTENT: RefCell<(Option<PromptKind>, Option<PathItem>)> = const { RefCell::new((None, None)) };
+    static INPUT_BAR_CONTENT: RefCell<(Option<PromptKind>, Result<PathItem, AbsPath>)> = const { RefCell::new((None, Err(AbsPath::empty()))) };
     static ORIGINAL_RELATIVE_PATH: RefCell<Option<bool>> = const { RefCell::new(None) };
 }
 pub struct TEMP {}
@@ -60,15 +57,24 @@ impl TEMP {
         PREV_DIRECTORY.replace(path);
     }
 
-    pub fn take_prompt() -> (Option<PromptKind>, PathItem) {
+    pub fn take_prompt() -> (Option<PromptKind>, Result<PathItem, AbsPath>) {
         INPUT_BAR_CONTENT
-            .with_borrow_mut(|(p, s)| (p.take(), s.take()._ebog("Path missing for prompt")))
+            .with_borrow_mut(|(p, s)| (p.take(), std::mem::replace(s, Err(AbsPath::empty()))))
     }
+
+    /// If menu_prompt is set, menu starts an overlay
+    /// The Ok variant of menu_target describes the target,
+    /// while the Err variant corresponds to no target, in which case
+    /// only a restrictred subset of the menu actions is available.
+    ///
+    /// # Additional
+    /// When the prompt is set and the target is Ok, the target's filename is shown in the title of the input bar.
+    #[allow(unused_must_use)]
     pub fn set_prompt(
-        s: Option<PromptKind>,
-        p: PathItem,
+        menu_prompt: Option<PromptKind>,
+        menu_target: Result<PathItem, AbsPath>,
     ) {
-        INPUT_BAR_CONTENT.replace((s, Some(p)));
+        INPUT_BAR_CONTENT.replace((menu_prompt, menu_target));
     }
 
     pub fn set_initial_relative_path(relative: bool) {
@@ -100,7 +106,6 @@ impl GLOBAL {
         watcher_tx: WatcherSender,
         db_pool: Pool,
         pane: FsPane,
-        cb_sleep: u64,
     ) {
         // need to handle the patterns listened on by sync_handler
         let sort = match &pane {
@@ -115,7 +120,8 @@ impl GLOBAL {
             FsPane::Nav { vis, .. }
             | FsPane::Custom { vis, .. }
             | FsPane::Fd { vis, .. }
-            | FsPane::Stream { vis, .. } => *vis,
+            | FsPane::Stream { vis, .. }
+            | FsPane::Rg { vis, .. } => *vis,
             _ => Default::default(),
         };
         debug!("Initial filters: {sort}, {visibility:?}");
@@ -126,17 +132,6 @@ impl GLOBAL {
         WATCHER_TX.with(|tx| *tx.borrow_mut() = Some(watcher_tx));
         DB.with(|d| *d.borrow_mut() = Some(db_pool));
         STACK::init(pane);
-
-        let err_prefix = "Failed to initialize clipboard";
-        if let Ok(mut cb) = CLIPBOARD.lock() {
-            match Clipboard::new() {
-                Ok(clipboard) => *cb = Some(clipboard),
-                Err(e) => error!("Failed to initialize clipboard: {e}"),
-            }
-            CLIPBOARD_SLEEP_MS.store(cb_sleep, std::sync::atomic::Ordering::Release);
-        } else {
-            error!("Failed to initialize clipboard");
-        }
     }
 
     /// must be called in initializing thread
@@ -157,7 +152,7 @@ impl GLOBAL {
     // ------------ SENDERS --------------
     pub fn send_efx(effects: Effects) {
         let tx = RENDER_TX.lock().unwrap();
-        let tx = else_default!(tx.as_ref().ebog("render_tx missing"));
+        let tx = tx.as_ref().expect("render tx missing");
 
         for s in effects {
             tx.send(matchmaker::message::RenderCommand::Effect(s))
@@ -168,7 +163,7 @@ impl GLOBAL {
 
     pub fn send_fsaction(fa: FsAction) {
         let tx = RENDER_TX.lock().unwrap();
-        let tx = else_default!(tx.as_ref().ebog("render_tx missing"));
+        let tx = tx.as_ref().expect("render tx missing");
 
         tx.send(matchmaker::message::RenderCommand::Action(Action::Custom(
             fa,
@@ -177,11 +172,18 @@ impl GLOBAL {
         .ok();
     }
 
+    // pub fn send_render_command(msg: matchmaker::message::RenderCommand<FsAction>) {
+    //     let tx = RENDER_TX.lock().unwrap();
+    //     let tx = tx.as_ref().expect("render tx missing");
+
+    //     tx.send(msg).elog().ok();
+    // }
+
     /// must be called in initializing thread
     pub fn send_watcher(msg: WatcherMessage) {
         WATCHER_TX.with(|tx| {
             let tx = tx.borrow();
-            let tx = else_default!(tx.as_ref().ebog("watcher_tx missing"));
+            let tx = tx.as_ref().expect("watcher tx missing");
             tx.send(msg)._elog();
         });
     }

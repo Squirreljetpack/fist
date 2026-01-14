@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::{
     abspath::AbsPath,
-    cli::paths::{__cwd, home_dir},
+    cli::paths::{__cwd, __home},
 };
 
 // strum::IntoStaticStr,
@@ -109,7 +109,7 @@ pub fn format_cwd_prompt(
     let mut out = String::with_capacity(template.len());
     let mut chars = template.chars().peekable();
     // collapse home
-    let cwd = if let Ok(stripped) = cwd.strip_prefix(home_dir()) {
+    let cwd = if let Ok(stripped) = cwd.strip_prefix(__home()) {
         &PathBuf::from("~").join(stripped)
     } else {
         cwd
@@ -309,7 +309,7 @@ pub fn path_formatter(
         if spec.is_empty() {
             // {}
             out.push('\'');
-            out.push_str(&path.to_string_lossy());
+            out.push_str(&path.to_string_lossy().replace('\'', "'\\''"));
             out.push('\'');
         } else if let Some((a, d, b)) = split_on_first_delim(&spec, [':', '=', '.']) {
             // check if both a and b are integers
@@ -327,7 +327,11 @@ pub fn path_formatter(
                 match d {
                     ':' => {
                         out.push('\'');
-                        out.push_str(&slice_path(path, start, end).to_string_lossy());
+                        out.push_str(
+                            &slice_path(path, start, end)
+                                .to_string_lossy()
+                                .replace('\'', "'\\''"),
+                        );
                         out.push('\'');
                     }
                     '=' => {
@@ -339,21 +343,9 @@ pub fn path_formatter(
                     _ => unreachable!(),
                 }
             } else {
-                match d {
-                    ':' => {
-                        out.push('{');
-                        out.push_str(&spec);
-                        out.push('}');
-                    }
-                    '=' => {
-                        out.push_str(&spec);
-                    }
-                    '.' => {
-                        out.push_str(&__cwd().to_string_lossy());
-                    }
-                    _ => unreachable!(),
-                }
-                // invalid spec, leave literal
+                out.push('{');
+                out.push_str(&spec);
+                out.push('}');
             }
         } else {
             // unrecognized spec, leave literal

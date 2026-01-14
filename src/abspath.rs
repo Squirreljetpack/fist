@@ -25,11 +25,15 @@ impl AbsPath {
         self.0.clone().into_os_string()
     }
 
+    pub const fn empty() -> Self {
+        Self(PathBuf::new())
+    }
+
     /// Since AbsPath is normalized, parent only fails if on root, in which case the sensible fallback is itself
-    pub fn _parent(self) -> AbsPath {
-        Path::parent(&self)
+    pub fn _parent(&self) -> AbsPath {
+        Path::parent(self)
             .map(AbsPath::new_unchecked)
-            .unwrap_or(self)
+            .unwrap_or(self.clone())
     }
 }
 
