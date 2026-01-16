@@ -9,7 +9,7 @@ use serde::{Deserialize, Deserializer};
 use crate::abspath::AbsPath;
 use crate::arr;
 use crate::cli::BINARY_SHORT;
-use crate::cli::paths::{current_exe, metadata_viewer_path, pager_path, show_error_path};
+use crate::cli::paths::{current_exe, metadata_viewer_path, show_error_path, text_renderer_path};
 use crate::lessfilter::file_rule::FileData;
 use crate::lessfilter::helpers::{header_viewer, image_viewer, infer_editor, infer_visual};
 use crate::lessfilter::{LessfilterConfig, Preset};
@@ -81,7 +81,7 @@ impl Action {
                     [true, false, true],
                 ),
                 Preset::Extended => (
-                    arr![vec_![current_exe(), ":tool", "liza", ":sa", path]],
+                    arr![vec_![current_exe(), ":tool", "liza", ":sba", path]],
                     [true, false, true],
                 ),
                 Preset::Info => (
@@ -97,8 +97,19 @@ impl Action {
                     arr![vec_![metadata_viewer_path(), path]],
                     [true, false, false],
                 ),
-                Preset::Extended => (arr![vec_![pager_path(), path]], [true, false, false]),
-                _ => (arr![vec_![pager_path(), path]], [true, false, false]),
+                Preset::Extended => (
+                    arr![vec_![text_renderer_path(), path]],
+                    [true, false, false],
+                ),
+                Preset::Preview => (
+                    arr![vec_![text_renderer_path(), path]],
+                    [true, false, false],
+                ),
+                Preset::Display => (
+                    arr![vec_![text_renderer_path(), path]],
+                    [true, false, false],
+                ),
+                Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
             },
             Action::Image => match preset {
                 Preset::Extended => (
@@ -117,8 +128,12 @@ impl Action {
                     arr![vec_![current_exe(), ":open", "--", path]],
                     [true, false, false],
                 ),
-                _ => (arr![image_viewer(path)], [true, false, false]),
+                Preset::Preview | Preset::Display => {
+                    (arr![image_viewer(path)], [true, false, false])
+                }
+                Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
             },
+
             Action::Open => (
                 arr![vec_![current_exe(), ":open", "--", path]],
                 [false, false, false],
@@ -137,11 +152,8 @@ impl Action {
                     [true, false, false],
                 ),
             },
-            Action::Header => (
-                arr![vec_!["echo", "\\e[3;2m", path, "\\e[0m\n"]],
-                [true, false, false],
-            ),
-            Action::Custom(_) => (arr![vec_![]], [false, false, false]),
+            Action::Header => (arr![header_viewer(path)], [true, false, false]),
+            Action::Custom(_) => unreachable!(),
             Action::None => (arr![], [false, false, false]),
         }
     }

@@ -10,7 +10,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use crate::{cli::BINARY_FULL, cli::paths::*, lessfilter::Preset};
 use crate::{
-    cli::paths::{liza_path, pager_path},
+    cli::paths::{liza_path, text_renderer_path},
     db::zoxide::HistoryConfig,
     filters::*,
     run::FsPane,
@@ -86,7 +86,7 @@ impl Config {
     ) {
         let files = [
             (liza_path(), include_str!("../assets/scripts/liza")),
-            (pager_path(), include_str!("../assets/scripts/pager")),
+            (text_renderer_path(), include_str!("../assets/scripts/pager")),
             (
                 metadata_viewer_path(),
                 include_str!("../assets/scripts/fist_metadata_viewer"),

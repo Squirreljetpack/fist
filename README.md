@@ -154,3 +154,4 @@ spawn_with = ["pueue", "add", "-g", "apps", "--"]
 
 
 [^1]: `/` on unix and `\` on windows
+

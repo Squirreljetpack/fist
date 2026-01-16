@@ -27,7 +27,6 @@ lowpri: Preview command also needs to switch cwd if there is an efficient way
 # Lessfilter (lowpri)
 
 - Previewer Formats
-
   - chafa
   - format
   - pdf/epub
@@ -91,6 +90,10 @@ Custom actions
   - merge into
   - show diff
 - backup
+- replace_text
+  - opt: regex
+  - opt: multi
+  - opt: preserve_case
 
 Per-pane extensions:
 

@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use cli_boilerplate_automation::{bath::PathExt, bog::BogUnwrapExt, else_default, prints};
+use cli_boilerplate_automation::{bath::PathExt, else_default, prints, wbog};
 use matchmaker::{
     acs,
     action::{Action, ActionExt, Actions, Count, Exit},
@@ -16,7 +16,7 @@ use tokio::task::spawn_blocking;
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
-    cli::paths::{__home, pager_path},
+    cli::paths::{__home, text_renderer_path},
     clipboard::{copy_files, copy_paths_as_text},
     filters::SortOrder,
     lessfilter::Preset,
@@ -390,17 +390,21 @@ pub fn fsaction_aliaser(
             }
             FsAction::Display(p, page, header) => {
                 let mut cmd = p.to_command_string();
+
                 if page {
-                    let pp = else_default!(
-                            pager_path()
-                            .to_str()
-                            .ebog(
-                                "Pager path could not be decoded, please check your installation's cache directory."
-                            )
-                        );
-                    cmd.push_str(" | ");
-                    cmd.push_str(pp);
+                    // we need to use the renderer because the first pass of renderer won't render when it sees it is being piped
+                    if let Some(pp) = text_renderer_path().to_shell_string() {
+                        #[cfg(windows)]
+                        cmd.push_str(&format!(" | {pp} > CON"));
+                        #[cfg(unix)]
+                        cmd.push_str(&format!(" | {pp} > /dev/tty"));
+                    } else {
+                        wbog!(
+                            "Pager path could not be decoded, please check your installation's cache directory."
+                        )
+                    }
                 }
+
                 acs![Action::Execute(cmd)]
             }
 

@@ -85,12 +85,11 @@ pub fn handle(
                 for mut prog in progs {
                     // filter out headers
                     if is_header(&prog) {
-                        if header.is_some() {
+                        if header.is_none() {
                             show_header(&path);
-                            continue;
-                        } else {
-                            succeeded = true
+                            succeeded = true;
                         }
+                        continue;
                     }
 
                     log::debug!("Executing: {prog:?}");

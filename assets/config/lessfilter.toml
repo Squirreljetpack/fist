@@ -3,9 +3,19 @@
 [rules]
 default = [
   [["Metadata"], ["1|*/*"]],
-  [["Image"], ["1|image/*"]],
-  [["Text"], ["1|text/*"]],
-  [["Directory"], ["1|directory/*"]],
+  [["Image"], ["2|image/*"]],
+  [["Text"], ["2|text/*"]],
+  [["Directory"], ["2|directory/*"]],
+]
+preview = [
+  [["sqlite"], ["application/vnd.sqlite3", "have:sqlite3"]],
+]
+
+edit = [
+  [["Open"], ["1|application/pdf"]],
+]
+
+display = [
   [
     ["Metadata"],
     [
@@ -22,17 +32,10 @@ default = [
     ],
   ],
 ]
-preview = [
-  [["sqlite"], ["application/vnd.sqlite3", "have:sqlite3"]],
+
+extended = [
+  [["header", "Metadata"], ["1|*/*"]],
 ]
-
-edit = [
-  [["Open"], ["1|application/pdf"]],
-]
-
-display = []
-
-extended = []
 
 info = []
 
