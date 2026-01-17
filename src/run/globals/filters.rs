@@ -54,12 +54,7 @@ impl FILTERS {
     // -----------------------------------
     pub fn refilter() {
         match STACK::current() {
-            FsPane::Nav {
-                sort,
-                vis,
-                complete,
-                ..
-            } => {
+            FsPane::Nav { sort, vis, .. } => {
                 FILTERS::with(|gsort, gvis| {
                     if gsort != &sort || gvis != &vis {
                         log::debug!("{sort} {vis:?} {gsort} {gvis:?}");
@@ -101,16 +96,16 @@ impl FILTERS {
                     log::debug!("complete: {complete:?}");
                     if gvis != &vis {
                         STACK::with_current_mut(|pane| {
-                            if let FsPane::Fd { sort, vis, .. } = pane {
+                            if let FsPane::Fd { vis, .. } = pane {
                                 *vis = *gvis;
-                            } else if let FsPane::Custom { sort, vis, .. } = pane {
+                            } else if let FsPane::Custom { vis, .. } = pane {
                                 *vis = *gvis;
                             }
                         });
                         GLOBAL::send_efx(efx![Effect::Reload]); // send the effect to trigger the formatter
                     } else if gsort != &sort {
                         STACK::with_current_mut(|pane| {
-                            if let FsPane::Fd { sort, vis, .. } = pane {
+                            if let FsPane::Fd { sort, .. } = pane {
                                 // don't exchange
                                 if complete.load(Ordering::Acquire) {
                                     *sort = *gsort;
@@ -118,7 +113,7 @@ impl FILTERS {
                                     // iterate over current items and repush
                                     // we can store in a global vec
                                 }
-                            } else if let FsPane::Custom { sort, vis, .. } = pane {
+                            } else if let FsPane::Custom { sort, .. } = pane {
                                 if complete.load(Ordering::Acquire) {
                                     *sort = *gsort;
                                     // set items and reload
@@ -130,7 +125,7 @@ impl FILTERS {
                 });
             }
             FsPane::Files { sort, .. } | FsPane::Folders { sort, .. } => {
-                FILTERS::with(|gsort, gvis| {
+                FILTERS::with(|gsort, _| {
                     if DbSortOrder::from(*gsort) != sort {
                         log::debug!("changing sort: {gsort} -> {sort}");
                         STACK::with_current_mut(|pane| {

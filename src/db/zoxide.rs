@@ -107,6 +107,8 @@ impl Connection {
         }
     }
 
+    // None -> cwd is match
+    // Some(None) -> No match
     pub async fn return_best_by_frecency(
         mut self,
         db_filter: &DbFilter,

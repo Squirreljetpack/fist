@@ -1,6 +1,6 @@
 use arboard::{Clipboard, ImageData};
+use cli_boilerplate_automation::bait::{OptionExt, ResultExt};
 use image::ImageReader;
-use log::error;
 use ratatui::text::Span;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -17,14 +17,9 @@ pub static CLIPBOARD_SLEEP_MS: AtomicU64 = AtomicU64::new(20);
 
 pub fn init(cb_sleep: u64) {
     let err_prefix = "Failed to initialize clipboard";
-    if let Ok(mut cb) = CLIPBOARD.lock() {
-        match Clipboard::new() {
-            Ok(clipboard) => *cb = Some(clipboard),
-            Err(e) => error!("Failed to initialize clipboard: {e}"),
-        }
+    if let Ok(mut cb) = CLIPBOARD.lock().ok().elog(err_prefix) {
+        *cb = Clipboard::new().prefix(err_prefix)._elog();
         CLIPBOARD_SLEEP_MS.store(cb_sleep, std::sync::atomic::Ordering::Release);
-    } else {
-        error!("Failed to initialize clipboard");
     }
 }
 
@@ -36,7 +31,7 @@ pub fn copy_texts(
         let mut success = Vec::new();
         let mut failed = Vec::new();
 
-        for (i, text) in texts.into_iter().enumerate() {
+        for text in texts.into_iter() {
             let result = {
                 let mut guard = CLIPBOARD.lock().unwrap();
                 if let Some(cb) = guard.as_mut() {
@@ -48,7 +43,7 @@ pub fn copy_texts(
 
             match result {
                 Ok(_) => success.push(Span::from(text)),
-                Err(e) => failed.push(Span::from(text)),
+                Err(_) => failed.push(Span::from(text)),
             }
         }
 
@@ -74,7 +69,7 @@ pub fn copy_paths_as_text(
         let mut success = Vec::new();
         let mut failed = Vec::new();
 
-        for (i, text) in texts.into_iter().enumerate() {
+        for text in texts {
             let result = {
                 let mut guard = CLIPBOARD.lock().unwrap();
                 if let Some(cb) = guard.as_mut() {
@@ -86,7 +81,7 @@ pub fn copy_paths_as_text(
 
             match result {
                 Ok(_) => success.push(short_display(&text)),
-                Err(e) => failed.push(short_display(&text)),
+                Err(_) => failed.push(short_display(&text)),
             }
 
             tokio::time::sleep(Duration::from_millis(
@@ -112,7 +107,7 @@ pub fn copy_files(
         let mut success = Vec::new();
         let mut failed = Vec::new();
 
-        for (i, path) in paths.iter().enumerate() {
+        for path in paths.iter() {
             let image_data_opt = if let Some(mime) = mime_guess::from_path(path).first() {
                 if mime.type_() == mime_guess::mime::IMAGE {
                     ImageReader::open(path)

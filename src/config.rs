@@ -86,7 +86,10 @@ impl Config {
     ) {
         let files = [
             (liza_path(), include_str!("../assets/scripts/liza")),
-            (text_renderer_path(), include_str!("../assets/scripts/pager")),
+            (
+                text_renderer_path(),
+                include_str!("../assets/scripts/pager"),
+            ),
             (
                 metadata_viewer_path(),
                 include_str!("../assets/scripts/fist_metadata_viewer"),

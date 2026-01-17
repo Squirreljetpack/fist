@@ -57,44 +57,51 @@ Call as:
 
 For a full list of binds within the app, type `ctrl-shift-h`.\
 For more information on bindings, see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
+
 # Panes
+
 F:ist records the files, directories and applications that you've visited in a local database, using it to sort the results in the `App` and `History` panes by relevance.
 
 # Tools
-### Shell integration
-Only zsh is supported for now.
 
+### Shell integration
+
+Only zsh is supported for now.
 
 The output of `fs :tool shell`, when sourced, provides the jump and jump+open functions:
 
-The jump function (`z`) is a replacement for `cd`, and matches your incomplete queries to the most likely destination using the same algorithm as [zoxide](https://github.com/ajeetdsouza/zoxide), pulling from the unified f:ist database.  
+The jump function (`z`) is a replacement for `cd`, and matches your incomplete queries to the most likely destination using the same algorithm as [zoxide](https://github.com/ajeetdsouza/zoxide), pulling from the unified f:ist database.\
 Additionally, any queries ending in `.` start an interactive search through all subdirectories of the query result.
 
 The jump+open function (`zz`) is an analogous replacement for [`lessfilter edit`](#lessfilter): if the query head exists, it opens the target(s) in the editor. Otherwise the query is passed to `z`, and the editor opens in the destination.
 
 ### Lessfilter
+
 The previewer is controlled by the lessfilter tool.
 
 The lessfilter tool dispatches to 9 presets:
-  - preview:   For the preview pane
-  - display:   For terminal display
-  - extended:  For terminal interaction/verbose display
-  - info:      Metadata/raw info
-  - open:      System open
-  - alternate: Alternate (custom) open
-  - edit:      For editing
+
+- preview: For the preview pane
+- display: For terminal display
+- extended: For terminal interaction/verbose display
+- info: Metadata/raw info
+- open: System open
+- alternate: Alternate (custom) open
+- edit: For editing
 
 Each preset is configured by a rules table; each rule is a pair (Actions, Patterns); and for a given file, the rule whose patterns score the highest is selected -- its actions are invoked on the target file.
 
 The patterns can be prefixed with a score modifier which dictates how the score is modified by a successful match of the pattern - if this is omitted, the default score modifier for the pattern is used.
 
 The score modifiers are:
-- Add: 
-- Sub: 
-- Min: 
-- Max: 
+
+- Add:
+- Sub:
+- Min:
+- Max:
 
 The patterns are:
+
 - Glob
 - Ext
 - Child
@@ -102,11 +109,12 @@ The patterns are:
 - Have
 
 For example:
-```toml
 
+```toml
 ```
 
 The built-in actions are:
+
 - Text
 - Image
 - Metadata
@@ -116,6 +124,7 @@ The built-in actions are:
 - Open
 
 Additional actions can be defined with shell syntax. For example:
+
 ```toml
 [rules]
 alternate = [
@@ -152,6 +161,4 @@ Conversely, fist integrates into [CommandSpace](https://github.com/Squirreljetpa
 spawn_with = ["pueue", "add", "-g", "apps", "--"]
 ```
 
-
 [^1]: `/` on unix and `\` on windows
-

@@ -1,4 +1,5 @@
 ## [0.0.2] - 2026-01-14
+
 - Support actions parsing
 - make spawn_with configurable
 - fix stash queue

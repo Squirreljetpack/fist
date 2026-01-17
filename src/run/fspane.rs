@@ -90,7 +90,6 @@ pub enum FsPane {
     },
     Folders {
         sort: DbSortOrder,
-        fd_args: Vec<OsString>,
         input: (String, u32), // input, INDEX
     },
     Launch {
@@ -203,7 +202,6 @@ impl FsPane {
         if folders {
             Self::Folders {
                 sort,
-                fd_args: vec![],
                 input: (String::new(), 0),
             }
         } else {
@@ -391,8 +389,8 @@ impl FsPane {
             Self::Fd {
                 cwd,
                 complete,
-                input,
-                sort,
+                // input,
+                // sort,
                 vis,
                 types,
                 paths,
@@ -401,10 +399,7 @@ impl FsPane {
             } => {
                 let vis = *vis;
                 let cwd = cwd.clone();
-                let (prog, args) = (
-                    "fd",
-                    build_fd_args(*sort, vis, types, paths, fd_args, &cfg.fd),
-                );
+                let (prog, args) = ("fd", build_fd_args(vis, types, paths, fd_args, &cfg.fd));
 
                 log::info!("spawning: {}", display_sh_prog_and_args(prog, &args));
 
@@ -466,7 +461,7 @@ impl FsPane {
                     Ok(())
                 })
             }
-            Self::Folders { sort, fd_args, .. } => {
+            Self::Folders { sort, .. } => {
                 let sort = *sort;
                 let cwd = STACK::cwd().unwrap_or_default();
                 let pool = GLOBAL::db();
@@ -547,7 +542,7 @@ impl FsPane {
 
                     match sort {
                         SortOrder::none => {
-                            for (i, path) in iter.enumerate() {
+                            for path in iter {
                                 let item = PathItem::new_unchecked(path, &cwd);
                                 injector.push(item)?
                             }
@@ -563,7 +558,7 @@ impl FsPane {
                                 _ => unreachable!(),
                             }
 
-                            for (i, path) in files.into_iter().enumerate() {
+                            for path in files.into_iter() {
                                 let item = PathItem::new_unchecked(path, &cwd);
                                 injector.push(item)?
                             }

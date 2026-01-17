@@ -389,7 +389,11 @@ pub fn fsaction_aliaser(
                 acs![Action::Execute(cmd)]
             }
             FsAction::Display(p, page, header) => {
-                let mut cmd = p.to_command_string();
+                let mut cmd = if let Some(true) = header {
+                    p.to_command_string_with_header()
+                } else {
+                    p.to_command_string()
+                };
 
                 if page {
                     // we need to use the renderer because the first pass of renderer won't render when it sees it is being piped
