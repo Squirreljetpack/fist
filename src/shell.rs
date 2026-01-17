@@ -9,6 +9,7 @@ pub fn print_shell(
         visual,
         z_sort,
         z_dot_args,
+        z_dotdot_args,
         aliases,
     }: &ShellCommand,
     path: &str,
@@ -17,6 +18,7 @@ pub fn print_shell(
         .replacen("$${Z_NAME}", z_name, 1)
         .replace("$${Z_SORT}", z_sort.into())
         .replace("$${Z_DOT_ARGS}", z_dot_args)
+        .replace("$${Z_DOTDOT_ARGS}", z_dotdot_args)
         .replacen("$${ZZ_NAME}", zz_name, 1)
         .replace("$${BINARY_PATH}", path)
         .replace("$${VISUAL}", visual);

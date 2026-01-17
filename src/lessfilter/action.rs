@@ -81,7 +81,10 @@ impl Action {
                     [true, false, true],
                 ),
                 Preset::Extended => (
-                    arr![vec_![current_exe(), ":tool", "liza", ":sba", path]],
+                    arr![
+                        header_viewer(path),
+                        vec_![current_exe(), ":tool", "liza", ":sba", path]
+                    ],
                     [true, false, true],
                 ),
                 Preset::Info => (
@@ -97,8 +100,13 @@ impl Action {
                     arr![vec_![metadata_viewer_path(), path]],
                     [true, false, false],
                 ),
+                // another approach is to enable the "native" header in the handler:
+                // if matches!(preset, Preset::Extended) && matches!(action, Action::Text) {
+                //     cmd.env("PG_FLAGS", "--style=header,rule,snip");
+                // }
+                // but using our app header is more consistent
                 Preset::Extended => (
-                    arr![vec_![text_renderer_path(), path]],
+                    arr![header_viewer(path), vec_![text_renderer_path(), path]],
                     [true, false, false],
                 ),
                 Preset::Preview => (
@@ -133,14 +141,13 @@ impl Action {
                 }
                 Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
             },
-
             Action::Open => (
                 arr![vec_![current_exe(), ":open", "--", path]],
                 [false, false, false],
             ),
             Action::Metadata => match preset {
                 Preset::Extended => (
-                    arr![vec_![metadata_viewer_path(), path]],
+                    arr![header_viewer(path), vec_![metadata_viewer_path(), path]],
                     [true, false, false],
                 ),
                 Preset::Edit => (

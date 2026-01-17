@@ -54,9 +54,12 @@ pub struct ShellCommand {
     /// Default sort order for the interactive jump menu
     #[arg(long, default_value_t = DbSortOrder::atime)]
     pub z_sort: DbSortOrder,
-    /// Default sort order the `z .` menu
+    /// Arguments passed to `fs ::` when z is invoked with a trailing `.`
     #[arg(long, default_value_t = String::from("-t d"))]
     pub z_dot_args: String,
+    /// Arguments passed to `fs ::` when z is invoked with a trailing `..` (experimental)
+    #[arg(long, default_value_t = String::from(""))]
+    pub z_dotdot_args: String,
     #[arg(long, default_value_t)]
     pub aliases: bool,
 }

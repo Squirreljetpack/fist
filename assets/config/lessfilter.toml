@@ -1,52 +1,62 @@
 # Documentation: todo
+
+# Default scores:
+# glob: Max(100),
+# child: Max(50),
+# mime: Max(20)
+# ext: Max(10)
+
 # in event of a tie, last one wins.
+
+# ------------------------------------------------------------ #
+
 [rules]
-default = [
-  [["Metadata"], ["1|*/*"]],
-  [["Image"], ["2|image/*"]],
-  [["Text"], ["2|text/*"]],
-  [["Directory"], ["2|directory/*"]],
-]
-preview = [
-  [["sqlite"], ["application/vnd.sqlite3", "have:sqlite3"]],
-]
+  default=[
+    [["Metadata"], ["1|*/*"]],
+    [["Image"], ["2|image/*"]],
+    [["Text"], ["2|text/*"]],
+    [["Directory"], ["2|directory/*"]],
+  ]
+  preview=[
+    [["sqlite"], ["application/vnd.sqlite3", "have:sqlite3"]],
+  ]
 
-edit = [
-  [["Open"], ["1|application/pdf"]],
-]
+  edit=[
+    [["Open"], ["1|application/pdf"]],
+  ]
 
-display = [
-  [
-    ["Metadata"],
+  display=[
     [
-      "1|application/zip",
-      "1|application/x-tar",
-      "1|application/x-gzip",
-      "1|application/x-bzip2",
-      "1|application/x-xz",
-      "1|.zip",
-      "1|.tar",
-      "1|.gz",
-      "1|.bz2",
-      "1|.xz",
+      ["Metadata"],
+      [
+        "1|application/zip",
+        "1|application/x-tar",
+        "1|application/x-gzip",
+        "1|application/x-bzip2",
+        "1|application/x-xz",
+        "1|.zip",
+        "1|.tar",
+        "1|.gz",
+        "1|.bz2",
+        "1|.xz",
+      ],
     ],
-  ],
-]
+  ]
 
-extended = [
-  [["header", "Metadata"], ["1|*/*"]],
-]
+  extended=[
+    [["header", "Metadata"], ["1|*/*"]],
+  ]
 
-info = []
+  info=[]
 
-open = []
+  open=[]
 
-alternate = [
-  [["none"], ["*/*"]],
-]
+  alternate=[
+    [["none"], ["*/*"]],
+  ]
 
 [actions]
-sqlite = '''
+  sqlite='''
 sqlite3 {} "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;" |
 while read -r tbl; do
     [[ -n $tbl ]] || continue;

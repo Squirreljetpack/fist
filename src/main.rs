@@ -20,7 +20,16 @@ use fist::{
 async fn main() {
     let cli = Cli::parse_custom();
 
-    bog::init_bogger(true, false); // early init bogging
+    bog::init_bogger(true, false);
+    if matches!(
+        cli.subcommand,
+        SubCmd::Tools(ToolsCmd {
+            tool: Some(fist::cli::tool_types::SubTool::Shell { .. }),
+            ..
+        })
+    ) {
+        bog::init_filter(0); // don't break shell init
+    }
 
     #[cfg(debug_assertions)]
     if cli.opts.mm_config.is_none() || cli.opts.config.is_none() {

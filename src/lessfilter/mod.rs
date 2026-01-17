@@ -99,7 +99,6 @@ pub fn handle(
                     } else {
                         Stdio::inherit()
                     });
-
                     succeeded |= cmd.status()._ebog().is_some_and(|s| s.success())
                 }
             }

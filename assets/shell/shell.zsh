@@ -13,16 +13,14 @@ function $${Z_NAME}() {
 
   if [ "$last" = "." ] ; then
     $${BINARY_PATH} :: $${Z_DOT_ARGS} --cd -- $@
+  elif [ "$last" = ".." ] ; then
+    $${BINARY_PATH} :: $${Z_DOTDOT_ARGS} --cd -- $@
   else
     $${BINARY_PATH} :dir --sort $${Z_SORT} --cd -- $@
   fi | {
     read -r line
-    if [ -d "$line" ]; then
-        cd "$line" && return
-    elif [ -f "$line" ]; then
-        cd "$(dirname "$line")" && return
-    fi
-    return 1
+    [ -d "$line" ] || line="$(dirname "$line")" && [ -d "$line" ] || return
+    cd "$line" || return
   }
 }
 
