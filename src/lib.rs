@@ -1,4 +1,4 @@
-#![allow(unused_variables, dead_code)]
+#![allow(unused_variables)]
 pub mod abspath;
 pub mod cli;
 pub mod config;

@@ -21,9 +21,7 @@ use cli_boilerplate_automation::{
 
 use super::{
     matchmaker::mm_get,
-    paths::{
-        __cwd, config_path, current_exe, __home, lessfilter_cfg_path, liza_path, mm_cfg_path,
-    },
+    paths::{__cwd, __home, config_path, current_exe, lessfilter_cfg_path, liza_path, mm_cfg_path},
     tool_types::*,
     types::*,
 };
@@ -116,16 +114,14 @@ async fn handle_info(
     println!("logs path: {}", cfg.log_path().display());
     println!();
 
-    let is_multi_table_display = cmd.table.is_none();
     let limit = cmd.limit.unwrap_or(50) as u32;
 
     let pool = Pool::new(cfg.db_path()).await?;
     if let Some(table) = cmd.table {
         let mut conn = pool.get_conn(table).await?;
 
-        let db_filter = DbFilter::new(&cfg.history);
         conn.switch_table(table);
-        let entries = conn.get_entries(cmd.sort, &db_filter).await?;
+        let entries = conn.get_entries_range(0, limit, cmd.sort).await?;
 
         if cmd.minimal {
             for entry in entries {
@@ -146,7 +142,6 @@ async fn handle_files(
     cfg: Config,
 ) -> Result<(), CliError> {
     // _dbg!(cli, cmd, cfg);
-    let input_len = cmd.query.len() as u16;
     let pane = FsPane::Files {
         sort: cmd.sort,
         input: (cmd.query, 0),
@@ -174,10 +169,14 @@ async fn handle_rg(
 
 async fn handle_dirs(
     cli: CliOpts,
-    cmd: DirsCmd,
+    mut cmd: DirsCmd,
     mut cfg: Config,
 ) -> Result<(), CliError> {
     let pool = Pool::new(cfg.db_path()).await?;
+    if cmd.cd && cmd.list.is_some() {
+        return Err(CliError::ConflictingFlags("cd", "list"));
+    }
+
     if cmd.cd {
         cfg.history.show_missing = false;
 
@@ -190,7 +189,9 @@ async fn handle_dirs(
                 RetryStrat::None if !cfg.misc.cd_fallback_search => {
                     return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
                 }
-                _ => {}
+                _ => {
+                    cmd.query.truncate(1); // since no match, truncating is more desirable
+                }
             }
         };
 
@@ -230,7 +231,6 @@ async fn handle_dirs(
     };
     let pane = FsPane::Folders {
         sort: cmd.sort,
-        fd_args: vec![],
         input,
     };
 
@@ -254,6 +254,10 @@ async fn handle_default(
             .iter()
             .all(|x| !matches!(x, FileTypeArg::Type(FileType::Directory)));
     }
+    if cmd.cd && cmd.list {
+        return Err(CliError::ConflictingFlags("cd", "list"));
+    }
+
     // _dbg!(cli, cmd, cfg);
     let pool = Pool::new(cfg.db_path()).await?;
     let pane = if
@@ -281,12 +285,24 @@ async fn handle_default(
                 .drain(..cmd.paths.len() - 1)
                 .map(|f| f.to_string_lossy().into_owned())
                 .collect();
-            let db_filter = DbFilter::new(&cfg.history).with_keywords(kw);
+            let db_filter = DbFilter::new(&cfg.history).with_keywords(kw.clone());
 
             match conn.return_best_by_frecency(&db_filter).await {
                 None | Some(None) => {
-                    // lowpri: cd_fallback_search?
-                    return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
+                    if cfg.misc.cd_fallback_search && !cmd.list {
+                        // let input = (kw.last().cloned().unwrap_or_default(), 0);
+                        // let pane = FsPane::Folders {
+                        //     sort: DbSortOrder::frecency,
+                        //     input,
+                        // };
+                        // let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
+                        // let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
+                        // start(pane, cfg, mm_cfg, pool).await
+                        //
+                        return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
+                    } else {
+                        return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
+                    }
                 }
                 Some(Some(p)) => p,
             }
@@ -341,7 +357,6 @@ async fn handle_default(
             let (prog, args) = (
                 "fd",
                 build_fd_args(
-                    cmd.sort.unwrap_or_default(),
                     cmd.vis.validated(),
                     &cmd.types,
                     &cmd.paths,
@@ -395,7 +410,7 @@ async fn handle_default(
 
             match sort {
                 SortOrder::none => {
-                    for (i, path) in iter.enumerate() {
+                    for path in iter {
                         prints!(path.to_string_lossy())
                     }
                 }
@@ -408,7 +423,7 @@ async fn handle_default(
                         _ => unreachable!(),
                     }
 
-                    for (i, path) in files.into_iter().enumerate() {
+                    for path in files.into_iter() {
                         prints!(path.to_string_lossy())
                     }
                 }

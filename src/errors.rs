@@ -18,6 +18,8 @@ pub enum CliError {
     #[default]
     #[error("Cli error")]
     Handled,
+    #[error("Conflicting flags: --{0} and --{1}")]
+    ConflictingFlags(&'static str, &'static str),
     #[error(transparent)]
     MatchError(#[from] matchmaker::MatchError),
     #[error(transparent)]

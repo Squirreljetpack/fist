@@ -66,7 +66,7 @@ impl STACK {
 
     pub fn stack_prev() -> bool {
         STACK.with(|cell| {
-            let Self { stack, index, .. } = &mut *cell.borrow_mut();
+            let Self { index, .. } = &mut *cell.borrow_mut();
             if *index > 0 {
                 *index -= 1;
                 true

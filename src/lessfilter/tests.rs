@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use super::{action::*, file_rule::*, rule_matcher::*, *};
 use crate::abspath::AbsPath;
-use crate::cli::paths::{current_exe, metadata_viewer_path, pager_path};
+use crate::cli::paths::{current_exe, metadata_viewer_path, text_renderer_path};
 use cli_boilerplate_automation::vec_;
 use tempfile::tempdir;
 
@@ -62,7 +62,7 @@ fn test_text_file_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(progs.0[0], vec![pager_path(), &path]);
+    assert_eq!(progs.0[0], vec![text_renderer_path(), &path]);
 
     // test edit preset
     let edit_action = get_best_action(&rules.edit, &path).unwrap();
@@ -86,7 +86,7 @@ fn test_rust_file_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(progs.0[0], vec![pager_path(), &path]);
+    assert_eq!(progs.0[0], vec![text_renderer_path(), &path]);
 }
 
 #[test]

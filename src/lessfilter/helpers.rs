@@ -7,7 +7,8 @@ use std::path::Path;
 use std::process::Command;
 use std::sync::Mutex;
 
-use cli_boilerplate_automation::vec_;
+use cli_boilerplate_automation::{prints, vec_};
+use crossterm::style::Stylize;
 
 #[allow(clippy::ptr_arg)]
 pub fn is_header(cmd: &Vec<OsString>) -> bool {
@@ -19,7 +20,8 @@ pub fn header_viewer(path: &Path) -> Vec<OsString> {
 }
 
 pub fn show_header(path: &Path) {
-    println!("\x1b[3;2m{}\x1b[0m\n", path.display());
+    println!("{}", path.to_string_lossy().italic().dim());
+    println!();
 }
 
 // ----------------- IMAGE ---------------------------------

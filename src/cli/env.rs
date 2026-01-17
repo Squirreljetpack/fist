@@ -47,9 +47,7 @@ impl EnvOpts {
                     match chars.next() {
                         Some('\\') => match parse_next_escape(&mut chars) {
                             Ok(c) => ret.delim = Some(c),
-                            Err(orig) => {
-                                wbog!("Invalid escape for delimiter: {v}");
-                            }
+                            Err(orig) => ret.delim = Some(orig),
                         },
                         Some(c) => {
                             if chars.next().is_some() {

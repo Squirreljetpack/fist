@@ -5,7 +5,7 @@ use cli_boilerplate_automation::{vec_, wbog};
 use crate::{
     cli::paths::{self, __cwd, __home},
     config::FdConfig,
-    filters::{SortOrder, Visibility},
+    filters::Visibility,
     utils::{categories::FileCategory, filetypes::FileType},
 };
 
@@ -60,7 +60,6 @@ pub fn default_home_exclusions() -> Vec<String> {
     }
 }
 pub fn build_fd_args(
-    sort: SortOrder,
     vis: Visibility,
     types: &[FileTypeArg],
     paths: &[OsString],

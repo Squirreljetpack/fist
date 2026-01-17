@@ -12,7 +12,12 @@ if [[ -n "$FS_PAGER" && "${${(z)FS_PAGER}[1]}:t" != "$0:t" ]]; then
     ${(z)FS_PAGER} "$@"
     exit
 elif ! have bat; then
-    lessfilter "$@"
+    if have lessfilter; then
+        [[ -n $PG_LESS ]] && LESS+=" $PG_LESS"
+        lessfilter $1
+    else
+        cat $1
+    fi
     exit
 fi
 

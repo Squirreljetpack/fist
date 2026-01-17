@@ -185,7 +185,6 @@ pub fn bold_indices(
     let mut spans = Vec::new();
     let mut indices_iter = indices.into_iter();
     let mut next_bold = indices_iter.next().unwrap_or(usize::MAX); // first index to bold
-    let char_idx = 0;
 
     let mut buffer = String::new();
 

@@ -69,6 +69,9 @@ pub struct LessfilterCommand {
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub paths: Vec<PathBuf>,
 
+    // Some(true) => Always show header at top
+    // Some(false) => Never show header
+    // None => action-dependent
     #[arg(long, action = clap::ArgAction::Set)]
     pub header: Option<bool>,
 }

@@ -21,8 +21,6 @@ use crate::{
 /// The basic item underyling a line in the matchmaker
 #[derive(Debug, Clone)]
 pub struct PathItem {
-    /// all components are [`Component::Normal`]
-    /// Absolute
     pub path: AbsPath,
     pub cmd: Option<String>,
     pub tail: Text<'static>,

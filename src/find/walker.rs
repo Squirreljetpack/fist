@@ -12,7 +12,7 @@ use crate::filters::Visibility;
 pub fn list_dir(
     cwd: &Path,
     mut vis: Visibility,
-    depth: usize,
+    _depth: usize, // todo
 ) -> impl Iterator<Item = PathBuf> {
     let mut builder = WalkBuilder::new(cwd);
     if vis.all() {

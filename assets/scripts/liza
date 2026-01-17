@@ -154,6 +154,7 @@ done
 
 # directories top, iso time
 eza_def=(eza --smart-group --time-style="iso")
+eza_def+=(--color=always)
 
 page() {
   $VERBOSE && echo $@ >&2
@@ -175,7 +176,7 @@ if [[ -z $show ]]; then
   $VERBOSE && print -u2 -- $eza_def $params
   $eza_def $params
 else
-  eza_def+=(--color=always)
+  # eza_def+=(--color=always)
   case $show in
     n|nav)
       page $eza_def -T $_user -l --no-permissions --no-user --no-filesize --no-time -L ${MAX_DEPTH:-3} $params
