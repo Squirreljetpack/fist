@@ -11,23 +11,23 @@
 # ------------------------------------------------------------ #
 
 [rules]
-  default=[
-    [["Metadata"], ["1|*/*"]],
-    [["Image"], ["2|image/*"]],
-    [["Text"], ["2|text/*"]],
-    [["Directory"], ["2|directory/*"]],
+  default = [
+    [ [ "Metadata" ], [ "1|*/*" ] ],
+    [ [ "Image" ], [ "2|image/*" ] ],
+    [ [ "Text" ], [ "2|text/*" ] ],
+    [ [ "Directory" ], [ "2|directory/*" ] ],
   ]
-  preview=[
-    [["sqlite"], ["application/vnd.sqlite3", "have:sqlite3"]],
-  ]
-
-  edit=[
-    [["Open"], ["1|application/pdf"]],
+  preview = [
+    [ [ "sqlite" ], [ "application/vnd.sqlite3", "have:sqlite3" ] ],
   ]
 
-  display=[
+  edit = [
+    [ [ "Open" ], [ "1|application/pdf" ] ],
+  ]
+
+  display = [
     [
-      ["Metadata"],
+      [ "Metadata" ],
       [
         "1|application/zip",
         "1|application/x-tar",
@@ -43,20 +43,18 @@
     ],
   ]
 
-  extended=[
-    [["header", "Metadata"], ["1|*/*"]],
-  ]
+  extended = [  ]
 
-  info=[]
+  info = [  ]
 
-  open=[]
+  open = [  ]
 
-  alternate=[
-    [["none"], ["*/*"]],
+  alternate = [
+    [ [ "none" ], [ "*/*" ] ],
   ]
 
 [actions]
-  sqlite='''
+  sqlite = '''
 sqlite3 {} "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;" |
 while read -r tbl; do
     [[ -n $tbl ]] || continue;

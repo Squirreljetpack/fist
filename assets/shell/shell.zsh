@@ -1,5 +1,5 @@
 function $${Z_NAME}() {
-  if (($# == 1)) && [ "$1" != . ] && [ -d "$1" ]; then
+  if (($# == 1)) && [ "$1" != . ] && [ "$1" != / ] && [ -d "$1" ]; then
     $${BINARY_PATH} :tool bump -- "$1"
     cd "$1"
     return
@@ -11,18 +11,22 @@ function $${Z_NAME}() {
   then  eval last=\${$#}
   fi
 
-  if [ "$last" = "." ] ; then
-    $${BINARY_PATH} :: $${Z_DOT_ARGS} --cd -- $@
-  elif [ "$last" = ".." ] ; then
-    $${BINARY_PATH} :: $${Z_DOTDOT_ARGS} --cd -- $@
-  else
-    $${BINARY_PATH} :dir --sort $${Z_SORT} --cd -- $@
-  fi | {
+  case "$last" in
+    ".") $${BINARY_PATH} :: $${Z_DOT_ARGS} --cd -- $@ ;;
+    */) $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd -- $@ ;;
+    *)  $${BINARY_PATH} :dir --sort $${Z_SORT} --cd -- $@ ;;
+  esac | {
     read -r line
-    [ -d "$line" ] || line="$(dirname "$line")" && [ -d "$line" ] || return
-    cd "$line" || return
+    [ -n "$line" ] || return
+    if [ -d "$line" ]; then
+      cd "$line" || return
+    else
+      line="$(dirname "$line")" && [ -d "$line" ] && cd "$line" || return
+    fi
   }
 }
+
+
 
 function $${ZZ_NAME}() {
   if ! (( $# )); then

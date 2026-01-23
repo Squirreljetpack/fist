@@ -67,8 +67,6 @@ fn make_mm(
         selector = selector.disabled()
     }
 
-    // let formatter =
-    //     Arc::new(worker.make_format_fn::<true>(|item: &Indexed<PathItem>| item.inner.display()));
     #[allow(clippy::type_complexity)]
     let formatter: Arc<Box<dyn Fn(&Indexed<PathItem>, &str) -> String + Send + Sync>> =
         Arc::new(Box::new(mm_formatter));
@@ -83,7 +81,7 @@ fn make_mm(
     mm.register_become_handler_();
     mm.register_execute_handler_();
     mm.register_reload_handler_();
-    mm.register_event_handler([Event::Synced], sync_handler);
+    mm.register_event_handler(Event::Synced, sync_handler);
 
     (mm, injector, formatter)
 }

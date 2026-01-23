@@ -1,0 +1,443 @@
+#compdef fs
+
+autoload -U is-at-least
+
+_fs() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this WILL OVERWRITE your main config.]' \
+'--help[]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_fs_commands" \
+"*::: :->fist" \
+&& ret=0
+    case $state in
+    (fist)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:fs-command-$line[1]:"
+        case $line[1] in
+            (:open)
+_arguments "${_arguments_options[@]}" : \
+'-w+[app to open files with]:PROG:_default' \
+'--with=[app to open files with]:PROG:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--list[]' \
+'--help[initial query]' \
+'*::files -- files to open:_default' \
+&& ret=0
+;;
+(:o)
+_arguments "${_arguments_options[@]}" : \
+'-w+[app to open files with]:PROG:_default' \
+'--with=[app to open files with]:PROG:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--list[]' \
+'--help[initial query]' \
+'*::files -- files to open:_default' \
+&& ret=0
+;;
+(:file)
+_arguments "${_arguments_options[@]}" : \
+'--sort=[history sort order]:SORT:((name\:""
+atime\:""
+frecency\:"Weighted frequency + recency"
+count\:""
+none\:""))' \
+'-l+[]::LIST:(_ all)' \
+'--list=[]::LIST:(_ all)' \
+'--query=[initial query]:QUERY:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--help[]' \
+&& ret=0
+;;
+(:dir)
+_arguments "${_arguments_options[@]}" : \
+'--sort=[history sort order]:SORT:((name\:""
+atime\:""
+frecency\:"Weighted frequency + recency"
+count\:""
+none\:""))' \
+'-l+[]::LIST:(_ all)' \
+'--list=[]::LIST:(_ all)' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--cd[print the first match]' \
+'--help[]' \
+'*::query -- initial query:_default' \
+&& ret=0
+;;
+(::)
+_arguments "${_arguments_options[@]}" : \
+'--sort=[]:SORT:(name mtime none size)' \
+'*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
+'*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
+'--list-fmt=[Template to format the list output as]:LIST_FMT:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'-h[show hidden files and folders]' \
+'-H[show hidden files only]' \
+'-I[HIDE ignored files]' \
+'-a[show all]' \
+'-D[only show directories]' \
+'--list[]' \
+'--no-read[Never stream input from stdin]' \
+'--cd[print the first match]' \
+'--help[]' \
+'*::paths -- Paths to search in. (Default\: ~):_default' \
+&& ret=0
+;;
+(:)
+_arguments "${_arguments_options[@]}" : \
+'--query=[initial query]:QUERY:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'-h[show hidden files and folders]' \
+'-H[show hidden files only]' \
+'-I[HIDE ignored files]' \
+'-a[show all]' \
+'-D[only show directories]' \
+'--help[]' \
+&& ret=0
+;;
+(:tool)
+_arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--help[]' \
+'::args:_default' \
+":: :_fs__:tool_commands" \
+"*::: :->:tool" \
+&& ret=0
+
+    case $state in
+    (:tool)
+        words=($line[2] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:fs-:tool-command-$line[2]:"
+        case $line[2] in
+            (colors)
+_arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+&& ret=0
+;;
+(liza)
+_arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'*::args:_default' \
+&& ret=0
+;;
+(shell)
+_arguments "${_arguments_options[@]}" : \
+'--z-name=[Name for jump function]:Z_NAME:_default' \
+'--zz-name=[Name for open function]:ZZ_NAME:_default' \
+'--visual=[Command used by open function]:VISUAL:_default' \
+'--z-sort=[Default sort order for the interactive jump menu]:Z_SORT:((name\:""
+atime\:""
+frecency\:"Weighted frequency + recency"
+count\:""
+none\:""))' \
+'--z-dot-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`.\`]:Z_DOT_ARGS:_default' \
+'--z-slash-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`..\` (experimental)]:Z_SLASH_ARGS:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--aliases[]' \
+&& ret=0
+;;
+(lessfilter)
+_arguments "${_arguments_options[@]}" : \
+'--header=[]:HEADER:(true false)' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+':preset:((preview\:"For the f\:ist preview pane"
+display\:"For terminal display"
+extended\:"For terminal interaction/verbose display"
+info\:"Metadata/raw info"
+open\:"System open"
+alternate\:"Alternate (custom) open"
+edit\:""))' \
+'*::paths:_files' \
+&& ret=0
+;;
+(bump)
+_arguments "${_arguments_options[@]}" : \
+'-g+[glob pattern to bump]:GLOB:_default' \
+'--glob=[glob pattern to bump]:GLOB:_default' \
+'-c+[amount to bump by, 0 to clear]:COUNT:_default' \
+'--count=[amount to bump by, 0 to clear]:COUNT:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--reset[reset the database]' \
+'*::paths -- path to bump:_files' \
+&& ret=0
+;;
+(types)
+_arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(:t)
+_arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--help[]' \
+'::args:_default' \
+":: :_fs__:tool_commands" \
+"*::: :->:tool" \
+&& ret=0
+
+    case $state in
+    (:tool)
+        words=($line[2] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:fs-:tool-command-$line[2]:"
+        case $line[2] in
+            (colors)
+_arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+&& ret=0
+;;
+(liza)
+_arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'*::args:_default' \
+&& ret=0
+;;
+(shell)
+_arguments "${_arguments_options[@]}" : \
+'--z-name=[Name for jump function]:Z_NAME:_default' \
+'--zz-name=[Name for open function]:ZZ_NAME:_default' \
+'--visual=[Command used by open function]:VISUAL:_default' \
+'--z-sort=[Default sort order for the interactive jump menu]:Z_SORT:((name\:""
+atime\:""
+frecency\:"Weighted frequency + recency"
+count\:""
+none\:""))' \
+'--z-dot-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`.\`]:Z_DOT_ARGS:_default' \
+'--z-slash-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`..\` (experimental)]:Z_SLASH_ARGS:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--aliases[]' \
+&& ret=0
+;;
+(lessfilter)
+_arguments "${_arguments_options[@]}" : \
+'--header=[]:HEADER:(true false)' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+':preset:((preview\:"For the f\:ist preview pane"
+display\:"For terminal display"
+extended\:"For terminal interaction/verbose display"
+info\:"Metadata/raw info"
+open\:"System open"
+alternate\:"Alternate (custom) open"
+edit\:""))' \
+'*::paths:_files' \
+&& ret=0
+;;
+(bump)
+_arguments "${_arguments_options[@]}" : \
+'-g+[glob pattern to bump]:GLOB:_default' \
+'--glob=[glob pattern to bump]:GLOB:_default' \
+'-c+[amount to bump by, 0 to clear]:COUNT:_default' \
+'--count=[amount to bump by, 0 to clear]:COUNT:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--reset[reset the database]' \
+'*::paths -- path to bump:_files' \
+&& ret=0
+;;
+(types)
+_arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(:info)
+_arguments "${_arguments_options[@]}" : \
+'--sort=[history sort order]:SORT:((name\:""
+atime\:""
+frecency\:"Weighted frequency + recency"
+count\:""
+none\:""))' \
+'-l+[maximum history entries to display]:LIMIT:_default' \
+'--limit=[maximum history entries to display]:LIMIT:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'-m[Don'\''t print decorations]' \
+'--minimal[Don'\''t print decorations]' \
+'--help[]' \
+'::table -- history table to display:(apps files dirs)' \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_fs_commands] )) ||
+_fs_commands() {
+    local commands; commands=(
+':open:Launch apps and files' \
+':o:Launch apps and files' \
+':file:Recent files' \
+':dir:Recent folders' \
+':::Find and browse. (Default)' \
+'::Full text search' \
+':tool:Plugins and utilities' \
+':t:Plugins and utilities' \
+':info:Stats and database records' \
+    )
+    _describe -t commands 'fs commands' commands "$@"
+}
+(( $+functions[_fs__:_commands] )) ||
+_fs__:_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs : commands' commands "$@"
+}
+(( $+functions[_fs__::_commands] )) ||
+_fs__::_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :: commands' commands "$@"
+}
+(( $+functions[_fs__:dir_commands] )) ||
+_fs__:dir_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :dir commands' commands "$@"
+}
+(( $+functions[_fs__:file_commands] )) ||
+_fs__:file_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :file commands' commands "$@"
+}
+(( $+functions[_fs__:info_commands] )) ||
+_fs__:info_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :info commands' commands "$@"
+}
+(( $+functions[_fs__:open_commands] )) ||
+_fs__:open_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :open commands' commands "$@"
+}
+(( $+functions[_fs__:tool_commands] )) ||
+_fs__:tool_commands() {
+    local commands; commands=(
+'colors:' \
+'liza:List directory (eza wrapper)' \
+'shell:Dump the initialization code for your shell' \
+'lessfilter:Context and preset dependent file handler' \
+'bump:Bump history entries' \
+'types:List mappings supported by the --type parameter' \
+    )
+    _describe -t commands 'fs :tool commands' commands "$@"
+}
+(( $+functions[_fs__:tool__bump_commands] )) ||
+_fs__:tool__bump_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :tool bump commands' commands "$@"
+}
+(( $+functions[_fs__:tool__colors_commands] )) ||
+_fs__:tool__colors_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :tool colors commands' commands "$@"
+}
+(( $+functions[_fs__:tool__lessfilter_commands] )) ||
+_fs__:tool__lessfilter_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :tool lessfilter commands' commands "$@"
+}
+(( $+functions[_fs__:tool__liza_commands] )) ||
+_fs__:tool__liza_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :tool liza commands' commands "$@"
+}
+(( $+functions[_fs__:tool__shell_commands] )) ||
+_fs__:tool__shell_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :tool shell commands' commands "$@"
+}
+(( $+functions[_fs__:tool__types_commands] )) ||
+_fs__:tool__types_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :tool types commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_fs" ]; then
+    _fs "$@"
+else
+    compdef _fs fs
+fi

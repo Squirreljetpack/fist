@@ -152,7 +152,7 @@ fn enter_dir_pane(path: AbsPath) {
 // i.e. "current" saved inputs in chained actions, or consecutive nav actions
 pub fn fsaction_aliaser(
     a: Action<FsAction>,
-    state: &MMState<'_>,
+    state: &MMState<'_, '_>,
 ) -> Actions<FsAction> {
     #[allow(non_snake_case)]
     let RELOAD = |enter_prompt: bool| {
@@ -642,7 +642,7 @@ pub fn fsaction_aliaser(
 
 pub fn fsaction_handler(
     a: FsAction,
-    state: &MMState<'_>,
+    state: &MMState<'_, '_>,
 ) -> Effects {
     match a {
         // nonbindable
@@ -672,10 +672,15 @@ pub fn fsaction_handler(
                 efx![
                     Effect::SetIndex(0),
                     Effect::DisableCursor(enter),
+                    Effect::ShowPreview(Some(false)),
                     Effect::Prompt(prompt)
                 ]
             } else {
-                efx![Effect::DisableCursor(enter), Effect::RestoreInputPrefix]
+                efx![
+                    Effect::DisableCursor(enter),
+                    Effect::ShowPreview(None),
+                    Effect::RestoreInputPrefix
+                ]
             }
         }
 
@@ -907,7 +912,7 @@ pub fn fsaction_handler(
 // ----------------------------
 pub fn paste_handler(
     content: String,
-    state: &MMState<'_>,
+    state: &MMState<'_, '_>,
 ) -> String {
     if GLOBAL::with_cfg(|c| c.interface.always_paste) || state.picker_ui.results.cursor_disabled {
         content

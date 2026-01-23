@@ -145,3 +145,9 @@ aging algorithm
 
 - sync handler never runs if no elements
 - copy/cut cause lag
+- handle symlink?
+
+# Shell
+
+- should we include completion generation in cli (no?)
+- currently completions seems to complete flags, why doesn't it complete subcommands?

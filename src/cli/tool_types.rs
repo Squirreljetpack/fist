@@ -1,44 +1,11 @@
-use std::{ffi::OsString, path::PathBuf};
+use std::path::PathBuf;
 
-use clap::{ArgGroup, Parser, Subcommand};
-use cli_boilerplate_automation::bath::PathExt;
+use clap::{ArgGroup, Parser};
 
 use crate::{
     db::{DbSortOrder, DbTable},
     lessfilter::Preset,
 };
-
-#[non_exhaustive]
-#[derive(Subcommand, Debug, Clone, strum_macros::Display)]
-#[strum(serialize_all = "lowercase")]
-pub enum SubTool {
-    Colors,
-    /// List directory (eza wrapper)
-    Liza {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<OsString>,
-    },
-    /// Dump the initialization code for your shell
-    Shell {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<OsString>,
-    },
-    /// Context and preset dependent file handler
-    Lessfilter {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<OsString>,
-    },
-    /// Bump history entries
-    Bump {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<OsString>,
-    },
-    /// List mappings supported by the --type parameter.
-    Types {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<OsString>,
-    },
-}
 
 #[derive(Debug, Parser, Default, Clone)]
 pub struct ShellCommand {
@@ -49,17 +16,17 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("zz"))]
     pub zz_name: String,
     /// Command used by open function
-    #[arg(long, default_value_t = format!("{} :tool lessfilter edit", crate::cli::paths::current_exe().basename()))]
+    #[arg(long, default_value_t = format!("{} :tool lessfilter edit", std::env::current_exe().unwrap_or(PathBuf::from("fs")).file_name().unwrap().to_string_lossy()))]
     pub visual: String,
     /// Default sort order for the interactive jump menu
     #[arg(long, default_value_t = DbSortOrder::atime)]
     pub z_sort: DbSortOrder,
     /// Arguments passed to `fs ::` when z is invoked with a trailing `.`
-    #[arg(long, default_value_t = String::from("-t d"))]
+    #[arg(long, default_value_t = String::from("-D"))]
     pub z_dot_args: String,
     /// Arguments passed to `fs ::` when z is invoked with a trailing `..` (experimental)
     #[arg(long, default_value_t = String::from(""))]
-    pub z_dotdot_args: String,
+    pub z_slash_args: String,
     #[arg(long, default_value_t)]
     pub aliases: bool,
 }

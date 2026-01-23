@@ -62,14 +62,19 @@ pub struct Visibility {
     /// only show directories
     #[arg(short = 'D')]
     pub dirs: bool,
-    /// show only files, experimental
+
+    /// show only files (tui only)
     #[arg(skip)]
     pub files: bool,
+    /// Don't follow symlinks (tui only).
+    #[arg(skip)]
+    pub no_follow: bool,
 }
 
 impl Visibility {
     pub const DEFAULT: Self = Self {
         all: false,
+        no_follow: false,
         hidden: false,
         hidden_files: false,
         ignore: false,
@@ -122,8 +127,9 @@ impl Visibility {
         if all {
             *self = Visibility {
                 all: true,
-                dirs: self.dirs,
                 hidden: false,
+                dirs: self.dirs,
+                no_follow: self.no_follow,
                 ..Default::default()
             }
         } else {
@@ -180,7 +186,7 @@ impl Visibility {
 pub enum DbSortOrder {
     name,
     atime,
-    /// Frecency based
+    /// Weighted frequency + recency
     #[default]
     frecency,
     count,

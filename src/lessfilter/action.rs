@@ -88,7 +88,7 @@ impl Action {
                     [true, false, true],
                 ),
                 Preset::Info => (
-                    arr![vec_![current_exe(), ":tool", "liza", ":x", path]],
+                    arr![vec_![current_exe(), ":tool", "liza", ":l", path]],
                     [true, false, true],
                 ),
                 Preset::Edit => (arr![infer_visual(path)], [true, false, true]),
@@ -153,6 +153,13 @@ impl Action {
                 Preset::Edit => (
                     arr![vec_![show_error_path(), "No handler configured."]],
                     [true, false, false],
+                ),
+                Preset::Info => (
+                    arr![
+                        vec_![current_exe(), ":tool", "liza", ":l", path],
+                        vec_![metadata_viewer_path(), path]
+                    ],
+                    [true, false, true],
                 ),
                 _ => (
                     arr![vec_![metadata_viewer_path(), path]],

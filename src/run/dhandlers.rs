@@ -25,8 +25,8 @@ use crate::{
 };
 
 // before reload, store a recovery method
-pub fn sync_handler<'a>(
-    state: &mut MMState<'a>,
+pub fn sync_handler(
+    state: &mut MMState<'_, '_>,
     _: &Event,
 ) -> Effects {
     // SORTING

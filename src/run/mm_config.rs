@@ -47,7 +47,7 @@ pub struct MMConfig {
 pub const MATCHER_CONFIG: nucleo::Config = const { nucleo::Config::DEFAULT.match_paths() };
 
 pub fn default_binds() -> BindMap<FsAction> {
-    bindmap!(
+    let ret = bindmap!(
         // Nav
         // ----------------------------------
         key!(up) => Action::Up(1.into()),
@@ -125,7 +125,8 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-7) => FsAction::AutoJump(7),
         key!(ctrl-8) => FsAction::AutoJump(8),
         key!(ctrl-9) => FsAction::AutoJump(9),
-    )
+    );
+    ret
 }
 
 // fn change_actions(

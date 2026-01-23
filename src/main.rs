@@ -24,7 +24,7 @@ async fn main() {
     if matches!(
         cli.subcommand,
         SubCmd::Tools(ToolsCmd {
-            tool: Some(fist::cli::tool_types::SubTool::Shell { .. }),
+            tool: Some(fist::cli::SubTool::Shell { .. }),
             ..
         })
     ) {

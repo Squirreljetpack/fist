@@ -228,6 +228,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitflags-derive"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09648aa9dde04191fe237a510379c9eca42a97733b2065cc337922fba2bd378a"
+dependencies = [
+ "bitflags 2.10.0",
+ "bitflags-derive-macros",
+]
+
+[[package]]
+name = "bitflags-derive-macros"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d242ebf64d65693821c7e73a26d87757e83f795918fd42334da3dafaafddbd64"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -414,6 +435,15 @@ dependencies = [
  "anstyle",
  "clap_lex",
  "strsim",
+]
+
+[[package]]
+name = "clap_complete"
+version = "4.5.65"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "430b4dc2b5e3861848de79627b2bedc9f3342c7da5173a14eaa5d0f8dc18ae5d"
+dependencies = [
+ "clap",
 ]
 
 [[package]]
@@ -1123,6 +1153,7 @@ dependencies = [
  "charset-normalizer-rs",
  "chrono",
  "clap",
+ "clap_complete",
  "cli_boilerplate_automation",
  "comfy-table",
  "crossterm 0.29.0",
@@ -2082,6 +2113,7 @@ dependencies = [
  "arrayvec",
  "atty",
  "bitflags 2.10.0",
+ "bitflags-derive",
  "boxcar",
  "clap",
  "cli_boilerplate_automation",

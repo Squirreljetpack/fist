@@ -9,12 +9,13 @@ l()  { fs :tool lessfilter display  "${@:-.}"; }
 la() { fs :tool lessfilter extended "${@:-.}"; }
 ll() { fs :tool lessfilter info     "${@:-.}"; }
 n()  {
-  if (($#)); then
+  if (($#)) && [ -f "$1" ]; then
     fs :tool lessfilter edit "$@"
   else
-    $EDITOR
+    $EDITOR "$@"
   fi
 }
+o()  { fs :o "${@:-.}"; }
 
 alias zf="fs :file --sort atime"
 

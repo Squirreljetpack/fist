@@ -42,7 +42,7 @@ impl Default for StackConfig {
         }
     }
 }
-impl_transparent_wrapper!(BarWidth, u8, 15);
+impl_transparent_wrapper!(BarWidth, u16, 15);
 
 // ratatui table
 // current row is highlighted
@@ -53,7 +53,7 @@ pub struct StackOverlay {
     config: StackConfig,
     widths: [u16; 4], // stored to help compute table widths
     headers: [String; 4],
-    left_pad: bool, // this is a mistake but we'll keep it
+    available_path_w: u16,
 }
 
 impl StackOverlay {
@@ -64,13 +64,13 @@ impl StackOverlay {
             editing: None,
             config,
             widths: Default::default(),
-            left_pad: false,
             headers: [
                 "Action".pad(1, 0),
                 "Source".pad(1, 1),
                 "Dst".pad(1, 1),
                 "Size".pad(0, 1),
             ],
+            available_path_w: 0,
         }
     }
 
@@ -113,7 +113,7 @@ impl StackOverlay {
             dst_w = dst_w.max(item.dest.to_string_lossy().width() as u16);
         }
 
-        let mut size_w = self.headers[3].len() as u16;
+        let mut size_w = self.headers[3].len() as u16; // self.config.bar_width.max(self.headers[1].width() as u16);
         for s in &size_col {
             size_w = size_w.max(s.width() as u16 + 1);
         }
@@ -123,12 +123,8 @@ impl StackOverlay {
             .saturating_sub(kind_w + dst_w + size_w)
             .max(16);
 
-        if path_w >= available_path_w {
-            self.left_pad = false;
-            path_w = available_path_w
-        } else if self.left_pad {
-            path_w += 1
-        }
+        self.available_path_w = available_path_w;
+        path_w = path_w.min(available_path_w);
 
         self.widths = [kind_w, path_w, dst_w, size_w];
     }
@@ -149,18 +145,12 @@ impl StackOverlay {
                 let kind = item.kind.to_string().pad(1, 1);
 
                 let dst = item.dest.to_string_lossy().pad(1, 1);
-                let (size, overflow) = item.status.render(config);
-                let path = Span::from(
-                    item.display()
-                        .truncate_left(
-                            self.widths[1]
-                                .saturating_sub(overflow)
-                                .max(self.headers[1].width() as u16)
-                                as usize
-                                - self.left_pad as usize,
-                        )
-                        .pad(self.left_pad as usize, 1),
-                );
+                let size = item.status.render(config);
+
+                let path = Span::from(item.display().truncate_left(self.widths[1] as usize).pad(
+                    (self.widths[1] + 1 < self.available_path_w) as usize,
+                    (self.widths[1] < self.available_path_w) as usize,
+                ));
 
                 if Some(i) == self.table_state.selected() {
                     // manual highlight to keep cell styles
@@ -341,7 +331,7 @@ impl Overlay for StackOverlay {
                 frame.render_widget(
                     Paragraph::new(vec![
                         Line::raw("".pad(area.width as usize, 0)),
-                        Line::raw(msg).alignment(Alignment::Center),
+                        Line::raw(msg).alignment(HorizontalAlignment::Center),
                         Line::raw("".pad(area.width as usize, 0)),
                     ])
                     .block(self.config.border.as_block()),
@@ -374,37 +364,47 @@ impl StashItemStatus {
     pub fn render(
         &self,
         cfg: &StackConfig,
-    ) -> (Span<'static>, u16) {
+    ) -> Line<'static> {
         let size = self.size.load(Ordering::Relaxed);
         let progress = self.progress.load(Ordering::Relaxed);
         let state = self.state.load();
 
-        let (bar_text, overflow) = if matches!(state, StashItemState::Started) {
-            let filled_width = ((progress as f32 / 255.0) * cfg.bar_width.0 as f32).round() as u8;
-            let empty_width = cfg.bar_width.0 - filled_width;
-            let progress_text = format!("{:.1}%", (progress as f32 / 255.0) * 100.0);
+        if matches!(state, StashItemState::Started) {
+            let percent = (progress as f32 / 255.0) * 100.0;
+            let mut text = format!("{:5.2}%", percent).pad_to(1, 10, std::fmt::Alignment::Center);
+            text = text.pad(
+                10usize.saturating_sub(text.len()) / 2,
+                11usize.saturating_sub(text.len()) / 2,
+            );
 
-            (
-                format!(
-                    "[{}{} {}]", // bar_width + 8
-                    "█".repeat(filled_width as usize),
-                    "░".repeat(empty_width as usize),
-                    progress_text
-                ),
-                8,
-            )
-        } else {
-            (format_size(size).pad(0, 1), 1)
+            let (left, right) = text.split_at((progress as f32 / 25.5).round() as usize);
+
+            Line::default().spans([
+                Span::styled(left.to_string(), Style::default().bg(Color::Cyan)),
+                Span::styled(right.to_string(), Color::Cyan),
+            ]);
         };
+
+        // bar is too hard to size although it would be cool
+        // (
+        //     format!(
+        //         "[{}{} {}]", // bar_width + 8
+        //         "█".repeat(filled_width as usize),
+        //         "░".repeat(empty_width as usize),
+        //         progress_text
+        //     ),
+        //     8,
+        // )
+        let bar_text = format_size(size).pad_to(1, 10, std::fmt::Alignment::Left);
 
         let style = match state {
             StashItemState::Pending => Style::default(),
-            StashItemState::Started => Style::default().fg(Color::Cyan),
+            StashItemState::Started => unreachable!(),
             StashItemState::CompleteOk => Style::default().fg(Color::Green),
             StashItemState::PendingErr => Style::default().fg(Color::LightRed),
             StashItemState::CompleteErr => Style::default().fg(Color::Red),
         };
 
-        (Span::styled(bar_text, style), overflow)
+        Line::styled(bar_text, style)
     }
 }

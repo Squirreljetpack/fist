@@ -20,6 +20,17 @@ impl AbsPath {
         Self(path)
     }
 
+    /// Normalize + resolve paths relative to cwd
+    pub fn new_canonical(path: impl Into<PathBuf>) -> Self {
+        let path = path.into();
+        let path = match path.canonicalize() {
+            Ok(p) => p,
+            Err(_) => path.abs(paths::__cwd()),
+        };
+
+        Self(path)
+    }
+
     pub fn new_unchecked(path: impl Into<PathBuf>) -> Self {
         Self(path.into())
     }
@@ -37,6 +48,15 @@ impl AbsPath {
         Path::parent(self)
             .map(AbsPath::new_unchecked)
             .unwrap_or(self.clone())
+    }
+
+    // if we wanted to resolve symlinks before db, we could add this at Entry::new and bump
+    pub fn canonicalized(self) -> Self {
+        self.0
+            .canonicalize()
+            .ok()
+            .map(AbsPath::new_unchecked)
+            .unwrap_or(self)
     }
 }
 

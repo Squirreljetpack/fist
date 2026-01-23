@@ -6,7 +6,7 @@ use cli_boilerplate_automation::{
 use globset::GlobBuilder;
 use std::{
     env::{current_dir, set_current_dir},
-    path::PathBuf,
+    path::{MAIN_SEPARATOR, PathBuf},
     process::{Command, exit},
 };
 
@@ -27,6 +27,7 @@ use super::{
 };
 use crate::{
     abspath::AbsPath,
+    cli::SubTool,
     config::Config,
     db::{
         DbSortOrder, DbTable, Pool, display_entries,
@@ -114,14 +115,21 @@ async fn handle_info(
     println!("logs path: {}", cfg.log_path().display());
     println!();
 
-    let limit = cmd.limit.unwrap_or(50) as u32;
+    let limit = cmd.limit.unwrap_or(if cmd.minimal { 0 } else { 50 });
 
     let pool = Pool::new(cfg.db_path()).await?;
     if let Some(table) = cmd.table {
         let mut conn = pool.get_conn(table).await?;
 
         conn.switch_table(table);
-        let entries = conn.get_entries_range(0, limit, cmd.sort).await?;
+        let mut entries = conn.get_entries_range(0, 0, cmd.sort).await?;
+        if matches!(cmd.sort, DbSortOrder::frecency) {
+            let now = chrono::Utc::now().timestamp();
+            entries.sort_by_key(|e| std::cmp::Reverse(DbFilter::_score(now, e)));
+        }
+        if limit != 0 {
+            entries.truncate(limit);
+        }
 
         if cmd.minimal {
             for entry in entries {
@@ -267,29 +275,49 @@ async fn handle_default(
             cfg.global.interface.alt_accept = true;
             cfg.global.interface.no_multi = true;
             cfg.history.show_missing = false;
+
+            // stream can only occur as the first pane, this ensures paths are not modified in display
             TEMP::set_initial_relative_path(cfg.styles.path.relative);
             cfg.styles.path.relative = false;
         };
-        FsPane::new_stream(AbsPath::new_unchecked(__cwd().to_path_buf()), cmd.vis)
+        FsPane::new_stream(AbsPath::new_unchecked(__cwd()), cmd.vis)
     } else if cmd.cd {
         cmd.paths.append(&mut cmd.fd); // fd opts are not supported
         cfg.global.interface.alt_accept = true;
         cfg.global.interface.no_multi = true;
         cfg.history.show_missing = false;
 
+        // cd = true + last arg ends in slash -> interactively navigate the best match
+        let nav_pane = cmd
+            .paths
+            .last()
+            .is_some_and(|s| s.to_string_lossy().ends_with(MAIN_SEPARATOR));
+
+        // determine cwd
+        let cwd = if cmd.paths.len() > 1 || nav_pane
         // treat paths as zoxide args
-        let cwd = if cmd.paths.len() > 1 {
+        {
             let conn = pool.get_conn(DbTable::dirs).await?;
+
+            let num_keywords = if nav_pane {
+                // nav doesn't have a search pattern
+                cmd.paths.len()
+            } else {
+                // the last path is the pattern, so determine the best match from keywords formed by all but the last
+                cmd.paths.len() - 1
+            };
             let kw: Vec<String> = cmd
                 .paths
-                .drain(..cmd.paths.len() - 1)
+                .drain(..num_keywords)
                 .map(|f| f.to_string_lossy().into_owned())
                 .collect();
+
             let db_filter = DbFilter::new(&cfg.history).with_keywords(kw.clone());
 
             match conn.return_best_by_frecency(&db_filter).await {
                 None | Some(None) => {
                     if cfg.misc.cd_fallback_search && !cmd.list {
+                        // todo: lowpri: relaunch this binary with :dir and get its result?
                         // let input = (kw.last().cloned().unwrap_or_default(), 0);
                         // let pane = FsPane::Folders {
                         //     sort: DbSortOrder::frecency,
@@ -304,17 +332,38 @@ async fn handle_default(
                         return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
                     }
                 }
-                Some(Some(p)) => p,
+                Some(Some(p)) => {
+                    set_current_dir(&p)
+                        .prefix("Failed to change directory")
+                        ._elog();
+                    p
+                }
             }
-            // search in current directory
-        } else {
+        } else
+        // search in current directory
+        {
             AbsPath::new_unchecked(__cwd())
         };
 
-        FsPane::new_fd_from_command(cmd, cwd)
-    } else
+        if nav_pane {
+            let vis = if cmd.vis.is_default() {
+                cfg.global.panes.nav.default_visibility
+            } else {
+                cmd.vis
+            };
+            FsPane::new_nav(
+                cwd,
+                vis,
+                cmd.sort.unwrap_or(cfg.global.panes.nav.default_sort),
+            )
+        } else
+        // interactively search the best match
+        {
+            FsPane::new_fd_from_command(cmd, cwd)
+        }
+    } else if
     // any fd arg is specified
-    if !cmd.paths.is_empty()
+    !cmd.paths.is_empty()
         || !cmd.types.is_empty()
         || cmd.vis != Visibility::default()
         || !cmd.fd.is_empty()
@@ -324,7 +373,6 @@ async fn handle_default(
             // last item is a pattern
             AbsPath::new_unchecked(
                 if cfg.global.fd.default_search_in_home {
-                    set_current_dir(__home())._elog();
                     __home()
                 } else {
                     __cwd()
@@ -348,9 +396,9 @@ async fn handle_default(
             .__ebog();
 
         let mut conn = pool.get_conn(DbTable::dirs).await?;
-        // spawn cost is 1 microsecond
+        // spawn cost is 1 microsecond, awaiting seems fine
         for path in cmd.paths.iter().take(cmd.paths.len() - 1) {
-            conn.bump(&AbsPath::new(path), 1).await._elog();
+            conn.bump(AbsPath::new(path), 1).await._elog();
         }
 
         if cmd.list {
@@ -525,30 +573,37 @@ async fn handle_tools(
             }
             // silent errors
             if !paths.is_empty() {
-                let mut remove_vec = Vec::with_capacity(paths.len());
-                let mut push_vec = Vec::with_capacity(paths.len());
+                let mut entry_queue = Vec::with_capacity(paths.len());
 
-                use globset::{Glob, GlobSetBuilder};
-                let mut builder = GlobSetBuilder::new();
-                for pattern in &cfg.history.exclude {
-                    builder.add(Glob::new(pattern).unwrap());
-                }
-                let exclude = builder.build().unwrap();
+                // don't bump exclusions, but do remove them
+                let exclude = if count != 0 {
+                    use globset::{Glob, GlobSetBuilder};
+                    let mut builder = GlobSetBuilder::new();
+                    for pattern in &cfg.history.exclude {
+                        builder.add(
+                            Glob::new(pattern)
+                                .map_err(|e| format!("Error in cfg.history.exclude: {e}"))?,
+                        );
+                    }
+                    Some(
+                        builder
+                            .build()
+                            .map_err(|e| format!("Error in cfg.history.exclude: {e}"))?,
+                    )
+                } else {
+                    None
+                };
 
                 for path in paths {
                     if !path.exists() {
                         ebog!("{} does not exist!", path.to_string_lossy());
                         exit(1);
                     }
-                    let path = AbsPath::new(path);
-                    if exclude.is_match(&path) {
+                    let path = AbsPath::new_canonical(path);
+                    if exclude.as_ref().is_some_and(|e| e.is_match(&path)) {
                         continue;
                     }
-                    if count == 0 {
-                        remove_vec.push(path)
-                    } else {
-                        push_vec.push(path)
-                    }
+                    entry_queue.push(path)
                 }
 
                 let mut conn = Pool::new(cfg.db_path())
@@ -558,16 +613,31 @@ async fn handle_tools(
 
                 if count == 0 {
                     let (dirs, files): (Vec<_>, Vec<_>) =
-                        remove_vec.into_iter().partition(|x| x.is_dir());
-                    conn.remove_entries(&dirs).await?;
+                        entry_queue.into_iter().partition(|x| x.is_dir());
+
+                    // let dirs_removed = conn.remove_entries(&dirs).await?; // can't use this as it doesn't resolve symlinks
+                    let dirs_removed = conn.remove_paths(&dirs).await?;
+                    let files_removed = conn.remove_paths(&files).await?;
+
+                    let mut msg = String::new();
                     if !files.is_empty() {
-                        conn.switch_table(DbTable::files);
-                        conn.remove_entries(&files).await?;
+                        msg.push_str(&format!("{} files", files_removed));
+                    }
+                    if !dirs.is_empty() {
+                        if !msg.is_empty() {
+                            msg.push_str(" and ");
+                        }
+                        msg.push_str(&format!("{} directories", dirs_removed));
+                    }
+
+                    if !msg.is_empty() {
+                        ibog!("Removed {}.", msg);
                     }
                 } else {
-                    conn.push_files_and_folders(push_vec).await?;
+                    conn.push_files_and_folders(entry_queue).await?;
                 }
             } else {
+                // glob is per-table
                 let mut conn = Pool::new(cfg.db_path())
                     .await?
                     .get_conn(table.unwrap_or(DbTable::dirs))
@@ -585,18 +655,25 @@ async fn handle_tools(
                     .get_entries(DbSortOrder::none, &db_filter)
                     .await
                     .__ebog();
-                for e in &entries {
+
+                let mut matched = 0;
+                for e in entries {
                     if glob.is_match(&e.path) {
+                        matched += 1;
                         if count == 0 {
                             to_remove.push(e.path.clone());
                         } else {
-                            conn.bump(&e.path, count).await._wlog();
+                            conn.bump(e.path, count).await._wlog();
                         }
                     }
                 }
 
-                if !to_remove.is_empty() {
-                    conn.remove_entries(&to_remove).await?;
+                log::debug!("Matched {matched} paths.");
+                if count == 0 {
+                    let removed_count = conn.remove_entries(&to_remove).await?;
+                    ibog!("Removed {removed_count} entries.");
+                } else {
+                    ibog!("Matched {matched} paths.");
                 }
             }
 
