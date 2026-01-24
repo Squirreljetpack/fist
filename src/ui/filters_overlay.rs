@@ -16,7 +16,7 @@ use ratatui::{
 };
 use strum::IntoEnumIterator;
 
-use crate::run::fsaction::FsAction;
+use crate::run::action::FsAction;
 
 // todo: -8 on compact
 const PANE_WIDTH: u16 = const { 4 + 17 + 1 };

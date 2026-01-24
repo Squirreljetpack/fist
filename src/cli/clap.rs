@@ -3,11 +3,14 @@ use std::{ffi::OsString, path::PathBuf};
 use clap::{ArgAction, Parser, Subcommand, error::ErrorKind};
 
 use crate::{
-    cli::{BINARY_SHORT, SubTool},
+    cli::SubTool,
     db::{DbSortOrder, DbTable},
     filters::{SortOrder, Visibility},
     find::fd::FileTypeArg,
 };
+
+pub static BINARY_FULL: &str = "fist";
+pub static BINARY_SHORT: &str = "fs";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

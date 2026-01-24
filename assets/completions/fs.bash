@@ -516,13 +516,17 @@ _fs() {
             return 0
             ;;
         fs__:tool__shell)
-            opts="--z-name --zz-name --visual --z-sort --z-dot-args --z-slash-args --aliases --verbosity --override --config --mm-config"
+            opts="--z-name --z-slash-name --zz-name --visual --z-sort --z-dot-args --z-slash-args --aliases --verbosity --override --config --mm-config"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --z-name)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --z-slash-name)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

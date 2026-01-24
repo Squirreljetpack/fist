@@ -18,7 +18,7 @@ use matchmaker::{
 use crate::{
     config::Config,
     lessfilter::Preset,
-    run::fsaction::FsAction,
+    run::action::FsAction,
     ui::{
         filters_overlay::FiltersConfig, menu_overlay::MenuConfig, prompt_overlay::PromptConfig,
         stash_overlay::StackConfig,

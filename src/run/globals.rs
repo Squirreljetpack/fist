@@ -26,7 +26,7 @@ use crate::{
     cli::env::EnvOpts,
     db::{Connection, DbSortOrder, Pool, zoxide::DbFilter},
     errors::DbError,
-    run::{FsPane, fsaction::FsAction, item::PathItem},
+    run::{FsPane, action::FsAction, item::PathItem},
     ui::menu_overlay::PromptKind,
     utils::text::{ToastContent, ToastStyle, make_toast},
     watcher::{WatcherMessage, WatcherSender},
@@ -269,6 +269,7 @@ impl TOAST {
         GLOBAL::send_efx(efx![Effect::ClearFooter]);
     }
 
+    /// Push an item to a prefix group
     pub fn push(
         style: ToastStyle,
         prefix: &'static str,
@@ -289,7 +290,7 @@ impl TOAST {
                 *existing_content = ToastContent::List(items.into_iter().collect());
             }
         } else {
-            let prefix_span = Span::styled(prefix, style.to_style());
+            let prefix_span = Span::styled(prefix, style);
             state.push((prefix_span, ToastContent::List(items.into_iter().collect())));
         }
 
@@ -299,6 +300,19 @@ impl TOAST {
         GLOBAL::send_efx(efx![Effect::Footer(toast)]);
     }
 
+    /// Push a notice with the default prefix associated with the given style
+    pub fn push_notice(
+        style: ToastStyle,
+        msg: impl Into<std::borrow::Cow<'static, str>>,
+    ) {
+        let mut state = TOAST.lock().unwrap();
+        let prefix_span = Span::styled(format!("{style}: "), style);
+        state.push((prefix_span, ToastContent::Line(msg.into().into())));
+
+        let toast = make_toast(&state);
+        GLOBAL::send_efx(efx![Effect::Footer(toast)]);
+    }
+    /// Push a pair of items a -> b, described by a prefix
     pub fn push_pair(
         style: ToastStyle,
         prefix: &'static str,
@@ -306,7 +320,7 @@ impl TOAST {
         to: Span<'static>,
     ) {
         let mut state = TOAST.lock().unwrap();
-        let prefix_span = Span::styled(prefix, style.to_style());
+        let prefix_span = Span::styled(prefix, style);
         state.push((prefix_span, ToastContent::Pair(from, to)));
 
         let toast = make_toast(&state);
@@ -327,17 +341,6 @@ impl TOAST {
 
         let prefix_span = Span::raw("");
         state.push((prefix_span, ToastContent::Line(line.into())));
-
-        let toast = make_toast(&state);
-        GLOBAL::send_efx(efx![Effect::Footer(toast)]);
-    }
-    pub fn push_notice(
-        style: ToastStyle,
-        msg: impl Into<std::borrow::Cow<'static, str>>,
-    ) {
-        let mut state = TOAST.lock().unwrap();
-        let prefix_span = Span::styled(format!("{style}: "), style.to_style());
-        state.push((prefix_span, ToastContent::Line(msg.into().into())));
 
         let toast = make_toast(&state);
         GLOBAL::send_efx(efx![Effect::Footer(toast)]);

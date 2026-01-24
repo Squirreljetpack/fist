@@ -18,8 +18,8 @@ use matchmaker::{
 use crate::{
     aliases::MMState,
     run::{
-        fspane::FsPane,
         item::PathItem,
+        pane::FsPane,
         state::{FILTERS, STACK, TEMP},
     },
 };

@@ -157,8 +157,8 @@ pub struct InterfaceConfig {
     pub advance_command: String,
     /// If true, the functions of the Accept and Print actions will be swapped.
     pub alt_accept: bool,
-    /// Disables multi-select.
-    pub no_multi: bool,
+    /// Disables multi-accept.
+    pub no_multi_accept: bool,
     /// When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
 
@@ -173,7 +173,7 @@ impl Default for InterfaceConfig {
     fn default() -> Self {
         Self {
             alt_accept: false,
-            no_multi: false,
+            no_multi_accept: false,
             always_paste: false,
             advance_command: Preset::Edit.to_command_string(),
             cwd_prompt: "{} ".into(),

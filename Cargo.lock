@@ -2116,6 +2116,7 @@ dependencies = [
  "bitflags-derive",
  "boxcar",
  "clap",
+ "clap_complete",
  "cli_boilerplate_automation",
  "crokey",
  "crossterm 0.29.0",

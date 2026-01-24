@@ -1,6 +1,6 @@
 use crate::{
     run::{
-        fsaction::FsAction,
+        action::FsAction,
         stash::{STASH, StashAction, StashItem, StashItemState, StashItemStatus},
     },
     utils::format_size,
@@ -110,7 +110,7 @@ impl StackOverlay {
 
         let mut dst_w = self.headers[2].len() as u16;
         for item in items {
-            dst_w = dst_w.max(item.dest.to_string_lossy().width() as u16);
+            dst_w = dst_w.max(item.dst.to_string_lossy().width() as u16);
         }
 
         let mut size_w = self.headers[3].len() as u16; // self.config.bar_width.max(self.headers[1].width() as u16);
@@ -144,7 +144,7 @@ impl StackOverlay {
             .map(|(i, item)| {
                 let kind = item.kind.to_string().pad(1, 1);
 
-                let dst = item.dest.to_string_lossy().pad(1, 1);
+                let dst = item.dst.to_string_lossy().pad(1, 1);
                 let size = item.status.render(config);
 
                 let path = Span::from(item.display().truncate_left(self.widths[1] as usize).pad(

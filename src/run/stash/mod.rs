@@ -1,4 +1,5 @@
 mod status;
+use ratatui::text::Line;
 pub use status::*;
 use tokio::task::spawn_blocking;
 
@@ -6,6 +7,7 @@ use std::{
     borrow::BorrowMut,
     cell::RefCell,
     ffi::OsString,
+    fs::create_dir_all,
     path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
     sync::atomic::Ordering,
 };
@@ -41,9 +43,9 @@ pub enum StashAction {
 #[derive(Debug, Clone)]
 pub struct StashItem {
     pub kind: StashAction,
-    pub path: AbsPath,
+    pub src: AbsPath,
     pub status: StashItemStatus,
-    pub dest: OsString,
+    pub dst: OsString,
 }
 
 impl StashItem {
@@ -51,8 +53,8 @@ impl StashItem {
         Self {
             kind: StashAction::Copy,
             status: StashItemStatus::new(&path),
-            path,
-            dest: Default::default(),
+            src: path,
+            dst: Default::default(),
         }
     }
 
@@ -60,8 +62,8 @@ impl StashItem {
         Self {
             kind: StashAction::Move,
             status: StashItemStatus::new(&path),
-            path,
-            dest: Default::default(),
+            src: path,
+            dst: Default::default(),
         }
     }
 
@@ -69,8 +71,8 @@ impl StashItem {
         Self {
             kind: StashAction::Symlink,
             status: StashItemStatus::new(&path),
-            path,
-            dest: Default::default(),
+            src: path,
+            dst: Default::default(),
         }
     }
 
@@ -79,15 +81,17 @@ impl StashItem {
     pub fn transfer(self) {
         log::debug!("Transferring: {self:?}");
 
-        let src = self.path;
-        let dst = self.dest;
-        let status = self.status;
-        let action = self.kind;
+        let Self {
+            kind,
+            src,
+            status,
+            dst,
+        } = &self;
 
         status.state.store(StashItemState::Started);
 
-        if matches!(action, StashAction::Symlink) {
-            match symlink(&src, &dst) {
+        if matches!(kind, StashAction::Symlink) {
+            match symlink(src, dst) {
                 Ok(()) => {
                     status.state.store(StashItemState::CompleteOk);
                 }
@@ -105,7 +109,7 @@ impl StashItem {
 
         let result = if src.is_dir() {
             // options: todo
-            let mut options = dir::CopyOptions::new();
+            let mut options = dir::CopyOptions::new().copy_inside(true);
             options.overwrite = true;
 
             let progress_handler = move |p: dir::TransitProcess| {
@@ -121,12 +125,10 @@ impl StashItem {
                 fs_extra::dir::TransitProcessResult::ContinueOrAbort
             };
 
-            match action {
-                StashAction::Copy => {
-                    dir::copy_with_progress(&src, &dst, &options, progress_handler)
-                }
+            match kind {
+                StashAction::Copy => dir::copy_with_progress(src, dst, &options, progress_handler),
                 StashAction::Move => {
-                    dir::move_dir_with_progress(&src, &dst, &options, progress_handler)
+                    dir::move_dir_with_progress(src, dst, &options, progress_handler)
                 }
                 _ => {
                     unreachable!()
@@ -134,8 +136,7 @@ impl StashItem {
             }
         } else {
             // options: todo
-            let mut options = file::CopyOptions::new();
-            options.overwrite = true;
+            let options = file::CopyOptions::new().overwrite(true);
 
             let progress_handler = move |p: file::TransitProcess| {
                 // store progress
@@ -148,12 +149,14 @@ impl StashItem {
                 progress.clone().store(fraction as u8, Ordering::Relaxed);
             };
 
-            match action {
-                StashAction::Copy => {
-                    file::copy_with_progress(&src, &dst, &options, progress_handler)
-                }
+            if true && let Some(parent) = std::path::Path::new(dst).parent() {
+                let _ = create_dir_all(parent); // error will be caught by copy
+            }
+
+            match kind {
+                StashAction::Copy => file::copy_with_progress(src, dst, &options, progress_handler),
                 StashAction::Move => {
-                    file::move_file_with_progress(&src, &dst, &options, progress_handler)
+                    file::move_file_with_progress(src, dst, &options, progress_handler)
                 }
                 _ => {
                     unreachable!()
@@ -162,23 +165,20 @@ impl StashItem {
         };
 
         if let Err(e) = result {
-            log::error!(
-                "Transfer error for {} -> {}: {e}",
-                src,
-                dst.to_string_lossy()
-            );
+            log::error!("Transfer error for {self:?}: {e}");
             state.store(StashItemState::CompleteErr);
-            let display = short_display(&src);
+            let display = short_display(src);
             TOAST::push(ToastStyle::Error, "Failed: ", [display]);
+            TOAST::push_notice(ToastStyle::Error, e.to_string());
         } else {
             state.store(StashItemState::CompleteOk);
-            let display = short_display(&src);
+            let display = short_display(src);
             TOAST::push(ToastStyle::Success, "Complete: ", [display]);
         }
     }
 
     pub fn display(&self) -> String {
-        self.path.display_short(__home())
+        self.src.display_short(__home())
     }
 }
 
@@ -231,7 +231,7 @@ impl PartialEq for StashItem {
         &self,
         other: &Self,
     ) -> bool {
-        self.path == other.path
+        self.src == other.src
     }
 }
 
@@ -254,10 +254,9 @@ impl STASH {
     pub fn accept(index: usize) {
         STASH_.with_borrow(|s| {
             let mut item = s.stack[index].clone();
-            item.dest = GLOBAL::with_cfg(|c| {
-                auto_dest_for_src(&item.path, &item.dest, &c.fs.rename_policy)
-            })
-            .into();
+            item.dst =
+                GLOBAL::with_cfg(|c| auto_dest_for_src(&item.src, &item.dst, &c.fs.rename_policy))
+                    .into();
             spawn_blocking(|| item.transfer());
         });
     }
@@ -278,7 +277,7 @@ impl STASH {
     pub fn check_validity() {
         STASH_.with_borrow(|s| {
             for item in &s.stack {
-                if item.status.state.is_pending() && !item.path.exists() {
+                if item.status.state.is_pending() && !item.src.exists() {
                     item.status.state.store(StashItemState::PendingErr)
                 }
             }
@@ -296,14 +295,13 @@ impl STASH {
                 .cloned()
                 .filter_map(|mut item| {
                     // normalize dest
-                    let mut base_dest: OsString = item.dest.abs(&base).into();
+                    let mut base_dest: OsString = item.dst.abs(&base).into();
                     // empty dest -> paste into current
-                    if item.dest.to_string_lossy().ends_with(MAIN_SEPARATOR) || item.dest.is_empty()
-                    {
+                    if item.dst.to_string_lossy().ends_with(MAIN_SEPARATOR) || item.dst.is_empty() {
                         base_dest.push(MAIN_SEPARATOR_STR);
                     };
-                    item.dest = GLOBAL::with_cfg(|c| {
-                        auto_dest_for_src(&item.path, &base_dest, &c.fs.rename_policy)
+                    item.dst = GLOBAL::with_cfg(|c| {
+                        auto_dest_for_src(&item.src, &base_dest, &c.fs.rename_policy)
                     })
                     .into();
                     let ret = match item.status.state.load() {
@@ -321,9 +319,12 @@ impl STASH {
         });
 
         if !queue.is_empty() {
-            TOAST::push_notice(
-                ToastStyle::Normal,
-                format!("Starting {} items.", queue.len()),
+            TOAST::push_msg(
+                Line::styled(
+                    format!("Starting {} items.", queue.len()),
+                    ToastStyle::Normal,
+                ),
+                true,
             );
         };
         spawn_blocking(move || {

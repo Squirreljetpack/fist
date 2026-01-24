@@ -12,6 +12,9 @@ pub struct ShellCommand {
     /// Name for jump function.
     #[arg(long, default_value_t = String::from("z"))]
     pub z_name: String,
+    /// Name for navigate function.
+    #[arg(long, default_value_t = String::from("Z"))]
+    pub z_slash_name: String,
     /// Name for open function.
     #[arg(long, default_value_t = String::from("zz"))]
     pub zz_name: String,

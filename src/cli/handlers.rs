@@ -20,10 +20,10 @@ use cli_boilerplate_automation::{
 };
 
 use super::{
+    clap::*,
+    clap_tools::*,
     matchmaker::mm_get,
     paths::{__cwd, __home, config_path, current_exe, lessfilter_cfg_path, liza_path, mm_cfg_path},
-    tool_types::*,
-    types::*,
 };
 use crate::{
     abspath::AbsPath,
@@ -84,7 +84,7 @@ async fn handle_open(
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
         *APP::TO_OPEN.lock().unwrap() = cmd.files;
-        cfg.global.interface.no_multi = true;
+        cfg.global.interface.no_multi_accept = true;
         let pane = FsPane::new_launch();
 
         let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
@@ -206,7 +206,7 @@ async fn handle_dirs(
         // fallback to interactive if no match
         // todo: numbers on side to select
         cfg.global.interface.alt_accept = true;
-        cfg.global.interface.no_multi = true;
+        cfg.global.interface.no_multi_accept = true;
         TEMP::set_initial_relative_path(cfg.styles.path.relative);
         cfg.styles.path.relative = false;
     } else if let Some(all) = cmd.list {
@@ -273,7 +273,6 @@ async fn handle_default(
     !atty::is(atty::Stream::Stdin) && !cmd.no_read && !cmd.list {
         if cmd.cd {
             cfg.global.interface.alt_accept = true;
-            cfg.global.interface.no_multi = true;
             cfg.history.show_missing = false;
 
             // stream can only occur as the first pane, this ensures paths are not modified in display
@@ -284,7 +283,6 @@ async fn handle_default(
     } else if cmd.cd {
         cmd.paths.append(&mut cmd.fd); // fd opts are not supported
         cfg.global.interface.alt_accept = true;
-        cfg.global.interface.no_multi = true;
         cfg.history.show_missing = false;
 
         // cd = true + last arg ends in slash -> interactively navigate the best match
@@ -294,7 +292,12 @@ async fn handle_default(
             .is_some_and(|s| s.to_string_lossy().ends_with(MAIN_SEPARATOR));
 
         // determine cwd
-        let cwd = if cmd.paths.len() > 1 || nav_pane
+        let cwd = if cmd.paths.len() > 1
+            || (nav_pane
+                && (
+                    // only element = / => search in current dir
+                    cmd.paths.len() == 1 && cmd.paths[0].len() != 1
+                ))
         // treat paths as zoxide args
         {
             let conn = pool.get_conn(DbTable::dirs).await?;

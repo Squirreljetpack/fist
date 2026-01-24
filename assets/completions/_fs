@@ -168,6 +168,7 @@ _arguments "${_arguments_options[@]}" : \
 (shell)
 _arguments "${_arguments_options[@]}" : \
 '--z-name=[Name for jump function]:Z_NAME:_default' \
+'--z-slash-name=[Name for navigate function]:Z_SLASH_NAME:_default' \
 '--zz-name=[Name for open function]:ZZ_NAME:_default' \
 '--visual=[Command used by open function]:VISUAL:_default' \
 '--z-sort=[Default sort order for the interactive jump menu]:Z_SORT:((name\:""
@@ -265,6 +266,7 @@ _arguments "${_arguments_options[@]}" : \
 (shell)
 _arguments "${_arguments_options[@]}" : \
 '--z-name=[Name for jump function]:Z_NAME:_default' \
+'--z-slash-name=[Name for navigate function]:Z_SLASH_NAME:_default' \
 '--zz-name=[Name for open function]:ZZ_NAME:_default' \
 '--visual=[Command used by open function]:VISUAL:_default' \
 '--z-sort=[Default sort order for the interactive jump menu]:Z_SORT:((name\:""

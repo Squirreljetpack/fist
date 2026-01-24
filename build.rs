@@ -4,10 +4,9 @@ use std::env;
 
 mod cli {
     mod tool_types {
-        include!("src/cli/tool_types.rs");
+        include!("src/cli/clap_tools.rs");
     }
-    pub const BINARY_SHORT: &str = "fs";
-    use crate::cli::tool_types::{BumpCommand, LessfilterCommand, ShellCommand, TypesCommand};
+    use crate::cli::tool_types::*;
 
     use clap::Subcommand;
     use std::ffi::OsString;
@@ -36,7 +35,7 @@ include!("build/completions_mock.rs");
 // -----------------------------------------------------------------------------
 // Include
 // -----------------------------------------------------------------------------
-include!("src/cli/types.rs");
+include!("src/cli/clap.rs");
 
 fn main() {
     println!("cargo:rerun-if-changed=src/cli/types.rs");

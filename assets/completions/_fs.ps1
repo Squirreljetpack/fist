@@ -178,6 +178,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
         }
         'fs;:tool;shell' {
             [CompletionResult]::new('--z-name', '--z-name', [CompletionResultType]::ParameterName, 'Name for jump function')
+            [CompletionResult]::new('--z-slash-name', '--z-slash-name', [CompletionResultType]::ParameterName, 'Name for navigate function')
             [CompletionResult]::new('--zz-name', '--zz-name', [CompletionResultType]::ParameterName, 'Name for open function')
             [CompletionResult]::new('--visual', '--visual', [CompletionResultType]::ParameterName, 'Command used by open function')
             [CompletionResult]::new('--z-sort', '--z-sort', [CompletionResultType]::ParameterName, 'Default sort order for the interactive jump menu')
@@ -192,6 +193,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
         }
         'fs;:t;shell' {
             [CompletionResult]::new('--z-name', '--z-name', [CompletionResultType]::ParameterName, 'Name for jump function')
+            [CompletionResult]::new('--z-slash-name', '--z-slash-name', [CompletionResultType]::ParameterName, 'Name for navigate function')
             [CompletionResult]::new('--zz-name', '--zz-name', [CompletionResultType]::ParameterName, 'Name for open function')
             [CompletionResult]::new('--visual', '--visual', [CompletionResultType]::ParameterName, 'Command used by open function')
             [CompletionResult]::new('--z-sort', '--z-sort', [CompletionResultType]::ParameterName, 'Default sort order for the interactive jump menu')

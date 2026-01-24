@@ -26,7 +26,19 @@ function $${Z_NAME}() {
   }
 }
 
+function $${Z_SLASH_NAME}() {
+  if (($#)) {
+    for last; do :; done
+    case $last in
+      */) ;;
+      *) last="$last/";;
+    esac
 
+    $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd -- $@;
+  } else {
+    $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd /
+  }
+}
 
 function $${ZZ_NAME}() {
   if ! (( $# )); then

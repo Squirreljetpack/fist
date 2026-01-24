@@ -1,4 +1,4 @@
-use crate::run::fsaction::FsAction;
+use crate::run::action::FsAction;
 use matchmaker::{action::Action, event::RenderSender, message::RenderCommand, render::Effect};
 use notify::{
     Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher,

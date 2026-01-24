@@ -1,13 +1,13 @@
+pub mod action;
 pub mod dhandlers;
-pub mod fsaction;
 pub mod item;
 pub mod mm_config;
 pub mod stash;
 pub mod styles;
 
-pub use fsaction::FsAction;
-mod fspane;
-pub use fspane::*;
+pub use action::FsAction;
+mod pane;
+pub use pane::*;
 mod start;
 pub use start::*;
 pub mod globals;

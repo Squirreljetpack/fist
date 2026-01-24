@@ -1,11 +1,12 @@
 use cli_boilerplate_automation::prints;
 
-use crate::cli::tool_types::ShellCommand;
+use crate::cli::clap_tools::ShellCommand;
 
 pub fn print_shell(
     ShellCommand {
         z_name,
         zz_name,
+        z_slash_name,
         visual,
         z_sort,
         z_dot_args,
@@ -16,6 +17,7 @@ pub fn print_shell(
 ) {
     let mut s = include_str!("../assets/shell/shell.zsh")
         .replacen("$${Z_NAME}", z_name, 1)
+        .replacen("$${Z_SLASH_NAME}", z_slash_name, 1)
         .replace("$${Z_SORT}", z_sort.into())
         .replace("$${Z_DOT_ARGS}", z_dot_args)
         .replace("$${Z_SLASH_ARGS}", z_slash_args)
