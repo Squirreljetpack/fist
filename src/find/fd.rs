@@ -162,6 +162,16 @@ pub fn build_fd_args(
 
     // Add base args and user/default args
     ret.extend(cfg.base_args.iter().map(|s| s.into()));
+
+    // allow base_args to override the default true for vis.follow
+    if !cfg.base_args.iter().any(|x| x == "--no-follow") {
+        if !vis.no_follow {
+            ret.push("--follow".into());
+        } else {
+            ret.push("--no-follow".into());
+        }
+    }
+
     if fd_args.is_empty() {
         ret.extend(cfg.default_args.iter().map(|s| s.into()));
     } else {

@@ -39,6 +39,36 @@ pub enum FileCategory {
     Text,
 }
 
+use std::str::FromStr;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+#[error("Invalid type: {0}")]
+pub struct ParseFileTypeError(pub String);
+
+impl FromStr for FileCategory {
+    type Err = ParseFileTypeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "v" | "vid" | "video" => Ok(FileCategory::Video),
+            "i" | "img" | "image" => Ok(FileCategory::Image),
+            "a" | "aud" | "audio" => Ok(FileCategory::Music),
+            "l" | "lossless" => Ok(FileCategory::Lossless),
+            "crypto" => Ok(FileCategory::Crypto),
+            "doc" | "document" => Ok(FileCategory::Document),
+            "z" | "compressed" => Ok(FileCategory::Compressed),
+            "t" | "tmp" | "temp" => Ok(FileCategory::Temp),
+            // "b" | "build" => Ok(FileCategory::Build),
+            "s" | "src" | "source" | "code" => Ok(FileCategory::Source),
+            "o" | "compiled" => Ok(FileCategory::Compiled),
+            "conf" => Ok(FileCategory::Configuration),
+            "txt" => Ok(FileCategory::Text),
+            _ => Err(ParseFileTypeError(s.to_string())),
+        }
+    }
+}
+
 /// Mapping from full filenames to file type.
 const FILENAME_TYPES: Map<&'static str, FileCategory> = phf_map! {
     /* Immediate file - kick off the build of a project */
@@ -544,35 +574,5 @@ impl FileCategory {
         };
 
         None
-    }
-}
-
-use std::str::FromStr;
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-#[error("Invalid type: {0}")]
-pub struct ParseFileTypeError(pub String);
-
-impl FromStr for FileCategory {
-    type Err = ParseFileTypeError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "v" | "vid" | "video" => Ok(FileCategory::Video),
-            "i" | "img" | "image" => Ok(FileCategory::Image),
-            "a" | "aud" | "audio" => Ok(FileCategory::Music),
-            "l" | "lossless" => Ok(FileCategory::Lossless),
-            "crypto" => Ok(FileCategory::Crypto),
-            "doc" | "document" => Ok(FileCategory::Document),
-            "z" | "compressed" => Ok(FileCategory::Compressed),
-            "t" | "tmp" | "temp" => Ok(FileCategory::Temp),
-            // "b" | "build" => Ok(FileCategory::Build),
-            "s" | "src" | "source" | "code" => Ok(FileCategory::Source),
-            "o" | "compiled" => Ok(FileCategory::Compiled),
-            "conf" => Ok(FileCategory::Configuration),
-            "txt" => Ok(FileCategory::Text),
-            _ => Err(ParseFileTypeError(s.to_string())),
-        }
     }
 }

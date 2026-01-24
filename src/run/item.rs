@@ -1,3 +1,5 @@
+#![allow(unstable_name_collisions)]
+
 use std::{
     borrow::Cow,
     path::{Path, PathBuf},

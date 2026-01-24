@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::abspath::AbsPath;
 use crate::cli::paths::__cwd;
 use crate::fs::{auto_dest, create_all, rename};
-use crate::run::fsaction::FsAction;
+use crate::run::action::FsAction;
 use crate::run::globals::{GLOBAL, TEMP, TOAST};
 use crate::run::item::{PathItem, short_display};
 use crate::run::stash::{STASH, StashItem};

@@ -3,7 +3,10 @@ use crate::errors::DbError;
 use cli_boilerplate_automation::bait::ResultExt;
 use log::trace;
 use sqlx::Acquire;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    iter::repeat_n,
+    time::{SystemTime, UNIX_EPOCH},
+};
 const MAX_PLACEHOLDERS: usize = 200;
 // try not to use these externally
 impl Connection {
@@ -81,17 +84,17 @@ impl Connection {
     pub async fn remove_entries(
         &mut self,
         paths: &[AbsPath],
-    ) -> Result<(), DbError> {
+    ) -> Result<u64, DbError> {
+        // return number of removed rows
         if paths.is_empty() {
-            return Ok(());
+            return Ok(0);
         }
 
         let mut tx = self.conn.begin().await?;
+        let mut total_removed = 0;
 
         for chunk in paths.chunks(MAX_PLACEHOLDERS) {
-            let placeholders = std::iter::repeat_n("?", chunk.len())
-                .collect::<Vec<_>>()
-                .join(",");
+            let placeholders = repeat_n("?", chunk.len()).collect::<Vec<_>>().join(",");
 
             let query = format!(
                 "DELETE FROM {} WHERE path IN ({})",
@@ -103,11 +106,12 @@ impl Connection {
                 q = q.bind(path);
             }
 
-            q.execute(&mut *tx).await?;
+            let result = q.execute(&mut *tx).await?;
+            total_removed += result.rows_affected();
         }
 
         tx.commit().await?;
-        Ok(())
+        Ok(total_removed)
     }
 
     pub async fn get_entry(
@@ -200,13 +204,14 @@ impl Connection {
     /// Bump an entry: increment count and update atime
     pub async fn bump(
         &mut self,
-        path: &AbsPath,
+        // Takes an owned path because every call site already has one.
+        path: AbsPath,
         count: i32,
     ) -> Result<(), DbError> {
         trace!("Bumping {}", path.display());
 
-        self.increment(path, count).await?;
-        self.update_atime(path).await?;
+        self.increment(&path, count).await?;
+        self.update_atime(&path).await?;
         Ok(())
     }
 

@@ -157,8 +157,8 @@ pub struct InterfaceConfig {
     pub advance_command: String,
     /// If true, the functions of the Accept and Print actions will be swapped.
     pub alt_accept: bool,
-    /// Disables multi-select.
-    pub no_multi: bool,
+    /// Disables multi-accept.
+    pub no_multi_accept: bool,
     /// When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
 
@@ -173,7 +173,7 @@ impl Default for InterfaceConfig {
     fn default() -> Self {
         Self {
             alt_accept: false,
-            no_multi: false,
+            no_multi_accept: false,
             always_paste: false,
             advance_command: Preset::Edit.to_command_string(),
             cwd_prompt: "{} ".into(),
@@ -200,7 +200,7 @@ impl Default for PanesSettings {
 #[serde(default, deny_unknown_fields)]
 /// Pane-specific settings
 pub struct PanesConfig {
-    pub app: PaneSettings,
+    pub app: AppPaneSettings,
     pub history: PaneSettings,
     pub nav: NavPaneSettings,
     pub stream: PaneSettings,
@@ -215,25 +215,24 @@ pub struct PanesConfig {
 impl Default for PanesConfig {
     fn default() -> Self {
         Self {
-            app: PaneSettings {
-                show_preview: Some(false),
-                ..PaneSettings::default()
+            app: AppPaneSettings {
+                ..Default::default()
             },
             history: PaneSettings {
-                ..PaneSettings::default()
+                ..Default::default()
             },
             nav: NavPaneSettings::default(),
             fd: PaneSettings {
-                ..PaneSettings::default()
+                ..Default::default()
             },
             rg: PaneSettings {
-                ..PaneSettings::default()
+                ..Default::default()
             },
             custom: PaneSettings {
-                ..PaneSettings::default()
+                ..Default::default()
             },
             stream: PaneSettings {
-                ..PaneSettings::default()
+                ..Default::default()
             },
 
             settings: PanesSettings::default(),
@@ -314,6 +313,31 @@ impl Default for NavPaneSettings {
 
             default_sort: SortOrder::mtime,
             default_visibility: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AppPaneSettings {
+    /// Input prompt
+    pub prompt: Option<String>,
+    /// Whether to show the preview when switching to this pane. (Default: inherit).
+    pub show_preview: Option<bool>,
+    pub enter_prompt: bool,
+    // ----------------------------
+    pub app_scan_directories: Vec<PathBuf>,
+}
+
+#[allow(clippy::derivable_impls)]
+impl Default for AppPaneSettings {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            show_preview: None,
+            enter_prompt: false,
+
+            app_scan_directories: Default::default(),
         }
     }
 }

@@ -1,11 +1,21 @@
 function lessfilter() {
-  fs :tool lessfilter
+  fs :tool lessfilter $@
 }
 function lz() {
-  fs :tool liza
+  fs :tool liza $@
 }
 
-alias l="fs :tool lessfilter display"
-alias la="fs :tool lessfilter extended"
-alias ll="fs :tool lessfilter info"
-alias n="fs :tool lessfilter edit"
+l()  { fs :tool lessfilter display  "${@:-.}"; }
+la() { fs :tool lessfilter extended "${@:-.}"; }
+ll() { fs :tool lessfilter info     "${@:-.}"; }
+n()  {
+  if (($#)) && [ -f "$1" ]; then
+    fs :tool lessfilter edit "$@"
+  else
+    $EDITOR "$@"
+  fi
+}
+o()  { fs :o "${@:-.}"; }
+
+alias zf="fs :file --sort atime"
+

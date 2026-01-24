@@ -3,7 +3,7 @@ use matchmaker::{
     nucleo::{Indexed, Render, Worker},
 };
 
-use crate::cli::tool_types::SubTool;
+use crate::cli::SubTool;
 
 pub async fn mm_get<T: SSS + Render + Clone>(
     items: impl IntoIterator<Item = T>

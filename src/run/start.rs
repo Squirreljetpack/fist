@@ -20,11 +20,11 @@ use crate::{
     db::{DbTable, Pool, zoxide::DbFilter},
     errors::CliError,
     run::{
+        action::{fsaction_aliaser, fsaction_handler, paste_handler},
         dhandlers::{MMExt, mm_formatter, sync_handler},
-        fsaction::{fsaction_aliaser, fsaction_handler, paste_handler},
-        fspane::FsPane,
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
+        pane::FsPane,
         state::{APP, DB_FILTER, GLOBAL, PRINT_HANDLE, STACK},
     },
     spawn::{Program, open_wrapped},
@@ -62,13 +62,12 @@ fn make_mm(
     );
     let injector = IndexedInjector::new_globally_indexed(worker.injector());
 
-    let mut selector = Selector::new_with_validator(Indexed::identifier, exist_validator);
-    if cfg.global.interface.no_multi {
-        selector = selector.disabled()
-    }
+    let selector = Selector::new_with_validator(Indexed::identifier, exist_validator);
+    // todo: we really just want an alternate behavior for accept multi
+    // if cfg.global.interface.no_multi {
+    //     selector = selector.disabled()
+    // }
 
-    // let formatter =
-    //     Arc::new(worker.make_format_fn::<true>(|item: &Indexed<PathItem>| item.inner.display()));
     #[allow(clippy::type_complexity)]
     let formatter: Arc<Box<dyn Fn(&Indexed<PathItem>, &str) -> String + Send + Sync>> =
         Arc::new(Box::new(mm_formatter));
@@ -83,7 +82,7 @@ fn make_mm(
     mm.register_become_handler_();
     mm.register_execute_handler_();
     mm.register_reload_handler_();
-    mm.register_event_handler([Event::Synced], sync_handler);
+    mm.register_event_handler(Event::Synced, sync_handler);
 
     (mm, injector, formatter)
 }

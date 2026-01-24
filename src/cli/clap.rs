@@ -3,11 +3,14 @@ use std::{ffi::OsString, path::PathBuf};
 use clap::{ArgAction, Parser, Subcommand, error::ErrorKind};
 
 use crate::{
-    cli::{BINARY_SHORT, tool_types::SubTool},
+    cli::SubTool,
     db::{DbSortOrder, DbTable},
     filters::{SortOrder, Visibility},
     find::fd::FileTypeArg,
 };
+
+pub static BINARY_FULL: &str = "fist";
+pub static BINARY_SHORT: &str = "fs";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -81,7 +84,6 @@ impl From<NavCli> for Cli {
 
 #[derive(Debug, Parser, Default, Clone)]
 pub struct CliOpts {
-    /// + verbosity
     #[arg(long, global = true, default_value_t = 2)]
     pub verbosity: u8,
 
@@ -171,6 +173,7 @@ pub struct OpenCmd {
 /// Recent folders
 #[derive(Debug, Parser, Default, Clone)]
 pub struct DirsCmd {
+    /// history sort order.
     #[arg(long, default_value_t)]
     pub sort: DbSortOrder,
 
@@ -195,6 +198,7 @@ pub struct DirsCmd {
 /// Recent files
 #[derive(Debug, Parser, Default, Clone)]
 pub struct FilesCmd {
+    /// history sort order.
     #[arg(long, default_value_t)]
     pub sort: DbSortOrder,
     #[arg(

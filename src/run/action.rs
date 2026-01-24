@@ -21,8 +21,8 @@ use crate::{
     filters::SortOrder,
     lessfilter::Preset,
     run::{
-        fspane::FsPane,
         item::short_display,
+        pane::FsPane,
         stash::{STASH, StashItem},
         state::{APP, FILTERS, GLOBAL, STACK, TEMP, TOAST},
     },
@@ -152,18 +152,18 @@ fn enter_dir_pane(path: AbsPath) {
 // i.e. "current" saved inputs in chained actions, or consecutive nav actions
 pub fn fsaction_aliaser(
     a: Action<FsAction>,
-    state: &MMState<'_>,
+    state: &MMState<'_, '_>,
 ) -> Actions<FsAction> {
     #[allow(non_snake_case)]
     let RELOAD = |enter_prompt: bool| {
         if enter_prompt {
             acs![
-                Action::ClearAll,
+                Action::ClearSelections,
                 Action::Reload("".to_string()),
                 Action::Custom(FsAction::EnterPrompt(true))
             ]
         } else {
-            acs![Action::ClearAll, Action::Reload("".to_string()),]
+            acs![Action::ClearSelections, Action::Reload("".to_string()),]
         }
     };
 
@@ -597,12 +597,21 @@ pub fn fsaction_aliaser(
                     prints!(s);
                     acs![Action::Quit(Exit(0))]
                 } else {
-                    // print selected
-                    state.map_selected_to_vec(|item| {
-                        let s = item.display().to_string();
-                        GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
-                        prints!(s);
-                    });
+                    if GLOBAL::with_cfg(|c| c.interface.no_multi_accept) {
+                        if let Some((_, item)) = state.current.as_ref() {
+                            let s = item.display().to_string();
+                            GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
+                            prints!(s);
+                        }
+                    } else {
+                        // print selected
+                        state.map_selected_to_vec(|item| {
+                            let s = item.display().to_string();
+                            GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
+                            prints!(s);
+                        });
+                    }
+
                     acs![Action::Quit(Exit(0))]
                 }
             }
@@ -642,7 +651,7 @@ pub fn fsaction_aliaser(
 
 pub fn fsaction_handler(
     a: FsAction,
-    state: &MMState<'_>,
+    state: &MMState<'_, '_>,
 ) -> Effects {
     match a {
         // nonbindable
@@ -672,10 +681,15 @@ pub fn fsaction_handler(
                 efx![
                     Effect::SetIndex(0),
                     Effect::DisableCursor(enter),
+                    Effect::StashPreviewVisibility(Some(false)),
                     Effect::Prompt(prompt)
                 ]
             } else {
-                efx![Effect::DisableCursor(enter), Effect::RestoreInputPrefix]
+                efx![
+                    Effect::DisableCursor(enter),
+                    Effect::StashPreviewVisibility(None),
+                    Effect::RestoreInputPrefix
+                ]
             }
         }
 
@@ -907,7 +921,7 @@ pub fn fsaction_handler(
 // ----------------------------
 pub fn paste_handler(
     content: String,
-    state: &MMState<'_>,
+    state: &MMState<'_, '_>,
 ) -> String {
     if GLOBAL::with_cfg(|c| c.interface.always_paste) || state.picker_ui.results.cursor_disabled {
         content

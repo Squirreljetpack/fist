@@ -16,6 +16,7 @@ use crate::{
 #[derive(Copy, Clone, Debug, Default, strum::Display)]
 pub enum ToastStyle {
     #[default]
+    #[strum(serialize = "Note")]
     Normal,
     Info,
     Success,
@@ -23,9 +24,9 @@ pub enum ToastStyle {
     Error,
 }
 
-impl ToastStyle {
-    pub fn to_style(self) -> Style {
-        match self {
+impl From<ToastStyle> for Style {
+    fn from(val: ToastStyle) -> Self {
+        match val {
             ToastStyle::Normal => Style::default()
                 .fg(Color::DarkGray)
                 .add_modifier(Modifier::ITALIC),

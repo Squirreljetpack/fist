@@ -47,6 +47,7 @@ pub fn collect_apps() -> Vec<Entry> {
     let dirs = [
         "/usr/share/applications",
         &format!("{}/.local/share/applications", __home().to_string_lossy()),
+        &format!("{}/Desktop", __home().to_string_lossy()),
     ];
 
     let mut builder = WalkBuilder::new(dirs[0]);
@@ -60,6 +61,7 @@ pub fn collect_apps() -> Vec<Entry> {
         .git_ignore(false)
         .git_exclude(false)
         .git_global(false)
+        .max_depth(Some(2))
         .build()
         .filter_map(Result::ok)
         .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("desktop"))

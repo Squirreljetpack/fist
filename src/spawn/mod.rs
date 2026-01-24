@@ -23,7 +23,7 @@ pub async fn open_wrapped(
     };
 
     if let Some(prog) = prog {
-        let path = &prog.path();
+        let path = prog.path();
         conn.switch_table(DbTable::apps);
         conn.bump(path, 1).await._wbog_(format!(
             "Failed to record {}",

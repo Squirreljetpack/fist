@@ -82,11 +82,27 @@ impl Connection {
         count: i32,
     ) -> Result<(), DbError> {
         let name = path.basename();
+        // can't decide what the name should be ^
+        // let name = {
+        //     let path_str = path.to_str();
+
+        //     let canonical_str = path.canonicalize().ok();
+
+        //     if let (Some(ps), Some(cs)) = (path_str, canonical_str) {
+        //         if cs.to_str().is_some_and(|s| s != ps) {
+        //             ps.to_string()
+        //         } else {
+        //             path.basename()
+        //         }
+        //     } else {
+        //         path.basename()
+        //     }
+        // };
 
         match self.get_entry(&path).await? {
             Some(e) => {
                 let count = count.max(-(e.count.abs()));
-                self.bump(&path, count).await
+                self.bump(path, count).await
             }
             None => {
                 let entry = Entry::new(name, path);
@@ -116,5 +132,32 @@ impl Connection {
         }
         self.remove_entries(&remove).await._elog();
         Ok(entries)
+    }
+
+    // remove all entries whose canonical path is contained in targets
+    pub async fn remove_paths(
+        &mut self,
+        targets: &[AbsPath],
+    ) -> Result<usize, DbError> {
+        let mut removed = 0;
+
+        let entries: Vec<Entry> = self.get_entries_range(0, 0, DbSortOrder::none).await?;
+
+        for target in targets {
+            for entry in &entries {
+                let matches = entry
+                    .path
+                    .canonicalize()
+                    .map(|p| p == target.as_path())
+                    .unwrap_or(entry.path == *target);
+
+                if matches {
+                    self.delete_entry(&entry.path).await?;
+                    removed += 1;
+                }
+            }
+        }
+
+        Ok(removed)
     }
 }

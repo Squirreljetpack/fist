@@ -18,15 +18,15 @@ use matchmaker::{
 use crate::{
     aliases::MMState,
     run::{
-        fspane::FsPane,
         item::PathItem,
+        pane::FsPane,
         state::{FILTERS, STACK, TEMP},
     },
 };
 
 // before reload, store a recovery method
-pub fn sync_handler<'a>(
-    state: &mut MMState<'a>,
+pub fn sync_handler(
+    state: &mut MMState<'_, '_>,
     _: &Event,
 ) -> Effects {
     // SORTING

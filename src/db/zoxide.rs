@@ -30,6 +30,9 @@ pub struct HistoryConfig {
     pub resolve_symlinks: bool,
     /// Experimental
     pub base_dir: Option<String>,
+
+    /// Default: smart (only if keyword contains capitalization)
+    pub case_sensitive: Option<bool>,
 }
 
 impl Default for HistoryConfig {
@@ -42,6 +45,7 @@ impl Default for HistoryConfig {
             atime_expiry: Default::default(),
             base_dir: Default::default(),
             refind: Default::default(),
+            case_sensitive: Default::default(),
         }
     }
 }
@@ -70,7 +74,7 @@ impl Connection {
                 }
                 Some(true) => {
                     if let Ok(cwd) = std::env::current_dir()
-                        && cwd.as_path() == e.path.as_path()
+                        && cwd == e.path.canonicalize().unwrap_or(e.path.inner())
                     {
                         match db_filter.refind {
                             RetryStrat::Next => continue,
@@ -93,9 +97,9 @@ impl Connection {
             }
         }
 
-        if let Some(p) = found.as_ref() {
-            self.bump(p, 1).await._elog();
-        };
+        // if let Some(p) = found.as_ref() {
+        //     self.bump(p, 1).await._elog();
+        // };
         if !remove.is_empty() {
             self.remove_entries(&remove).await._elog();
         }
@@ -124,14 +128,16 @@ impl Connection {
         entries.sort_by_key(|e| std::cmp::Reverse(db_filter.score(e)));
 
         for e in entries {
+            dbg!(&e);
             match db_filter.filter(&e.path, e.atime) {
                 None => {
                     remove.push(e.path.clone());
                 }
                 Some(true) => {
                     if let Ok(cwd) = std::env::current_dir()
-                        && cwd.as_path() == e.path.as_path()
+                        && cwd == e.path.canonicalize().unwrap_or(e.path.inner())
                     {
+                        dbg!(&e, cwd);
                         match db_filter.refind {
                             RetryStrat::Next => continue,
                             RetryStrat::None => {}
@@ -155,7 +161,7 @@ impl Connection {
         let _found = found.clone();
 
         tokio::spawn(async move {
-            if let Some(p) = _found.as_ref() {
+            if let Some(p) = _found {
                 self.bump(p, 1).await._elog();
             };
             if !remove.is_empty() {
@@ -193,6 +199,7 @@ pub struct DbFilter {
     /// filter_before is stored as epoch seconds
     base_dir: Option<String>,
     pub refind: RetryStrat,
+    pub case_sensitive: Option<bool>,
 }
 
 impl DbFilter {
@@ -212,6 +219,7 @@ impl DbFilter {
             resolve_symlinks: config.resolve_symlinks,
             refind: config.refind,
             base_dir: config.base_dir.clone(),
+            case_sensitive: config.case_sensitive,
         }
     }
 
@@ -272,8 +280,15 @@ impl DbFilter {
         &self,
         e: &Entry,
     ) -> i32 {
+        Self::_score(self.now, e)
+    }
+
+    pub fn _score(
+        now: Epoch,
+        e: &Entry,
+    ) -> i32 {
         let Entry { atime, count, .. } = e;
-        let age_secs = self.now - atime;
+        let age_secs = now - atime;
         let count = *count * 4;
 
         if age_secs <= 60 * 60 {
@@ -366,7 +381,17 @@ impl DbFilter {
                 if slice
                     .iter()
                     .zip(key_components.iter())
-                    .all(|(c, k)| is_monotonic_substring(c, k))
+                    .all(|(c, k)| match self.case_sensitive {
+                        Some(true) => is_monotonic_substring(c, k), // fully case-sensitive
+                        Some(false) => is_monotonic_substring(&c.to_lowercase(), &k.to_lowercase()), // fully insensitive
+                        None => {
+                            if k.chars().any(|ch| ch.is_uppercase()) {
+                                is_monotonic_substring(c, k) // sensitive
+                            } else {
+                                is_monotonic_substring(&c.to_lowercase(), k) // insensitive
+                            }
+                        }
+                    })
                 {
                     idx = start;
                     found = true;

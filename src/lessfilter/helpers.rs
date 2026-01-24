@@ -19,9 +19,12 @@ pub fn header_viewer(path: &Path) -> Vec<OsString> {
     vec_![]
 }
 
+// don't show header when printing to tty
 pub fn show_header(path: &Path) {
-    println!("{}", path.to_string_lossy().italic().dim());
-    println!();
+    if !atty::is(atty::Stream::Stdout) {
+        println!("{}", path.to_string_lossy().italic().dim());
+        println!();
+    }
 }
 
 // ----------------- IMAGE ---------------------------------

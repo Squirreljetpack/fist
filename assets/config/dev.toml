@@ -1,5 +1,5 @@
 [panes.nav]
-show_preview = true
+    show_preview = true
 
 [misc]
-append_mode_logging = true
+    append_mode_logging = true
