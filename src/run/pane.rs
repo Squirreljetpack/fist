@@ -150,15 +150,33 @@ impl FsPane {
         cmd: DefaultCommand,
         cwd: AbsPath,
     ) -> Self {
+        let DefaultCommand {
+            sort,
+            mut vis,
+            types,
+            paths,
+            fd,
+            ..
+        } = cmd;
+
+        // autoenable hidden for alphanumeric patterns beginning with .
+        // hidden is not auto-enabled for the escaped prefix \. because it's plausible that's used to search for non-hidden extensions
+        if paths.last().and_then(|s| s.to_str()).is_some_and(|s| {
+            let mut chars = s.chars();
+            chars.next() == Some('.') && chars.all(|c| c.is_alphanumeric())
+        }) {
+            vis.hidden = true;
+        }
+
         Self::Fd {
             cwd,
             complete: Default::default(),
             input: Default::default(), // probably will be filled later
-            sort: cmd.sort.unwrap_or_default(),
-            vis: cmd.vis,
-            types: cmd.types,
-            paths: cmd.paths,
-            fd_args: cmd.fd,
+            sort: sort.unwrap_or_default(),
+            vis,
+            types,
+            paths,
+            fd_args: fd,
         }
     }
 

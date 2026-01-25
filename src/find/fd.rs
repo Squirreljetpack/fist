@@ -60,14 +60,27 @@ pub fn default_home_exclusions() -> Vec<String> {
     }
 }
 pub fn build_fd_args(
-    vis: Visibility,
+    mut vis: Visibility,
     types: &[FileTypeArg],
     paths: &[OsString],
     fd_args: &[OsString],
     cfg: &FdConfig,
 ) -> Vec<OsString> {
     let mut ret = vec![];
-    let no_ext = false;
+    let mut no_ext = false;
+
+    // Initialize extra args
+    // Add base args and user/default args
+    let mut extra_args: Vec<OsString> = cfg.base_args.iter().map(|s| s.into()).collect();
+
+    if fd_args.is_empty() {
+        extra_args.extend(cfg.default_args.iter().map(|s| s.into()));
+    } else {
+        extra_args.extend(fd_args.iter().cloned());
+    }
+
+    let full_path_pattern = extra_args.iter().any(|x| x == "--full-path" || x == "p");
+    let glob_pattern = extra_args.iter().any(|x| x == "--glob" || x == "p");
 
     // add -t + -e
     for t in types {
@@ -93,10 +106,41 @@ pub fn build_fd_args(
             FileTypeArg::Group(_grp) => {
                 panic!("Custom groups not yet implemented")
             }
+            FileTypeArg::NoExt => {
+                no_ext = true;
+            }
+        }
+    }
+
+    if no_ext {
+        if full_path_pattern || glob_pattern {
+            wbog!("no_ext filtering is not supported with flags: --glob, --full-path, or -p");
+        } else {
+            ret.push("--and".into());
+            ret.push("^[^.]+$".into()); // no extension
+        }
+    }
+
+    // "smart" vis settings
+    // allow base_args to override the default true for vis.follow
+    vis.no_follow |= cfg.base_args.iter().any(|x| x == "--no-follow");
+    // auto-enable hidden on some patterns
+    if !full_path_pattern && !vis.hidden_files && !vis.all() {
+        if (glob_pattern
+            && paths
+                .last()
+                .is_some_and(|s| s.to_string_lossy().starts_with('.')))
+            || (!glob_pattern
+                && paths
+                    .last()
+                    .is_some_and(|s| s.to_string_lossy().starts_with("^\\.")))
+        {
+            vis.hidden = true;
         }
     }
 
     // add vis flags
+
     if vis.all() {
         ret.push("--hidden".into());
         ret.push("--no-ignore".into());
@@ -160,42 +204,14 @@ pub fn build_fd_args(
         ret.push(p.clone());
     }
 
-    // Add base args and user/default args
-    ret.extend(cfg.base_args.iter().map(|s| s.into()));
-
-    // allow base_args to override the default true for vis.follow
-    if !cfg.base_args.iter().any(|x| x == "--no-follow") {
-        if !vis.no_follow {
-            ret.push("--follow".into());
-        } else {
-            ret.push("--no-follow".into());
-        }
-    }
-
-    if fd_args.is_empty() {
-        ret.extend(cfg.default_args.iter().map(|s| s.into()));
-    } else {
-        ret.extend(fd_args.iter().cloned());
-    }
-
-    if no_ext {
-        if ret
-            .iter()
-            .any(|x| x == "--glob" || x == "--full-path" || x == "p")
-        {
-            wbog!("No ext filtering is not supported with flags: --glob, --full-path, or -p");
-        } else {
-            ret.push("--and".into());
-            ret.push("^[^.]+$".into()); // no extension
-        }
-    }
+    ret.append(&mut extra_args);
 
     ret
 }
 
 // ------- FileTypeArg -----------
 
-/// Filetypes: [f, d, l, b, c, x, e, s p].
+/// Filetypes: [f, d, l, b, c, x, e, s, p].
 ///
 /// Categories: [img, vid, aud, doc, tmp, src, conf, …].
 ///
@@ -208,12 +224,17 @@ pub enum FileTypeArg {
     FileCategory(FileCategory),
     Ext(String),
     Group(String), // todo: custom groups in config
+    /// Limit search to files with no extension
+    NoExt,
 }
 
 impl std::str::FromStr for FileTypeArg {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            return Ok(Self::NoExt);
+        }
         let s_lower = s.to_lowercase();
 
         // extension if starts with "."
