@@ -21,7 +21,7 @@ use crate::{
     run::action::FsAction,
     ui::{
         filters_overlay::FiltersConfig, menu_overlay::MenuConfig, prompt_overlay::PromptConfig,
-        stash_overlay::StackConfig,
+        stash_overlay::StashConfig,
     },
 };
 
@@ -34,7 +34,7 @@ pub struct MMConfig {
     pub render: RenderConfig,
 
     // overlays
-    pub scratch: StackConfig,
+    pub scratch: StashConfig,
     pub filters: FiltersConfig,
     pub prompt: PromptConfig,
     pub menu: MenuConfig,

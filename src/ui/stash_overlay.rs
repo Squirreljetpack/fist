@@ -5,7 +5,9 @@ use crate::{
     },
     utils::format_size,
 };
-use cli_boilerplate_automation::{bath::PathExt, impl_transparent_wrapper, text::StrExt, vec_};
+use cli_boilerplate_automation::{
+    bath::PathExt, bum::Float32Ext, impl_transparent_wrapper, text::StrExt, vec_,
+};
 use matchmaker::{
     action::{Action, Count},
     config::{self, BorderSetting},
@@ -23,13 +25,13 @@ use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct StackConfig {
+pub struct StashConfig {
     pub border: BorderSetting,
     pub bar_width: BarWidth,
     pub column_spacing: usize,
 }
 
-impl Default for StackConfig {
+impl Default for StashConfig {
     fn default() -> Self {
         let border = BorderSetting {
             sides: Borders::ALL,
@@ -47,18 +49,18 @@ impl_transparent_wrapper!(BarWidth, u16, 15);
 // ratatui table
 // current row is highlighted
 // columns: item.path, size, details (currently just says cp, mv or sym)
-pub struct StackOverlay {
+pub struct StashOverlay {
     table_state: TableState,
     editing: Option<(usize, String)>, // editing column + original buffer item
-    config: StackConfig,
+    config: StashConfig,
     widths: [u16; 4], // stored to help compute table widths
     headers: [String; 4],
     available_path_w: u16,
 }
 
-impl StackOverlay {
+impl StashOverlay {
     /// Creates a new `ScratchOverlay`.
-    pub fn new(config: StackConfig) -> Self {
+    pub fn new(config: StashConfig) -> Self {
         Self {
             table_state: TableState::new(),
             editing: None,
@@ -113,10 +115,7 @@ impl StackOverlay {
             dst_w = dst_w.max(item.dst.to_string_lossy().width() as u16);
         }
 
-        let mut size_w = self.headers[3].len() as u16; // self.config.bar_width.max(self.headers[1].width() as u16);
-        for s in &size_col {
-            size_w = size_w.max(s.width() as u16 + 1);
-        }
+        let mut size_w = 10;
 
         let available_path_w = available_ui_w
             .saturating_sub(self.config.border.width())
@@ -181,7 +180,7 @@ impl StackOverlay {
     }
 }
 
-impl Overlay for StackOverlay {
+impl Overlay for StashOverlay {
     type A = FsAction;
 
     fn on_enable(
@@ -363,27 +362,11 @@ impl Overlay for StackOverlay {
 impl StashItemStatus {
     pub fn render(
         &self,
-        cfg: &StackConfig,
+        cfg: &StashConfig,
     ) -> Line<'static> {
         let size = self.size.load(Ordering::Relaxed);
         let progress = self.progress.load(Ordering::Relaxed);
         let state = self.state.load();
-
-        if matches!(state, StashItemState::Started) {
-            let percent = (progress as f32 / 255.0) * 100.0;
-            let mut text = format!("{:5.2}%", percent).pad_to(1, 10, std::fmt::Alignment::Center);
-            text = text.pad(
-                10usize.saturating_sub(text.len()) / 2,
-                11usize.saturating_sub(text.len()) / 2,
-            );
-
-            let (left, right) = text.split_at((progress as f32 / 25.5).round() as usize);
-
-            Line::default().spans([
-                Span::styled(left.to_string(), Style::default().bg(Color::Cyan)),
-                Span::styled(right.to_string(), Color::Cyan),
-            ]);
-        };
 
         // bar is too hard to size although it would be cool
         // (
@@ -395,15 +378,33 @@ impl StashItemStatus {
         //     ),
         //     8,
         // )
-        let bar_text = format_size(size).pad_to(1, 10, std::fmt::Alignment::Left);
 
         let style = match state {
             StashItemState::Pending => Style::default(),
-            StashItemState::Started => unreachable!(),
+            StashItemState::Started => {
+                let percent = (progress as f32 / 255.0);
+                let mut text =
+                    format!("{:5.2}%", percent * 100.0).pad_to(10, std::fmt::Alignment::Center);
+                let (left, right) = if percent == 1.0 {
+                    (text.as_str(), "")
+                } else {
+                    text.split_at((percent * 10.0)._trunc())
+                };
+
+                return Line::default().spans([
+                    Span::styled(left.to_string(), Style::default().bg(Color::Cyan)),
+                    Span::styled(right.to_string(), Color::Cyan),
+                ]);
+            }
             StashItemState::CompleteOk => Style::default().fg(Color::Green),
             StashItemState::PendingErr => Style::default().fg(Color::LightRed),
             StashItemState::CompleteErr => Style::default().fg(Color::Red),
         };
+
+        let size_text = format_size(size);
+        let bar_text = size_text
+            .pad((size_text.len() <= 9) as usize, 0)
+            .pad_to(10, std::fmt::Alignment::Left);
 
         Line::styled(bar_text, style)
     }

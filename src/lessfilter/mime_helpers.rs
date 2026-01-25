@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read, path::Path};
+use std::{fs::File, io::Read, path::Path, str::FromStr};
 
 use charset_normalizer_rs::from_path;
 use cli_boilerplate_automation::bait::BoolExt;
@@ -6,9 +6,9 @@ use mime_guess::{Mime, mime};
 
 // wrapper cuz we can't add a param to Mime
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct Myme {
-    pub mime: Mime,
+    pub mime: Option<Mime>,
     pub enc: Option<String>,
 }
 
@@ -17,15 +17,19 @@ impl Myme {
         path: &Path,
         infer: bool,
     ) -> Myme {
-        let mime: Mime = if path.is_dir() {
-            "directory/*".parse().unwrap()
-        } else if infer && let Some(kind) = infer::get_from_path(path).ok().flatten() {
-            kind.mime_type()
-                .parse()
-                .unwrap_or(mime::APPLICATION_OCTET_STREAM)
+        // not sure if its faster to do this pre-check
+        if path.is_dir() {
+            return Myme {
+                mime: Mime::from_str("directory/*").ok(),
+                enc: None,
+            };
+        }
+
+        let mime = if infer && let Some(kind) = infer::get_from_path(path).ok().flatten() {
+            kind.mime_type().parse().ok()
         } else {
             let guess = mime_guess::from_path(path);
-            guess.first().unwrap_or(mime::APPLICATION_OCTET_STREAM)
+            guess.first()
         };
 
         let enc = infer.and_then(|| detect_charset(path));

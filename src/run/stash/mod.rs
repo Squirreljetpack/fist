@@ -99,6 +99,7 @@ impl StashItem {
                     status.state.store(StashItemState::CompleteErr);
                 }
             }
+            return;
         }
 
         let StashItemStatus {

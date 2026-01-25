@@ -6,7 +6,7 @@ use cli_boilerplate_automation::{
 use globset::GlobBuilder;
 use std::{
     env::{current_dir, set_current_dir},
-    path::{MAIN_SEPARATOR, PathBuf},
+    path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR, PathBuf},
     process::{Command, exit},
 };
 
@@ -286,18 +286,23 @@ async fn handle_default(
         cfg.history.show_missing = false;
 
         // cd = true + last arg ends in slash -> interactively navigate the best match
-        let nav_pane = cmd
-            .paths
-            .last()
-            .is_some_and(|s| s.to_string_lossy().ends_with(MAIN_SEPARATOR));
+
+        let nav_pane = match cmd.paths.last() {
+            Some(s) if s == MAIN_SEPARATOR_STR => {
+                // treat last arg / as last arg ending in / because there is no posix way to modify last arg to end in /
+                cmd.paths.pop();
+                true
+            }
+            Some(s) if s.to_string_lossy().ends_with(MAIN_SEPARATOR) => true, // maybe this should be optional
+            _ => false,
+        };
 
         // determine cwd
         let cwd = if cmd.paths.len() > 1
-            || (nav_pane
-                && (
-                    // only element = / => search in current dir
-                    cmd.paths.len() == 1 && cmd.paths[0].len() != 1
-                ))
+            || (
+                nav_pane && !cmd.paths.is_empty()
+                // this happens when only path given is /
+            )
         // treat paths as zoxide args
         {
             let conn = pool.get_conn(DbTable::dirs).await?;

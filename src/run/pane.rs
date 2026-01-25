@@ -555,7 +555,8 @@ impl FsPane {
                                     files.sort_by(|a, b| a.file_name().cmp(&b.file_name()))
                                 }
                                 SortOrder::mtime => sort_by_mtime(&mut files),
-                                _ => unreachable!(),
+                                SortOrder::size => todo!(),
+                                SortOrder::none => unreachable!(),
                             }
 
                             for path in files.into_iter() {

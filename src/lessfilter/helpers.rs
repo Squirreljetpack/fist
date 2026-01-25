@@ -1,14 +1,18 @@
 //! random utilities
 
-use std::cell::OnceCell;
 use std::env;
 use std::ffi::OsString;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::Mutex;
+use std::{cell::OnceCell, fs::File};
 
-use cli_boilerplate_automation::{prints, vec_};
+use cli_boilerplate_automation::bo::map_reader_lines;
+use cli_boilerplate_automation::text::TableBuilder;
+use cli_boilerplate_automation::{bo::MapReaderError, bog::BogOkExt, broc::has, prints, vec_};
 use crossterm::style::Stylize;
+
+use crate::cli::paths::current_exe;
 
 #[allow(clippy::ptr_arg)]
 pub fn is_header(cmd: &Vec<OsString>) -> bool {
@@ -19,12 +23,115 @@ pub fn header_viewer(path: &Path) -> Vec<OsString> {
     vec_![]
 }
 
+#[allow(clippy::ptr_arg)]
+pub fn is_metadata(cmd: &Vec<OsString>) -> bool {
+    cmd.len() == 1 && cmd[0].is_empty()
+}
+
+pub fn metadata_viewer(path: &Path) -> Vec<OsString> {
+    vec_![""]
+}
+
 // don't show header when printing to tty
 pub fn show_header(path: &Path) {
     if !atty::is(atty::Stream::Stdout) {
         println!("{}", path.to_string_lossy().italic().dim());
         println!();
     }
+}
+
+pub fn show_metadata(path: &Path) -> bool {
+    if path.is_file() {
+        if has("file") {
+            let mut cmd = Command::new("file");
+
+            // custom extra info
+            let _path = path.to_path_buf();
+            let join = mime_guess::from_path(path)
+                .first()
+                .is_some_and(|mime| mime.type_() == "text")
+                .then_some(std::thread::spawn(move || count_file(_path)));
+
+            let ret = cmd
+                .arg("-bL")
+                .arg(path)
+                // .stderr(Stdio::null())
+                .output()
+                ._ebog();
+
+            if let Some(s) = &ret {
+                let s = String::from_utf8_lossy(&s.stdout);
+                if !atty::is(atty::Stream::Stdout) {
+                    println!("\n");
+                }
+                println!("{}", s.dim().italic())
+            };
+
+            if let Some(join) = join {
+                match join.join() {
+                    Ok(Ok(counts)) => {
+                        let mut table = TableBuilder::new([11, 10, 9])
+                            .header(["chars", "words", "lines"])
+                            .separator("—".repeat(30).dim().italic())
+                            .row(counts)
+                            .header_formatter(|s, _| s.dim().italic().to_string())
+                            .cell_formatter(|s, _| s.dim().italic().to_string());
+
+                        if !atty::is(atty::Stream::Stdout) && ret.is_none() {
+                            println!("\n");
+                        }
+                        table.print();
+                    }
+                    _ => {
+                        // error
+                    }
+                }
+            }
+            ret.is_some_and(|o| o.status.success())
+        } else {
+            eprintln!("Error: The built-in metadata viewer requires the 'file' program.",);
+            false
+        }
+    } else {
+        let mut cmd = Command::new(current_exe());
+        cmd.args([
+            ":tool", "liza", ":l", //"--no-header",
+            "--",
+        ])
+        .arg(path)
+        .status()
+        ._ebog()
+        .is_some_and(|s| s.success())
+    }
+}
+
+fn count_file<P: AsRef<Path>>(path: P) -> Result<[usize; 3], MapReaderError<()>> {
+    let path = path.as_ref();
+    let file = File::open(path).map_err(|_| MapReaderError::ChunkError(0))?;
+
+    let mut chars = 0usize;
+    let mut words = 0usize;
+    let mut lines = 0usize;
+    let mut in_word = false;
+
+    map_reader_lines::<true, _>(file, |line| {
+        lines += 1;
+
+        for c in line.chars() {
+            chars += 1;
+            if c.is_whitespace() {
+                in_word = false;
+            } else if !in_word {
+                in_word = true;
+                words += 1;
+            }
+        }
+
+        in_word = false;
+        Ok(())
+    })?;
+
+    Ok([chars, words, lines])
 }
 
 // ----------------- IMAGE ---------------------------------

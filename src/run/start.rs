@@ -30,7 +30,7 @@ use crate::{
     spawn::{Program, open_wrapped},
     ui::{
         filters_overlay::FilterOverlay, global::global_ui_init, menu_overlay::MenuOverlay,
-        stash_overlay::StackOverlay,
+        stash_overlay::StashOverlay,
     },
     watcher::FsWatcher,
 };
@@ -127,7 +127,7 @@ pub async fn start(
         .ext_aliaser(fsaction_aliaser)
         .paste_handler(paste_handler)
         .matcher(MATCHER_CONFIG)
-        .overlay(StackOverlay::new(scratch))
+        .overlay(StashOverlay::new(scratch))
         .overlay(FilterOverlay::new(filters))
         .overlay(MenuOverlay::new(menu, prompt));
 

@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 
 use super::{action::*, file_rule::*, rule_matcher::*, *};
 use crate::abspath::AbsPath;
-use crate::cli::paths::{current_exe, metadata_viewer_path, text_renderer_path};
+use crate::cli::paths::{current_exe, text_renderer_path};
+use crate::lessfilter::helpers::metadata_viewer;
 use cli_boilerplate_automation::vec_;
 use tempfile::tempdir;
 
@@ -111,7 +112,7 @@ fn test_image_file_matching() {
     assert_eq!(extended_progs.0.len(), 3);
     assert!(extended_progs.0[0].is_empty()); // header
     assert_eq!(extended_progs.0[1][0], OsString::from("chafa")); // image viewer
-    assert_eq!(extended_progs.0[2][0], metadata_viewer_path()); // metadata
+    assert_eq!(extended_progs.0[2], metadata_viewer(&path)); // metadata
 }
 
 #[test]
@@ -127,7 +128,7 @@ fn test_archive_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(progs.0[0], vec![metadata_viewer_path(), &path]);
+    assert_eq!(progs.0[0], metadata_viewer(&path));
 }
 
 #[test]
@@ -146,7 +147,7 @@ fn test_fallback_to_metadata() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(progs.0[0], vec![metadata_viewer_path(), &path]);
+    assert_eq!(progs.0[0], metadata_viewer(&path));
 }
 
 // Temporary test to debug mime types
