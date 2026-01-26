@@ -9,9 +9,11 @@ use serde::{Deserialize, Deserializer};
 use crate::abspath::AbsPath;
 use crate::arr;
 use crate::cli::BINARY_SHORT;
-use crate::cli::paths::{current_exe, metadata_viewer_path, show_error_path, text_renderer_path};
+use crate::cli::paths::{current_exe, show_error_path, text_renderer_path};
 use crate::lessfilter::file_rule::FileData;
-use crate::lessfilter::helpers::{header_viewer, image_viewer, infer_editor, infer_visual};
+use crate::lessfilter::helpers::{
+    header_viewer, image_viewer, infer_editor, infer_visual, metadata_viewer,
+};
 use crate::lessfilter::{LessfilterConfig, Preset};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, serde::Serialize)]
@@ -95,9 +97,8 @@ impl Action {
                 Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
             },
             Action::Text => match preset {
-                Preset::Edit => (arr![infer_editor(path)], [true, true, false]),
-                Preset::Info => (
-                    arr![vec_![metadata_viewer_path(), path]],
+                Preset::Preview | Preset::Display => (
+                    arr![vec_![text_renderer_path(), path]],
                     [true, false, false],
                 ),
                 // another approach is to enable the "native" header in the handler:
@@ -106,39 +107,38 @@ impl Action {
                 // }
                 // but using our app header is more consistent
                 Preset::Extended => (
-                    arr![header_viewer(path), vec_![text_renderer_path(), path]],
+                    arr![
+                        header_viewer(path),
+                        vec_![text_renderer_path(), path],
+                        metadata_viewer(path)
+                    ],
                     [true, false, false],
                 ),
-                Preset::Preview => (
-                    arr![vec_![text_renderer_path(), path]],
-                    [true, false, false],
-                ),
-                Preset::Display => (
-                    arr![vec_![text_renderer_path(), path]],
-                    [true, false, false],
-                ),
+                Preset::Info => (arr![metadata_viewer(path)], [true, false, false]),
+                Preset::Edit => (arr![infer_editor(path)], [true, true, false]),
+
                 Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
             },
             Action::Image => match preset {
+                Preset::Preview | Preset::Display => {
+                    (arr![image_viewer(path)], [true, false, false])
+                }
                 Preset::Extended => (
                     arr![
                         header_viewer(path),
                         image_viewer(path),
-                        vec_![metadata_viewer_path(), path]
+                        metadata_viewer(path)
                     ],
                     [true, false, false],
                 ),
                 Preset::Info => (
-                    arr![header_viewer(path), vec_![metadata_viewer_path(), path]],
+                    arr![header_viewer(path), metadata_viewer(path)],
                     [true, false, false],
                 ),
                 Preset::Edit => (
                     arr![vec_![current_exe(), ":open", "--", path]],
                     [true, false, false],
                 ),
-                Preset::Preview | Preset::Display => {
-                    (arr![image_viewer(path)], [true, false, false])
-                }
                 Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
             },
             Action::Open => (
@@ -147,24 +147,21 @@ impl Action {
             ),
             Action::Metadata => match preset {
                 Preset::Extended => (
-                    arr![header_viewer(path), vec_![metadata_viewer_path(), path]],
-                    [true, false, false],
-                ),
-                Preset::Edit => (
-                    arr![vec_![show_error_path(), "No handler configured."]],
+                    arr![header_viewer(path), metadata_viewer(path)],
                     [true, false, false],
                 ),
                 Preset::Info => (
                     arr![
                         vec_![current_exe(), ":tool", "liza", ":l", path],
-                        vec_![metadata_viewer_path(), path]
+                        metadata_viewer(path)
                     ],
                     [true, false, true],
                 ),
-                _ => (
-                    arr![vec_![metadata_viewer_path(), path]],
+                Preset::Edit => (
+                    arr![vec_![show_error_path(), "No handler configured."]],
                     [true, false, false],
                 ),
+                _ => (arr![metadata_viewer(path)], [true, false, false]),
             },
             Action::Header => (arr![header_viewer(path)], [true, false, false]),
             Action::Custom(_) => unreachable!(),

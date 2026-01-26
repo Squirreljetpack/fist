@@ -128,7 +128,6 @@ impl Connection {
         entries.sort_by_key(|e| std::cmp::Reverse(db_filter.score(e)));
 
         for e in entries {
-            dbg!(&e);
             match db_filter.filter(&e.path, e.atime) {
                 None => {
                     remove.push(e.path.clone());
@@ -137,7 +136,6 @@ impl Connection {
                     if let Ok(cwd) = std::env::current_dir()
                         && cwd == e.path.canonicalize().unwrap_or(e.path.inner())
                     {
-                        dbg!(&e, cwd);
                         match db_filter.refind {
                             RetryStrat::Next => continue,
                             RetryStrat::None => {}

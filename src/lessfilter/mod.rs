@@ -18,7 +18,9 @@ use std::process::{Command, Stdio};
 use std::{path::PathBuf, process::exit};
 
 use crate::cli::clap_tools::LessfilterCommand;
-use crate::lessfilter::helpers::{header_viewer, is_header, show_header};
+use crate::lessfilter::helpers::{
+    header_viewer, is_header, is_metadata, show_header, show_metadata,
+};
 use crate::utils::text::path_formatter;
 use crate::{
     abspath::AbsPath,
@@ -89,6 +91,9 @@ pub fn handle(
                             show_header(&path);
                             succeeded = true;
                         }
+                        continue;
+                    } else if is_metadata(&prog) {
+                        succeeded |= show_metadata(&path);
                         continue;
                     }
 

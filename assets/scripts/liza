@@ -83,24 +83,28 @@ for param; do
           ;;
         t)
           i_nl --no-filesize --no-permissions --no-user
-          long+=(-Umu --sort=modified --header) # timestamps
+          long+=(-Umu --sort=modified) # timestamps
+          header=--header
           ;;
         m)
           i_nl --no-filesize --no-permissions --no-user
-          long+=(--time=modified --sort=modified -r --header) # timestamps
+          long+=(--time=modified --sort=modified -r) # timestamps
+          header=--header
           ;;
         l) # cleaner long form (no hard-links)
           all=($_all)
 
           i_nl --no-permissions # meaning: permissions, user, time are shown
-          long+=(--sort=ext --header -on@ --group) # dev style: ocatl, extended.
+          long+=(--sort=ext -on@ --group) # dev style: ocatl, extended.
           # indicators (fifo/socket etc. with -F=always) not included since we have color.
+          header=--header
           ;;
         x) # longer long form
           all=($_all)
 
           i_nl
-          long+=(--sort=ext --header -n@ -ZuUmigO) # security context, accessed time, created time, inode, group, file flags on Mac/Win
+          long+=(--sort=ext '-n@' -ZuUmigO) # security context, accessed time, created time, inode, group, file flags on Mac/Win
+          header=--header
           ;;
         u)
           parsed+=($_user)
@@ -145,6 +149,9 @@ for param; do
       pargs+=($param)
       skip=true
       continue
+    elif [[ $param == --no-header ]]; then
+      header=
+      continue
     elif [[ $param == -- ]]; then
       skip=true
     fi
@@ -165,7 +172,7 @@ page() {
   fi
 }
 
-params=($all $parsed $nlong $long $args $pargs)
+params=($all $parsed $nlong $long $header $args $pargs)
 
 if true; then
   idx=${params[(i)--hyperlink]}

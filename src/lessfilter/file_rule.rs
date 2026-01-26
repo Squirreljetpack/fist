@@ -11,6 +11,7 @@ use crate::abspath::AbsPath;
 use crate::lessfilter::TestSettings;
 use crate::lessfilter::mime_helpers::Myme;
 use crate::lessfilter::rule_matcher::{DefaultScore, Score, Test};
+use crate::utils::filetypes::FileType;
 
 /// compiled GlobMatcher
 pub type Glob = GlobMatcher;
@@ -20,6 +21,15 @@ pub type Glob = GlobMatcher;
 pub struct FileRule {
     pub kind: FileRuleKind,
     pub invert: bool,
+}
+
+impl From<FileRuleKind> for FileRule {
+    fn from(kind: FileRuleKind) -> Self {
+        Self {
+            kind,
+            invert: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -43,7 +53,8 @@ pub enum FileRuleKind {
     /// True if the specified program doesn't exist.
     /// Parsed with invert from have:prog.
     /// Score modifiers should not be set on this rule!
-    NotHave(String), // The default score has the effect: have:x -> NotHave -> Min(0). !have:x -> has x -> Min(0).
+    Have(String), // The default score has the effect: have:x -> NotHave -> Min(0). !have:x -> has x -> Min(0).
+    FileType(FileType),
 }
 
 /// This is the [`super::rule_matcher::Test::Context`] for a path
@@ -55,6 +66,7 @@ pub struct FileData {
     pub mime: Myme,
     // [read, write, execute]
     pub permissions: [bool; 3],
+    pub ft: FileType,
 }
 
 impl FileData {
@@ -65,14 +77,23 @@ impl FileData {
     ) -> Self {
         // 2. Permissions (Read, Write, Execute)
         let permissions = permissions(&path);
+        let ft = FileType::get(&path);
 
         // 3. Mime Detection
-        let mime = Myme::from_path(&path, settings.infer);
+        let mime = if matches!(
+            ft,
+            FileType::File | FileType::Directory | FileType::Executable | FileType::Symlink
+        ) {
+            Myme::from_path(&path, settings.infer)
+        } else {
+            Myme::default()
+        };
 
         Self {
             path,
             children: OnceLock::new(),
             mime,
+            ft,
             permissions,
         }
     }
@@ -110,14 +131,32 @@ impl Test<Path> for FileRule {
             }
 
             FileRuleKind::Mime([type_, subtype]) => {
-                let mime = &data.mime;
-                let type_ok =
-                    type_.is_empty() || type_ == "*" || mime.mime.type_() == type_.as_str();
+                let Myme {
+                    mime: Some(mime),
+                    enc,
+                } = &data.mime
+                else {
+                    return if type_ == "text" {
+                        data.mime
+                            .enc
+                            .as_ref()
+                            .map(|c| {
+                                let c = c.as_str().to_ascii_lowercase();
+                                c.contains("utf-8") || c.contains("unicode") || c.contains("ascii")
+                            })
+                            .unwrap_or(false)
+                    } else if type_ == "directory" {
+                        // directory mimes are parsed so this should almost never activate
+                        item.is_dir()
+                    } else {
+                        type_ == "*" && (subtype == "*" || subtype.is_empty())
+                    };
+                };
+                let type_ok = type_.is_empty() || type_ == "*" || mime.type_() == type_.as_str();
                 let subtype_ok =
-                    subtype.is_empty() || subtype == "*" || mime.mime.subtype() == subtype.as_str();
+                    subtype.is_empty() || subtype == "*" || mime.subtype() == subtype.as_str();
 
-                let charset_text_ok = mime
-                    .enc
+                let charset_text_ok = enc
                     .as_ref()
                     .map(|c| {
                         let c = c.as_str().to_ascii_lowercase();
@@ -138,7 +177,9 @@ impl Test<Path> for FileRule {
                 .iter()
                 .any(|child| child_glob.is_match(child)),
 
-            FileRuleKind::NotHave(cmd) => has(cmd),
+            FileRuleKind::FileType(ft) => ft == &data.ft,
+
+            FileRuleKind::Have(cmd) => has(cmd),
         };
 
         if self.invert { !ok } else { ok }
@@ -152,7 +193,8 @@ impl DefaultScore for FileRule {
             FileRuleKind::Child(_) => Score::Max(50),
             FileRuleKind::Mime(_) => Score::Max(20),
             FileRuleKind::Ext(_) => Score::Max(10),
-            FileRuleKind::NotHave(_) => Score::Min(0), // if don't have, set to 0, yes this is confusing when priority is given
+            FileRuleKind::Have(_) => Score::Req,
+            FileRuleKind::FileType(_) => Score::Req,
         }
     }
 }
@@ -168,6 +210,9 @@ pub enum ParseFileRuleError {
 
     #[error("invalid mime specifier (expected type/subtype)")]
     InvalidMime,
+
+    #[error("invalid filetype specifier: {0}")]
+    InvalidFileType(#[from] strum::ParseError),
 
     #[error(transparent)]
     InvalidGlob(#[from] globset::Error),
@@ -206,8 +251,14 @@ impl FromStr for FileRule {
             }
             "have" => {
                 return Ok(FileRule {
-                    kind: FileRuleKind::NotHave(rest.to_string()),
-                    invert: !invert,
+                    kind: FileRuleKind::Have(rest.to_string()),
+                    invert,
+                });
+            }
+            "type" => {
+                return Ok(FileRule {
+                    kind: FileRuleKind::FileType(rest.parse()?),
+                    invert,
                 });
             }
             _ => return Err(ParseFileRuleError::InvalidPrefix),

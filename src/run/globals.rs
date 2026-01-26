@@ -2,7 +2,7 @@
 
 use std::{
     cell::RefCell,
-    sync::{LazyLock, Mutex, atomic::AtomicBool},
+    sync::{LazyLock, Mutex},
 };
 
 use cli_boilerplate_automation::bait::ResultExt;
@@ -11,7 +11,6 @@ use matchmaker::{
     action::Action,
     efx,
     event::RenderSender,
-    preview::AppendOnly,
     render::{Effect, Effects},
 };
 use ratatui::{
@@ -37,11 +36,6 @@ pub use filters::*;
 mod stack;
 pub use stack::*;
 
-// --------------- FSACTION STATE -------------------
-pub static RESTORE_INPUT: AtomicBool = AtomicBool::new(false); // triggered by reload, and checked by sync_handler
-thread_local! {
-    pub static PRINT_HANDLE: AppendOnly<String> = AppendOnly::new();
-}
 // ------------- TRACKING -----------------------
 thread_local! {
     static PREV_DIRECTORY: RefCell<Option<AbsPath>> = const { RefCell::new(None) };
@@ -172,12 +166,12 @@ impl GLOBAL {
         .ok();
     }
 
-    // pub fn send_render_command(msg: matchmaker::message::RenderCommand<FsAction>) {
-    //     let tx = RENDER_TX.lock().unwrap();
-    //     let tx = tx.as_ref().expect("render tx missing");
+    pub fn send_render_command(msg: matchmaker::message::RenderCommand<FsAction>) {
+        let tx = RENDER_TX.lock().unwrap();
+        let tx = tx.as_ref().expect("render tx missing");
 
-    //     tx.send(msg).elog().ok();
-    // }
+        tx.send(msg).elog().ok();
+    }
 
     /// must be called in initializing thread
     pub fn send_watcher(msg: WatcherMessage) {

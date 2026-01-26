@@ -47,7 +47,7 @@ pub struct Visibility {
     #[arg(short = 'h')]
     pub hidden: bool,
 
-    #[arg(short = 'H')]
+    #[arg(long)]
     /// show hidden files only
     pub hidden_files: bool,
 

@@ -91,10 +91,6 @@ impl Config {
                 include_str!("../assets/scripts/pager"),
             ),
             (
-                metadata_viewer_path(),
-                include_str!("../assets/scripts/fist_metadata_viewer"),
-            ),
-            (
                 binary_viewer_path(),
                 include_str!("../assets/scripts/fist_binary_viewer"),
             ),
@@ -201,7 +197,7 @@ impl Default for PanesSettings {
 /// Pane-specific settings
 pub struct PanesConfig {
     pub app: AppPaneSettings,
-    pub history: PaneSettings,
+    pub history: HistoryPaneSettings,
     pub nav: NavPaneSettings,
     pub stream: PaneSettings,
     pub fd: PaneSettings,
@@ -218,7 +214,7 @@ impl Default for PanesConfig {
             app: AppPaneSettings {
                 ..Default::default()
             },
-            history: PaneSettings {
+            history: HistoryPaneSettings {
                 ..Default::default()
             },
             nav: NavPaneSettings::default(),
@@ -317,7 +313,17 @@ impl Default for NavPaneSettings {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct HistoryPaneSettings {
+    /// Input prompt
+    pub prompt: Option<String>,
+    /// Whether to show the preview when switching to this pane. (Default: inherit).
+    pub show_preview: Option<bool>,
+    pub enter_prompt: bool,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AppPaneSettings {
     /// Input prompt
@@ -327,19 +333,6 @@ pub struct AppPaneSettings {
     pub enter_prompt: bool,
     // ----------------------------
     pub app_scan_directories: Vec<PathBuf>,
-}
-
-#[allow(clippy::derivable_impls)]
-impl Default for AppPaneSettings {
-    fn default() -> Self {
-        Self {
-            prompt: None,
-            show_preview: None,
-            enter_prompt: false,
-
-            app_scan_directories: Default::default(),
-        }
-    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

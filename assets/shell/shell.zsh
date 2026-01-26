@@ -28,15 +28,17 @@ function $${Z_NAME}() {
 
 function $${Z_SLASH_NAME}() {
   if (($#)) {
-    for last; do :; done
-    case $last in
-      */) ;;
-      *) last="$last/";;
-    esac
-
-    $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd -- $@;
+    $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd -- $@ /;
   } else {
     $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd /
+  } | {
+    read -r line
+    [ -n "$line" ] || return
+    if [ -d "$line" ]; then
+      cd "$line" || return
+    else
+      line="$(dirname "$line")" && [ -d "$line" ] && cd "$line" || return
+    fi
   }
 }
 

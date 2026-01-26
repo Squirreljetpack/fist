@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{fmt::Debug, marker::PhantomData, str::FromStr};
+use std::{fmt::Debug, marker::PhantomData, num::ParseIntError, str::FromStr};
 
 use serde::{Deserialize, Deserializer};
 
@@ -30,18 +30,29 @@ pub enum Score {
     Sub(u8),
     Max(u8),
     Min(u8),
+    Req,
 }
 
 impl Score {
+    // todo: lowpri: should we have invert field on score or filerule
     fn modify(
         &self,
         score: u8,
+        success: bool,
     ) -> u8 {
-        match *self {
-            Score::Add(v) => score.saturating_add(v),
-            Score::Sub(v) => score.saturating_sub(v),
-            Score::Max(v) => score.max(v),
-            Score::Min(v) => score.min(v),
+        if success {
+            match *self {
+                Score::Add(v) => score.saturating_add(v),
+                Score::Sub(v) => score.saturating_sub(v),
+                Score::Max(v) => score.max(v),
+                Score::Min(v) => score.min(v),
+                _ => score,
+            }
+        } else {
+            match *self {
+                Score::Req => 0,
+                _ => score,
+            }
         }
     }
 }
@@ -94,9 +105,7 @@ impl<T, A> RuleMatcher<T, A> {
             let mut score = 0u8;
 
             for r in rules {
-                if r.1.passes(item, &context) {
-                    score = r.0.modify(score);
-                }
+                score = r.0.modify(score, r.1.passes(item, &context));
             }
 
             if score >= best_score && score > 0 {
@@ -132,9 +141,7 @@ impl<T, A> RuleMatcher<T, A> {
             let mut score = 0u8;
 
             for r in rules {
-                if r.1.passes(item, &context) {
-                    score = r.0.modify(score);
-                }
+                score = r.0.modify(score, r.1.passes(item, &context));
             }
 
             eprintln!("rule id: {:?}, score: {}", id, score);
@@ -166,12 +173,8 @@ impl<T, A> RuleMatcher<T, A> {
         let mut top_indices = Vec::new();
 
         for (i, (rules, _id)) in self.rules.iter().enumerate() {
-            let score = rules.iter().fold(0u8, |s, r| {
-                if !r.1.passes(item, &context) {
-                    s
-                } else {
-                    r.0.modify(s)
-                }
+            let score = rules.iter().fold(0u8, |score, r| {
+                r.0.modify(score, r.1.passes(item, &context))
             });
 
             if score > max_score {
@@ -262,16 +265,19 @@ pub trait DefaultScore {
 #[allow(clippy::collapsible_if)]
 fn parse_rule_part<T: FromStr + DefaultScore>(s: &str) -> Result<(Score, T), <T as FromStr>::Err> {
     // escaped: \... → entire string is the rule, score comes from R
-    if s.starts_with('\\') {
+    if let Some(s) = s.strip_prefix('\\') {
         let r = T::from_str(s)?;
         return Ok((r.default_score(), r));
     }
 
+    // single prefix alias
     if let Some((first, rest)) = s.split_at_checked(1) {
         let score = match first {
             "+" => Some(Score::Add(1)),
             "-" => Some(Score::Sub(1)),
-            "_" => Some(Score::Min(1)),
+            "<" => Some(Score::Min(1)),
+            ">" => Some(Score::Max(1)),
+            "^" => Some(Score::Req),
             _ => None,
         };
 
@@ -282,16 +288,24 @@ fn parse_rule_part<T: FromStr + DefaultScore>(s: &str) -> Result<(Score, T), <T 
         }
     }
 
+    // parse | delimited
     if let Some((prefix, rest)) = s.split_once('|')
         && let Ok(r) = T::from_str(rest)
     {
-        let score = if let Some(stripped) = prefix.strip_prefix('_') {
+        let score =
+        // don't reflow
+        if let Some(stripped) = prefix.strip_prefix('<') {
             stripped.parse().map(Score::Min)
+        } else if let Some(stripped) = prefix.strip_prefix('>') {
+            stripped.parse().map(Score::Max)
         } else if let Some(stripped) = prefix.strip_prefix('-') {
             stripped.parse().map(Score::Sub)
         } else if let Some(stripped) = prefix.strip_prefix('+') {
             stripped.parse().map(Score::Add)
+        } else if prefix == "^" {
+            Ok(Score::Req)
         } else {
+            // 1|rule -> Max
             prefix.parse().map(Score::Max)
         };
 
@@ -300,7 +314,7 @@ fn parse_rule_part<T: FromStr + DefaultScore>(s: &str) -> Result<(Score, T), <T 
         }
     }
 
-    // default: parse whole string as rule
+    // default: parse whole string as rule, and fail on error
     let r = T::from_str(s)?;
     Ok((r.default_score(), r))
 }
@@ -312,8 +326,9 @@ fn format_rule_part<T: std::fmt::Display>(
     match score {
         Score::Add(v) => format!("+{}|{}", v, r),
         Score::Sub(v) => format!("-{}|{}", v, r),
-        Score::Max(v) => format!("{}|{}", v, r),
-        Score::Min(v) => format!("_{}|{}", v, r),
+        Score::Max(v) => format!(">{}|{}", v, r),
+        Score::Min(v) => format!("<{}|{}", v, r),
+        Score::Req => format!("^|{}", r),
     }
 }
 

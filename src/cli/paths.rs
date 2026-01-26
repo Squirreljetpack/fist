@@ -74,9 +74,5 @@ expr_as_path_fn!(lessfilter_cfg_path, config_dir().join("lessfilter.toml"));
 expr_as_path_fn!(liza_path, cache_dir().join("liza"));
 // renders text. Also pages the output if stdout is /dev/tty for convenience.
 expr_as_path_fn!(text_renderer_path, cache_dir().join("pager"));
-expr_as_path_fn!(
-    metadata_viewer_path,
-    cache_dir().join("fist_metadata_viewer")
-);
 expr_as_path_fn!(show_error_path, cache_dir().join("fist_show_error"));
 expr_as_path_fn!(binary_viewer_path, cache_dir().join("fist_binary_viewer"));
