@@ -7,4 +7,4 @@ pub mod paths;
 pub use clap::*;
 pub use clap_::*;
 pub mod env;
-pub mod matchmaker;
+pub mod mm_;

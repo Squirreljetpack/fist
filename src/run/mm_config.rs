@@ -182,18 +182,20 @@ pub fn get_mm_cfg(
     mm_cfg.binds = binds;
 
     // Render display
-    let render = &mut mm_cfg.render;
+    let RenderConfig {
+        ui,
+        input,
+        results,
+        preview,
+        footer,
+        header,
+        overlay,
+    } = &mut mm_cfg.render;
 
-    render.results.multi_prefix = render
-        .results
-        .multi_prefix
-        .chars()
-        .next()
-        .unwrap_or('▌')
-        .into(); // single width
-    render.results.right_align_last = true;
+    results.multi_prefix = results.multi_prefix.chars().next().unwrap_or('▌').into(); // single width
+    results.right_align_last = true;
 
-    render.footer = DisplayConfig {
+    *footer = DisplayConfig {
         match_indent: true,
         modifier: Default::default(),
         fg: Default::default(),
@@ -202,8 +204,8 @@ pub fn get_mm_cfg(
 
     // Preview display
     let default_command = Preset::Preview.to_command_string();
-    if render.preview.layout.len() <= 1 {
-        let (layout, command) = if let Some(p) = render.preview.layout.pop() {
+    if preview.layout.len() <= 1 {
+        let (layout, command) = if let Some(p) = preview.layout.pop() {
             (
                 p.layout,
                 if p.command.is_empty() {
@@ -216,7 +218,7 @@ pub fn get_mm_cfg(
             (Default::default(), default_command)
         };
 
-        render.preview.layout = vec![PreviewSetting { layout, command }]
+        preview.layout = vec![PreviewSetting { layout, command }]
     }
 
     // Overlay

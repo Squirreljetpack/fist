@@ -124,6 +124,9 @@ pub fn build_fd_args(
     // "smart" vis settings
     // allow base_args to override the default true for vis.follow
     vis.no_follow |= cfg.base_args.iter().any(|x| x == "--no-follow");
+    if !vis.no_follow {
+        ret.push("--follow".into());
+    }
     // auto-enable hidden on some patterns
     if !full_path_pattern && !vis.hidden_files && !vis.all() {
         if (glob_pattern

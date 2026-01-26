@@ -150,6 +150,8 @@ fn enter_dir_pane(path: AbsPath) {
 
 // note: since this happens before the batch process of actions, we do not support chaining custom actions
 // i.e. "current" saved inputs in chained actions, or consecutive nav actions
+
+// todo: get rid of aliaser for effects
 pub fn fsaction_aliaser(
     a: Action<FsAction>,
     state: &MMState<'_, '_>,

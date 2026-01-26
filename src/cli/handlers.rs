@@ -22,7 +22,7 @@ use cli_boilerplate_automation::{
 use super::{
     clap::*,
     clap_tools::*,
-    matchmaker::mm_get,
+    mm_::mm_get,
     paths::{__cwd, __home, config_path, current_exe, lessfilter_cfg_path, liza_path, mm_cfg_path},
 };
 use crate::{

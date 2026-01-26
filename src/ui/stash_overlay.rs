@@ -3,7 +3,7 @@ use crate::{
         action::FsAction,
         stash::{STASH, StashAction, StashItem, StashItemState, StashItemStatus},
     },
-    utils::format_size,
+    utils::size::format_size,
 };
 use cli_boilerplate_automation::{
     bath::PathExt, bum::Float32Ext, impl_transparent_wrapper, text::StrExt, vec_,

@@ -43,6 +43,10 @@ impl STACK {
         });
     }
 
+    pub fn len() -> usize {
+        STACK.with(|s| s.borrow().stack.len())
+    }
+
     pub fn push(pane: FsPane) {
         STACK.with(|cell| {
             let Self {

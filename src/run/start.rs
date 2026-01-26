@@ -1,6 +1,6 @@
 use std::{ffi::OsString, sync::Arc};
 
-use cli_boilerplate_automation::{bait::ResultExt, bog::BogOkExt};
+use cli_boilerplate_automation::{bait::ResultExt, bog::BogOkExt, prints};
 use matchmaker::{
     MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector,
     binds::display_binds,
@@ -11,6 +11,7 @@ use matchmaker::{
         Column, Indexed, Render, Worker,
         injector::{IndexedInjector, WorkerInjector},
     },
+    preview::AppendOnly,
     render::Effect,
 };
 
@@ -25,7 +26,7 @@ use crate::{
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
-        state::{APP, DB_FILTER, GLOBAL, PRINT_HANDLE, STACK},
+        state::{APP, DB_FILTER, GLOBAL, STACK},
     },
     spawn::{Program, open_wrapped},
     ui::{
@@ -48,6 +49,7 @@ fn make_mm(
     render: RenderConfig,
     tui: TerminalConfig,
     cfg: &Config,
+    print_handle: AppendOnly<String>,
 ) -> (
     Matchmaker<Indexed<PathItem>, PathItem>,
     FsInjector,
@@ -77,7 +79,7 @@ fn make_mm(
     mm.config_render(render);
     mm.config_tui(tui);
 
-    mm.register_print_handler_(PRINT_HANDLE.with(|x| x.clone()));
+    mm.register_print_handler_(print_handle);
     // attach previewer handling alt-h: help display, display file/fn
     mm.register_become_handler_();
     mm.register_execute_handler_();
@@ -112,8 +114,9 @@ pub async fn start(
     if let Some(x) = pane.prompt(&cfg.global.panes) {
         render.input.prompt = x
     }
+    let print_handle = AppendOnly::new();
     // init MM
-    let (mut mm, injector, formatter) = make_mm(render, tui, &cfg);
+    let (mut mm, injector, formatter) = make_mm(render, tui, &cfg, print_handle.clone());
 
     // init previewer
     let previewer_config = PreviewerConfig::default();
@@ -131,7 +134,7 @@ pub async fn start(
         .overlay(FilterOverlay::new(filters))
         .overlay(MenuOverlay::new(menu, prompt));
 
-    let render_tx = builder.get_tx();
+    let render_tx = builder.render_tx();
 
     // start fs-watcher
     let (watcher, watcher_tx) = FsWatcher::new(cfg.notify, render_tx.clone());
@@ -174,7 +177,7 @@ pub async fn start(
     // run and wait for mm
     let ret = mm.pick(builder).await;
     // print before errors
-    PRINT_HANDLE.with(|x| x.map_to_vec(|s| println!("{s}")));
+    print_handle.map_to_vec(|s| prints!(s));
 
     if APP::in_app_pane() {
         match ret.first().abort() {
@@ -193,6 +196,7 @@ pub async fn start(
         }
     } else {
         match ret {
+            Ok(lines) if lines.is_empty() => Err(MatchError::NoMatch.into()),
             Ok(lines) => {
                 let files: Vec<OsString> = lines
                     .iter()

@@ -18,10 +18,11 @@ use cli_boilerplate_automation::{
     broc::{CommandExt, display_sh_prog_and_args},
     bs::sort_by_mtime,
 };
-use matchmaker::{efx, nucleo::injector::Injector, preview::AppendOnly, render::Effect};
+use matchmaker::{
+    efx, message::RenderCommand, nucleo::injector::Injector, preview::AppendOnly, render::Effect,
+};
 use tokio::task::spawn_blocking;
 
-use crate::config::GlobalConfig;
 use crate::{
     abspath::AbsPath,
     cli::DefaultCommand,
@@ -39,6 +40,7 @@ use crate::{
         state::{GLOBAL, STACK},
     },
 };
+use crate::{config::GlobalConfig, utils::size::sort_by_size};
 
 #[derive(Debug, Clone)]
 pub enum FsPane {
@@ -328,6 +330,7 @@ impl FsPane {
                         }
                     },
                     complete.clone(),
+                    true,
                 )
             }
 
@@ -401,6 +404,7 @@ impl FsPane {
                         }
                     },
                     complete.clone(),
+                    false,
                 )
             }
 
@@ -448,6 +452,7 @@ impl FsPane {
                         if push { injector.push(item) } else { Ok(()) }
                     },
                     complete.clone(),
+                    STACK::len() == 1,
                 )
             }
             Self::Rg {
@@ -573,7 +578,7 @@ impl FsPane {
                                     files.sort_by(|a, b| a.file_name().cmp(&b.file_name()))
                                 }
                                 SortOrder::mtime => sort_by_mtime(&mut files),
-                                SortOrder::size => todo!(),
+                                SortOrder::size => sort_by_size(&mut files),
                                 SortOrder::none => unreachable!(),
                             }
 
@@ -597,9 +602,16 @@ pub fn map_reader<E: matchmaker::SSS + Display>(
     reader: impl Read + matchmaker::SSS,
     f: impl FnMut(String) -> Result<(), E> + matchmaker::SSS,
     complete: Arc<AtomicBool>,
+    abort_empty: bool,
 ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
     spawn_blocking(move || {
-        map_reader_lines::<true, E>(reader, f)._elog();
+        let count = map_reader_lines::<true, E>(reader, f)._elog();
+        match count {
+            Some(0) if abort_empty => {
+                GLOBAL::send_render_command(RenderCommand::QuitEmpty);
+            }
+            _ => {}
+        }
         complete.store(true, Ordering::SeqCst);
         log::info!("Command completed");
         anyhow::Ok(())
