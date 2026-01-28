@@ -3,12 +3,11 @@
 use std::{cell::RefCell, sync::atomic::Ordering};
 
 use log::{self};
-use matchmaker::{efx, render::Effect};
 
 use crate::{
     db::DbSortOrder,
     filters::{SortOrder, Visibility},
-    run::{FsPane, globals::STACK, state::GLOBAL},
+    run::{FsAction, FsPane, globals::STACK, state::GLOBAL},
 };
 
 thread_local! {
@@ -52,6 +51,7 @@ impl FILTERS {
     }
 
     // -----------------------------------
+    /// Reload if pane filter differs from global filter
     pub fn refilter() {
         match STACK::current() {
             FsPane::Nav { sort, vis, .. } => {
@@ -64,7 +64,8 @@ impl FILTERS {
                                 *vis = *gvis
                             }
                         });
-                        GLOBAL::send_efx(efx![Effect::Reload]); // send the effect to trigger the formatter
+                        // send the effect to trigger the formatter
+                        GLOBAL::send_action(FsAction::Reload);
                     }
                 });
 
@@ -102,7 +103,8 @@ impl FILTERS {
                                 *vis = *gvis;
                             }
                         });
-                        GLOBAL::send_efx(efx![Effect::Reload]); // send the effect to trigger the formatter
+                        // send the effect to trigger the formatter
+                        GLOBAL::send_action(FsAction::Reload);
                     } else if gsort != &sort {
                         STACK::with_current_mut(|pane| {
                             if let FsPane::Fd { sort, .. } = pane {
@@ -117,7 +119,7 @@ impl FILTERS {
                                 if complete.load(Ordering::Acquire) {
                                     *sort = *gsort;
                                     // set items and reload
-                                    GLOBAL::send_efx(efx![Effect::Reload]);
+                                    GLOBAL::send_action(FsAction::Reload);
                                 }
                             }
                         });
@@ -134,7 +136,8 @@ impl FILTERS {
                                 *sort = (*gsort).into();
                             }
                         });
-                        GLOBAL::send_efx(efx![Effect::Reload]); // send the effect to trigger the formatter
+                        // send the effect to trigger the formatter
+                        GLOBAL::send_action(FsAction::Reload);
                     }
                 });
             }

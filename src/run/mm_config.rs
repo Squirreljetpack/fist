@@ -65,8 +65,8 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-r) => FsAction::Rg,
         key!(ctrl-g) => FsAction::History,
         key!(ctrl-z) => FsAction::Undo,
-        key!(alt-z) => FsAction::Forward,
-        key!(ctrl-shift-'z') => FsAction::Forward,
+        key!(alt-z) => FsAction::Redo,
+        key!(ctrl-shift-'z') => FsAction::Redo,
         key!('/') => FsAction::Jump("".into(), Some('/')),
         key!('~') => FsAction::Jump("".into(), Some('~')),
 
@@ -128,39 +128,6 @@ pub fn default_binds() -> BindMap<FsAction> {
     );
     ret
 }
-
-// fn change_actions(
-//     map: &mut BindMap<FsAction>,
-//     // alt_accept: bool,
-//     no_multi: bool,
-// ) {
-//     map.retain(|_, actions| {
-//         let vec = &mut actions.0;
-
-//         let mut i = 0;
-//         while i < vec.len() {
-//             let remove =
-//                 no_multi && matches!(vec[i], Action::Select | Action::Deselect | Action::Toggle);
-
-//             if remove {
-//                 vec.remove(i);
-//                 continue; // don't advance index
-//             }
-
-//             // if alt_accept {
-//             //     match &mut vec[i] {
-//             //         Action::Accept => vec[i] = Action::Print(String::new()),
-//             //         Action::Print(s) if s.is_empty() => vec[i] = Action::Accept,
-//             //         _ => {}
-//             //     }
-//             // }
-
-//             i += 1;
-//         }
-
-//         !vec.is_empty() // retain only non-empty entries
-//     });
-// }
 
 pub fn get_mm_cfg(
     path: &Path,

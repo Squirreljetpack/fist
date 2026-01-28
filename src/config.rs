@@ -18,9 +18,8 @@ use crate::{
     watcher::WatcherConfig,
 };
 // ------ CONFIG ------
-// default is placed on individual fields to protect against panics on invalid defaults
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     /// directory for storing history and other state.
     #[serde(default = "state_dir")]
@@ -32,38 +31,39 @@ pub struct Config {
 
     /// A container for settings whose values are accessed at runtime.
     /// Its fields are included directly in (flattened into) the config.
-    #[serde(flatten)]
+    #[serde(flatten, default)]
     pub global: GlobalConfig,
 
-    /// All styling options not governed by match-maker.
+    /// All styling options not governed by match-maker
+    #[serde(default)]
     pub styles: StyleConfig,
 
     /// Configure the filesystem watcher
+    #[serde(default)]
     pub notify: WatcherConfig,
 
     /// Miscellaneous and Tool specific options
+    #[serde(default)]
     pub misc: MiscConfig,
 
     /// Settings related to saving to and retrieving from history.
+    #[serde(default)]
     pub history: HistoryConfig,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct GlobalConfig {
-    #[serde(default)]
     pub interface: InterfaceConfig,
 
     /// Configure behavior of filesystem actions.
-    #[serde(default)]
     pub fs: FsConfig,
 
     /// Configure behavior of the fd tool.
     /// This affects [FsAction::Find](`crate::run::fsaction::FsAction::Find`) and the default subcommand.
-    #[serde(default)]
     pub fd: FdConfig,
 
     /// Configure behavior of filesystem actions.
-    #[serde(default)]
     pub panes: PanesConfig,
 }
 
@@ -236,34 +236,49 @@ impl Default for PanesConfig {
     }
 }
 
-impl FsPane {
+impl PanesConfig {
     pub fn prompt(
         &self,
-        panes: &PanesConfig,
+        pane: &FsPane,
     ) -> Option<String> {
-        match self {
-            FsPane::Custom { .. } => panes.custom.prompt.clone(),
-            FsPane::Stream { .. } => panes.stream.prompt.clone(),
-            FsPane::Fd { .. } => panes.fd.prompt.clone(),
-            FsPane::Files { .. } | FsPane::Folders { .. } => panes.history.prompt.clone(),
-            FsPane::Launch { .. } => panes.app.prompt.clone(),
-            FsPane::Nav { .. } => panes.nav.prompt.clone(),
-            FsPane::Rg { .. } => panes.rg.prompt.clone(),
+        match pane {
+            FsPane::Custom { .. } => self.custom.prompt.clone(),
+            FsPane::Stream { .. } => self.stream.prompt.clone(),
+            FsPane::Fd { .. } => self.fd.prompt.clone(),
+            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.prompt.clone(),
+            FsPane::Launch { .. } => self.app.prompt.clone(),
+            FsPane::Nav { .. } => self.nav.prompt.clone(),
+            FsPane::Rg { .. } => self.rg.prompt.clone(),
+        }
+    }
+
+    pub fn enter_prompt(
+        &self,
+        pane: &FsPane,
+    ) -> bool {
+        match pane {
+            FsPane::Custom { .. } => self.custom.enter_prompt,
+            FsPane::Stream { .. } => self.stream.enter_prompt,
+            FsPane::Fd { .. } => self.fd.enter_prompt,
+            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.enter_prompt,
+            FsPane::Launch { .. } => self.app.enter_prompt,
+            FsPane::Nav { .. } => false,
+            FsPane::Rg { .. } => self.rg.enter_prompt,
         }
     }
 
     pub fn preview_show(
         &self,
-        panes: &PanesConfig,
+        pane: &FsPane,
     ) -> Option<bool> {
-        match self {
-            FsPane::Custom { .. } => panes.custom.show_preview,
-            FsPane::Stream { .. } => panes.stream.show_preview,
-            FsPane::Fd { .. } => panes.fd.show_preview,
-            FsPane::Files { .. } | FsPane::Folders { .. } => panes.history.show_preview,
-            FsPane::Launch { .. } => panes.app.show_preview,
-            FsPane::Nav { .. } => panes.nav.show_preview,
-            FsPane::Rg { .. } => panes.rg.show_preview,
+        match pane {
+            FsPane::Custom { .. } => self.custom.show_preview,
+            FsPane::Stream { .. } => self.stream.show_preview,
+            FsPane::Fd { .. } => self.fd.show_preview,
+            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.show_preview,
+            FsPane::Launch { .. } => self.app.show_preview,
+            FsPane::Nav { .. } => self.nav.show_preview,
+            FsPane::Rg { .. } => self.rg.show_preview,
         }
     }
 }
@@ -294,7 +309,6 @@ pub struct NavPaneSettings {
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<bool>,
-    pub enter_prompt: bool,
     // ----------------------------
     pub default_sort: SortOrder,
     pub default_visibility: Visibility,
@@ -305,7 +319,6 @@ impl Default for NavPaneSettings {
         Self {
             prompt: None,
             show_preview: None,
-            enter_prompt: false,
 
             default_sort: SortOrder::mtime,
             default_visibility: Default::default(),

@@ -3,21 +3,17 @@
 use std::{
     cell::RefCell,
     sync::{LazyLock, Mutex},
+    time::Duration,
 };
 
-use cli_boilerplate_automation::bait::ResultExt;
+use cli_boilerplate_automation::{bait::ResultExt, dbog, wbog};
 use log::debug;
-use matchmaker::{
-    action::Action,
-    efx,
-    event::RenderSender,
-    render::{Effect, Effects},
-};
+use matchmaker::{action::Action, event::RenderSender};
 use ratatui::{
     style::Style,
     text::{Line, Span},
 };
-use tokio;
+use tokio::{self, task::JoinSet};
 
 use crate::config::GlobalConfig;
 use crate::{
@@ -39,6 +35,7 @@ pub use stack::*;
 // ------------- TRACKING -----------------------
 thread_local! {
     static PREV_DIRECTORY: RefCell<Option<AbsPath>> = const { RefCell::new(None) };
+    static STASHED_INDEX: RefCell<Option<u32>> = const { RefCell::new(None) };
     static INPUT_BAR_CONTENT: RefCell<(Option<PromptKind>, Result<PathItem, AbsPath>)> = const { RefCell::new((None, Err(AbsPath::empty()))) };
     static ORIGINAL_RELATIVE_PATH: RefCell<Option<bool>> = const { RefCell::new(None) };
 }
@@ -50,8 +47,14 @@ impl TEMP {
     pub fn set_prev_dir(path: Option<AbsPath>) {
         PREV_DIRECTORY.replace(path);
     }
+    pub fn take_stashed_index() -> Option<u32> {
+        STASHED_INDEX.with_borrow_mut(|i| i.take())
+    }
+    pub fn set_stashed_index(index: u32) -> Option<u32> {
+        STASHED_INDEX.replace(Some(index))
+    }
 
-    pub fn take_prompt() -> (Option<PromptKind>, Result<PathItem, AbsPath>) {
+    pub fn take_input_bar() -> (Option<PromptKind>, Result<PathItem, AbsPath>) {
         INPUT_BAR_CONTENT
             .with_borrow_mut(|(p, s)| (p.take(), std::mem::replace(s, Err(AbsPath::empty()))))
     }
@@ -64,7 +67,7 @@ impl TEMP {
     /// # Additional
     /// When the prompt is set and the target is Ok, the target's filename is shown in the title of the input bar.
     #[allow(unused_must_use)]
-    pub fn set_prompt(
+    pub fn set_input_bar(
         menu_prompt: Option<PromptKind>,
         menu_target: Result<PathItem, AbsPath>,
     ) {
@@ -84,6 +87,7 @@ thread_local! {
     static CONFIG: RefCell<Option<GlobalConfig>> = const { RefCell::new(None) };
     static WATCHER_TX: RefCell<Option<WatcherSender>> = const { RefCell::new(None) };
     static DB: RefCell<Option<Pool>> = const { RefCell::new(None) };
+    static TASKS: RefCell<JoinSet<()>> = RefCell::new(JoinSet::new());
 }
 static RENDER_TX: Mutex<Option<RenderSender<FsAction>>> = const { Mutex::new(None) };
 // just try different kinds of locks :p
@@ -144,40 +148,26 @@ impl GLOBAL {
     }
 
     // ------------ SENDERS --------------
-    pub fn send_efx(effects: Effects) {
-        let tx = RENDER_TX.lock().unwrap();
-        let tx = tx.as_ref().expect("render tx missing");
+    pub fn send_action(action: impl Into<Action<FsAction>>) {
+        let guard = RENDER_TX.lock().unwrap();
+        let tx = guard.as_ref().expect("render tx missing");
 
-        for s in effects {
-            tx.send(matchmaker::message::RenderCommand::Effect(s))
-                .elog()
-                .ok();
-        }
+        tx.send(matchmaker::message::RenderCommand::Action(action.into()))
+            ._elog();
     }
 
-    pub fn send_fsaction(fa: FsAction) {
-        let tx = RENDER_TX.lock().unwrap();
-        let tx = tx.as_ref().expect("render tx missing");
+    pub fn send_mm(msg: matchmaker::message::RenderCommand<FsAction>) {
+        let guard = RENDER_TX.lock().unwrap();
+        let tx = guard.as_ref().expect("render tx missing");
 
-        tx.send(matchmaker::message::RenderCommand::Action(Action::Custom(
-            fa,
-        )))
-        .elog()
-        .ok();
-    }
-
-    pub fn send_render_command(msg: matchmaker::message::RenderCommand<FsAction>) {
-        let tx = RENDER_TX.lock().unwrap();
-        let tx = tx.as_ref().expect("render tx missing");
-
-        tx.send(msg).elog().ok();
+        tx.send(msg)._elog();
     }
 
     /// must be called in initializing thread
     pub fn send_watcher(msg: WatcherMessage) {
         WATCHER_TX.with(|tx| {
-            let tx = tx.borrow();
-            let tx = tx.as_ref().expect("watcher tx missing");
+            let guard = tx.borrow();
+            let tx = guard.as_ref().expect("watcher tx missing");
             tx.send(msg)._elog();
         });
     }
@@ -196,6 +186,35 @@ impl GLOBAL {
         let db_filter = guard.as_ref().unwrap();
         conn.get_entries(sort, db_filter).await
     }
+
+    // --------- TASK MANAGER ------------------
+    pub fn spawn<F>(fut: F)
+    where
+        F: std::future::Future<Output = ()> + Send + 'static,
+    {
+        TASKS.with(|tasks| {
+            tasks.borrow_mut().spawn(fut);
+        });
+    }
+
+    pub async fn shutdown_tasks(max_secs: u64) {
+        let mut join_set = TASKS.with(|tasks| std::mem::take(&mut *tasks.borrow_mut()));
+        if !join_set.is_empty() {
+            dbog!("waiting on {} tasks.", join_set.len());
+        }
+
+        let timed_out = tokio::time::timeout(Duration::from_secs(max_secs), async {
+            while let Some(res) = join_set.join_next().await {
+                let _ = res;
+            }
+        })
+        .await
+        .is_err();
+
+        if timed_out && !join_set.is_empty() {
+            wbog!("Timeout exceeded"; "{} task(s) aborted.", join_set.len());
+        }
+    }
 }
 
 // ------------- TOAST ----------------------------
@@ -207,8 +226,8 @@ impl TOAST {
     pub fn clear() {
         let mut state = TOAST.lock().unwrap();
         state.clear();
-        debug!("Clearing {state:?}");
-        GLOBAL::send_efx(efx![Effect::ClearFooter]);
+        debug!("Cleared toasts: {state:?}");
+        GLOBAL::send_action(FsAction::set_footer(None));
     }
 
     // todo: maintain a counter
@@ -251,7 +270,7 @@ impl TOAST {
         }
 
         let toast = make_toast(&state);
-        GLOBAL::send_efx(efx![Effect::Footer(toast)]);
+        GLOBAL::send_action(FsAction::set_footer(toast));
     }
 
     pub fn clear_msgs() {
@@ -260,7 +279,7 @@ impl TOAST {
         // Keep only entries whose span is not empty
         state.retain(|(span, _)| !span.content.is_empty());
 
-        GLOBAL::send_efx(efx![Effect::ClearFooter]);
+        GLOBAL::send_action(FsAction::set_footer(None));
     }
 
     /// Push an item to a prefix group
@@ -291,7 +310,7 @@ impl TOAST {
         debug!("{state:?}");
 
         let toast = make_toast(&state);
-        GLOBAL::send_efx(efx![Effect::Footer(toast)]);
+        GLOBAL::send_action(FsAction::set_footer(toast));
     }
 
     /// Push a notice with the default prefix associated with the given style
@@ -304,7 +323,7 @@ impl TOAST {
         state.push((prefix_span, ToastContent::Line(msg.into().into())));
 
         let toast = make_toast(&state);
-        GLOBAL::send_efx(efx![Effect::Footer(toast)]);
+        GLOBAL::send_action(FsAction::set_footer(toast));
     }
     /// Push a pair of items a -> b, described by a prefix
     pub fn push_pair(
@@ -318,7 +337,7 @@ impl TOAST {
         state.push((prefix_span, ToastContent::Pair(from, to)));
 
         let toast = make_toast(&state);
-        GLOBAL::send_efx(efx![Effect::Footer(toast)]);
+        GLOBAL::send_action(FsAction::set_footer(toast));
     }
 
     /// Push a message with empty prefix.
@@ -337,7 +356,7 @@ impl TOAST {
         state.push((prefix_span, ToastContent::Line(line.into())));
 
         let toast = make_toast(&state);
-        GLOBAL::send_efx(efx![Effect::Footer(toast)]);
+        GLOBAL::send_action(FsAction::set_footer(toast));
     }
 }
 

@@ -6,8 +6,6 @@ use crate::{
 use matchmaker::{
     action::Action,
     config::BorderSetting,
-    efx,
-    render::Effect,
     ui::{Overlay, OverlayEffect},
 };
 use ratatui::{

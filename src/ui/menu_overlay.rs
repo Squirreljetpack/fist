@@ -394,7 +394,7 @@ impl Overlay for MenuOverlay {
     ) {
         self.cursor = 0;
         self.prompt_kind = None;
-        let (p, s) = TEMP::take_prompt();
+        let (p, s) = TEMP::take_input_bar();
         if let Some(p) = p {
             self.set_prompt(p, s.as_ref().ok().map(|s| s.path.basename()));
         }

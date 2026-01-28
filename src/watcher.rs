@@ -1,5 +1,5 @@
 use crate::run::action::FsAction;
-use matchmaker::{action::Action, event::RenderSender, message::RenderCommand, render::Effect};
+use matchmaker::{action::Action, event::RenderSender, message::RenderCommand};
 use notify::{
     Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher,
     event::ModifyKind,
@@ -64,6 +64,7 @@ impl FsWatcher {
         (watcher_struct, path_tx)
     }
 
+    // todo: directly send events to thread to impl edge debouncing
     /// Start the filesystem watcher on a seperate thread, then listen for events to change the watched directory.
     pub fn spawn(mut self) -> notify::Result<()> {
         // create config
@@ -91,7 +92,9 @@ impl FsWatcher {
                                 let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(
                                     FsAction::SaveInput,
                                 )));
-                                let _ = self.render_tx.send(RenderCommand::Effect(Effect::Reload));
+                                let _ = self
+                                    .render_tx
+                                    .send(RenderCommand::Action(Action::Custom(FsAction::Reload)));
                             }
                             _ => {}
                         }

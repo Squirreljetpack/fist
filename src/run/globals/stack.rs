@@ -99,7 +99,8 @@ impl STACK {
         })
     }
 
-    pub fn swap_history() {
+    /// returns true if newly entering history pane
+    pub fn swap_history() -> bool {
         STACK.with(|cell| {
             let Self { stack, index, .. } = &mut *cell.borrow_mut();
             let c = &stack[*index];
@@ -113,10 +114,11 @@ impl STACK {
                 && &stack[*index - 1] != c
             {
                 *index -= 1;
-                return;
+                return false;
             }
 
             // otherwise, create a new pane: folders unless we are already in it.
+            let ret = !matches!(stack[*index], FsPane::Folders { .. } | FsPane::Files { .. });
             let folders = !matches!(stack[*index], FsPane::Folders { .. });
             let pane = FsPane::new_history(folders, FILTERS::sort().into());
 
@@ -126,7 +128,9 @@ impl STACK {
 
             log::debug!("Pushed: {pane:?}");
             stack.push(pane);
-        });
+
+            ret
+        })
     }
 
     pub fn with_current_mut<R, F: FnOnce(&mut FsPane) -> R>(f: F) -> R {
@@ -217,7 +221,7 @@ impl STACK {
         })
     }
 
-    pub fn take_maybe_input() -> Option<(String, u32)> {
+    pub fn take_maybe_index() -> Option<(String, u32)> {
         STACK.with(|cell| {
             let Self { stack, index, .. } = &mut *cell.borrow_mut();
             match &mut stack[*index] {
