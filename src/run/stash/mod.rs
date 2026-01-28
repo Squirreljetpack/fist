@@ -1,7 +1,6 @@
 mod status;
 use ratatui::text::Line;
 pub use status::*;
-use tokio::task::spawn_blocking;
 
 use std::{
     borrow::BorrowMut,
@@ -23,7 +22,7 @@ use crate::{
     cli::paths::__home,
     run::{
         item::short_display,
-        state::{GLOBAL, TOAST},
+        state::{GLOBAL, TASKS, TOAST},
     },
     utils::text::ToastStyle,
 };
@@ -258,7 +257,7 @@ impl STASH {
             item.dst =
                 GLOBAL::with_cfg(|c| auto_dest_for_src(&item.src, &item.dst, &c.fs.rename_policy))
                     .into();
-            spawn_blocking(|| item.transfer());
+            TASKS::spawn_blocking(|| item.transfer());
         });
     }
 
@@ -328,7 +327,7 @@ impl STASH {
                 true,
             );
         };
-        spawn_blocking(move || {
+        TASKS::spawn_blocking(move || {
             for item in queue {
                 item.transfer();
             }

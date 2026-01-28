@@ -27,7 +27,7 @@ use crate::{
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
-        state::{APP, DB_FILTER, GLOBAL, STACK},
+        state::{APP, DB_FILTER, GLOBAL, STACK, TASKS},
     },
     spawn::{Program, open_wrapped},
     ui::{
@@ -181,7 +181,7 @@ pub async fn start(
     // print before errors
     print_handle.map_to_vec(|s| prints!(s));
 
-    GLOBAL::shutdown_tasks(1).await;
+    TASKS::shutdown(1, 3000).await;
     if APP::in_app_pane() {
         match ret.first().abort() {
             Ok(prog) => {

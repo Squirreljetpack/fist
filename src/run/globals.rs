@@ -3,17 +3,16 @@
 use std::{
     cell::RefCell,
     sync::{LazyLock, Mutex},
-    time::Duration,
 };
 
-use cli_boilerplate_automation::{bait::ResultExt, dbog, wbog};
+use cli_boilerplate_automation::bait::ResultExt;
 use log::debug;
 use matchmaker::{action::Action, event::RenderSender};
 use ratatui::{
     style::Style,
     text::{Line, Span},
 };
-use tokio::{self, task::JoinSet};
+use tokio;
 
 use crate::config::GlobalConfig;
 use crate::{
@@ -87,7 +86,6 @@ thread_local! {
     static CONFIG: RefCell<Option<GlobalConfig>> = const { RefCell::new(None) };
     static WATCHER_TX: RefCell<Option<WatcherSender>> = const { RefCell::new(None) };
     static DB: RefCell<Option<Pool>> = const { RefCell::new(None) };
-    static TASKS: RefCell<JoinSet<()>> = RefCell::new(JoinSet::new());
 }
 static RENDER_TX: Mutex<Option<RenderSender<FsAction>>> = const { Mutex::new(None) };
 // just try different kinds of locks :p
@@ -185,35 +183,6 @@ impl GLOBAL {
         let guard = DB_FILTER.lock().await;
         let db_filter = guard.as_ref().unwrap();
         conn.get_entries(sort, db_filter).await
-    }
-
-    // --------- TASK MANAGER ------------------
-    pub fn spawn<F>(fut: F)
-    where
-        F: std::future::Future<Output = ()> + Send + 'static,
-    {
-        TASKS.with(|tasks| {
-            tasks.borrow_mut().spawn(fut);
-        });
-    }
-
-    pub async fn shutdown_tasks(max_secs: u64) {
-        let mut join_set = TASKS.with(|tasks| std::mem::take(&mut *tasks.borrow_mut()));
-        if !join_set.is_empty() {
-            dbog!("waiting on {} tasks.", join_set.len());
-        }
-
-        let timed_out = tokio::time::timeout(Duration::from_secs(max_secs), async {
-            while let Some(res) = join_set.join_next().await {
-                let _ = res;
-            }
-        })
-        .await
-        .is_err();
-
-        if timed_out && !join_set.is_empty() {
-            wbog!("Timeout exceeded"; "{} task(s) aborted.", join_set.len());
-        }
     }
 }
 
@@ -377,4 +346,94 @@ pub mod APP {
     }
     /// ensure recache isn't run more than once
     pub static RAN_RECACHE: AtomicBool = const { AtomicBool::new(false) };
+}
+
+// -------------------------------------------
+#[allow(non_snake_case)]
+pub mod TASKS {
+    use std::{cell::RefCell, time::Duration};
+
+    use cli_boilerplate_automation::{dbog, ibog, wbog};
+    use tokio::{self, task::JoinSet};
+
+    thread_local! {
+        static TASKS: RefCell<JoinSet<()>> = RefCell::new(JoinSet::new());
+    }
+
+    pub fn spawn<F>(fut: F)
+    where
+        F: std::future::Future<Output = ()> + Send + 'static,
+    {
+        TASKS.with(|tasks| {
+            tasks.borrow_mut().spawn(fut);
+        });
+    }
+
+    pub fn spawn_blocking<F>(f: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        TASKS.with(|tasks| {
+            tasks.borrow_mut().spawn_blocking(f);
+        });
+    }
+
+    pub async fn shutdown(
+        warn_secs: u64,
+        max_secs: u64,
+    ) {
+        let mut join_set = TASKS.with(|tasks| std::mem::take(&mut *tasks.borrow_mut()));
+
+        if !join_set.is_empty() {
+            dbog!("Waiting on {} tasks.", join_set.len());
+        }
+
+        let mut remaining = 0;
+
+        let max = tokio::time::sleep(Duration::from_secs(max_secs));
+        tokio::pin!(max);
+
+        let start = tokio::time::Instant::now();
+
+        let mut warn = tokio::time::interval_at(
+            start + Duration::from_secs(warn_secs),
+            Duration::from_secs(warn_secs),
+        );
+
+        loop {
+            tokio::select! {
+                res = join_set.join_next() => {
+                    if res.is_none() {
+                        break;
+                    }
+                }
+
+                _ = warn.tick() => {
+                    if remaining == 0 {
+                        wbog!(
+                            "Waiting on {} task(s). (Press ctrl-c to exit).",
+                            join_set.len()
+                        );
+                    } else if join_set.len() != remaining {
+                        ibog!(
+                            "{} task(s) remaining.",
+                            join_set.len()
+                        );
+                    }
+                    remaining = join_set.len()
+                }
+
+                _ = &mut max => {
+                    wbog!(
+                        "Timeout";
+                        "{} task(s) aborted.",
+                        join_set.len()
+                    );
+                    break;
+                }
+
+
+            }
+        }
+    }
 }

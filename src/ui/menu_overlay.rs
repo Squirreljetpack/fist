@@ -4,7 +4,7 @@ use crate::abspath::AbsPath;
 use crate::cli::paths::__cwd;
 use crate::fs::{auto_dest, create_all, rename};
 use crate::run::action::FsAction;
-use crate::run::globals::{GLOBAL, TEMP, TOAST};
+use crate::run::globals::{GLOBAL, TASKS, TEMP, TOAST};
 use crate::run::item::{PathItem, short_display};
 use crate::run::stash::{STASH, StashItem};
 use crate::spawn::open_wrapped;
@@ -122,7 +122,7 @@ impl MenuItem {
                 None
             }
             MenuItem::Delete => {
-                tokio::spawn(async move {
+                TASKS::spawn(async move {
                     match if path.is_dir() {
                         tokio::fs::remove_dir_all(&path).await
                     } else {
@@ -278,7 +278,7 @@ impl MenuOverlay {
                 let dest = auto_dest(input_path, &current_item_parent); // replaced if input is absolute
                 let dest_slice = [dest];
 
-                tokio::spawn(async move {
+                TASKS::spawn(async move {
                     match create_all(&dest_slice).await {
                         Ok(_) => {
                             let dest_path = match &dest_slice[0] {
@@ -304,7 +304,7 @@ impl MenuOverlay {
                 let input_path = Path::new(&self.prompt.input);
                 let dest = AbsPath::new_unchecked(input_path.abs(current_item_parent));
 
-                tokio::spawn(async move {
+                TASKS::spawn(async move {
                     match std::fs::create_dir_all(&dest) {
                         Ok(_) => {
                             TOAST::push(ToastStyle::Success, "New: ", [short_display(&dest)]);
@@ -332,7 +332,7 @@ impl MenuOverlay {
                 if dest == old_path {
                     TOAST::push_skipped();
                 } else {
-                    tokio::spawn(async move {
+                    TASKS::spawn(async move {
                         match rename(&old_path, &dest).await {
                             Ok(_) => {
                                 let new_display = dest.to_string_lossy().to_string().into();

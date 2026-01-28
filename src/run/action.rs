@@ -10,7 +10,6 @@ use matchmaker::{
     nucleo::{Color, Modifier, Span, Style},
 };
 use ratatui::text::Text;
-use tokio::task::spawn_blocking;
 
 use crate::{
     abspath::AbsPath,
@@ -25,7 +24,7 @@ use crate::{
         item::short_display,
         pane::FsPane,
         stash::{STASH, StashItem},
-        state::{APP, FILTERS, GLOBAL, STACK, TEMP, TOAST},
+        state::{APP, FILTERS, GLOBAL, STACK, TASKS, TEMP, TOAST},
     },
     spawn::open_wrapped,
     ui::menu_overlay::PromptKind,
@@ -286,13 +285,14 @@ pub fn fsaction_aliaser(
                                 let path = cwd.inner().into();
                                 let pool = GLOBAL::db();
 
-                                tokio::spawn(async move {
-                                    let conn = pool.get_conn(crate::db::DbTable::dirs).await?;
-                                    open_wrapped(conn, None, &[path]).await?;
-                                    anyhow::Ok(())
+                                TASKS::spawn(async move {
+                                    let conn = else_default!(
+                                        pool.get_conn(crate::db::DbTable::dirs).await._elog()
+                                    );
+                                    open_wrapped(conn, None, &[path]).await._elog();
                                 });
 
-                                acs![Action::Accept] // this won't activate a cursor item
+                                acs![Action::Quit(0)]
                             }
                         } else {
                             acs![]
@@ -585,7 +585,7 @@ pub fn fsaction_handler(
                 items.push(s.path.inner());
             });
             // not heavy computationally, but still blocking...
-            spawn_blocking(|| {
+            TASKS::spawn_blocking(|| {
                 for path in items {
                     match trash::delete(&path) {
                         Ok(()) => {
@@ -609,7 +609,7 @@ pub fn fsaction_handler(
                 items.push(s.path.inner());
             });
 
-            tokio::spawn(async move {
+            TASKS::spawn(async move {
                 for path in items {
                     let result = if path.is_dir() {
                         tokio::fs::remove_dir_all(&path).await
@@ -773,7 +773,7 @@ pub fn fsaction_handler(
                 let path = cwd.inner().into();
                 let pool = GLOBAL::db();
 
-                GLOBAL::spawn(async move {
+                TASKS::spawn(async move {
                     let conn = else_default!(pool.get_conn(crate::db::DbTable::dirs).await.ok());
                     open_wrapped(conn, None, &[path]).await._elog();
                 });
