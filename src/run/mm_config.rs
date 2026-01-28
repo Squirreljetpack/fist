@@ -50,14 +50,14 @@ pub fn default_binds() -> BindMap<FsAction> {
     let ret = bindmap!(
         // Nav
         // ----------------------------------
-        key!(up) => Action::Up(1.into()),
-        key!(down) => Action::Down(1.into()),
+        key!(up) => Action::Up(1),
+        key!(down) => Action::Down(1),
         key!(shift-right) => Action::ForwardChar,
         key!(shift-left) => Action::BackwardChar,
         key!(enter) => Action::Accept,
         key!(ctrl-enter) => Action::Print("".into()),
         key!(alt-enter) => Action::Print("".into()),
-        key!(tab) => [Action::Toggle, Action::Down(1.into())],
+        key!(tab) => [Action::Toggle, Action::Down(1)],
 
         key!(right) => FsAction::Advance,
         key!(left) => FsAction::Parent,
@@ -110,8 +110,8 @@ pub fn default_binds() -> BindMap<FsAction> {
 
         // misc
         // ---------------------------------------
-        key!(shift-up) => Action::PreviewUp(1.into()),
-        key!(shift-down) => Action::PreviewDown(1.into()),
+        key!(shift-up) => Action::PreviewUp(1),
+        key!(shift-down) => Action::PreviewDown(1),
 
         key!(ctrl-shift-'/') => Action::CyclePreview,
         key!(alt-r) => Action::Reload("".to_string()),

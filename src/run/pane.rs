@@ -231,6 +231,7 @@ impl FsPane {
         }
     }
 
+    #[inline]
     pub fn supports_sort(&self) -> bool {
         matches!(
             self,
@@ -238,12 +239,31 @@ impl FsPane {
         )
     }
 
-    pub fn stable_sort(&self) -> bool {
+    #[inline]
+    pub fn should_sort(&self) -> bool {
         match self {
-            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Launch { .. } => true,
-            FsPane::Custom { .. } | FsPane::Stream { .. } => true, // maybe
-            FsPane::Rg { .. } => false,                            // maybe
-            _ => false,
+            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Launch { .. } => false,
+            FsPane::Custom { .. } | FsPane::Stream { .. } => false, // maybe
+            FsPane::Rg { .. } => true,                              // maybe
+            _ => true,
+        }
+    }
+
+    #[inline]
+    pub fn should_cancel_input_entering_dir(&self) -> bool {
+        matches!(self, FsPane::Nav { .. } | FsPane::Launch { .. })
+    }
+
+    pub fn get_input(&self) -> String {
+        match self {
+            FsPane::Custom { input, .. }
+            | FsPane::Stream { input, .. }
+            | FsPane::Fd { input, .. }
+            | FsPane::Rg { input, .. }
+            | FsPane::Nav { input, .. }
+            | FsPane::Files { input, .. }
+            | FsPane::Folders { input, .. } => input.0.clone(),
+            _ => String::new(),
         }
     }
 }

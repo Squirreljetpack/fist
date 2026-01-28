@@ -195,38 +195,48 @@ impl STACK {
         });
     }
 
-    pub fn has_saved_input() -> bool {
-        STACK.with(|cell| {
-            let Self { stack, index, .. } = &*cell.borrow();
-            match &stack[*index] {
-                FsPane::Custom { input, .. }
-                | FsPane::Nav { input, .. }
-                | FsPane::Fd { input, .. }
-                | FsPane::Stream { input, .. }
-                | FsPane::Rg { input, .. }
-                | FsPane::Files { input, .. }
-                | FsPane::Folders { input, .. } => !(input.0.is_empty() && input.1 == 0),
-                _ => false,
-            }
-        })
-    }
+    // pub fn has_saved_input() -> bool {
+    //     STACK.with(|cell| {
+    //         let Self { stack, index, .. } = &*cell.borrow();
+    //         match &stack[*index] {
+    //             FsPane::Custom { input, .. }
+    //             | FsPane::Nav { input, .. }
+    //             | FsPane::Fd { input, .. }
+    //             | FsPane::Stream { input, .. }
+    //             | FsPane::Rg { input, .. }
+    //             | FsPane::Files { input, .. }
+    //             | FsPane::Folders { input, .. } => !(input.0.is_empty() && input.1 == 0),
+    //             _ => false,
+    //         }
+    //     })
+    // }
 
-    pub fn get_maybe_input() -> Option<(String, u32)> {
-        STACK.with(|cell| {
-            let Self { stack, index, .. } = &*cell.borrow();
-            match &stack[*index] {
-                FsPane::Custom { input, .. } | FsPane::Nav { input, .. } => Some(input.clone()),
-                _ => None,
-            }
-        })
-    }
+    // returns the input if Nav or Custom pane
+    // pub fn get_maybe_input() -> Option<(String, u32)> {
+    //     STACK.with(|cell| {
+    //         let Self { stack, index, .. } = &*cell.borrow();
+    //         match &stack[*index] {
+    //             FsPane::Custom { input, .. } | FsPane::Nav { input, .. } => Some(input.clone()),
+    //             _ => None,
+    //         }
+    //     })
+    // }
 
-    pub fn take_maybe_index() -> Option<(String, u32)> {
+    // only restore index of nav and custom panes (is this what we want?)
+    pub fn take_maybe_index() -> Option<u32> {
         STACK.with(|cell| {
             let Self { stack, index, .. } = &mut *cell.borrow_mut();
             match &mut stack[*index] {
-                FsPane::Custom { input, .. } | FsPane::Nav { input, .. } => {
-                    Some(std::mem::take(input))
+                FsPane::Custom { input, .. }
+                | FsPane::Stream { input, .. }
+                | FsPane::Fd { input, .. }
+                | FsPane::Rg { input, .. }
+                | FsPane::Nav { input, .. }
+                | FsPane::Files { input, .. }
+                | FsPane::Folders { input, .. } => {
+                    let ret = std::mem::take(&mut input.1);
+                    // 0 -> None because we only store index
+                    (ret != 0).then_some(ret)
                 }
                 _ => None,
             }

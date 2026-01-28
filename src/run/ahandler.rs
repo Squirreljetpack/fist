@@ -80,17 +80,16 @@ pub fn prepare_prompt(state: &mut MMState<'_, '_>) {
         }
     });
 
-    // this part is exclusive to [`FsAction::Undo`] and [`FsAction::Forward`].
-    if let Some((input, _)) = STACK::get_maybe_input() {
-        state.picker_ui.input.set(input, u16::MAX);
-    } else {
-        // clear input state
-        state.picker_ui.input.cancel();
-        state.picker_ui.selections.clear();
-    }
+    // input is nonempty only when called in [`FsAction::Undo`] and [`FsAction::Forward`].
+    state
+        .picker_ui
+        .input
+        .set(STACK::with_current(FsPane::get_input), u16::MAX);
+
+    // always clear selections
+    state.picker_ui.selections.clear();
 
     if !state.picker_ui.results.cursor_disabled {
-        state.picker_ui.results.cursor_jump(0);
         state.picker_ui.input.reset_prompt();
     }
 }
@@ -102,6 +101,10 @@ pub fn enter_dir_pane(
     // save input
     let (content, index) = state.get_content_and_index();
     STACK::save_input(content, index);
+
+    if STACK::with_current(FsPane::should_cancel_input_entering_dir) {
+        state.picker_ui.input.cancel();
+    }
 
     TOAST::clear_msgs();
     // record
@@ -117,6 +120,8 @@ pub fn enter_dir_pane(
 
     // exit prompt
     enter_prompt(state, false);
+    // always clear selections
+    state.picker_ui.selections.clear();
 
     STACK::push(pane);
     fs_reload(state);
@@ -128,10 +133,14 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
     state
         .picker_ui
         .worker
-        .sort_results(!STACK::with_current(|p| p.stable_sort()));
+        .sort_results(STACK::with_current(FsPane::should_sort));
     let injector = IndexedInjector::new_globally_indexed(state.injector());
     STACK::populate(injector, || {});
-    if let Some((_, index)) = STACK::get_maybe_input() {
+
+    state.picker_ui.results.cursor_jump(0);
+    // stash the saved index to restore it once synced
+    // This is invoked only through FsAction::Undo/Redo/Restart
+    if let Some(index) = STACK::take_maybe_index() {
         TEMP::set_stashed_index(index);
     }
 }

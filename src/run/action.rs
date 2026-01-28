@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt, else_default, prints, wbog};
 use matchmaker::{
     acs,
-    action::{Action, ActionExt, Actions, Count, Exit},
+    action::{Action, ActionExt, Actions},
     nucleo::{Color, Modifier, Span, Style},
 };
 use ratatui::text::Text;
@@ -124,7 +124,7 @@ pub enum FsAction {
     SetFooter(Option<Text<'static>>),
     Reload,
     AcceptPrompt,
-    Print,
+    AcceptPrint,
 
     // Other
     // --------------------------------------------
@@ -268,9 +268,10 @@ pub fn fsaction_aliaser(
                 } else
                 // in prompt
                 if state.picker_ui.results.cursor_disabled {
+                    // jump out
                     if digit > 0 {
                         enter_prompt(state, false);
-                        acs![Action::Pos(digit as i32)]
+                        acs![Action::Pos(digit as i32 - 1)]
                     } else {
                         // accept the prompt
                         if let Some(cwd) = STACK::cwd() {
@@ -280,7 +281,7 @@ pub fn fsaction_aliaser(
                                 let s = cwd.to_string_lossy().to_string();
                                 GLOBAL::db().bump(true, cwd);
                                 prints!(s);
-                                acs![Action::Quit(Exit(0))]
+                                acs![Action::Quit(0)]
                             } else {
                                 let path = cwd.inner().into();
                                 let pool = GLOBAL::db();
@@ -301,20 +302,16 @@ pub fn fsaction_aliaser(
                 // not in prompt
                 if digit > 0 {
                     // accept
-                    if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
-                        acs![
-                            Action::Pos((digit - 1) as i32),
-                            Action::Print("{=}".into()),
-                            Action::Quit(Exit(0))
-                        ]
-                    } else
-                    // advance the item
-                    {
-                        acs![
-                            Action::Pos((digit - 1) as i32),
-                            Action::Custom(FsAction::Advance)
-                        ]
-                    }
+                    acs![
+                        Action::Pos((digit - 1) as i32),
+                        if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                            FsAction::AcceptPrint.into()
+                        } else if GLOBAL::with_cfg(|c| c.interface.autojump_advance) {
+                            FsAction::Advance.into()
+                        } else {
+                            Action::Accept
+                        }
+                    ]
                 } else
                 // 0 when not in prompt -> enter prompt
                 {
@@ -325,14 +322,14 @@ pub fn fsaction_aliaser(
             _ => acs![fa],
         },
         _ => match a {
-            Action::Up(Count(i)) => {
+            Action::Up(i) => {
                 TOAST::clear();
 
                 if state.overlay_index().is_some() {
                     acs![a]
                 } else if state.picker_ui.results.cursor_disabled {
                     enter_prompt(state, false);
-                    acs![Action::Up(Count(i))]
+                    acs![Action::Up(i)]
                 } else if i as u32 <= state.picker_ui.results.index() {
                     acs![a]
                 } else {
@@ -341,12 +338,12 @@ pub fn fsaction_aliaser(
                     acs![]
                 }
             }
-            Action::Down(Count(i)) => {
+            Action::Down(i) => {
                 TOAST::clear();
 
                 if state.overlay_index().is_none() && state.picker_ui.results.cursor_disabled {
                     enter_prompt(state, false);
-                    acs![Action::Down(i.saturating_sub(1).into())]
+                    acs![Action::Down(i.saturating_sub(1))]
                 } else {
                     acs![a]
                 }
@@ -361,7 +358,7 @@ pub fn fsaction_aliaser(
             // there's a bit of an edge case where this doesn't detect whether to be in prompt correctly for consecutive actions but for expediency we leave this as won't fix
             Action::Accept => {
                 if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
-                    acs![FsAction::Print]
+                    acs![Action::Custom(FsAction::AcceptPrint), Action::Quit(0)]
                 } else if state.overlay_index().is_none() && state.picker_ui.results.cursor_disabled
                 {
                     acs![FsAction::AcceptPrompt]
@@ -372,7 +369,7 @@ pub fn fsaction_aliaser(
 
             Action::Print(s) if s.is_empty() => {
                 if !GLOBAL::with_cfg(|c| c.interface.alt_accept) {
-                    acs![FsAction::Print]
+                    acs![FsAction::AcceptPrint]
                 } else if state.overlay_index().is_none() && state.picker_ui.results.cursor_disabled
                 {
                     acs![FsAction::AcceptPrompt]
@@ -787,7 +784,7 @@ pub fn fsaction_handler(
             }
         }
 
-        FsAction::Print => {
+        FsAction::AcceptPrint => {
             if state.picker_ui.results.cursor_disabled
                 && let Some(p) = STACK::cwd()
             {
@@ -795,9 +792,8 @@ pub fn fsaction_handler(
                 let s = p.to_string_lossy().to_string();
                 GLOBAL::db().bump(true, p);
                 prints!(s);
-                state.should_quit = true;
             } else {
-                // print single element if came from Accept
+                // if alt_accept, this was aliased from Accept, in which case we should respect no_multi_accept
                 if GLOBAL::with_cfg(|c| c.interface.alt_accept && c.interface.no_multi_accept) {
                     if let Some((_, item)) = state.current.as_ref() {
                         let s = item.display().to_string();
@@ -812,8 +808,8 @@ pub fn fsaction_handler(
                         prints!(s);
                     });
                 }
-                state.should_quit = true;
             }
+            state.should_quit = true;
         }
 
         _ => {
@@ -856,7 +852,7 @@ macro_rules! impl_display_and_from_str_enum {
                             write!(f, "Jump({})", path.display())
                         }
                     }
-                    Self::SaveInput | Self::SetHeader(_) | Self::SetFooter(_) | Self::Reload | Self::AcceptPrompt | Self::Print => Ok(()), // internal
+                    Self::SaveInput | Self::SetHeader(_) | Self::SetFooter(_) | Self::Reload | Self::AcceptPrompt | Self::AcceptPrint => Ok(()), // internal
                     Self::Display(preset, _, _) => write!(f, "Display({preset})"),
                 }
             }

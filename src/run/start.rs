@@ -51,19 +51,21 @@ fn make_mm(
     tui: TerminalConfig,
     cfg: &Config,
     print_handle: AppendOnly<String>,
-    stable_sort: bool,
+    should_sort: bool,
 ) -> (
     Matchmaker<Indexed<PathItem>, PathItem>,
     FsInjector,
     FormatterFn,
 ) {
-    let worker = Worker::new(
+    let mut worker = Worker::new(
         [
             Column::new("_", |item: &Indexed<PathItem>| item.inner.as_text()),
             Column::new("", |item: &Indexed<PathItem>| item.inner.tail.clone()),
         ],
         0,
     );
+    worker.sort_results(should_sort);
+
     let injector = IndexedInjector::new_globally_indexed(worker.injector());
 
     let selector = Selector::new_with_validator(Indexed::identifier, exist_validator);
@@ -119,7 +121,7 @@ pub async fn start(
     let print_handle = AppendOnly::new();
     // init MM
     let (mut mm, injector, formatter) =
-        make_mm(render, tui, &cfg, print_handle.clone(), pane.stable_sort());
+        make_mm(render, tui, &cfg, print_handle.clone(), pane.should_sort());
 
     // init previewer
     let previewer_config = PreviewerConfig::default();

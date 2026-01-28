@@ -9,7 +9,7 @@ use cli_boilerplate_automation::{
     bath::PathExt, bum::Float32Ext, impl_transparent_wrapper, text::StrExt, vec_,
 };
 use matchmaker::{
-    action::{Action, Count},
+    action::Action,
     config::{self, BorderSetting},
     ui::{Overlay, OverlayEffect},
 };
@@ -234,7 +234,7 @@ impl Overlay for StashOverlay {
                     if let Some(i) = self.table_state.selected_mut() {
                         let len = len as isize;
                         let cur = *i as isize;
-                        let next = (cur - x.0 as isize).rem_euclid(len);
+                        let next = (cur - *x as isize).rem_euclid(len);
                         *i = next as usize;
                     }
                 }
@@ -243,7 +243,7 @@ impl Overlay for StashOverlay {
                     if let Some(i) = self.table_state.selected_mut() {
                         let len = len as isize;
                         let cur = *i as isize;
-                        let next = (cur + x.0 as isize).rem_euclid(len);
+                        let next = (cur + *x as isize).rem_euclid(len);
                         *i = next as usize;
                     }
                 }

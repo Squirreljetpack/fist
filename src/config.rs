@@ -163,6 +163,7 @@ pub struct InterfaceConfig {
     pub cwd_prompt: String,
     /// Display a toast when current directory has no entries.
     pub toast_on_empty: bool, // todo
+    pub autojump_advance: bool,
 }
 
 impl Default for InterfaceConfig {
@@ -174,6 +175,7 @@ impl Default for InterfaceConfig {
             advance_command: Preset::Edit.to_command_string(),
             cwd_prompt: "{} ".into(),
             toast_on_empty: true,
+            autojump_advance: false,
         }
     }
 }
