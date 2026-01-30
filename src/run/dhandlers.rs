@@ -8,16 +8,17 @@ use cli_boilerplate_automation::{
 use easy_ext::ext;
 use log::{debug, info};
 use matchmaker::{
-    Matchmaker, efx,
+    Matchmaker,
     message::{Event, Interrupt},
-    nucleo::{Indexed, injector::IndexedInjector},
+    nucleo::Indexed,
     preview::AppendOnly,
-    render::{Effect, Effects},
 };
 
 use crate::{
+    abspath::AbsPath,
     aliases::MMState,
     run::{
+        ahandler::fs_reload,
         item::PathItem,
         pane::FsPane,
         state::{FILTERS, STACK, TEMP},
@@ -28,7 +29,7 @@ use crate::{
 pub fn sync_handler(
     state: &mut MMState<'_, '_>,
     _: &Event,
-) -> Effects {
+) {
     // SORTING
     // On sync:
     // Check current pane to see how to interpret global state
@@ -43,6 +44,7 @@ pub fn sync_handler(
 
     let seek = TEMP::take_prev_dir();
 
+    // reload saved state
     if let Some(seek) = seek
         && let Some(i) = state
             .picker_ui
@@ -50,132 +52,61 @@ pub fn sync_handler(
             .raw_results()
             .position(|x| x.inner.path == seek)
     {
-        efx![Effect::SetIndex(i as u32)]
+        state.picker_ui.results.cursor_jump(i as u32);
     } else
-    // if RESTORE_INPUT
-    // .compare_exchange(true, false, Ordering::Acquire, Ordering::Acquire)
-    // .is_ok() &&
-
     // this part is exclusive to [`FsAction::Undo`], Forward and watcher reload.
-    if let Some((input, index)) = STACK::get_maybe_input() {
-        let il = input.len() as u16;
-        efx![
-            Effect::Input((input, il)),
-            Effect::SetIndex(index),
-            Effect::RevalidateSelectons,
-        ]
-    } else {
-        efx![]
-    }
+    if let Some(index) = TEMP::take_stashed_index() {
+        state.picker_ui.results.cursor_jump(index);
+    };
 }
 
 #[ext(MMExt)]
 // overrides to support static formatter
 impl Matchmaker<Indexed<PathItem>, PathItem> {
     pub fn register_reload_handler_(&mut self) {
-        self.register_interrupt_handler(Interrupt::Reload("".into()), move |state, interrupt| {
-            if let Interrupt::Reload(template) = interrupt {
+        self.register_interrupt_handler(Interrupt::Reload, move |state| {
+            let template = state.payload();
+            if !template.is_empty() {
                 // User reload event: create a custom pane
-                if !template.is_empty() {
-                    if let Some(t) = state.current_raw() {
-                        let script = mm_formatter(t, template);
-                        log::debug!("Reloading: {script}");
-                        let (shell, arg) = &*SHELL;
-                        let command = (
-                            OsString::from(shell),
-                            vec![OsString::from(arg), script.into()],
-                        );
-                        let pane = FsPane::new_custom(
-                            STACK::cwd().unwrap_or_default(),
-                            FILTERS::visibility(),
-                            command,
-                        );
-                        STACK::push(pane);
-                    }
-                } else {
-                    // 1. selections should be cleared on nav change
-                    // 2. For custom reload actions, the pane was already created
-                    // - this signals to restore that saved input
-                    // - technically we should set this only if input was saved, but the check needs to be done by sync_handler anyway
+                if let Some(t) = state.current_raw() {
+                    let script = mm_formatter(t, template);
+                    log::debug!("Reloading: {script}");
+                    let (shell, arg) = &*SHELL;
+                    let command = (
+                        OsString::from(shell),
+                        vec![OsString::from(arg), script.into()],
+                    );
+                    let pane = FsPane::new_custom(
+                        STACK::cwd().unwrap_or_default(),
+                        FILTERS::visibility(),
+                        command,
+                    );
+                    STACK::push(pane);
 
-                    // if STACK::has_saved_input() {
-                    //     RESTORE_INPUT.store(true, Ordering::Release);
-                    // }
-                }
-
-                let injector = IndexedInjector::new_globally_indexed(state.injector());
-                STACK::populate(injector, || {});
-            }
-
-            if STACK::has_saved_input() {
-                // todo: clear selections if not pure reload
-                efx![]
-            } else {
-                // rules out:
-                // - file watch event
-                // - undo/redo with save
-
-                // i.e., [`FsAction::Find`]: stay in prompt
-                if state.picker_ui.results.cursor_disabled {
-                    efx![Effect::Input(Default::default()), Effect::ClearSelections]
-                } else {
-                    efx![
-                        Effect::Input(Default::default()),
-                        Effect::SetIndex(0),
-                        Effect::ClearSelections,
-                        Effect::RestoreInputPrefix
-                    ]
+                    fs_reload(state)
                 }
             }
         });
     }
 
     pub fn register_execute_handler_(&mut self) {
-        self.register_interrupt_handler(Interrupt::Execute("".into()), move |state, interrupt| {
-            let Interrupt::Execute(template) = interrupt else {
-                unreachable!()
-            };
-
+        self.register_interrupt_handler(Interrupt::Execute, move |state| {
+            let template = state.payload();
             if !template.is_empty() {
                 let path = else_default!(if state.picker_ui.results.cursor_disabled {
                     STACK::cwd()
                 } else {
                     state.current_raw().map(|t| t.inner.path.clone())
                 });
-                let cmd = crate::utils::text::path_formatter(template, &path);
-
-                let vars = state.make_env_vars();
-
-                if let Some(cwd) = STACK::cwd() {
-                    std::env::set_current_dir(cwd)._ebog();
-                }
-
-                if let Some(mut child) = Command::from_script(&cmd)
-                    .envs(vars)
-                    .stdin(tty_or_inherit())
-                    ._spawn()
-                {
-                    match child.wait() {
-                        Ok(i) => {
-                            info!("Command [{cmd}] exited with {i}")
-                        }
-                        Err(e) => {
-                            info!("Failed to wait on command [{cmd}]: {e}")
-                        }
-                    }
-                }
-            } else {
-                // undecided
-            };
-
-            efx![]
+                execute(template, &path, state);
+            }
         });
     }
 
     pub fn register_become_handler_(&mut self) {
-        self.register_interrupt_handler(Interrupt::Become("".into()), move |state, interrupt| {
-            if let Interrupt::Become(template) = interrupt
-                && !template.is_empty()
+        self.register_interrupt_handler(Interrupt::Become, move |state| {
+            let template = state.payload();
+            if !template.is_empty()
                 && let Some(t) = state.current_raw()
             {
                 let cmd = mm_formatter(t, template);
@@ -195,7 +126,6 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
 
                 Command::from_script(&cmd).envs(vars)._exec();
             }
-            efx![]
         });
     }
 
@@ -203,18 +133,15 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
         &mut self,
         print_handle: AppendOnly<String>,
     ) {
-        self.register_interrupt_handler(Interrupt::Print("".into()), move |state, i| {
-            if let Interrupt::Print(template) = i
-                && let Some(t) = state.current_raw()
-            {
-                let s = mm_formatter(t, template);
+        self.register_interrupt_handler(Interrupt::Print, move |state| {
+            if let Some(t) = state.current_raw() {
+                let s = mm_formatter(t, state.payload());
                 if atty::is(atty::Stream::Stdout) {
                     print_handle.push(s);
                 } else {
                     prints!(s);
                 }
             };
-            efx![]
         });
     }
 }
@@ -224,4 +151,33 @@ pub fn mm_formatter(
     template: &str,
 ) -> String {
     crate::utils::text::path_formatter(template, &item.inner.path)
+}
+
+fn execute(
+    template: &str,
+    path: &AbsPath,
+    state: &MMState<'_, '_>,
+) {
+    let cmd = crate::utils::text::path_formatter(template, path);
+
+    let vars = state.make_env_vars();
+
+    if let Some(cwd) = STACK::cwd() {
+        std::env::set_current_dir(cwd)._ebog();
+    }
+
+    if let Some(mut child) = Command::from_script(&cmd)
+        .envs(vars)
+        .stdin(tty_or_inherit())
+        ._spawn()
+    {
+        match child.wait() {
+            Ok(i) => {
+                info!("Command [{cmd}] exited with {i}")
+            }
+            Err(e) => {
+                info!("Failed to wait on command [{cmd}]: {e}")
+            }
+        }
+    }
 }

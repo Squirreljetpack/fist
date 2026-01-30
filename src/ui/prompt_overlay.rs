@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use crate::run::{action::FsAction, globals::TEMP};
 use crate::utils::text::grapheme_index_to_byte_index;
 use matchmaker::{
-    action::{Action, Exit},
+    action::Action,
     config::BorderSetting,
     ui::{Overlay, OverlayEffect},
 };
@@ -202,7 +202,7 @@ impl PromptOverlay {
                 self.cursor = new.clamp(0, len) as u16;
             }
             Action::Accept => return Some(true),
-            Action::Quit(Exit(1)) => {
+            Action::Quit(1) => {
                 return Some(false);
             }
             _ => {}

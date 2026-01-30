@@ -31,8 +31,9 @@ async fn main() {
         bog::init_filter(0); // don't break shell init
     }
 
+    // update configs when debug
     #[cfg(debug_assertions)]
-    if cli.opts.mm_config.is_none() || cli.opts.config.is_none() {
+    if cli.opts.mm_config.is_none() && cli.opts.config.is_none() {
         write_str(config_path(), include_str!("../assets/config/dev.toml"))._ebog();
         write_str(mm_cfg_path(), include_str!("../assets/config/mm.dev.toml"))._ebog();
         write_str(
@@ -42,80 +43,26 @@ async fn main() {
         ._ebog();
     }
 
+    // load config
     let cfg: Config = if let Some(p) = cli.opts.config.as_deref() {
-        load_type(p, |s| toml::from_str(s)).or_exit()
+        load_type(p, |s| toml::from_str(s))._elog().or_exit()
     } else {
         let p = config_path();
         if p.is_file() {
-            load_type(p, |s| toml::from_str(s)).or_exit()
+            load_type(p, |s| toml::from_str(s))._elog().or_exit()
         } else {
             toml::from_str(include_str!("../assets/config/config.toml")).__ebog()
         }
     };
 
     if cli.opts.dump_config {
-        let mm_cfg_path = cli.opts.mm_config.as_deref().unwrap_or(mm_cfg_path());
-        let lessfilter_cfg_path = lessfilter_cfg_path();
-        // if stdout: dump the default cfg (with comments)
-        // + (if not yet existing), dump the default run cfg
-        if atty::is(atty::Stream::Stdout) {
-            let cfg_path = cli.opts.config.as_deref().unwrap_or(config_path());
-            // todo: prompt about overwriting
-            if write_str(cfg_path, include_str!("../assets/config/config.toml"))
-                ._ebog()
-                .is_some()
-            {
-                ibog!("Wrote config to {}", cfg_path.to_string_lossy());
-                // overwrite helper files
-                Config::default().check_scripts(true);
-            } else {
-                cfg.check_scripts(true);
-            }
-
-            if !mm_cfg_path.exists()
-                && write_str(mm_cfg_path, include_str!("../assets/config/mm.toml"))
-                    ._ebog()
-                    .is_some()
-            {
-                ibog!("Wrote config to {}", mm_cfg_path.to_string_lossy())
-            }
-            if !lessfilter_cfg_path.exists()
-                && write_str(
-                    lessfilter_cfg_path,
-                    include_str!("../assets/config/lessfilter.toml"),
-                )
-                ._ebog()
-                .is_some()
-            {
-                ibog!("Wrote config to {}", lessfilter_cfg_path.to_string_lossy())
-            }
-        } else {
-            // if piped: dump the current cfg
-            let contents = toml::to_string_pretty(&cfg).expect("failed to serialize to TOML");
-            std::io::stdout().write_all(contents.as_bytes())._ebog();
-
-            #[cfg(debug_assertions)]
-            {
-                std::io::stdout()
-                    .write_all(b"\n---------------- mm.toml ----------------\n")
-                    .unwrap();
-                let mm_cfg = fist::run::mm_config::get_mm_cfg(mm_cfg_path, &cfg);
-                let contents =
-                    toml::to_string_pretty(&mm_cfg).expect("failed to serialize to TOML");
-                std::io::stdout().write_all(contents.as_bytes())._ebog();
-            }
-        }
-
-        std::process::exit(0);
+        dump_config(&cli.opts, &cfg);
     }
-    // ensure necessary directories/files (scripts) exist
-    cfg.check_dirs_or_exit();
-    #[cfg(debug_assertions)]
-    cfg.check_scripts(true);
-    #[cfg(not(debug_assertions))]
-    cfg.check_scripts(false);
 
-    // if atty is not stdin, (this may be a bit unexpected but shouldn't be a big problem)
+    // ensure necessary directories/files (scripts) exist
+    check(&cfg);
+
+    // skip tool logging when not in append mode (mainly lessfilter)
     if !cfg.misc.append_mode_logging
         && (std::env::var("MM_IN_APP").as_deref() == Ok("true")
             || matches!(
@@ -123,7 +70,7 @@ async fn main() {
                 SubCmd::Tools(ToolsCmd { tool: Some(_), .. }) | SubCmd::Open(_)
             ))
     {
-        // skip tool logging when not in append mode (mainly lessfilter)
+        // skip
     } else {
         init_logger(
             cli.opts.verbosity(),
@@ -167,7 +114,7 @@ fn init_logger(
                 .format_target(false)
                 .format_timestamp(None);
 
-            let level = cli_boilerplate_automation::bother::level_filter_from_env();
+            let level = cli_boilerplate_automation::bother::level_filter::from_env();
 
             builder
                 .filter(Some("matchmaker"), level)
@@ -193,4 +140,70 @@ fn init_logger(
     }
 
     builder.init();
+}
+
+fn dump_config(
+    opts: &fist::cli::CliOpts,
+    cfg: &Config,
+) {
+    let mm_cfg_path = opts.mm_config.as_deref().unwrap_or(mm_cfg_path());
+    let lessfilter_cfg_path = lessfilter_cfg_path();
+    // if stdout: dump the default cfg (with comments)
+    // + (if not yet existing), dump the default run cfg
+    if atty::is(atty::Stream::Stdout) {
+        let cfg_path = opts.config.as_deref().unwrap_or(config_path());
+        // todo: prompt about overwriting
+        if write_str(cfg_path, include_str!("../assets/config/config.toml"))
+            ._ebog()
+            .is_some()
+        {
+            ibog!("Wrote config to {}", cfg_path.to_string_lossy());
+            // overwrite helper files
+            Config::default().check_scripts(true);
+        } else {
+            cfg.check_scripts(true);
+        }
+
+        if !mm_cfg_path.exists()
+            && write_str(mm_cfg_path, include_str!("../assets/config/mm.toml"))
+                ._ebog()
+                .is_some()
+        {
+            ibog!("Wrote config to {}", mm_cfg_path.to_string_lossy())
+        }
+        if !lessfilter_cfg_path.exists()
+            && write_str(
+                lessfilter_cfg_path,
+                include_str!("../assets/config/lessfilter.toml"),
+            )
+            ._ebog()
+            .is_some()
+        {
+            ibog!("Wrote config to {}", lessfilter_cfg_path.to_string_lossy())
+        }
+    } else {
+        // if piped: dump the current cfg
+        let contents = toml::to_string_pretty(&cfg).expect("failed to serialize to TOML");
+        std::io::stdout().write_all(contents.as_bytes())._ebog();
+
+        #[cfg(debug_assertions)]
+        {
+            std::io::stdout()
+                .write_all(b"\n---------------- mm.toml ----------------\n")
+                .unwrap();
+            let mm_cfg = fist::run::mm_config::get_mm_cfg(mm_cfg_path, cfg);
+            let contents = toml::to_string_pretty(&mm_cfg).expect("failed to serialize to TOML");
+            std::io::stdout().write_all(contents.as_bytes())._ebog();
+        }
+    }
+
+    std::process::exit(0);
+}
+
+fn check(cfg: &Config) {
+    cfg.check_dirs_or_exit();
+    #[cfg(debug_assertions)]
+    cfg.check_scripts(true);
+    #[cfg(not(debug_assertions))]
+    cfg.check_scripts(false);
 }

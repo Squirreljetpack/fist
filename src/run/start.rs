@@ -3,16 +3,16 @@ use std::{ffi::OsString, sync::Arc};
 use cli_boilerplate_automation::{bait::ResultExt, bog::BogOkExt, prints};
 use matchmaker::{
     MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector,
+    action::Action,
     binds::display_binds,
     config::{PreviewerConfig, RenderConfig, TerminalConfig},
     make_previewer,
-    message::Event,
+    message::{Event, RenderCommand},
     nucleo::{
         Column, Indexed, Render, Worker,
         injector::{IndexedInjector, WorkerInjector},
     },
     preview::AppendOnly,
-    render::Effect,
 };
 
 use crate::{
@@ -21,12 +21,13 @@ use crate::{
     db::{DbTable, Pool, zoxide::DbFilter},
     errors::CliError,
     run::{
-        action::{fsaction_aliaser, fsaction_handler, paste_handler},
+        action::{fsaction_aliaser, fsaction_handler},
+        ahandler::paste_handler,
         dhandlers::{MMExt, mm_formatter, sync_handler},
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
-        state::{APP, DB_FILTER, GLOBAL, STACK},
+        state::{APP, DB_FILTER, GLOBAL, STACK, TASKS},
     },
     spawn::{Program, open_wrapped},
     ui::{
@@ -50,18 +51,21 @@ fn make_mm(
     tui: TerminalConfig,
     cfg: &Config,
     print_handle: AppendOnly<String>,
+    should_sort: bool,
 ) -> (
     Matchmaker<Indexed<PathItem>, PathItem>,
     FsInjector,
     FormatterFn,
 ) {
-    let worker = Worker::new(
+    let mut worker = Worker::new(
         [
             Column::new("_", |item: &Indexed<PathItem>| item.inner.as_text()),
             Column::new("", |item: &Indexed<PathItem>| item.inner.tail.clone()),
         ],
         0,
     );
+    worker.sort_results(should_sort);
+
     let injector = IndexedInjector::new_globally_indexed(worker.injector());
 
     let selector = Selector::new_with_validator(Indexed::identifier, exist_validator);
@@ -108,15 +112,16 @@ pub async fn start(
     } = mm_cfg;
     log::debug!("cfg: {cfg:?}");
 
-    if let Some(x) = pane.preview_show(&cfg.global.panes) {
+    if let Some(x) = cfg.global.panes.preview_show(&pane) {
         render.preview.show = x
     }
-    if let Some(x) = pane.prompt(&cfg.global.panes) {
+    if let Some(x) = cfg.global.panes.prompt(&pane) {
         render.input.prompt = x
     }
     let print_handle = AppendOnly::new();
     // init MM
-    let (mut mm, injector, formatter) = make_mm(render, tui, &cfg, print_handle.clone());
+    let (mut mm, injector, formatter) =
+        make_mm(render, tui, &cfg, print_handle.clone(), pane.should_sort());
 
     // init previewer
     let previewer_config = PreviewerConfig::default();
@@ -145,14 +150,11 @@ pub async fn start(
         | FsPane::Nav { input, .. }
         | FsPane::Folders { input, .. }
         | FsPane::Files { input, .. } => {
-            let il = input.0.len() as u16;
-            render_tx
-                .send(matchmaker::message::RenderCommand::Effect(Effect::Input((
-                    input.0.clone(),
-                    il,
-                ))))
-                .elog()
-                .ok();
+            if !input.0.is_empty() {
+                render_tx
+                    .send(RenderCommand::Action(Action::SetInput(input.0.clone())))
+                    ._elog();
+            }
         }
         _ => {}
     }
@@ -179,6 +181,7 @@ pub async fn start(
     // print before errors
     print_handle.map_to_vec(|s| prints!(s));
 
+    TASKS::shutdown(1, 3000).await;
     if APP::in_app_pane() {
         match ret.first().abort() {
             Ok(prog) => {

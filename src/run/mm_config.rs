@@ -50,14 +50,14 @@ pub fn default_binds() -> BindMap<FsAction> {
     let ret = bindmap!(
         // Nav
         // ----------------------------------
-        key!(up) => Action::Up(1.into()),
-        key!(down) => Action::Down(1.into()),
+        key!(up) => Action::Up(1),
+        key!(down) => Action::Down(1),
         key!(shift-right) => Action::ForwardChar,
         key!(shift-left) => Action::BackwardChar,
         key!(enter) => Action::Accept,
         key!(ctrl-enter) => Action::Print("".into()),
         key!(alt-enter) => Action::Print("".into()),
-        key!(tab) => [Action::Toggle, Action::Down(1.into())],
+        key!(tab) => [Action::Toggle, Action::Down(1)],
 
         key!(right) => FsAction::Advance,
         key!(left) => FsAction::Parent,
@@ -65,10 +65,10 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-r) => FsAction::Rg,
         key!(ctrl-g) => FsAction::History,
         key!(ctrl-z) => FsAction::Undo,
-        key!(alt-z) => FsAction::Forward,
-        key!(ctrl-shift-'z') => FsAction::Forward,
-        key!('/') => FsAction::Jump("".into(), Some('/')),
+        key!(alt-z) => FsAction::Redo,
+        key!(ctrl-shift-'z') => FsAction::Redo,
         key!('~') => FsAction::Jump("".into(), Some('~')),
+        key!('/') => FsAction::Jump("".into(), Some('/')), // doesn't make the most sense but its convenient
 
         // Display
         // ----------------------------------
@@ -110,12 +110,13 @@ pub fn default_binds() -> BindMap<FsAction> {
 
         // misc
         // ---------------------------------------
-        key!(shift-up) => Action::PreviewUp(1.into()),
-        key!(shift-down) => Action::PreviewDown(1.into()),
+        key!(shift-up) => Action::PreviewUp(1),
+        key!(shift-down) => Action::PreviewDown(1),
 
         key!(ctrl-shift-'/') => Action::CyclePreview,
         key!(alt-r) => Action::Reload("".to_string()),
         key!(ctrl-0) => FsAction::AutoJump(0),
+        key!(ctrl-'`') => FsAction::AutoJump(0),
         key!(ctrl-1) => FsAction::AutoJump(1),
         key!(ctrl-2) => FsAction::AutoJump(2),
         key!(ctrl-3) => FsAction::AutoJump(3),
@@ -128,39 +129,6 @@ pub fn default_binds() -> BindMap<FsAction> {
     );
     ret
 }
-
-// fn change_actions(
-//     map: &mut BindMap<FsAction>,
-//     // alt_accept: bool,
-//     no_multi: bool,
-// ) {
-//     map.retain(|_, actions| {
-//         let vec = &mut actions.0;
-
-//         let mut i = 0;
-//         while i < vec.len() {
-//             let remove =
-//                 no_multi && matches!(vec[i], Action::Select | Action::Deselect | Action::Toggle);
-
-//             if remove {
-//                 vec.remove(i);
-//                 continue; // don't advance index
-//             }
-
-//             // if alt_accept {
-//             //     match &mut vec[i] {
-//             //         Action::Accept => vec[i] = Action::Print(String::new()),
-//             //         Action::Print(s) if s.is_empty() => vec[i] = Action::Accept,
-//             //         _ => {}
-//             //     }
-//             // }
-
-//             i += 1;
-//         }
-
-//         !vec.is_empty() // retain only non-empty entries
-//     });
-// }
 
 pub fn get_mm_cfg(
     path: &Path,

@@ -18,9 +18,7 @@ use cli_boilerplate_automation::{
     broc::{CommandExt, display_sh_prog_and_args},
     bs::sort_by_mtime,
 };
-use matchmaker::{
-    efx, message::RenderCommand, nucleo::injector::Injector, preview::AppendOnly, render::Effect,
-};
+use matchmaker::{message::RenderCommand, nucleo::injector::Injector, preview::AppendOnly};
 use tokio::task::spawn_blocking;
 
 use crate::{
@@ -34,6 +32,7 @@ use crate::{
         walker::list_dir,
     },
     run::{
+        FsAction,
         globals::APP,
         item::PathItem,
         start::FsInjector,
@@ -232,11 +231,40 @@ impl FsPane {
         }
     }
 
+    #[inline]
     pub fn supports_sort(&self) -> bool {
         matches!(
             self,
             FsPane::Nav { .. } | FsPane::Custom { .. } | FsPane::Fd { .. }
         )
+    }
+
+    #[inline]
+    pub fn should_sort(&self) -> bool {
+        match self {
+            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Launch { .. } => false,
+            FsPane::Custom { .. } | FsPane::Stream { .. } => false, // maybe
+            FsPane::Rg { .. } => true,                              // maybe
+            _ => true,
+        }
+    }
+
+    #[inline]
+    pub fn should_cancel_input_entering_dir(&self) -> bool {
+        matches!(self, FsPane::Nav { .. } | FsPane::Launch { .. })
+    }
+
+    pub fn get_input(&self) -> String {
+        match self {
+            FsPane::Custom { input, .. }
+            | FsPane::Stream { input, .. }
+            | FsPane::Fd { input, .. }
+            | FsPane::Rg { input, .. }
+            | FsPane::Nav { input, .. }
+            | FsPane::Files { input, .. }
+            | FsPane::Folders { input, .. } => input.0.clone(),
+            _ => String::new(),
+        }
     }
 }
 
@@ -538,7 +566,7 @@ impl FsPane {
                         entries.sort_by(|a, b| a.name.cmp(&b.name));
                         let mut conn = pool_clone.get_conn(DbTable::apps).await.elog()?;
                         if conn.create_many(&entries).await? > 0 {
-                            GLOBAL::send_efx(efx![Effect::Reload]);
+                            GLOBAL::send_action(FsAction::Reload);
                         }
                         anyhow::Ok(())
                     });
@@ -608,7 +636,7 @@ pub fn map_reader<E: matchmaker::SSS + Display>(
         let count = map_reader_lines::<true, E>(reader, f)._elog();
         match count {
             Some(0) if abort_empty => {
-                GLOBAL::send_render_command(RenderCommand::QuitEmpty);
+                GLOBAL::send_mm(RenderCommand::QuitEmpty);
             }
             _ => {}
         }
