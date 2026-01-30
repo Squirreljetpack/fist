@@ -20,7 +20,10 @@ use ratatui::{
         TableState,
     },
 };
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::{
+    fmt::Alignment,
+    sync::atomic::{AtomicBool, AtomicU8, Ordering},
+};
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -146,10 +149,14 @@ impl StashOverlay {
                 let dst = item.dst.to_string_lossy().pad(1, 1);
                 let size = item.status.render(config);
 
-                let path = Span::from(item.display().truncate_left(self.widths[1] as usize).pad(
-                    (self.widths[1] + 1 < self.available_path_w) as usize,
-                    (self.widths[1] < self.available_path_w) as usize,
-                ));
+                let path = Span::from(
+                    item.display()
+                        .ellipsize(self.widths[1] as usize, Alignment::Right)
+                        .pad(
+                            (self.widths[1] + 1 < self.available_path_w) as usize,
+                            (self.widths[1] < self.available_path_w) as usize,
+                        ),
+                );
 
                 if Some(i) == self.table_state.selected() {
                     // manual highlight to keep cell styles

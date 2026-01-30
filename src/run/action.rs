@@ -7,6 +7,7 @@ use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt, else_default, p
 use matchmaker::{
     acs,
     action::{Action, ActionExt, Actions},
+    message::Interrupt,
     nucleo::{Color, Modifier, Span, Style},
 };
 use ratatui::text::Text;
@@ -20,7 +21,6 @@ use crate::{
     lessfilter::Preset,
     run::{
         ahandler::{enter_dir_pane, enter_prompt, fs_reload, prepare_prompt},
-        dhandlers::fs_execute,
         item::short_display,
         pane::FsPane,
         stash::{STASH, StashItem},
@@ -56,7 +56,7 @@ pub enum FsAction {
     /// Jump to a directory.
     /// Relative paths are resolved relative to the home directory.
     /// # Note
-    /// By default, '~' and '/' bind to Jump($HOME)
+        /// By default, '~' and '/' bind to Jump($HOME)
     Jump(PathBuf, Option<char>),
 
     /// Go back
@@ -530,7 +530,7 @@ pub fn fsaction_handler(
 
                 // todo: specialized
                 let template = GLOBAL::with_cfg(|c| c.interface.advance_command.clone());
-                fs_execute(&template, &item.path, state);
+                state.set_interrupt(Interrupt::Execute, template);
             }
         }
 
@@ -764,7 +764,7 @@ pub fn fsaction_handler(
                 }
             }
 
-            fs_execute(&template, &item.path, state);
+            state.set_interrupt(Interrupt::Execute, template);
         }
 
         FsAction::AcceptPrompt => {

@@ -64,8 +64,9 @@ pub fn sync_handler(
 // overrides to support static formatter
 impl Matchmaker<Indexed<PathItem>, PathItem> {
     pub fn register_reload_handler_(&mut self) {
-        self.register_interrupt_handler(Interrupt::Reload("".into()), move |state, interrupt| {
-            if let Interrupt::Reload(template) = interrupt {
+        self.register_interrupt_handler(Interrupt::Reload, move |state| {
+            let template = state.payload();
+            if !template.is_empty() {
                 // User reload event: create a custom pane
                 if let Some(t) = state.current_raw() {
                     let script = mm_formatter(t, template);
@@ -89,25 +90,23 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
     }
 
     pub fn register_execute_handler_(&mut self) {
-        self.register_interrupt_handler(Interrupt::Execute("".into()), move |state, interrupt| {
-            let Interrupt::Execute(template) = interrupt else {
-                unreachable!()
-            };
+        self.register_interrupt_handler(Interrupt::Execute, move |state| {
+            let template = state.payload();
             if !template.is_empty() {
                 let path = else_default!(if state.picker_ui.results.cursor_disabled {
                     STACK::cwd()
                 } else {
                     state.current_raw().map(|t| t.inner.path.clone())
                 });
-                fs_execute(template, &path, state);
+                execute(template, &path, state);
             }
         });
     }
 
     pub fn register_become_handler_(&mut self) {
-        self.register_interrupt_handler(Interrupt::Become("".into()), move |state, interrupt| {
-            if let Interrupt::Become(template) = interrupt
-                && !template.is_empty()
+        self.register_interrupt_handler(Interrupt::Become, move |state| {
+            let template = state.payload();
+            if !template.is_empty()
                 && let Some(t) = state.current_raw()
             {
                 let cmd = mm_formatter(t, template);
@@ -134,11 +133,9 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
         &mut self,
         print_handle: AppendOnly<String>,
     ) {
-        self.register_interrupt_handler(Interrupt::Print("".into()), move |state, i| {
-            if let Interrupt::Print(template) = i
-                && let Some(t) = state.current_raw()
-            {
-                let s = mm_formatter(t, template);
+        self.register_interrupt_handler(Interrupt::Print, move |state| {
+            if let Some(t) = state.current_raw() {
+                let s = mm_formatter(t, state.payload());
                 if atty::is(atty::Stream::Stdout) {
                     print_handle.push(s);
                 } else {
@@ -156,7 +153,7 @@ pub fn mm_formatter(
     crate::utils::text::path_formatter(template, &item.inner.path)
 }
 
-pub fn fs_execute(
+fn execute(
     template: &str,
     path: &AbsPath,
     state: &MMState<'_, '_>,

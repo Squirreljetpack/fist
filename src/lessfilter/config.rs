@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use cli_boilerplate_automation::bo::load_type;
+
 use crate::{
     cli::{BINARY_SHORT, paths::current_exe},
     lessfilter::RulesConfig,
@@ -66,13 +68,22 @@ impl Preset {
     }
 }
 
-#[derive(Default, Debug, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LessfilterConfig {
-    #[serde(flatten)]
+    #[serde(flatten, default)]
     pub test: TestSettings,
+    #[serde(default)]
     pub rules: RulesConfig,
+    #[serde(default)]
     pub actions: CustomActions,
+}
+
+impl Default for LessfilterConfig {
+    fn default() -> Self {
+        let ret = toml::from_str(include_str!("../../assets/config/lessfilter.toml"));
+        ret.unwrap()
+    }
 }
 
 #[derive(Debug, serde::Deserialize)]

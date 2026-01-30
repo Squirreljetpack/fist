@@ -545,11 +545,8 @@ async fn handle_tools(
 
             let cmd = LessfilterCommand::parse_from(args);
 
-            let cfg = load_type_or_default(
-                lessfilter_cfg_path(),
-                |s| toml::from_str(s),
-                include_str!("../../assets/config/lessfilter.toml"),
-            );
+            let cfg = load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
+            dbg!(&cfg);
 
             lessfilter::handle(cmd, cfg)
         }
