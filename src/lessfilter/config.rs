@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use cli_boilerplate_automation::bo::load_type;
 
 use crate::{
-    cli::{BINARY_SHORT, paths::current_exe},
+    cli::paths::{BINARY_SHORT, current_exe},
     lessfilter::RulesConfig,
 };
 

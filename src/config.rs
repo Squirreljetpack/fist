@@ -8,7 +8,7 @@ use cli_boilerplate_automation::{
 };
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{cli::BINARY_FULL, cli::paths::*, lessfilter::Preset};
+use crate::{cli::paths::*, lessfilter::Preset};
 use crate::{
     cli::paths::{liza_path, text_renderer_path},
     db::zoxide::HistoryConfig,
@@ -18,7 +18,7 @@ use crate::{
     watcher::WatcherConfig,
 };
 // ------ CONFIG ------
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     /// directory for storing history and other state.
@@ -49,6 +49,12 @@ pub struct Config {
     /// Settings related to saving to and retrieving from history.
     #[serde(default)]
     pub history: HistoryConfig,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        toml::from_str(include_str!("../assets/config/config.toml")).unwrap()
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

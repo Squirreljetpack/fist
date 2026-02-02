@@ -8,8 +8,7 @@ use serde::{Deserialize, Deserializer};
 
 use crate::abspath::AbsPath;
 use crate::arr;
-use crate::cli::BINARY_SHORT;
-use crate::cli::paths::{current_exe, show_error_path, text_renderer_path};
+use crate::cli::paths::{BINARY_SHORT, current_exe, show_error_path, text_renderer_path};
 use crate::lessfilter::file_rule::FileData;
 use crate::lessfilter::helpers::{
     header_viewer, image_viewer, infer_editor, infer_visual, metadata_viewer,

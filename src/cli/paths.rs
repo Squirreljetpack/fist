@@ -5,7 +5,8 @@ use cli_boilerplate_automation::{
 };
 use std::{env::current_dir, ffi::OsString, path::PathBuf};
 
-use super::{BINARY_FULL, BINARY_SHORT};
+pub static BINARY_FULL: &str = "fist";
+pub static BINARY_SHORT: &str = "fs";
 
 // ---------------------- DIRS ----------------------
 // config defaults

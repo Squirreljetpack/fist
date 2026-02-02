@@ -87,7 +87,7 @@ pub fn prepare_prompt(state: &mut MMState<'_, '_>) {
         .set(STACK::with_current(FsPane::get_input), u16::MAX);
 
     // always clear selections
-    state.picker_ui.selections.clear();
+    state.picker_ui.selector.clear();
 
     if !state.picker_ui.results.cursor_disabled {
         state.picker_ui.input.reset_prompt();
@@ -121,7 +121,7 @@ pub fn enter_dir_pane(
     // exit prompt
     enter_prompt(state, false);
     // always clear selections
-    state.picker_ui.selections.clear();
+    state.picker_ui.selector.clear();
 
     STACK::push(pane);
     fs_reload(state);

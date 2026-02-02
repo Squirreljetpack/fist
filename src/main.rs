@@ -1,8 +1,8 @@
 use std::{fs::OpenOptions, io::Write, path::PathBuf, process};
 
 use cli_boilerplate_automation::{
-    bait::{OptionExt, ResultExt},
-    bo::{load_type, write_str},
+    bait::ResultExt,
+    bo::{load_type_or_default, write_str},
     bog::{self, BogOkExt},
     ebog, ibog,
 };
@@ -10,7 +10,7 @@ use fist::{
     cli::{
         Cli, SubCmd, ToolsCmd,
         handlers::handle_subcommand,
-        paths::{config_path, lessfilter_cfg_path, mm_cfg_path},
+        paths::{BINARY_FULL, config_path, lessfilter_cfg_path},
     },
     config::Config,
     errors::CliError,
@@ -33,7 +33,8 @@ async fn main() {
 
     // update configs when debug
     #[cfg(debug_assertions)]
-    if cli.opts.mm_config.is_none() && cli.opts.config.is_none() {
+    use fist::cli::paths::mm_cfg_path;
+    if cli.opts.mm_config == mm_cfg_path() && cli.opts.config == config_path() {
         write_str(config_path(), include_str!("../assets/config/dev.toml"))._ebog();
         write_str(mm_cfg_path(), include_str!("../assets/config/mm.dev.toml"))._ebog();
         write_str(
@@ -44,16 +45,7 @@ async fn main() {
     }
 
     // load config
-    let cfg: Config = if let Some(p) = cli.opts.config.as_deref() {
-        load_type(p, |s| toml::from_str(s))._elog().or_exit()
-    } else {
-        let p = config_path();
-        if p.is_file() {
-            load_type(p, |s| toml::from_str(s))._elog().or_exit()
-        } else {
-            toml::from_str(include_str!("../assets/config/config.toml")).__ebog()
-        }
-    };
+    let cfg: Config = load_type_or_default(config_path(), |s| toml::from_str(s));
 
     if cli.opts.dump_config {
         dump_config(&cli.opts, &cfg);
@@ -97,7 +89,6 @@ fn init_logger(
     let rust_log = std::env::var("RUST_LOG").ok().map(|val| val.to_lowercase());
 
     let mut builder = env_logger::Builder::from_default_env();
-    use fist::cli::BINARY_FULL;
 
     if rust_log.is_none() {
         #[cfg(debug_assertions)]
@@ -146,30 +137,28 @@ fn dump_config(
     opts: &fist::cli::CliOpts,
     cfg: &Config,
 ) {
-    let mm_cfg_path = opts.mm_config.as_deref().unwrap_or(mm_cfg_path());
     let lessfilter_cfg_path = lessfilter_cfg_path();
     // if stdout: dump the default cfg (with comments)
     // + (if not yet existing), dump the default run cfg
     if atty::is(atty::Stream::Stdout) {
-        let cfg_path = opts.config.as_deref().unwrap_or(config_path());
         // todo: prompt about overwriting
-        if write_str(cfg_path, include_str!("../assets/config/config.toml"))
+        if write_str(&opts.config, include_str!("../assets/config/config.toml"))
             ._ebog()
             .is_some()
         {
-            ibog!("Wrote config to {}", cfg_path.to_string_lossy());
+            ibog!("Wrote config to {}", &opts.config.to_string_lossy());
             // overwrite helper files
             Config::default().check_scripts(true);
         } else {
             cfg.check_scripts(true);
         }
 
-        if !mm_cfg_path.exists()
-            && write_str(mm_cfg_path, include_str!("../assets/config/mm.toml"))
+        if !opts.mm_config.exists()
+            && write_str(&opts.mm_config, include_str!("../assets/config/mm.toml"))
                 ._ebog()
                 .is_some()
         {
-            ibog!("Wrote config to {}", mm_cfg_path.to_string_lossy())
+            ibog!("Wrote config to {}", opts.mm_config.to_string_lossy())
         }
         if !lessfilter_cfg_path.exists()
             && write_str(
@@ -188,10 +177,12 @@ fn dump_config(
 
         #[cfg(debug_assertions)]
         {
+            use fist::run::mm_config::get_mm_cfg;
+
             std::io::stdout()
                 .write_all(b"\n---------------- mm.toml ----------------\n")
                 .unwrap();
-            let mm_cfg = fist::run::mm_config::get_mm_cfg(mm_cfg_path, cfg);
+            let mm_cfg = get_mm_cfg(&opts.mm_config, cfg);
             let contents = toml::to_string_pretty(&mm_cfg).expect("failed to serialize to TOML");
             std::io::stdout().write_all(contents.as_bytes())._ebog();
         }

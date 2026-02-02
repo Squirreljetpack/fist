@@ -87,8 +87,7 @@ async fn handle_open(
         cfg.global.interface.no_multi_accept = true;
         let pane = FsPane::new_launch();
 
-        let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
-        let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
+        let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
 
         let pool = Pool::new(cfg.db_path()).await?;
         start(pane, cfg, mm_cfg, pool).await
@@ -155,8 +154,7 @@ async fn handle_files(
         input: (cmd.query, 0),
     };
 
-    let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
-    let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
+    let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
     let pool = Pool::new(cfg.db_path()).await?;
     start(pane, cfg, mm_cfg, pool).await
 }
@@ -169,11 +167,6 @@ async fn handle_rg(
     // _dbg!(cli, cmd, cfg);
     todo!()
 }
-// z behavior:
-// with kw: best match
-// $1 == . : find
-// no args: atime ordered
-// keybind cna change the sort order
 
 async fn handle_dirs(
     cli: CliOpts,
@@ -204,7 +197,6 @@ async fn handle_dirs(
         };
 
         // fallback to interactive if no match
-        // todo: numbers on side to select
         cfg.global.interface.alt_accept = true;
         cfg.global.interface.no_multi_accept = true;
         TEMP::set_initial_relative_path(cfg.styles.path.relative);
@@ -242,8 +234,7 @@ async fn handle_dirs(
         input,
     };
 
-    let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
-    let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
+    let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
     start(pane, cfg, mm_cfg, pool).await
 }
 
@@ -493,8 +484,7 @@ async fn handle_default(
         )
     };
 
-    let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
-    let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
+    let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
     let pool = Pool::new(cfg.db_path()).await?;
     start(pane, cfg, mm_cfg, pool).await
 }
@@ -546,7 +536,6 @@ async fn handle_tools(
             let cmd = LessfilterCommand::parse_from(args);
 
             let cfg = load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
-            dbg!(&cfg);
 
             lessfilter::handle(cmd, cfg)
         }
@@ -585,16 +574,9 @@ async fn handle_tools(
                     use globset::{Glob, GlobSetBuilder};
                     let mut builder = GlobSetBuilder::new();
                     for pattern in &cfg.history.exclude {
-                        builder.add(
-                            Glob::new(pattern)
-                                .map_err(|e| format!("Error in cfg.history.exclude: {e}"))?,
-                        );
+                        builder.add(Glob::new(pattern).prefix("Error in cfg.history.exclude")?);
                     }
-                    Some(
-                        builder
-                            .build()
-                            .map_err(|e| format!("Error in cfg.history.exclude: {e}"))?,
-                    )
+                    Some(builder.build().prefix("Error in cfg.history.exclude")?)
                 } else {
                     None
                 };
