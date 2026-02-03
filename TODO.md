@@ -41,6 +41,7 @@ Image rendering
 - lowpri
 - ratatui-image doesn't seem very reliable, we may have to do it manually, maybe check out yazi
 - scaling
+- note: since we plan to require reading images anyway, baking in the clipboard instead of relying on an external program makes sense.
 
 Better support for some of the modes
 
@@ -140,6 +141,7 @@ aging algorithm
 # Stash
 
 - overridden actions should hide the overridden toast as well somehow.
+- persist?
 
 # Bugs
 
@@ -152,3 +154,4 @@ aging algorithm
 - should we include completion generation in cli (no?)
 - currently completions seems to complete flags, why doesn't it complete subcommands?
 
+- prepopulate some directories: trash, desktop, home etc.

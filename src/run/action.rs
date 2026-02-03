@@ -230,11 +230,26 @@ pub fn fsaction_aliaser(
             }
 
             //  ------------- Overlay aliases --------------
+            FsAction::Stash | FsAction::Filters | FsAction::Menu if raw_input => {
+                acs![fa]
+            }
             FsAction::Stash => {
                 acs![Action::Overlay(0)]
             }
             FsAction::Filters => {
                 acs![Action::Overlay(1)]
+            }
+            // todo: matchmaker needs to support activating the overlay ourselves so that the activated item is aligned
+            FsAction::Menu => {
+                if let Some(p) = state.current_item() {
+                    TEMP::set_input_bar(None, Ok(p.clone()));
+                    acs![Action::Overlay(2)]
+                } else if let Some(cwd) = STACK::cwd() {
+                    TEMP::set_input_bar(None, Err(cwd));
+                    acs![Action::Overlay(2)]
+                } else {
+                    acs![]
+                }
             }
 
             // todo: support post-creation actions
@@ -257,8 +272,6 @@ pub fn fsaction_aliaser(
             // FsAction::Category => {
             //     acs![Action::Overlay(3)]
             // }
-
-            //
             FsAction::AutoJump(digit) => {
                 if state.overlay_index().is_some()
                 // in overlay

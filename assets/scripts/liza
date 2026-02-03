@@ -54,7 +54,9 @@ fi
 
 VERBOSE=false
 ALWAYS_PAGE=false
-# Intersect the excluded long columns
+
+# Intersect the excluded long columns.
+# The full negation is --no-permissions --no-filesize --no-user --no-time, any omitted fields are included.
 i_nl() {
     if [[ -z $nlong ]]; then
       nlong=(-l $@)
@@ -94,7 +96,7 @@ for param; do
         l) # cleaner long form (no hard-links). -b can be used to set octal.
           all=($_all)
 
-          i_nl # enables permissions, user and time
+          i_nl
           long+=(--sort=ext -n@ --group)
           # indicators (fifo/socket etc. with -F=always) not included since we have color.
           header=--header
@@ -129,7 +131,7 @@ for param; do
           VERBOSE=true
           ;;
         g) # show file status inside git repo, otherwise status of git repos
-          i_nl --no-filesize --no-permissions --no-user --no-time # full negation of long
+          i_nl --no-filesize --no-permissions --no-user --no-time
           if [[ -n "$(git rev-parse --git-dir 2>/dev/null)" ]]; then
             parsed+=(--git)
           else
@@ -177,8 +179,8 @@ if true; then
   idx=${parsed[(i)--hyperlink]}
   (( idx )) && parsed[idx]=()
 
-  idx=${parsed[(I)--octal-permissions]}
-  (( idx )) && params[idx]=(--no-permissions --octal-permissions)
+  idx=${long[(I)--octal-permissions]}
+  (( idx )) && long[idx]=(--no-permissions --octal-permissions)
 fi
 
 params=($all $parsed $nlong $long $header $args $pargs)

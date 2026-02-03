@@ -251,7 +251,9 @@ impl FsPane {
 
     #[inline]
     pub fn should_cancel_input_entering_dir(&self) -> bool {
-        matches!(self, FsPane::Nav { .. } | FsPane::Launch { .. })
+        true
+        // todo: allow customizing?
+        // matches!(self, FsPane::Nav { .. } | FsPane::Launch { .. })
     }
 
     pub fn get_input(&self) -> String {
