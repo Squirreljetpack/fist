@@ -68,7 +68,7 @@ fn make_mm(
 
     let injector = IndexedInjector::new_globally_indexed(worker.injector());
 
-    let selector = Selector::new_with_validator(Indexed::identifier, exist_validator);
+    let selector = Selector::new(Indexed::identifier).with_validator(exist_validator);
     // todo: we really just want an alternate behavior for accept multi
     // if cfg.global.interface.no_multi {
     //     selector = selector.disabled()

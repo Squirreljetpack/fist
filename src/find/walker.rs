@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt};
+use cli_boilerplate_automation::{StringError, bait::ResultExt, bath::PathExt};
 use ignore::{
     WalkBuilder,
     overrides::{Override, OverrideBuilder},
@@ -67,7 +67,7 @@ pub fn list_dir(
 pub fn build_overrides<'a>(
     paths: &[&'a str],
     exclusions: impl IntoIterator<Item = &'a str>,
-) -> Result<Override, String> {
+) -> Result<Override, StringError> {
     let mut builder = OverrideBuilder::new(paths[0]); // no absolute patterns
 
     for pattern in exclusions {

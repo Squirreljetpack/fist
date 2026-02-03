@@ -56,7 +56,7 @@ pub enum FsAction {
     /// Jump to a directory.
     /// Relative paths are resolved relative to the home directory.
     /// # Note
-        /// By default, '~' and '/' bind to Jump($HOME)
+    /// By default, '~' and '/' bind to Jump($HOME)
     Jump(PathBuf, Option<char>),
 
     /// Go back
@@ -140,7 +140,7 @@ impl FsAction {
     // }
     #[inline]
     pub fn set_footer(p: impl Into<Option<Text<'static>>>) -> Self {
-        Self::SetHeader(p.into())
+        Self::SetFooter(p.into())
     }
     #[inline]
     pub fn set_header(p: impl Into<Option<Text<'static>>>) -> Self {
@@ -169,7 +169,7 @@ pub fn fsaction_aliaser(
             // handle nonbindable events here so that overlays don't intercept them.
             // -------------------------------------------------
             FsAction::Reload => {
-                state.picker_ui.selections.revalidate();
+                state.picker_ui.selector.revalidate();
                 fs_reload(state);
                 acs![]
             }
@@ -230,11 +230,26 @@ pub fn fsaction_aliaser(
             }
 
             //  ------------- Overlay aliases --------------
+            FsAction::Stash | FsAction::Filters | FsAction::Menu if raw_input => {
+                acs![fa]
+            }
             FsAction::Stash => {
                 acs![Action::Overlay(0)]
             }
             FsAction::Filters => {
                 acs![Action::Overlay(1)]
+            }
+            // todo: matchmaker needs to support activating the overlay ourselves so that the activated item is aligned
+            FsAction::Menu => {
+                if let Some(p) = state.current_item() {
+                    TEMP::set_input_bar(None, Ok(p.clone()));
+                    acs![Action::Overlay(2)]
+                } else if let Some(cwd) = STACK::cwd() {
+                    TEMP::set_input_bar(None, Err(cwd));
+                    acs![Action::Overlay(2)]
+                } else {
+                    acs![]
+                }
             }
 
             // todo: support post-creation actions
@@ -257,8 +272,6 @@ pub fn fsaction_aliaser(
             // FsAction::Category => {
             //     acs![Action::Overlay(3)]
             // }
-
-            //
             FsAction::AutoJump(digit) => {
                 if state.overlay_index().is_some()
                 // in overlay
@@ -502,9 +515,8 @@ pub fn fsaction_handler(
             } else {
                 else_default!(
                     state
-                        .current
-                        .as_ref()
-                        .and_then(|(_, x)| x.path.parent().map(AbsPath::new_unchecked))
+                        .current_raw()
+                        .and_then(|x| x.path.parent().map(AbsPath::new_unchecked))
                 )
             };
 
@@ -515,7 +527,7 @@ pub fn fsaction_handler(
         }
 
         FsAction::Advance => {
-            let Some((_, item)) = &state.current else {
+            let Some(item) = &state.current_raw() else {
                 return;
             };
 
@@ -549,9 +561,6 @@ pub fn fsaction_handler(
                 TOAST::push(ToastStyle::Normal, "Cut: ", toast_vec);
                 copy_files(cb_vec, false);
             };
-            // if let Some(c) = state.current_raw() {
-            //     scratch_toggle(StackItem::mv(c.inner.path.clone()) );
-            // }
         }
         FsAction::Copy => {
             let mut toast_vec = vec![];
@@ -741,10 +750,26 @@ pub fn fsaction_handler(
         // ------------------------------------------------------
         // Execute/Accept
         FsAction::Display(p, page, header) => {
-            let Some((_, item)) = &state.current else {
+            if APP::in_app_pane() {
+                // todo
+                return;
+            }
+
+            let Some(item) = &state.current_raw() else {
                 return;
             };
-            let mut template = if let Some(true) = header {
+            let mut template = if state
+                .preview_set_payload
+                .as_ref()
+                .is_some_and(|s| s.is_empty())
+            {
+                format!(
+                    "'{}' :tool show-binds",
+                    crate::cli::paths::current_exe()
+                        .to_str()
+                        .unwrap_or(crate::cli::paths::BINARY_SHORT),
+                )
+            } else if let Some(true) = header {
                 p.to_command_string_with_header()
             } else {
                 p.to_command_string()
@@ -752,11 +777,11 @@ pub fn fsaction_handler(
 
             if page {
                 // we need to use the renderer because the first pass of renderer won't render when it sees it is being piped
-                if let Some(pp) = text_renderer_path().to_shell_string() {
+                if let Some(pp) = text_renderer_path().shell_quote() {
                     #[cfg(windows)]
-                    template.push_str(&format!(" | {pp} > CON"));
+                    template.push_str(&format!(" | cmd /c \"set PG_LANG=toml && {pp}\" > CON"));
                     #[cfg(unix)]
-                    template.push_str(&format!(" | {pp} > /dev/tty"));
+                    template.push_str(&format!(" | PG_LANG=toml {pp} > /dev/tty"));
                 } else {
                     wbog!(
                         "Pager path could not be decoded, please check your installation's cache directory."
@@ -795,7 +820,7 @@ pub fn fsaction_handler(
             } else {
                 // if alt_accept, this was aliased from Accept, in which case we should respect no_multi_accept
                 if GLOBAL::with_cfg(|c| c.interface.alt_accept && c.interface.no_multi_accept) {
-                    if let Some((_, item)) = state.current.as_ref() {
+                    if let Some(item) = state.current_raw() {
                         let s = item.display().to_string();
                         GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
                         prints!(s);

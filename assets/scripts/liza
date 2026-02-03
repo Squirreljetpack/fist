@@ -54,7 +54,9 @@ fi
 
 VERBOSE=false
 ALWAYS_PAGE=false
-# Intersect the excluded long columns
+
+# Intersect the excluded long columns.
+# The full negation is --no-permissions --no-filesize --no-user --no-time, any omitted fields are included.
 i_nl() {
     if [[ -z $nlong ]]; then
       nlong=(-l $@)
@@ -78,8 +80,8 @@ for param; do
           all=($_all)
           ;;
         b) # shortened long form, only octal, mtime
-          i_nl --no-filesize --no-permissions --no-user
-          long+=(-o)
+          i_nl --no-filesize --no-user
+          long+=(--octal-permissions)
           ;;
         t)
           i_nl --no-filesize --no-permissions --no-user
@@ -91,11 +93,11 @@ for param; do
           long+=(--time=modified --sort=modified -r) # timestamps
           header=--header
           ;;
-        l) # cleaner long form (no hard-links)
+        l) # cleaner long form (no hard-links). -b can be used to set octal.
           all=($_all)
 
-          i_nl --no-permissions # meaning: permissions, user, time are shown
-          long+=(--sort=ext -on@ --group) # dev style: ocatl, extended.
+          i_nl
+          long+=(--sort=ext -n@ --group)
           # indicators (fifo/socket etc. with -F=always) not included since we have color.
           header=--header
           ;;
@@ -129,7 +131,7 @@ for param; do
           VERBOSE=true
           ;;
         g) # show file status inside git repo, otherwise status of git repos
-          i_nl --no-filesize --no-permissions --no-user --no-time # full negation of long
+          i_nl --no-filesize --no-permissions --no-user --no-time
           if [[ -n "$(git rev-parse --git-dir 2>/dev/null)" ]]; then
             parsed+=(--git)
           else
@@ -172,12 +174,16 @@ page() {
   fi
 }
 
-params=($all $parsed $nlong $long $header $args $pargs)
-
 if true; then
-  idx=${params[(i)--hyperlink]}
-  (( idx )) && params[idx]=()
+  # hyperlink can sometimes screw up display
+  idx=${parsed[(i)--hyperlink]}
+  (( idx )) && parsed[idx]=()
+
+  idx=${long[(I)--octal-permissions]}
+  (( idx )) && long[idx]=(--no-permissions --octal-permissions)
 fi
+
+params=($all $parsed $nlong $long $header $args $pargs)
 
 if [[ -z $show ]]; then
   $VERBOSE && print -u2 -- $eza_def $params

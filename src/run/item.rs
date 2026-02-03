@@ -67,7 +67,7 @@ impl PathItem {
             cmd: if entry.cmd.is_empty() {
                 None
             } else {
-                Some(entry.cmd)
+                Some(entry.cmd.to_string_lossy().to_string())
             },
             rendered,
             tail: Text::from(entry.alias),

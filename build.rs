@@ -3,8 +3,12 @@ use clap_complete::{Shell, generate_to};
 use std::env;
 
 mod cli {
+    #![allow(unused)]
     mod tool_types {
         include!("src/cli/clap_tools.rs");
+    }
+    pub mod paths {
+        include!("src/cli/paths.rs");
     }
     use crate::cli::tool_types::*;
 
@@ -51,6 +55,6 @@ fn main() {
     let mut cmd = Cli::command();
 
     for shell in [Shell::Bash, Shell::Zsh, Shell::Fish, Shell::PowerShell] {
-        generate_to(shell, &mut cmd, BINARY_SHORT, &out_dir).unwrap();
+        generate_to(shell, &mut cmd, cli::paths::BINARY_SHORT, &out_dir).unwrap();
     }
 }

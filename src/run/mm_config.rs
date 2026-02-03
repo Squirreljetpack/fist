@@ -1,9 +1,6 @@
 use std::path::Path;
 
-use cli_boilerplate_automation::{
-    bo::load_type,
-    bog::{BOGGER, BogContext, BogLevel},
-};
+use cli_boilerplate_automation::bo::load_type_or_default;
 use matchmaker::{
     action::Action,
     bindmap,
@@ -26,22 +23,34 @@ use crate::{
 };
 
 // ------- Main config --------
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MMConfig {
     // configure the ui
-    #[serde(flatten)]
+    #[serde(default, flatten)]
     pub render: RenderConfig,
 
     // overlays
+    #[serde(default)]
     pub scratch: StashConfig,
+    #[serde(default)]
     pub filters: FiltersConfig,
+    #[serde(default)]
     pub prompt: PromptConfig,
+    #[serde(default)]
     pub menu: MenuConfig,
+    #[serde(default)]
     pub tui: TerminalConfig,
 
     // binds
+    #[serde(default)]
     pub binds: BindMap<FsAction>,
+}
+
+impl Default for MMConfig {
+    fn default() -> Self {
+        toml::from_str(include_str!("../../assets/config/mm.toml")).unwrap()
+    }
 }
 
 pub const MATCHER_CONFIG: nucleo::Config = const { nucleo::Config::DEFAULT.match_paths() };
@@ -134,16 +143,7 @@ pub fn get_mm_cfg(
     path: &Path,
     cfg: &Config,
 ) -> MMConfig {
-    let mut mm_cfg: MMConfig = if path.is_file() {
-        BOGGER::with(
-            BogContext::new()
-                .upper(BogLevel::WARN)
-                .prefix("Using default config: "),
-            || load_type(path, |s| toml::from_str(s)).unwrap_or_default(),
-        )
-    } else {
-        toml::from_str(include_str!("../../assets/config/mm.toml")).unwrap()
-    };
+    let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
 
     let binds = default_binds();
     default_binds().append(&mut mm_cfg.binds);

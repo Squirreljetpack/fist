@@ -58,9 +58,11 @@ impl TEMP {
             .with_borrow_mut(|(p, s)| (p.take(), std::mem::replace(s, Err(AbsPath::empty()))))
     }
 
-    /// If menu_prompt is set, menu starts an overlay
+    /// If menu_prompt is set, menu starts an input overlay.
+    ///
     /// The Ok variant of menu_target describes the target,
-    /// while the Err variant corresponds to no target, in which case
+    /// while the Err variant corresponds to no target
+    /// -- instead defining the cwd context, in which case
     /// only a restrictred subset of the menu actions is available.
     ///
     /// # Additional

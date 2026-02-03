@@ -296,7 +296,7 @@ mod tests {
         let mut db = setup_db().await;
         let path = AbsPath::new("/test_add_with_cmd");
         let mut entry = Entry::new("test_add_with_cmd", path.clone());
-        entry.cmd = "test command".to_string();
+        entry.cmd = "test command".into();
         db.set_entry(&entry).await.unwrap();
 
         let fetched_entry = db.get_entry(&path).await.unwrap().unwrap();
@@ -329,15 +329,15 @@ mod tests {
         let mut entry = Entry::new("test_set_cmd", path.clone());
         db.set_entry(&entry).await.unwrap();
 
-        entry.cmd = "new command".to_string();
+        entry.cmd = "new command".into();
         db.set_cmd(&path, &entry).await.unwrap();
         let fetched_entry = db.get_entry(&path).await.unwrap().unwrap();
-        assert_eq!(fetched_entry.cmd, "new command");
+        assert_eq!(fetched_entry.cmd, "new command".into());
 
-        entry.cmd = "".to_string();
+        entry.cmd = "".into();
         db.set_cmd(&path, &entry).await.unwrap();
         let fetched_entry_no_cmd = db.get_entry(&path).await.unwrap().unwrap();
-        assert_eq!(fetched_entry_no_cmd.cmd, "");
+        assert_eq!(fetched_entry_no_cmd.cmd, "".into());
     }
 
     #[tokio::test]

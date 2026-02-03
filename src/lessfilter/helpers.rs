@@ -7,6 +7,8 @@ use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use std::{cell::OnceCell, fs::File};
 
+use cli_boilerplate_automation::StringError;
+use cli_boilerplate_automation::bait::ResultExt;
 use cli_boilerplate_automation::bo::map_reader_lines;
 use cli_boilerplate_automation::text::TableBuilder;
 use cli_boilerplate_automation::{bo::MapReaderError, bog::BogOkExt, broc::has, prints, vec_};
@@ -105,9 +107,9 @@ pub fn show_metadata(path: &Path) -> bool {
     }
 }
 
-fn count_file<P: AsRef<Path>>(path: P) -> Result<[usize; 3], MapReaderError<()>> {
+fn count_file<P: AsRef<Path>>(path: P) -> Result<[usize; 3], MapReaderError<StringError>> {
     let path = path.as_ref();
-    let file = File::open(path).map_err(|_| MapReaderError::ChunkError(0))?;
+    let file = File::open(path).prefix(format!("Failed to open {}", path.to_string_lossy()))?;
 
     let mut chars = 0usize;
     let mut words = 0usize;

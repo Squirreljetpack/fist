@@ -3,14 +3,14 @@ use std::{ffi::OsString, path::PathBuf};
 use clap::{ArgAction, Parser, Subcommand, error::ErrorKind};
 
 use crate::{
-    cli::SubTool,
+    cli::{
+        SubTool,
+        paths::{BINARY_SHORT, config_path, mm_cfg_path},
+    },
     db::{DbSortOrder, DbTable},
     filters::{SortOrder, Visibility},
     find::fd::FileTypeArg,
 };
-
-pub static BINARY_FULL: &str = "fist";
-pub static BINARY_SHORT: &str = "fs";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -91,11 +91,21 @@ pub struct CliOpts {
     #[arg(long = "override", global = true, value_name = "PATH")]
     pub config_override: Option<String>,
     /// config path
-    #[arg(long, global = true, value_name = "PATH")]
-    pub config: Option<PathBuf>,
+    #[arg(
+        long,
+        global = true,
+        value_name = "PATH",
+        default_value_os_t = config_path().to_path_buf()
+    )]
+    pub config: PathBuf,
     /// matchmaker config path
-    #[arg(long, global = true, value_name = "PATH")]
-    pub mm_config: Option<PathBuf>,
+    #[arg(
+        long,
+        global = true,
+        value_name = "PATH",
+        default_value_os_t = mm_cfg_path().to_path_buf()
+    )]
+    pub mm_config: PathBuf,
 
     #[arg(
         long,

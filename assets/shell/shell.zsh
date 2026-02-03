@@ -1,6 +1,5 @@
 function $${Z_NAME}() {
   if (($# == 1)) && [ "$1" != . ] && [ "$1" != / ] && [ -d "$1" ]; then
-    $${BINARY_PATH} :tool bump -- "$1"
     cd "$1"
     return
   fi

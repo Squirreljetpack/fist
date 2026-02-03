@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use cli_boilerplate_automation::StringError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -26,12 +27,6 @@ pub enum CliError {
     DbError(#[from] DbError),
     #[error(transparent)]
     IoError(#[from] std::io::Error),
-    #[error("{0}")]
-    String(String),
-}
-
-impl From<String> for CliError {
-    fn from(value: String) -> Self {
-        CliError::String(value)
-    }
+    #[error(transparent)]
+    String(#[from] StringError),
 }
