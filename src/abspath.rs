@@ -86,3 +86,28 @@ impl fmt::Display for AbsPath {
         self.0.display().fmt(f)
     }
 }
+
+// ------------- OSSTRINGWRAPPER
+
+impl_restricted_wrapper!(OsStringWrapper, OsString, OsString::new());
+impl From<OsString> for OsStringWrapper {
+    fn from(c: OsString) -> Self {
+        Self(c)
+    }
+}
+impl From<&str> for OsStringWrapper {
+    fn from(c: &str) -> Self {
+        Self(c.into())
+    }
+}
+
+impl From<PathBuf> for OsStringWrapper {
+    fn from(c: PathBuf) -> Self {
+        Self(c.into())
+    }
+}
+impl OsStringWrapper {
+    pub fn as_maybe_realpath(self) -> Option<PathBuf> {
+        (!self.is_empty()).then(|| PathBuf::from(self.0))
+    }
+}

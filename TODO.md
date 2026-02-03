@@ -151,3 +151,4 @@ aging algorithm
 
 - should we include completion generation in cli (no?)
 - currently completions seems to complete flags, why doesn't it complete subcommands?
+

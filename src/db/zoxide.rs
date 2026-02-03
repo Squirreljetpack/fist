@@ -74,7 +74,7 @@ impl Connection {
                 }
                 Some(true) => {
                     if let Ok(cwd) = std::env::current_dir()
-                        && cwd == e.path.canonicalize().unwrap_or(e.path.inner())
+                        && cwd == e.cmd.as_maybe_realpath().unwrap_or(e.path.inner())
                     {
                         match db_filter.refind {
                             RetryStrat::Next => continue,
@@ -134,7 +134,7 @@ impl Connection {
                 }
                 Some(true) => {
                     if let Ok(cwd) = std::env::current_dir()
-                        && cwd == e.path.canonicalize().unwrap_or(e.path.inner())
+                        && cwd == e.cmd.as_maybe_realpath().unwrap_or(e.path.inner())
                     {
                         match db_filter.refind {
                             RetryStrat::Next => continue,

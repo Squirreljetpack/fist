@@ -1,16 +1,26 @@
 use cli_boilerplate_automation::bath::{bytes_to_os_string, os_str_to_bytes};
-use sqlx::{Decode, Encode, Sqlite, Type, prelude::FromRow};
-use std::time::{SystemTime, UNIX_EPOCH};
+use sqlx::{
+    Decode, Encode, Sqlite, Type,
+    database::HasArguments,
+    encode::IsNull,
+    error::BoxDynError,
+    prelude::FromRow,
+    sqlite::{SqliteTypeInfo, SqliteValueRef},
+};
+use std::{
+    ffi::OsString,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use super::Epoch;
-use crate::abspath::AbsPath;
+use crate::abspath::{AbsPath, OsStringWrapper};
 
 #[derive(Debug, Clone, FromRow)]
 pub struct Entry {
     pub name: String,
     pub path: AbsPath,
     pub alias: String,
-    pub cmd: String,
+    pub cmd: OsStringWrapper,
     pub atime: Epoch,
     pub count: i32, // should be non-negative but currently leaky
 }
@@ -28,16 +38,16 @@ impl Entry {
                 .unwrap_or_default()
                 .as_secs() as Epoch,
             alias: String::new(),
-            cmd: String::new(),
+            cmd: OsStringWrapper::default(),
             count: 1,
         }
     }
 
     pub fn cmd(
         mut self,
-        cmd: String,
+        cmd: OsString,
     ) -> Self {
-        self.cmd = cmd;
+        self.cmd = cmd.into();
         self
     }
 }
@@ -60,6 +70,31 @@ impl<'q> Encode<'q, Sqlite> for AbsPath {
         &self,
         buf: &mut <Sqlite as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
     ) -> sqlx::encode::IsNull {
+        let bytes = os_str_to_bytes(self.as_os_str());
+        <Vec<u8> as Encode<Sqlite>>::encode(bytes.into_owned(), buf)
+    }
+}
+
+impl Type<Sqlite> for OsStringWrapper {
+    fn type_info() -> SqliteTypeInfo {
+        <Vec<u8> as Type<Sqlite>>::type_info()
+    }
+}
+
+// Decode impl
+impl<'r> Decode<'r, Sqlite> for OsStringWrapper {
+    fn decode(value: SqliteValueRef<'r>) -> Result<Self, BoxDynError> {
+        let bytes = <Vec<u8> as Decode<Sqlite>>::decode(value)?;
+        Ok(OsStringWrapper::from(bytes_to_os_string(bytes)))
+    }
+}
+
+// Encode impl
+impl<'q> Encode<'q, Sqlite> for OsStringWrapper {
+    fn encode_by_ref(
+        &self,
+        buf: &mut <Sqlite as HasArguments<'q>>::ArgumentBuffer,
+    ) -> IsNull {
         let bytes = os_str_to_bytes(self.as_os_str());
         <Vec<u8> as Encode<Sqlite>>::encode(bytes.into_owned(), buf)
     }

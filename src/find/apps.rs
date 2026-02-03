@@ -118,7 +118,7 @@ pub fn collect_apps() -> Vec<Entry> {
                 return None;
             }
 
-            let ret = Entry::new(name, AbsPath::new_unchecked(path)).cmd(exec);
+            let ret = Entry::new(name, AbsPath::new_unchecked(path)).cmd(exec.into());
             Some(ret)
         })
         .collect()

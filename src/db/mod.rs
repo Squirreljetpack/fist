@@ -104,8 +104,16 @@ impl Connection {
                 let count = count.max(-(e.count.abs()));
                 self.bump(path, count).await
             }
+            // This variant is only called on actual paths since apps are prepopulated
             None => {
-                let entry = Entry::new(name, path);
+                let canonical = path
+                    .canonicalize()
+                    .ok()
+                    .and_then(|c| (c.as_path() != path.as_path()).then_some(c));
+                let mut entry = Entry::new(name, path);
+                if let Some(p) = canonical {
+                    entry.cmd = p.into()
+                }
                 self.set_entry(&entry).await
             }
         }

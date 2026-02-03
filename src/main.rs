@@ -34,6 +34,7 @@ async fn main() {
     // update configs when debug
     #[cfg(debug_assertions)]
     use fist::cli::paths::mm_cfg_path;
+    #[cfg(debug_assertions)]
     if cli.opts.mm_config == mm_cfg_path() && cli.opts.config == config_path() {
         write_str(config_path(), include_str!("../assets/config/dev.toml"))._ebog();
         write_str(mm_cfg_path(), include_str!("../assets/config/mm.dev.toml"))._ebog();

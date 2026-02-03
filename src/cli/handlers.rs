@@ -516,6 +516,12 @@ async fn handle_tools(
             display_ratatui_colors()?;
             Ok(())
         }
+        SubTool::ShowBinds => {
+            let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
+            let help_str = matchmaker::binds::display_binds(&mm_cfg.binds, None);
+            prints!(help_str.to_string());
+            Ok(())
+        }
         SubTool::Liza { args } => Command::new(liza_path()).args(args)._exec(),
         SubTool::Shell { mut args } => {
             // note: this seems to already be the short path of the exe, not that im complaining

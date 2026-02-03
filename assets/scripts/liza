@@ -78,8 +78,8 @@ for param; do
           all=($_all)
           ;;
         b) # shortened long form, only octal, mtime
-          i_nl --no-filesize --no-permissions --no-user
-          long+=(-o)
+          i_nl --no-filesize --no-user
+          long+=(--octal-permissions)
           ;;
         t)
           i_nl --no-filesize --no-permissions --no-user
@@ -91,11 +91,11 @@ for param; do
           long+=(--time=modified --sort=modified -r) # timestamps
           header=--header
           ;;
-        l) # cleaner long form (no hard-links)
+        l) # cleaner long form (no hard-links). -b can be used to set octal.
           all=($_all)
 
-          i_nl --no-permissions # meaning: permissions, user, time are shown
-          long+=(--sort=ext -on@ --group) # dev style: ocatl, extended.
+          i_nl # enables permissions, user and time
+          long+=(--sort=ext -n@ --group)
           # indicators (fifo/socket etc. with -F=always) not included since we have color.
           header=--header
           ;;
@@ -172,12 +172,16 @@ page() {
   fi
 }
 
-params=($all $parsed $nlong $long $header $args $pargs)
-
 if true; then
-  idx=${params[(i)--hyperlink]}
-  (( idx )) && params[idx]=()
+  # hyperlink can sometimes screw up display
+  idx=${parsed[(i)--hyperlink]}
+  (( idx )) && parsed[idx]=()
+
+  idx=${parsed[(I)--octal-permissions]}
+  (( idx )) && params[idx]=(--no-permissions --octal-permissions)
 fi
+
+params=($all $parsed $nlong $long $header $args $pargs)
 
 if [[ -z $show ]]; then
   $VERBOSE && print -u2 -- $eza_def $params
