@@ -2,7 +2,10 @@
 
 use std::{
     cell::RefCell,
-    sync::{LazyLock, Mutex},
+    sync::{
+        LazyLock, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use cli_boilerplate_automation::bait::ResultExt;
@@ -38,6 +41,7 @@ thread_local! {
     static INPUT_BAR_CONTENT: RefCell<(Option<PromptKind>, Result<PathItem, AbsPath>)> = const { RefCell::new((None, Err(AbsPath::empty()))) };
     static ORIGINAL_RELATIVE_PATH: RefCell<Option<bool>> = const { RefCell::new(None) };
 }
+static TEMP_BOOL: AtomicBool = AtomicBool::new(false);
 pub struct TEMP {}
 impl TEMP {
     pub fn take_prev_dir() -> Option<AbsPath> {
@@ -80,6 +84,15 @@ impl TEMP {
     }
     pub fn take_original_relative_path() -> Option<bool> {
         ORIGINAL_RELATIVE_PATH.with_borrow_mut(|x| x.take())
+    }
+
+    pub fn set_that_execute_handler_should_process_cwd() {
+        TEMP_BOOL.store(true, Ordering::SeqCst);
+    }
+    pub fn take_whether_execute_handler_should_process_cwd() -> bool {
+        TEMP_BOOL
+            .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
     }
 }
 

@@ -3,7 +3,9 @@
 
 use std::path::PathBuf;
 
-use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt, else_default, prints, wbog};
+use cli_boilerplate_automation::{
+    bait::ResultExt, bath::PathExt, bother::enums::When, else_default, prints, wbog,
+};
 use matchmaker::{
     acs,
     action::{Action, ActionExt, Actions},
@@ -112,9 +114,10 @@ pub enum FsAction {
     /// Paste all stack items into the current or specified directory
     Paste(PathBuf), // dump Stack
     /// Execute according to [`crate::lessfilter::RulesConfig`]
-    /// (preset, paging, header)
+    /// (preset, paging, header-mode)
+    /// header-mode: auto/always/never
     // nonbindable
-    Display(Preset, bool, Option<bool>),
+    Display(Preset, bool, When),
 
     // Nonbindable
     // --------------------------
@@ -755,9 +758,15 @@ pub fn fsaction_handler(
                 return;
             }
 
-            let Some(item) = &state.current_raw() else {
+            if state.current_raw().is_none() && !state.picker_ui.results.cursor_disabled {
                 return;
             };
+
+            // since in Nav pane, Advance is bound to edit cursor item, it's more useful to make the action always edit the menu item.
+            if matches!(p, Preset::Edit) && STACK::nav_cwd().is_some() {
+                TEMP::set_that_execute_handler_should_process_cwd();
+            }
+
             let mut template = if state
                 .preview_set_payload
                 .as_ref()
@@ -769,10 +778,8 @@ pub fn fsaction_handler(
                         .to_str()
                         .unwrap_or(crate::cli::paths::BINARY_SHORT),
                 )
-            } else if let Some(true) = header {
-                p.to_command_string_with_header()
             } else {
-                p.to_command_string()
+                p.to_command_string(header)
             };
 
             if page {

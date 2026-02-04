@@ -93,7 +93,9 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
         self.register_interrupt_handler(Interrupt::Execute, move |state| {
             let template = state.payload();
             if !template.is_empty() {
-                let path = else_default!(if state.picker_ui.results.cursor_disabled {
+                let path = else_default!(if state.picker_ui.results.cursor_disabled
+                    || TEMP::take_whether_execute_handler_should_process_cwd()
+                {
                     STACK::cwd()
                 } else {
                     state.current_raw().map(|t| t.inner.path.clone())

@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use cli_boilerplate_automation::bo::load_type_or_default;
+use cli_boilerplate_automation::{bo::load_type_or_default, bother::enums::When};
 use matchmaker::{
     action::Action,
     bindmap,
@@ -64,8 +64,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(shift-right) => Action::ForwardChar,
         key!(shift-left) => Action::BackwardChar,
         key!(enter) => Action::Accept,
-        key!(ctrl-enter) => Action::Print("".into()),
-        key!(alt-enter) => Action::Print("".into()),
+        key!(ctrl-enter), key!(alt-enter) => Action::Print("".into()),
         key!(tab) => [Action::Toggle, Action::Down(1)],
 
         key!(right) => FsAction::Advance,
@@ -85,11 +84,9 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(alt-shift-s) => FsAction::ClearStash,
         key!(ctrl-e) => FsAction::Menu,
         // -- filters --
-        key!(alt-f) => FsAction::Filters,
-        key!(ctrl-shift-f) => FsAction::Filters,
+        key!(alt-f), key!(ctrl-shift-f) => FsAction::Filters,
         key!(ctrl-d) => FsAction::ToggleDirs,
-        key!(ctrl-h) => FsAction::ToggleHidden,
-        key!(alt-h) => FsAction::ToggleHidden,
+        key!(ctrl-h), key!(alt-h) => FsAction::ToggleHidden,
 
         // file actions
         // ----------------------------------
@@ -105,16 +102,16 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-n) => FsAction::New,
 
         // preview
-        key!('?') => Action::Preview(Preset::Preview.to_command_string()),
-        key!(alt - '/') => Action::Preview(Preset::Display.to_command_string_with_header()),
-        key!(ctrl-shift-h) => Action::Help("".into()),
-        key!(alt-shift-h) => Action::Help("".into()),
+        key!('?') => Action::Preview(Preset::Preview.to_command_string(When::Auto)),
+        key!(alt - '/') => Action::Preview(Preset::Display.to_command_string(When::Always)),
+        key!(ctrl-shift-h), key!(alt-shift-h) => Action::Help("".into()),
         // spawning
         key!(alt-s) => Action::Execute("$SHELL".into()),
-        key!(ctrl-b) => FsAction::Display(Preset::Open, false, None),
+        key!(ctrl-b) => FsAction::Display(Preset::Open, false, When::Auto),
+        key!(alt-b) => FsAction::Display(Preset::Edit, false, When::Auto),
         // display
-        key!(ctrl-l) => FsAction::Display(Preset::Preview, true, None),
-        key!(alt-l) => FsAction::Display(Preset::Extended, true, None),
+        key!(ctrl-l) => FsAction::Display(Preset::Preview, true, When::Auto),
+        key!(alt-l) => FsAction::Display(Preset::Extended, true, When::Auto),
 
 
         // misc
@@ -124,8 +121,7 @@ pub fn default_binds() -> BindMap<FsAction> {
 
         key!(ctrl-shift-'/') => Action::CyclePreview,
         key!(alt-r) => Action::Reload("".to_string()),
-        key!(ctrl-0) => FsAction::AutoJump(0),
-        key!(ctrl-'`') => FsAction::AutoJump(0),
+        key!(ctrl-0), key!(ctrl-'`') => FsAction::AutoJump(0),
         key!(ctrl-1) => FsAction::AutoJump(1),
         key!(ctrl-2) => FsAction::AutoJump(2),
         key!(ctrl-3) => FsAction::AutoJump(3),
@@ -171,7 +167,7 @@ pub fn get_mm_cfg(
     };
 
     // Preview display
-    let default_command = Preset::Preview.to_command_string();
+    let default_command = Preset::Preview.to_command_string(When::Auto);
     if preview.layout.len() <= 1 {
         let (layout, command) = if let Some(p) = preview.layout.pop() {
             (

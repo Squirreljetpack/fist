@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use cli_boilerplate_automation::bo::load_type;
+use cli_boilerplate_automation::{bo::load_type, bother::enums::When};
 
 use crate::{
     cli::paths::{BINARY_SHORT, current_exe},
@@ -53,16 +53,17 @@ pub enum Preset {
 }
 
 impl Preset {
-    pub fn to_command_string(self) -> String {
+    pub fn to_command_string(
+        self,
+        header: When,
+    ) -> String {
+        let header = match header {
+            When::Always => "--header=true",
+            When::Never => "--header=false",
+            When::Auto => "",
+        };
         format!(
-            "'{}' :tool lessfilter {self} {{}}",
-            current_exe().to_str().unwrap_or(BINARY_SHORT),
-        )
-    }
-
-    pub fn to_command_string_with_header(self) -> String {
-        format!(
-            "'{}' :tool lessfilter --header=true {self} {{}}",
+            "'{}' :tool lessfilter {header} {self} {{}}",
             current_exe().to_str().unwrap_or(BINARY_SHORT),
         )
     }
