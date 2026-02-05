@@ -6,8 +6,8 @@ use matchmaker::{
     bindmap,
     binds::{BindMap, key},
     config::{
-        DisplayConfig, OverlayConfig, Percentage, PreviewSetting, RenderConfig, TerminalConfig,
-        TerminalLayoutSettings,
+        DisplayConfig, OverlayConfig, Percentage, PreviewSetting, RenderConfig, RowConnectionStyle,
+        TerminalConfig, TerminalLayoutSettings,
     },
     nucleo::nucleo,
 };
@@ -163,6 +163,8 @@ pub fn get_mm_cfg(
         match_indent: true,
         modifier: Default::default(),
         fg: Default::default(),
+        wrap: true,
+        row_connection_style: RowConnectionStyle::Full,
         ..Default::default()
     };
 

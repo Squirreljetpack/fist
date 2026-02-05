@@ -196,9 +196,9 @@ pub fn fsaction_aliaser(
             }
             FsAction::SetFooter(text) => {
                 if let Some(text) = text {
-                    state.picker_ui.footer.set(text);
+                    state.footer_ui.set(text);
                 } else {
-                    state.picker_ui.footer.clear();
+                    state.footer_ui.clear();
                 }
                 acs![]
             }
