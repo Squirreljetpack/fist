@@ -42,9 +42,9 @@ use crate::{
     lessfilter,
     run::{
         FsPane,
-        globals::{APP, TEMP},
         mm_config::get_mm_cfg,
         start,
+        state::{APP, TEMP},
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},

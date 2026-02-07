@@ -33,9 +33,9 @@ use crate::{
     },
     run::{
         FsAction,
-        globals::APP,
         item::PathItem,
         start::FsInjector,
+        state::APP,
         state::{GLOBAL, STACK},
     },
 };
@@ -240,12 +240,12 @@ impl FsPane {
     }
 
     #[inline]
-    pub fn should_sort(&self) -> bool {
+    pub fn stability_multiplier(&self) -> u32 {
+        // 0 -> always sort
         match self {
-            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Launch { .. } => false,
-            FsPane::Custom { .. } | FsPane::Stream { .. } => false, // maybe
-            FsPane::Rg { .. } => true,                              // maybe
-            _ => true,
+            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Launch { .. } => 5,
+            FsPane::Custom { .. } | FsPane::Stream { .. } => 5, // maybe
+            _ => 0,
         }
     }
 

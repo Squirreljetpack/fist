@@ -96,6 +96,7 @@ fn init_logger(
         {
             builder
                 .filter(None, log::LevelFilter::Info)
+                .filter(Some("nucleo"), log::LevelFilter::Debug)
                 .filter(Some("matchmaker"), log::LevelFilter::Debug)
                 .filter(Some(BINARY_FULL), log::LevelFilter::Trace);
         }
@@ -109,6 +110,7 @@ fn init_logger(
             let level = cli_boilerplate_automation::bother::level_filter::from_env();
 
             builder
+                .filter(Some("nucleo"), log::LevelFilter::Trace)
                 .filter(Some("matchmaker"), level)
                 .filter(Some(BINARY_FULL), level);
         }

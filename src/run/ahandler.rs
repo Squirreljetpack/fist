@@ -133,7 +133,7 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
     state
         .picker_ui
         .worker
-        .sort_results(STACK::with_current(FsPane::should_sort));
+        .set_stability(STACK::with_current(FsPane::stability_multiplier));
     let injector = IndexedInjector::new_globally_indexed(state.injector());
     STACK::populate(injector, || {});
 

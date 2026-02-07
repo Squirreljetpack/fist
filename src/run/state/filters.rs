@@ -7,7 +7,7 @@ use log::{self};
 use crate::{
     db::DbSortOrder,
     filters::{SortOrder, Visibility},
-    run::{FsAction, FsPane, globals::STACK, state::GLOBAL},
+    run::{FsAction, FsPane, state::STACK, state::GLOBAL},
 };
 
 thread_local! {

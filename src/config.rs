@@ -3,6 +3,7 @@ use cli_boilerplate_automation::{
     bath::{_filename, RenamePolicy},
     bo::write_str,
     bog::BogOkExt,
+    bother::enums::When,
     bs::{create_dir, set_executable},
     ibog,
 };
@@ -178,7 +179,7 @@ impl Default for InterfaceConfig {
             alt_accept: false,
             no_multi_accept: false,
             always_paste: false,
-            advance_command: Preset::Edit.to_command_string(),
+            advance_command: Preset::Edit.to_command_string(When::Auto),
             cwd_prompt: "{} ".into(),
             toast_on_empty: true,
             autojump_advance: false,
