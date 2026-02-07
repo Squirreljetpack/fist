@@ -160,7 +160,6 @@ pub fn get_mm_cfg(
     results.right_align_last = true;
 
     *footer = DisplayConfig {
-        match_indent: true,
         modifier: Default::default(),
         fg: Default::default(),
         wrap: true,

@@ -155,3 +155,7 @@ aging algorithm
 - currently completions seems to complete flags, why doesn't it complete subcommands?
 
 - prepopulate some directories: trash, desktop, home etc.
+
+
+https://github.com/mmalecot/file-format
+https://github.com/unicode-org/icu4x : for table printing

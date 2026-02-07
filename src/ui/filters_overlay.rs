@@ -1,6 +1,6 @@
 use crate::{
     filters::*,
-    run::globals::{FILTERS, GLOBAL, STACK},
+    run::state::{FILTERS, GLOBAL, STACK},
     utils::text::bold_indices,
 };
 use matchmaker::{

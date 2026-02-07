@@ -8,8 +8,8 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use crate::run::globals::TOAST;
 use crate::run::item::short_display;
+use crate::run::state::TOAST;
 use crate::utils::text::ToastStyle;
 
 pub static CLIPBOARD: Mutex<Option<Clipboard>> = Mutex::new(None);

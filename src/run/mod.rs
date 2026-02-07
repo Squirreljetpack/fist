@@ -1,6 +1,6 @@
 pub mod action;
-pub mod ahandler;
-pub mod dhandlers;
+mod ahandler;
+mod dhandlers;
 pub mod item;
 pub mod mm_config;
 pub mod stash;
@@ -11,7 +11,4 @@ mod pane;
 pub use pane::*;
 mod start;
 pub use start::*;
-pub mod globals;
-mod state {
-    pub use super::globals::*;
-}
+pub mod state;

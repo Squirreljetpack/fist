@@ -72,7 +72,8 @@ The output of `fs :tool shell`, when sourced, provides the jump and jump+open fu
 
 The jump function (`z`) is a replacement for `cd`, except that incomplete queries are matched to a most likely destination drawn from the unified f:ist database.
 
-> [!INFO]
+> [!NOTE]
+>
 > In addition, a couple special queries can be used to start an interactive search. Ultimately, the full behavior is as follows:
 >
 > the only argument is a valid path: `cd`.
@@ -105,10 +106,9 @@ The patterns can be prefixed with a score modifier which dictates how the score 
 
 The score modifiers are:
 
-- Add:
-- Sub:
-- Min:
-- Max:
+- Add/Sub (n): Add/Sub (n) to the current score.
+- Max/Min (n): Take the max/min of the current score with (n) for the new score.
+- Req: Set the score to 0 if the test fails.
 
 The patterns are:
 
@@ -145,7 +145,9 @@ alternate = [
 code = 'code --add {}'
 ```
 
-Image display requires [chafa](https://github.com/hpjansson/chafa).
+###### Addditional notes
+
+- Image display requires [chafa](https://github.com/hpjansson/chafa).
 
 # Additional
 

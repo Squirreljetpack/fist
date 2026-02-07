@@ -51,7 +51,7 @@ fn make_mm(
     tui: TerminalConfig,
     cfg: &Config,
     print_handle: AppendOnly<String>,
-    should_sort: bool,
+    stability: u32,
 ) -> (
     Matchmaker<Indexed<PathItem>, PathItem>,
     FsInjector,
@@ -64,7 +64,7 @@ fn make_mm(
         ],
         0,
     );
-    worker.sort_results(should_sort);
+    worker.set_stability(stability);
 
     let injector = IndexedInjector::new_globally_indexed(worker.injector());
 
@@ -120,8 +120,13 @@ pub async fn start(
     }
     let print_handle = AppendOnly::new();
     // init MM
-    let (mut mm, injector, formatter) =
-        make_mm(render, tui, &cfg, print_handle.clone(), pane.should_sort());
+    let (mut mm, injector, formatter) = make_mm(
+        render,
+        tui,
+        &cfg,
+        print_handle.clone(),
+        pane.stability_multiplier(),
+    );
 
     // init previewer
     let previewer_config = PreviewerConfig::default();

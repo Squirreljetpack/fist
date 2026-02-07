@@ -2301,8 +2301,8 @@ checksum = "5e0826a989adedc2a244799e823aece04662b66609d96af8dff7ac6df9a8925d"
 [[package]]
 name = "nucleo"
 version = "0.5.0"
-source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#4253de9faabb4e5c6d81d946a5e35a90f87347ee"
 dependencies = [
+ "log",
  "nucleo-matcher",
  "parking_lot",
  "rayon",
@@ -2311,7 +2311,6 @@ dependencies = [
 [[package]]
 name = "nucleo-matcher"
 version = "0.3.1"
-source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#4253de9faabb4e5c6d81d946a5e35a90f87347ee"
 dependencies = [
  "memchr",
  "unicode-segmentation",

@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use crate::run::{action::FsAction, globals::TEMP};
+use crate::run::{action::FsAction, state::TEMP};
 use crate::utils::text::grapheme_index_to_byte_index;
 use matchmaker::{
     action::Action,
