@@ -22,6 +22,7 @@ pub enum Action {
     Directory,
     Text,
     Image,
+    Extract,
     Metadata,
 
     Open, // always system open
@@ -43,6 +44,7 @@ impl<'de> Deserialize<'de> for Action {
             "directory" => Ok(Action::Directory),
             "text" => Ok(Action::Text),
             "image" => Ok(Action::Image),
+            "extract" => Ok(Action::Extract),
             "open" => Ok(Action::Open),
             "metadata" => Ok(Action::Metadata),
             "header" => Ok(Action::Header),
@@ -62,16 +64,24 @@ impl Action {
         path: &Path,
         preset: Preset,
     ) -> (ArrayVec<Vec<OsString>, 5>, [bool; 3]) {
-        match self {
-            _ if matches!(preset, Preset::Default) => Default::default(), // do nothing
-            Action::Directory | Action::Text | Action::Image | Action::Metadata
-                if matches!(preset, Preset::Open | Preset::Alternate) =>
-            {
-                (
-                    arr![vec_![current_exe(), ":open", "--", path]],
-                    [true, false, false],
-                )
+        match preset {
+            Preset::Default => return Default::default(), // do nothing, should be unreachable
+            Preset::Open | Preset::Alternate => {
+                // standard actions in these 2 presets are just open
+                if matches!(
+                    self,
+                    Action::Directory | Action::Text | Action::Image | Action::Metadata
+                ) {
+                    return (
+                        arr![vec_![current_exe(), ":open", "--", path]],
+                        [true, false, false],
+                    );
+                }
             }
+            _ => {}
+        };
+
+        match self {
             Action::Directory => match preset {
                 Preset::Preview => (
                     arr![vec_![current_exe(), ":tool", "liza", ":u2", path]],
@@ -140,10 +150,7 @@ impl Action {
                 ),
                 Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
             },
-            Action::Open => (
-                arr![vec_![current_exe(), ":open", "--", path]],
-                [false, false, false],
-            ),
+
             Action::Metadata => match preset {
                 Preset::Extended => (
                     arr![header_viewer(path), metadata_viewer(path)],
@@ -162,8 +169,14 @@ impl Action {
                 ),
                 _ => (arr![metadata_viewer(path)], [true, false, false]),
             },
+
+            Action::Open => (
+                arr![vec_![current_exe(), ":open", "--", path]],
+                [false, false, false],
+            ),
             Action::Header => (arr![header_viewer(path)], [true, false, false]),
             Action::Custom(_) => unreachable!(),
+            Action::Extract => unreachable!(),
             Action::None => (arr![], [false, false, false]),
         }
     }

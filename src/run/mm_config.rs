@@ -107,11 +107,11 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-shift-h), key!(alt-shift-h) => Action::Help("".into()),
         // spawning
         key!(alt-s) => Action::Execute("$SHELL".into()),
-        key!(ctrl-b) => FsAction::Display(Preset::Open, false, When::Auto),
-        key!(alt-b) => FsAction::Display(Preset::Edit, false, When::Auto),
+        key!(ctrl-b) => FsAction::Lessfilter(Preset::Open, false, When::Auto),
+        key!(alt-b) => FsAction::Lessfilter(Preset::Edit, false, When::Auto),
         // display
-        key!(ctrl-l) => FsAction::Display(Preset::Preview, true, When::Auto),
-        key!(alt-l) => FsAction::Display(Preset::Extended, true, When::Auto),
+        key!(ctrl-l) => FsAction::Lessfilter(Preset::Preview, true, When::Auto),
+        key!(alt-l) => FsAction::Lessfilter(Preset::Extended, true, When::Auto),
 
 
         // misc

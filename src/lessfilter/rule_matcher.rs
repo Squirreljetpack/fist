@@ -59,13 +59,13 @@ impl Score {
 
 pub trait Test<I: ?Sized> {
     /// In a run of [`RuleMatcher::get_best_match`] for an item, the context is reused across all tests.
-    type Context;
+    type Context<'a>;
 
     /// Test if an item passes. If so, it's score will be accumulated into the containing [`Rule`].
-    fn passes(
+    fn passes<'a>(
         &self,
         item: &I,
-        data: &Self::Context,
+        data: &Self::Context<'a>,
     ) -> bool;
 }
 
@@ -90,10 +90,10 @@ impl<T, A> RuleMatcher<T, A> {
     /// - 0 score does not count
     /// - Early exit on 255
     #[cfg(not(test))]
-    pub fn get_best_match<I: ?Sized>(
+    pub fn get_best_match<'a, I: ?Sized>(
         &self,
         item: &I,
-        context: T::Context,
+        context: T::Context<'a>,
     ) -> Option<&A>
     where
         T: Test<I>,
@@ -123,16 +123,16 @@ impl<T, A> RuleMatcher<T, A> {
 
     #[allow(clippy::multiple_bound_locations)]
     #[cfg(test)]
-    pub fn get_best_match<I: ?Sized>(
+    pub fn get_best_match<'a, I: ?Sized>(
         &self,
         item: &I,
-        context: T::Context,
+        context: T::Context<'a>,
     ) -> Option<&A>
     where
         T: Test<I>,
         A: std::fmt::Debug,
         I: std::fmt::Debug,
-        T::Context: std::fmt::Debug,
+        T::Context<'a>: std::fmt::Debug,
     {
         let mut best_id: Option<&A> = None;
         let mut best_score: u8 = 0;
@@ -161,10 +161,10 @@ impl<T, A> RuleMatcher<T, A> {
     }
 
     // returns (top_score, best_scores)
-    fn get_best_matches_with_score<'a, I: ?Sized>(
+    fn get_best_matches_with_score<'a, 'b, I: ?Sized>(
         &'a self,
         item: &I,
-        context: T::Context,
+        context: T::Context<'b>,
     ) -> (u8, BestMatches<'a, T, A>)
     where
         T: Test<I>,
@@ -197,10 +197,10 @@ impl<T, A> RuleMatcher<T, A> {
     }
 
     /// Find the best matching rules for the item. (See [`Self::get_best_match`]).
-    pub fn get_best_matches<I: ?Sized>(
+    pub fn get_best_matches<'a, I: ?Sized>(
         &self,
         item: &I,
-        context: T::Context,
+        context: T::Context<'a>,
     ) -> impl Iterator<Item = &A>
     where
         T: Test<I>,

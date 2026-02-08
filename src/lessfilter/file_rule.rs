@@ -1,5 +1,6 @@
 use cli_boilerplate_automation::broc::has;
 use cli_boilerplate_automation::bs::permissions;
+use cli_boilerplate_automation::{else_default, wbog};
 use globset::{Glob as GlobBuilder, GlobMatcher};
 use mime_guess::{Mime, mime};
 use std::ffi::OsString;
@@ -8,9 +9,10 @@ use std::str::FromStr;
 use std::sync::OnceLock;
 
 use crate::abspath::AbsPath;
-use crate::lessfilter::TestSettings;
-use crate::lessfilter::mime_helpers::Myme;
+use crate::lessfilter::mime_helpers::{Myme, detect_encoding, is_native};
 use crate::lessfilter::rule_matcher::{DefaultScore, Score, Test};
+use crate::lessfilter::{Categories, LessfilterSettings, MimeString};
+use crate::utils::categories::FileCategory;
 use crate::utils::filetypes::FileType;
 
 /// compiled GlobMatcher
@@ -49,37 +51,48 @@ pub enum FileRuleKind {
     /// # Special cases
     /// [Text, _]: also haves charset
     /// [_, x-elf]: tries to read file headers
-    Mime([String; 2]), // Higher than ext
+    Mime(MimeString), // Higher than ext
+
+    Cat(String), // Higher than ext
     /// True if the specified program doesn't exist.
     /// Parsed with invert from have:prog.
     /// Score modifiers should not be set on this rule!
     Have(String), // The default score has the effect: have:x -> NotHave -> Min(0). !have:x -> has x -> Min(0).
-    FileType(FileType),
+
+    FileType(OverloadedFileType),
+}
+
+/// Overloads FileType to add a Text variant, which is matched on all native text (utf-8/utf-16).
+#[derive(Debug, Clone)]
+pub enum OverloadedFileType {
+    Ft(FileType),
+    Text,
 }
 
 /// This is the [`super::rule_matcher::Test::Context`] for a path
 #[derive(Debug)]
-pub struct FileData {
+pub struct FileData<'a> {
     pub path: AbsPath,
     pub children: OnceLock<Vec<OsString>>,
-    // [type, subtype]
     pub mime: Myme,
-    // [read, write, execute]
+    /// [read, write, execute]
     pub permissions: [bool; 3],
     pub ft: FileType,
+    pub categories: &'a Categories,
 }
 
-impl FileData {
+impl<'a> FileData<'a> {
     #[allow(clippy::collapsible_if)]
     pub fn new(
         path: AbsPath,
-        settings: &TestSettings,
+        settings: &LessfilterSettings,
+        categories: &'a Categories,
     ) -> Self {
-        // 2. Permissions (Read, Write, Execute)
+        // 1. Permissions (Read, Write, Execute)
         let permissions = permissions(&path);
         let ft = FileType::get(&path);
 
-        // 3. Mime Detection
+        // 2. Mime Detection
         let mime = if matches!(
             ft,
             FileType::File | FileType::Directory | FileType::Executable | FileType::Symlink
@@ -95,6 +108,7 @@ impl FileData {
             mime,
             ft,
             permissions,
+            categories,
         }
     }
 
@@ -112,7 +126,7 @@ impl FileData {
 }
 
 impl Test<Path> for FileRule {
-    type Context = FileData;
+    type Context<'a> = FileData<'a>;
 
     fn passes(
         &self,
@@ -130,45 +144,31 @@ impl Test<Path> for FileRule {
                 }
             }
 
-            FileRuleKind::Mime([type_, subtype]) => {
+            FileRuleKind::Mime(mime_) => {
+                if let Some(mime) = &data.mime.mime {
+                    mime_.matches_type(mime.type_().as_str())
+                        && mime_.matches_subtype(mime.subtype().as_str())
+                } else {
+                    mime_.matches_any()
+                }
+            }
+
+            FileRuleKind::Cat(s) => {
+                if let Ok(kind) = s.parse::<FileCategory>() {
+                    return data.mime.kind == Some(kind);
+                };
+
                 let Myme {
-                    mime: Some(mime),
-                    enc,
+                    mime: Some(mime), ..
                 } = &data.mime
                 else {
-                    return if type_ == "text" {
-                        data.mime
-                            .enc
-                            .as_ref()
-                            .map(|c| {
-                                let c = c.as_str().to_ascii_lowercase();
-                                c.contains("utf-8") || c.contains("unicode") || c.contains("ascii")
-                            })
-                            .unwrap_or(false)
-                    } else if type_ == "directory" {
-                        // directory mimes are parsed so this should almost never activate
-                        item.is_dir()
-                    } else {
-                        type_ == "*" && (subtype == "*" || subtype.is_empty())
-                    };
+                    return false;
                 };
-                let type_ok = type_.is_empty() || type_ == "*" || mime.type_() == type_.as_str();
-                let subtype_ok =
-                    subtype.is_empty() || subtype == "*" || mime.subtype() == subtype.as_str();
-
-                let charset_text_ok = enc
-                    .as_ref()
-                    .map(|c| {
-                        let c = c.as_str().to_ascii_lowercase();
-                        c.contains("utf-8") || c.contains("unicode") || c.contains("ascii")
-                    })
-                    .unwrap_or(false);
-
-                if type_ == "text" {
-                    (type_ok && subtype_ok)
-                        || ((subtype.is_empty() || subtype == "*") && charset_text_ok)
+                if let Some(mimes) = data.categories.get(s) {
+                    mimes.iter().any(|m| m.equal(mime))
                 } else {
-                    type_ok && subtype_ok
+                    wbog!("Invalid file rule: No category named {s}.");
+                    false
                 }
             }
 
@@ -177,7 +177,10 @@ impl Test<Path> for FileRule {
                 .iter()
                 .any(|child| child_glob.is_match(child)),
 
-            FileRuleKind::FileType(ft) => ft == &data.ft,
+            FileRuleKind::FileType(ft) => match ft {
+                OverloadedFileType::Ft(ft) => ft == &data.ft,
+                OverloadedFileType::Text => detect_encoding(item).as_deref().is_some_and(is_native), // this computed for each test instead of being cached
+            },
 
             FileRuleKind::Have(cmd) => has(cmd),
         };
@@ -192,6 +195,7 @@ impl DefaultScore for FileRule {
             FileRuleKind::Glob(_) => Score::Max(100),
             FileRuleKind::Child(_) => Score::Max(50),
             FileRuleKind::Mime(_) => Score::Max(20),
+            FileRuleKind::Cat(_) => Score::Max(20),
             FileRuleKind::Ext(_) => Score::Max(10),
             FileRuleKind::Have(_) => Score::Req,
             FileRuleKind::FileType(_) => Score::Req,
@@ -202,8 +206,8 @@ impl DefaultScore for FileRule {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ParseFileRuleError {
-    #[error("invalid file rule prefix")]
-    InvalidPrefix,
+    #[error("invalid file rule prefix: {0}")]
+    InvalidPrefix(String),
 
     #[error("missing file rule prefix")]
     MissingPrefix,
@@ -231,11 +235,11 @@ impl FromStr for FileRule {
             return if let Some(s) = s.strip_prefix('.') {
                 let kind = FileRuleKind::Ext(s.to_string());
                 Ok(FileRule { kind, invert })
-            } else if let Some((ty, sub)) = s.split_once('/') {
-                let kind = FileRuleKind::Mime([ty.to_string(), sub.to_string()]);
+            } else if let Ok(mime) = s.parse() {
+                let kind = FileRuleKind::Mime(mime);
                 Ok(FileRule { kind, invert })
             } else {
-                Err(ParseFileRuleError::InvalidPrefix)
+                Err(ParseFileRuleError::InvalidPrefix(s.to_string()))
             };
         };
 
@@ -243,25 +247,30 @@ impl FromStr for FileRule {
             "glob" => FileRuleKind::Glob(GlobBuilder::new(rest)?.compile_matcher()),
             "child" => FileRuleKind::Child(GlobBuilder::new(rest)?.compile_matcher()),
             "ext" => FileRuleKind::Ext(rest.to_string()),
-            "mime" => {
-                let (ty, sub) = rest
-                    .split_once('/')
-                    .ok_or(ParseFileRuleError::InvalidMime)?;
-                FileRuleKind::Mime([ty.to_string(), sub.to_string()])
-            }
+            "mime" => FileRuleKind::Mime(rest.parse()?),
             "have" => {
                 return Ok(FileRule {
                     kind: FileRuleKind::Have(rest.to_string()),
                     invert,
                 });
             }
-            "type" => {
+            "cat" | "category" => {
                 return Ok(FileRule {
-                    kind: FileRuleKind::FileType(rest.parse()?),
+                    kind: FileRuleKind::Cat(rest.to_string()),
                     invert,
                 });
             }
-            _ => return Err(ParseFileRuleError::InvalidPrefix),
+            "type" => {
+                let ft = match rest {
+                    "text" => OverloadedFileType::Text,
+                    _ => OverloadedFileType::Ft(rest.parse()?),
+                };
+                return Ok(FileRule {
+                    kind: FileRuleKind::FileType(ft),
+                    invert,
+                });
+            }
+            _ => return Err(ParseFileRuleError::InvalidPrefix(kind.to_string())),
         };
 
         Ok(FileRule { kind, invert })

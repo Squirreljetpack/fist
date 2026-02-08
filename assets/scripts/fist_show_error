@@ -1,6 +1,6 @@
 #!/bin/sh
 # todo: this affects stdout, don't
-printf '\033[H\033[J'
+printf '\033[H\033[J' 2>/dev/null
 for param; do
   echo $param >&2
 done

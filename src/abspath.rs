@@ -107,7 +107,7 @@ impl From<PathBuf> for OsStringWrapper {
     }
 }
 impl OsStringWrapper {
-    pub fn as_maybe_realpath(self) -> Option<PathBuf> {
-        (!self.is_empty()).then(|| PathBuf::from(self.0))
+    pub fn as_maybe_realpath(&self) -> Option<&Path> {
+        (!self.is_empty()).then(|| Path::new(&self.0))
     }
 }

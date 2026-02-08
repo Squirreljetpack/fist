@@ -98,10 +98,6 @@ impl Config {
                 include_str!("../assets/scripts/pager"),
             ),
             (
-                binary_viewer_path(),
-                include_str!("../assets/scripts/fist_binary_viewer"),
-            ),
-            (
                 show_error_path(),
                 include_str!("../assets/scripts/fist_show_error"),
             ),

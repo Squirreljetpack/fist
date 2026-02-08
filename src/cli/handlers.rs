@@ -314,7 +314,7 @@ async fn handle_default(
             let db_filter = DbFilter::new(&cfg.history).with_keywords(kw.clone());
 
             match conn.return_best_by_frecency(&db_filter).await {
-                None | Some(None) => {
+                None => {
                     if cfg.misc.cd_fallback_search && !cmd.list {
                         // todo: lowpri: relaunch this binary with :dir and get its result?
                         // let input = (kw.last().cloned().unwrap_or_default(), 0);
@@ -331,7 +331,7 @@ async fn handle_default(
                         return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
                     }
                 }
-                Some(Some(p)) => {
+                Some(p) => {
                     set_current_dir(&p)
                         .prefix("Failed to change directory")
                         ._elog();

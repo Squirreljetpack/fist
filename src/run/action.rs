@@ -117,7 +117,7 @@ pub enum FsAction {
     /// (preset, paging, header-mode)
     /// header-mode: auto/always/never
     // nonbindable
-    Display(Preset, bool, When),
+    Lessfilter(Preset, bool, When),
 
     // Nonbindable
     // --------------------------
@@ -752,7 +752,7 @@ pub fn fsaction_handler(
         }
         // ------------------------------------------------------
         // Execute/Accept
-        FsAction::Display(p, page, header) => {
+        FsAction::Lessfilter(p, page, header) => {
             if APP::in_app_pane() {
                 // todo
                 return;
@@ -885,7 +885,13 @@ macro_rules! impl_display_and_from_str_enum {
                         }
                     }
                     Self::SaveInput | Self::SetHeader(_) | Self::SetFooter(_) | Self::Reload | Self::AcceptPrompt | Self::AcceptPrint => Ok(()), // internal
-                    Self::Display(preset, _, _) => write!(f, "Display({preset})"),
+                    Self::Lessfilter(preset, page, _) => {
+                        let mut preset = preset.to_string();
+                        if *page {
+                            preset.push('|')
+                        };
+                        write!(f, "Lessfilter({preset})")
+                    }
                 }
             }
         }
@@ -938,6 +944,18 @@ macro_rules! impl_display_and_from_str_enum {
                     "Jump" => {
                         let path_str = data.ok_or_else(|| "Missing path for Jump")?;
                         Ok(Self::Jump(path_str.into(), None))
+                    }
+                    "Lessfilter" => {
+                        let mut page = false;
+                        let mut preset_str = data.ok_or_else(|| "Missing preset for Lessfilter")?;
+
+                        if let Some(stripped) = preset_str.strip_suffix('|') {
+                            preset_str = stripped;
+                            page = true;
+                        }
+
+                        let preset = preset_str.to_lowercase().parse().map_err(|e| format!("Invalid preset for lessfilter: {preset_str}"))?;
+                        Ok(Self::Lessfilter(preset, page, When::default()))
                     }
                     _ => Err(format!("Unknown action {}", s)),
                 }

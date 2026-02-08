@@ -5,9 +5,12 @@ mod config;
 pub mod file_rule;
 mod helpers;
 pub mod rule_matcher;
+use cfg_if::cfg_if;
 use cli_boilerplate_automation::broc::tty_or_inherit;
 pub use config::*;
+
 pub mod mime_helpers;
+
 use arrayvec::ArrayVec;
 use cli_boilerplate_automation::bait::OptionExt;
 use cli_boilerplate_automation::bog::BogUnwrapExt;
@@ -19,7 +22,7 @@ use std::{path::PathBuf, process::exit};
 
 use crate::cli::clap_tools::LessfilterCommand;
 use crate::lessfilter::helpers::{
-    header_viewer, is_header, is_metadata, show_header, show_metadata,
+    extract, header_viewer, is_header, is_metadata, show_header, show_metadata,
 };
 use crate::utils::text::path_formatter;
 use crate::{
@@ -49,11 +52,11 @@ pub fn handle(
     let rules = cfg.rules.get_mut(preset);
     rules.prepend(default);
 
-    let mut succeeded = false;
+    let mut any_file_succeeded = false;
 
     for path in paths {
         let apath = AbsPath::new(path.clone());
-        let data = FileData::new(apath.clone(), &cfg.test);
+        let data = FileData::new(apath.clone(), &cfg.settings, &cfg.categories);
         log::debug!("file data: {data:?}");
 
         let rule = else_default!(rules.get_best_match(&path, data).ebog(format!("No rule for {}", path.to_string_lossy())); !);
@@ -64,12 +67,14 @@ pub fn handle(
         // show header
         if header == Some(true) {
             show_header(&path);
-            succeeded = true;
+            any_file_succeeded = true;
         }
         log::debug!("rule found: {rule:?}");
-        for action in rule.iter() {
+
+        for (i, action) in rule.iter().enumerate() {
             log::debug!("Action: {action:?}");
-            if let Action::Custom(s) = action {
+
+            let action_success = if let Action::Custom(s) = action {
                 let Some(template) = cfg.actions.get(s) else {
                     ebog!("The custom action '{s}' is not defined!");
                     continue;
@@ -81,51 +86,63 @@ pub fn handle(
                 } else {
                     Stdio::inherit()
                 });
-                succeeded |= cmd.status()._ebog().is_some_and(|s| s.success())
+
+                cmd.status()._ebog().is_some_and(|s| s.success())
+            } else if matches!(action, Action::Extract) {
+                extract(&path)
             } else {
                 let (progs, perms) = action.to_progs(&path, preset);
-                for mut prog in progs {
+
+                let mut all_progs_succeeded = true;
+
+                progs.into_iter().all(|mut prog| {
                     // filter out headers
                     if is_header(&prog) {
                         if header.is_none() {
                             show_header(&path);
-                            succeeded = true;
                         }
-                        continue;
+                        true
                     } else if is_metadata(&prog) {
-                        succeeded |= show_metadata(&path);
-                        continue;
-                    }
-
-                    log::debug!("Executing: {prog:?}");
-                    let mut cmd = Command::new(prog.remove(0));
-                    cmd.args(prog).stdout(if matches!(preset, Preset::Edit) {
-                        tty_or_inherit()
+                        show_metadata(&path, i == 0)
                     } else {
-                        Stdio::inherit()
-                    });
-                    succeeded |= cmd.status()._ebog().is_some_and(|s| s.success())
-                }
+                        log::debug!("Executing: {prog:?}");
+                        let mut cmd = Command::new(prog.remove(0));
+                        cmd.args(prog).stdout(if matches!(preset, Preset::Edit) {
+                            tty_or_inherit()
+                        } else {
+                            Stdio::inherit()
+                        });
+
+                        !cmd.status()._ebog().is_some_and(|s| s.success())
+                    }
+                })
+            };
+
+            any_file_succeeded |= action_success;
+            if action_success && cfg.settings.early_exit {
+                break;
             }
         }
     }
 
-    if succeeded { exit(0) } else { exit(1) }
+    if any_file_succeeded { exit(0) } else { exit(1) }
 }
 
 //-------------------------
+
+pub type RulePreset = RuleMatcher<FileRule, ArrayVec<Action, 10>>;
 /// Struct representation of RulesConfig
 #[derive(Debug, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RulesConfig {
-    pub preview: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
-    pub display: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
-    pub extended: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
-    pub info: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
-    pub open: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
-    pub alternate: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
-    pub edit: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
-    pub default: RuleMatcher<FileRule, ArrayVec<Action, 10>>,
+    pub preview: RulePreset,
+    pub display: RulePreset,
+    pub extended: RulePreset,
+    pub info: RulePreset,
+    pub open: RulePreset,
+    pub alternate: RulePreset,
+    pub edit: RulePreset,
+    pub default: RulePreset,
 }
 
 /// Default impl
@@ -149,7 +166,7 @@ impl RulesConfig {
     pub fn get(
         &self,
         preset: Preset,
-    ) -> &RuleMatcher<FileRule, ArrayVec<Action, 10>> {
+    ) -> &RulePreset {
         match preset {
             Preset::Preview => &self.preview,
             Preset::Display => &self.display,
@@ -166,7 +183,7 @@ impl RulesConfig {
     pub fn get_mut(
         &mut self,
         preset: Preset,
-    ) -> &mut RuleMatcher<FileRule, ArrayVec<Action, 10>> {
+    ) -> &mut RulePreset {
         match preset {
             Preset::Preview => &mut self.preview,
             Preset::Display => &mut self.display,

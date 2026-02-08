@@ -1,53 +1,68 @@
-# Documentation: todo
+# ==============================
+#   Rule Matching
+# ==============================
 
-# Default scores:
+
+# In event of a tie, last one wins.
+
+# ----------
+#   Syntax
+# ----------
+# Add: +{value}|{rule},
+# Sub: -{value}|{rule},
+# Max: >{value}|{rule},
+# Max: {value}|{rule},
+# Min: <{value}|{rule},
+# Req: ^|{rule},
+# Default Score: {rule},
+
+# ------------------
+#   Default scores
+# ------------------
 # glob: Max(100),
 # child: Max(50),
-# mime: Max(20)
+# cat: Max(20),
+# mime: Max(20),
 # ext: Max(10)
 
-# in event of a tie, last one wins.
 
 # ------------------------------------------------------------ #
 
 [rules]
   default = [
     [ [ "Metadata" ], [ "1|*/*" ] ],
-    [ [ "Image" ], [ "2|image/*" ] ],
-    [ [ "Text" ], [ "2|text/*" ] ],
-    [ [ "Directory" ], [ "2|directory/*" ] ],
+    [ [ "Image" ], [ "1|image/*" ] ],
+    [ [ "Text" ], [ "1|type:text" ] ],
+    [ [ "Extract", "Metadata" ], [ "1|cat:document", "1|cat:spreadsheet", "1|cat:email", "1|cat:academic" ] ], # try extracting, with fallback to metadata
+    [ [ "Directory" ], [ "1|directory/*" ] ],
   ]
   preview = [
     [ [ "sqlite" ], [ "application/vnd.sqlite3", "have:sqlite3" ] ],
   ]
 
+  # the 'n' alias, and the `Advance` action in the ui
   edit = [
-    [ [ "Open" ], [ "1|application/pdf" ] ],
+    [ [ "Open" ], [ "1|cat:document", "1|cat:spreadsheet", "1|cat:email", "1|cat:academic" ] ],
   ]
 
+  # the 'l' alias
   display = [
     [
       [ "Metadata" ],
       [
-        "1|application/zip",
-        "1|application/x-tar",
-        "1|application/x-gzip",
-        "1|application/x-bzip2",
-        "1|application/x-xz",
-        "1|.zip",
-        "1|.tar",
-        "1|.gz",
-        "1|.bz2",
-        "1|.xz",
+        "1|cat:compressed",
       ],
     ],
   ]
 
+  # the 'la' alias
   extended = [  ]
 
+  # the 'll' alias
   info = [  ]
 
-  open = [  ]
+  # opener
+  open = [  ] #  Metadata, Image, Text, Extract all defer to fs: open in this preset and the next
 
   alternate = [
     [ [ "none" ], [ "*/*" ] ],

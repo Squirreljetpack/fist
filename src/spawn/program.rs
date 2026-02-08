@@ -2,6 +2,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 
 use cli_boilerplate_automation::ebog;
+use log::warn;
 
 use crate::abspath::AbsPath;
 use anyhow::{Context, Result, anyhow};
@@ -37,7 +38,11 @@ impl Program {
 
             Some(Self::Cmd(path, parts))
         } else {
-            todo!()
+            warn!(
+                "Invalid string encountered when parsing into Program: {}",
+                s.to_string_lossy()
+            );
+            Some(Self::Cmd(s.into(), vec![]))
         }
     }
 

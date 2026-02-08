@@ -251,7 +251,7 @@ impl std::str::FromStr for FileTypeArg {
         }
 
         // try parse as FileCategory
-        if let Ok(cat) = FileCategory::from_str(&s_lower) {
+        if let Ok(cat) = FileCategory::parse_with_aliases(&s_lower) {
             return Ok(FileTypeArg::FileCategory(cat));
         }
 

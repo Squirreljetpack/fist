@@ -18,56 +18,86 @@ use std::path::Path;
 use cli_boilerplate_automation::bath::{filename, split_ext};
 use phf::{Map, phf_map};
 
-// use crate::fs::File;
-
-#[derive(Debug, Clone, PartialEq, Eq, std::hash::Hash)]
+// drawn from crates eza and file-format
+#[derive(Debug, Clone, PartialEq, Eq, std::hash::Hash, strum_macros::EnumString)]
+#[strum(serialize_all = "lowercase")]
 pub enum FileCategory {
+    /// Animated images, icons, cursors, raster graphics and vector graphics.
     Image,
+    /// Moving images, possibly with color and coordinated sound.
     Video,
-    Music,
-    Lossless, // Lossless music, rather than any other kind of data...
+    /// Musics, sound effects, and spoken audio recordings.
+    Audio,
+    /// Lossless music.
+    Lossless,
+    /// Cryptocurrency files.
     Crypto,
+    /// Word processing and desktop publishing documents.
     Document,
+    /// Files and directories stored in a single, possibly compressed, archive.
     Compressed,
+    /// Temporary files.
     Temp,
+    /// Compilation artifacts.
     Compiled,
-    Build, // A “build file is something that can be run or activated somehow in order to
-    // kick off the build of a project. It’s usually only present in directories full of
-    // source code.
+    /// A “build file is something that can be run or activated somehow in order to kick off the build of a project. It’s usually only present in directories full of source code.
+    Build,
+    /// Source code.
     Source,
-    Configuration, // add configuration
+    /// Configuration and structured data
+    Configuration,
+    /// Plain text.
     Text,
+
+    /// Organized collections of data.
+    Database,
+    /// Visual information using graphics and spatial relationships.
+    Diagram,
+    /// Floppy disk images, optical disc images and virtual machine disks.
+    Disk,
+    /// Electronic books.
+    Ebook,
+    /// Machine-executable code, virtual machine code and shared libraries.
+    Executable,
+    /// Typefaces used for displaying text on screen or in print.
+    Font,
+    /// Mathematical formulas.
+    Formula,
+    /// Collections of geospatial features, GPS tracks and other location-related files.
+    Geospatial,
+    /// Data that provides information about other data.
+    Metadata,
+    /// 3D models, CAD drawings, and other types of files used for creating or displaying 3D images.
+    Model,
+    /// Collections of files bundled together for software distribution.
+    Package,
+    /// Lists of audio or video files, organized in a specific order for sequential playback.
+    Playlist,
+    /// Slide shows.
+    Presentation,
+    /// Copies of a read-only memory chip of computers, cartridges, or other electronic devices.
+    Rom,
+    /// Data in tabular form.
+    Spreadsheet,
+    /// Subtitles and captions.
+    Subtitle,
+
+    /// Email data.
+    Email,
+    /// Academic and publishing.
+    Academic,
+    /// Markdown.
+    Markdown,
+
+    /// Data which do not fit in any of the other kinds.
+    Other,
 }
 
-use std::str::FromStr;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 #[error("Invalid type: {0}")]
 pub struct ParseFileTypeError(pub String);
-
-impl FromStr for FileCategory {
-    type Err = ParseFileTypeError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "v" | "vid" | "video" => Ok(FileCategory::Video),
-            "i" | "img" | "image" => Ok(FileCategory::Image),
-            "a" | "aud" | "audio" => Ok(FileCategory::Music),
-            "l" | "lossless" => Ok(FileCategory::Lossless),
-            "crypto" => Ok(FileCategory::Crypto),
-            "doc" | "document" => Ok(FileCategory::Document),
-            "z" | "compressed" => Ok(FileCategory::Compressed),
-            "t" | "tmp" | "temp" => Ok(FileCategory::Temp),
-            // "b" | "build" => Ok(FileCategory::Build),
-            "s" | "src" | "source" | "code" => Ok(FileCategory::Source),
-            "o" | "compiled" => Ok(FileCategory::Compiled),
-            "conf" => Ok(FileCategory::Configuration),
-            "txt" => Ok(FileCategory::Text),
-            _ => Err(ParseFileTypeError(s.to_string())),
-        }
-    }
-}
 
 /// Mapping from full filenames to file type.
 const FILENAME_TYPES: Map<&'static str, FileCategory> = phf_map! {
@@ -194,14 +224,14 @@ const EXTENSION_TYPES: Map<&'static str, FileCategory> = phf_map! {
     "webm"       => FileCategory::Video,
     "wmv"        => FileCategory::Video,
     /* Music files */
-    "aac"        => FileCategory::Music, // Advanced Audio Coding
-    "m4a"        => FileCategory::Music,
-    "mka"        => FileCategory::Music,
-    "mp2"        => FileCategory::Music,
-    "mp3"        => FileCategory::Music,
-    "ogg"        => FileCategory::Music,
-    "opus"       => FileCategory::Music,
-    "wma"        => FileCategory::Music,
+    "aac"        => FileCategory::Audio, // Advanced Audio Coding
+    "m4a"        => FileCategory::Audio,
+    "mka"        => FileCategory::Audio,
+    "mp2"        => FileCategory::Audio,
+    "mp3"        => FileCategory::Audio,
+    "ogg"        => FileCategory::Audio,
+    "opus"       => FileCategory::Audio,
+    "wma"        => FileCategory::Audio,
     /* Lossless music, rather than any other kind of data... */
     "aif"        => FileCategory::Lossless,
     "aifc"       => FileCategory::Lossless,
@@ -312,26 +342,40 @@ const EXTENSION_TYPES: Map<&'static str, FileCategory> = phf_map! {
     "swp"        => FileCategory::Temp,
     "tmp"        => FileCategory::Temp,
     /* Compiler output files */
-    "a"          => FileCategory::Compiled, // Unix static library
-    "bundle"     => FileCategory::Compiled, // macOS application bundle
-    "class"      => FileCategory::Compiled, // Java class file
-    "cma"        => FileCategory::Compiled, // OCaml bytecode library
-    "cmi"        => FileCategory::Compiled, // OCaml interface
-    "cmo"        => FileCategory::Compiled, // OCaml bytecode object
-    "cmx"        => FileCategory::Compiled, // OCaml bytecode object for inlining
-    "dll"        => FileCategory::Compiled, // Windows dynamic link library
-    "dylib"      => FileCategory::Compiled, // Mach-O dynamic library
-    "elc"        => FileCategory::Compiled, // Emacs compiled lisp
-    "elf"        => FileCategory::Compiled, // Executable and Linkable Format
-    "ko"         => FileCategory::Compiled, // Linux kernel module
-    "lib"        => FileCategory::Compiled, // Windows static library
-    "o"          => FileCategory::Compiled, // Compiled object file
-    "obj"        => FileCategory::Compiled, // Compiled object file
-    "pyc"        => FileCategory::Compiled, // Python compiled code
-    "pyd"        => FileCategory::Compiled, // Python dynamic module
-    "pyo"        => FileCategory::Compiled, // Python optimized code
-    "so"         => FileCategory::Compiled, // Unix shared library
-    "zwc"        => FileCategory::Compiled, // zsh compiled file
+    "a"              => FileCategory::Compiled, // Unix static library
+    "aux"            => FileCategory::Compiled, // LaTeX auxiliary file
+    "bbl"            => FileCategory::Compiled, // BibTeX bibliography output
+    "bcf"            => FileCategory::Compiled, // BibLaTeX control file
+    "blg"            => FileCategory::Compiled, // BibTeX log file
+    "bundle"         => FileCategory::Compiled, // macOS application bundle
+    "class"          => FileCategory::Compiled, // Java class file
+    "cma"            => FileCategory::Compiled, // OCaml bytecode library
+    "cmi"            => FileCategory::Compiled, // OCaml interface
+    "cmo"            => FileCategory::Compiled, // OCaml bytecode object
+    "cmx"            => FileCategory::Compiled, // OCaml bytecode object for inlining
+    "dll"            => FileCategory::Compiled, // Windows dynamic link library
+    "dylib"          => FileCategory::Compiled, // Mach-O dynamic library
+    "elc"            => FileCategory::Compiled, // Emacs compiled lisp
+    "elf"            => FileCategory::Compiled, // Executable and Linkable Format
+    "fdb_latexmk"    => FileCategory::Compiled, // latexmk database
+    "fls"            => FileCategory::Compiled, // LaTeX file list
+    "headfootlength" => FileCategory::Compiled, // TeX derived layout data
+    "ko"             => FileCategory::Compiled, // Linux kernel module
+    "lib"            => FileCategory::Compiled, // Windows static library
+    "lof"            => FileCategory::Compiled, // LaTeX list of figures
+    "lot"            => FileCategory::Compiled, // LaTeX list of tables
+    "o"              => FileCategory::Compiled, // Compiled object file
+    "obj"            => FileCategory::Compiled, // Compiled object file
+    "out"            => FileCategory::Compiled, // LaTeX/TeX auxiliary output
+    "pyc"            => FileCategory::Compiled, // Python compiled code
+    "pyd"            => FileCategory::Compiled, // Python dynamic module
+    "pyo"            => FileCategory::Compiled, // Python optimized code
+    "so"             => FileCategory::Compiled, // Unix shared library
+    "toc"            => FileCategory::Compiled, // LaTeX table of contents
+    "xdv"            => FileCategory::Compiled, // XeTeX extended DVI
+    "zwc"            => FileCategory::Compiled, // zsh compiled file
+
+
     /* Source code files */
     "applescript"=> FileCategory::Source, // Apple script
     "as"         => FileCategory::Source, // Action script
@@ -466,84 +510,22 @@ const EXTENSION_TYPES: Map<&'static str, FileCategory> = phf_map! {
 
     "txt" => FileCategory::Text,
     "md"  => FileCategory::Text,
+    // rtf and tex are accounted for
     "rst" => FileCategory::Text,
     "csv" => FileCategory::Text,
     "tsv" => FileCategory::Text,
     "log" => FileCategory::Text,
 };
 
-const IMAGE_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "arw", "avif", "bmp", "cbr", "cbz", "cr2", "dvi", "eps", "fodg", "gif", "heic", "heif", "ico", "j2c", "j2k", "jfi", "jfif", "jif", "jp2", "jpe", "jpeg", "jpf", "jpg", "jpx", "jxl", "kra", "krz", "nef", "odg", "orf", "pbm", "pgm", "png", "pnm", "ppm", "ps", "psd", "pxm", "raw", "qoi", "svg", "tif", "tiff", "webp", "xcf", "xpm",
-};
-const VIDEO_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "avi", "flv", "h264", "heics", "m2ts", "m2v", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ogm", "ogv", "video", "vob", "webm", "wmv",
-};
-const MUSIC_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "aac", "m4a", "mka", "mp2", "mp3", "ogg", "opus", "wma",
-};
-const LOSSLESS_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "aif", "aifc", "aiff", "alac", "ape", "flac", "pcm", "wav", "wv",
-};
-
-const DOCUMENT_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "djvu", "doc", "docx", "eml", "fodp", "fods", "fodt", "fotd", "gdoc", "key", "keynote", "numbers", "odp", "ods", "odt", "pages", "pdf", "ppt", "pptx", "rtf", "xls", "xlsm", "xlsx",
-};
-const COMPRESSED_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "7z", "ar", "arj", "br", "bz", "bz2", "bz3", "cpio", "deb", "dmg", "gz", "iso", "lz", "lz4", "lzh", "lzma", "lzo", "phar", "qcow", "qcow2", "rar", "rpm", "tar", "taz", "tbz", "tbz2", "tc", "tgz", "tlz", "txz", "tz", "xz", "vdi", "vhd", "vhdx", "vmdk", "z", "zip", "zst",
-};
-const TEMP_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "bak", "bk", "bkp", "crdownload", "download", "fcbak", "fcstd1", "fdmdownload", "part", "swn", "swo", "swp", "tmp",
-};
-
-const SOURCE_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "applescript", "as", "asa", "awk", "c", "c++", "c++m", "cabal", "cc", "ccm", "clj", "cp", "cpp", "cppm", "cr", "cs", "css", "csx", "cu", "cxx", "cxxm", "cypher", "d", "dart", "di", "dpr", "el", "elm", "erl", "ex", "exs", "f", "f90", "fcmacro", "fcscript", "fnl", "for", "fs", "fsh", "fsi", "fsx", "gd", "go", "gradle", "groovy", "gvy", "h", "h++", "hh", "hpp", "hc", "hs", "htc", "hxx", "inc", "inl", "ino", "ipynb", "ixx", "java", "jl", "js", "jsx", "kt", "kts", "kusto", "less", "lhs", "lisp", "ltx", "lua", "m", "malloy", "matlab", "ml", "mli", "mn", "nb", "p", "pas", "php", "pl", "pm", "pod", "pp", "prql", "ps1", "psd1", "psm1", "purs", "py", "r", "rb", "rs", "rq", "sass", "scala", "scm", "scad", "scss", "sld", "sql", "ss", "swift", "tcl", "tex", "ts", "v", "vb", "vsh", "zig",
-};
-const CONFIGURATION_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "toml", "yaml", "yml", "json", "jsonc", "ini", "cfg", "conf", "properties", "env", "editorconfig", "gitignore", "gitattributes", "dockerfile", "dockerignore", "service", "socket",
-};
-
-static COMPILED_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "aux", "bbl", "bcf", "blg", "fdb_latexmk", "fls",
-    "headfootlength", "lof", "lot", "out",
-    "toc", "xdv", "a", "bundle", "class", "cma", "cmi", "cmo", "cmx", "dll", "dylib", "elc", "elf", "ko", "lib", "o", "obj", "pyc", "pyd", "pyo", "so", "zwc",
-};
-
-// todo: support filenames
-const BUILD_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "ninja",
-};
-const CRYPTO_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "age", "asc", "cer", "crt", "csr", "gpg", "kbx", "md5", "p12", "pem", "pfx", "pgp", "pub", "sha1", "sha224", "sha256", "sha384", "sha512", "sig", "signature",
-};
-
-// readable, some of these are also in doc
-const TEXT_EXTS: phf::Set<&'static str> = phf::phf_set! {
-    "txt", "md", "rtf", "tex", "rst", "csv", "tsv", "log"
-};
-
 impl FileCategory {
     pub fn exts(&self) -> Vec<&'static str> {
-        match self {
-            Self::Image => IMAGE_EXTS.iter().cloned().collect(),
-            Self::Video => VIDEO_EXTS.iter().cloned().collect(),
-            Self::Music => MUSIC_EXTS.iter().cloned().collect(),
-            Self::Lossless => LOSSLESS_EXTS.iter().cloned().collect(),
-            Self::Crypto => CRYPTO_EXTS.iter().cloned().collect(),
-            Self::Document => DOCUMENT_EXTS.iter().cloned().collect(),
-            Self::Compressed => COMPRESSED_EXTS.iter().cloned().collect(),
-            Self::Temp => TEMP_EXTS.iter().cloned().collect(),
-            Self::Compiled => COMPILED_EXTS
-                .iter()
-                .chain(COMPILED_EXTS.iter())
-                .cloned()
-                .collect(),
-            Self::Build => BUILD_EXTS.iter().cloned().collect(),
-            Self::Source => SOURCE_EXTS.iter().cloned().collect(),
-            Self::Configuration => CONFIGURATION_EXTS.iter().cloned().collect(),
-            Self::Text => TEXT_EXTS.iter().cloned().collect(),
-        }
+        EXTENSION_TYPES
+            .entries()
+            .filter_map(|(ext, cat)| (cat == self).then_some(*ext))
+            .collect()
     }
 
+    // todo: flesh out
     pub fn get(path: &Path) -> Option<FileCategory> {
         let name = filename(path);
         let ext = split_ext(&name)[1];
@@ -569,10 +551,204 @@ impl FileCategory {
         }
 
         // Modification of original: just do a ext check
-        if COMPILED_EXTS.contains(ext) {
+        if EXTENSION_TYPES.get(ext) == Some(&Self::Compiled) {
             return Some(Self::Compiled);
         };
 
         None
+    }
+
+    pub fn parse_with_aliases(s: &str) -> Result<FileCategory, ParseFileTypeError> {
+        use FileCategory::*;
+
+        // first try EnumString
+        if let Ok(category) = s.parse::<FileCategory>() {
+            return Ok(category);
+        }
+
+        // fallback to common aliases
+        let s_lower = s.to_lowercase();
+        let category = match s_lower.as_str() {
+            "v" | "vid" => Video,
+            "i" | "img" => Image,
+            "a" | "aud" => Audio,
+            "l" | "lossless" => Lossless,
+            "z" | "zip" => Compressed,
+            "t" | "tmp" => Temp,
+            "o" | "obj" => Compiled,
+            "b" => Build,
+            "s" | "src" | "code" => Source,
+            "conf" | "cfg" => Configuration,
+            "txt" => Text,
+
+            // new variants
+            "db" => Database,
+            "diag" => Diagram,
+            "x" | "exe" => Executable,
+            "geo" => Geospatial,
+            "pkg" => Package,
+            "ppt" => Presentation,
+            "xl" | "xlsx" => Spreadsheet,
+            "md" => Markdown,
+
+            _ => return Err(ParseFileTypeError(s.to_string())),
+        };
+
+        Ok(category)
+    }
+
+    // TODO: flesh out
+    #[cfg(feature = "file-format")]
+    pub fn from_fileformat(format: file_format::FileFormat) -> Self {
+        use FileCategory::*;
+        use file_format::Kind;
+
+        match format.kind() {
+            Kind::Archive | Kind::Compressed => Compressed,
+            Kind::Audio => Audio,
+            Kind::Database => Database,
+            Kind::Diagram => Diagram,
+            Kind::Disk => Disk,
+            Kind::Document => Document,
+            Kind::Ebook => Ebook,
+            Kind::Executable => Executable,
+            Kind::Font => Font,
+            Kind::Formula => Formula,
+            Kind::Geospatial => Geospatial,
+            Kind::Image => Image,
+            Kind::Metadata => Metadata,
+            Kind::Model => Model,
+            Kind::Other if format.media_type().starts_with("text/") => Text,
+            Kind::Other => Other,
+            Kind::Package => Package,
+            Kind::Playlist => Playlist,
+            Kind::Presentation => Presentation,
+            Kind::Rom => Rom,
+            Kind::Spreadsheet => Spreadsheet,
+            Kind::Subtitle => Subtitle,
+            Kind::Video => Video,
+            _ => Other,
+        }
+    }
+
+    pub fn from_mime(mime: &str) -> Self {
+        // documents = [
+        // "application/pdf",
+        // "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        // "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        // "application/msword",
+        // "application/vnd.ms-powerpoint",
+        // "application/vnd.oasis.opendocument.text",
+        // ]
+
+        // spreadsheets = [
+        // "application/vnd.ms-excel",
+        // "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        // "application/vnd.ms-excel.sheet.macroenabled.12",
+        // "application/vnd.ms-excel.sheet.binary.macroenabled.12",
+        // "application/vnd.ms-excel.addin.macroenabled.12",
+        // "application/vnd.ms-excel",
+        // "application/vnd.oasis.opendocument.spreadsheet",
+        // ]
+
+        // text_and_markup = [
+        // "text/plain",
+        // "text/markdown",
+        // "text/x-markdown",
+        // "text/html",
+        // "application/xhtml+xml",
+        // "application/xml",
+        // "text/xml",
+        // "image/svg+xml",
+        // "text/x-rst",
+        // "text/x-org",
+        // "application/rtf",
+        // "text/rtf",
+        // "text/x-djot",
+        // ]
+
+        // structured_data = [
+        // "application/json",
+        // "text/json",
+        // "application/x-yaml",
+        // "text/yaml",
+        // "text/x-yaml",
+        // "application/toml",
+        // "text/toml",
+        // "text/csv",
+        // "text/tab-separated-values",
+        // ]
+
+        // email = [
+        // "message/rfc822",
+        // "application/vnd.ms-outlook",
+        // ]
+
+        // images = [
+        // "image/png",
+        // "image/jpeg",
+        // "image/jpg",
+        // "image/webp",
+        // "image/bmp",
+        // "image/x-bmp",
+        // "image/x-ms-bmp",
+        // "image/tiff",
+        // "image/x-tiff",
+        // "image/gif",
+        // "image/jp2",
+        // "image/jpx",
+        // "image/jpm",
+        // "image/mj2",
+        // "image/x-jbig2",
+        // "image/x-portable-anymap",
+        // ]
+
+        // archives = [
+        // "application/zip",
+        // "application/x-zip-compressed",
+        // "application/x-tar",
+        // "application/x-bzip2",
+        // "application/x-xz",
+        // "application/tar",
+        // "application/x-gtar",
+        // "application/x-ustar",
+        // "application/x-7z-compressed",
+        // "application/gzip",
+        // "application/x-gzip",
+        // ]
+
+        // academic_and_publishing = [
+        // "application/x-latex",
+        // "text/x-tex",
+        // "application/epub+zip",
+        // "application/x-bibtex",
+        // "application/x-biblatex",
+        // "application/x-typst",
+        // "application/x-ipynb+json",
+        // "application/x-fictionbook+xml",
+        // "application/docbook+xml",
+        // "application/x-jats+xml",
+        // "application/x-opml+xml",
+        // "application/x-research-info-systems",
+        // "application/x-endnote+xml",
+        // "application/x-pubmed",
+        // "application/csl+json",
+        // ]
+
+        // markdown_variants = [
+        // "text/x-commonmark",
+        // "text/x-gfm",
+        // "text/x-multimarkdown",
+        // "text/x-markdown-extra",
+        // "text/x-djot",
+        // ]
+
+        // other_formats = [
+        // "text/x-mdoc",
+        // "text/troff",
+        // "text/x-pod",
+        // "text/x-dokuwiki",
+        // ]
+        todo!()
     }
 }
