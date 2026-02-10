@@ -1,6 +1,8 @@
 use std::{collections::HashMap, default, str::FromStr};
 
-use cli_boilerplate_automation::{StringError, bo::load_type, bother::enums::When};
+use cli_boilerplate_automation::{
+    StringError, bo::load_type, bother::types::When, define_collection_wrapper,
+};
 use mime_guess::Mime;
 
 use crate::{
@@ -113,13 +115,15 @@ pub struct LessfilterSettings {
 ///
 /// # Notes
 /// Name is case insensitive
-#[derive(Default, Debug, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct CustomActions(HashMap<String, String>);
-
-#[derive(Default, Debug, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct Categories(HashMap<String, Vec<MimeString>>);
+///
+define_collection_wrapper!(
+    #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    CustomActions: HashMap<String, String>
+);
+define_collection_wrapper!(
+    #[derive(Debug, serde::Deserialize)]
+    Categories: HashMap<String, Vec<MimeString>>
+);
 
 #[derive(Default, Debug, serde::Deserialize, Clone)]
 #[serde(default, transparent)]
@@ -168,34 +172,6 @@ impl MimeString {
 }
 
 // --------------------- BOILERPLATE ----------------------------------------
-
-impl CustomActions {
-    pub fn new() -> Self {
-        CustomActions(HashMap::new())
-    }
-}
-
-impl std::ops::Deref for CustomActions {
-    type Target = HashMap<String, String>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for CustomActions {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl std::ops::Deref for Categories {
-    type Target = HashMap<String, Vec<MimeString>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 // impl std::ops::DerefMut for Categories {
 //     fn deref_mut(&mut self) -> &mut Self::Target {

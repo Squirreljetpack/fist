@@ -15,7 +15,7 @@ use arrayvec::ArrayVec;
 use cli_boilerplate_automation::bait::OptionExt;
 use cli_boilerplate_automation::bog::BogUnwrapExt;
 use cli_boilerplate_automation::{bog::BogOkExt, broc::CommandExt};
-use cli_boilerplate_automation::{ebog, else_default};
+use cli_boilerplate_automation::{ebog, unwrap};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::{path::PathBuf, process::exit};
@@ -48,9 +48,9 @@ pub fn handle(
     }: LessfilterCommand,
     mut cfg: LessfilterConfig,
 ) -> ! {
-    let default = cfg.rules.get(Preset::Default).clone();
+    let mut default = cfg.rules.get(Preset::Default).clone();
     let rules = cfg.rules.get_mut(preset);
-    rules.prepend(default);
+    rules.prepend(&mut default);
 
     let mut any_file_succeeded = false;
 
@@ -59,7 +59,7 @@ pub fn handle(
         let data = FileData::new(apath.clone(), &cfg.settings, &cfg.categories);
         log::debug!("file data: {data:?}");
 
-        let rule = else_default!(rules.get_best_match(&path, data).ebog(format!("No rule for {}", path.to_string_lossy())); !);
+        let rule = unwrap!(rules.get_best_match(&path, data).ebog(format!("No rule for {}", path.to_string_lossy())); continue);
         if rule.is_empty() {
             continue;
         }

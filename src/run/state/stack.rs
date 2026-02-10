@@ -55,7 +55,7 @@ impl STACK {
                 count,
             } = &mut *cell.borrow_mut();
             if *count == 1 {
-                if let Some(o) = TEMP::take_original_relative_path() {
+                if let Some(o) = TEMP::get_original_relative_path() {
                     global_ui_mut().relative = o;
                 }
             }
@@ -73,6 +73,12 @@ impl STACK {
             let Self { index, .. } = &mut *cell.borrow_mut();
             if *index > 0 {
                 *index -= 1;
+
+                if *index == 0
+                    && let Some(o) = TEMP::get_original_relative_path()
+                {
+                    global_ui_mut().relative = false;
+                }
                 true
             } else {
                 false

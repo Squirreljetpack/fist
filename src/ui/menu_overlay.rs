@@ -7,6 +7,7 @@ use crate::run::action::FsAction;
 use crate::run::item::{PathItem, short_display};
 use crate::run::stash::{STASH, StashItem};
 use crate::run::state::{GLOBAL, TASKS, TEMP, TOAST};
+use crate::spawn::menu_action::MenuActions;
 use crate::spawn::open_wrapped;
 use crate::ui::prompt_overlay::{PromptConfig, PromptOverlay};
 use crate::utils::text::{ToastStyle, bold_indices};
@@ -177,6 +178,7 @@ impl MenuOverlay {
     pub fn new(
         config: MenuConfig,
         prompt_config: PromptConfig,
+        actions: MenuActions,
     ) -> Self {
         let items: Vec<MenuItem> = vec![
             MenuItem::New,

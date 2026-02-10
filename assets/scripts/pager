@@ -29,8 +29,8 @@ opts=()
 [[ -n $PG_LESS ]] && LESS+=" $PG_LESS"
 opts+=($@)
 
-LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p bat -p $opts | {
+bat -p $opts | {
 	read -r line || exit 1
-	{ echo $line && cat } | less -R
+	{ echo $line && cat } | LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p less -R
 }
 

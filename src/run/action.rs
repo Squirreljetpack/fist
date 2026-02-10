@@ -4,11 +4,11 @@
 use std::path::PathBuf;
 
 use cli_boilerplate_automation::{
-    bait::ResultExt, bath::PathExt, bother::enums::When, else_default, prints, wbog,
+    bait::ResultExt, bath::PathExt, bother::types::When, prints, unwrap, wbog,
 };
 use matchmaker::{
     acs,
-    action::{Action, ActionExt, Actions},
+    action::{Action, Actions},
     message::Interrupt,
     nucleo::{Color, Modifier, Span, Style},
 };
@@ -35,37 +35,31 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
+/// See [crate::run::mm_config::default_binds] for the default associated keybinds.
 pub enum FsAction {
     // Nav
     // ----------------------------------
     /// Enter a file or directory.
-    /// (Default bind: Right).
     Advance,
-    /// Enter the parent of the current directory.
-    /// In the NAV pane, the current directory the one displayed when in the prompt.
-    /// In other panes, this enters the parent of the current item.
-    /// (Default bind: Left).
+    /// In [FsPane::Nav], enter the parent of the current directory.
+    /// In other panes, enter the parent of the current item.
     Parent,
     /// Search in the current directory.
-    /// (Default bind: ctrl-f).
     Find,
     /// Full text search in the current directory.
-    /// (Default bind: ctrl-r).
     Rg,
     /// Search your visited directories/files.
-    /// (Default bind: ctrl-g).
     History,
     /// Jump to a directory.
     /// Relative paths are resolved relative to the home directory.
+    ///
     /// # Note
-    /// By default, '~' and '/' bind to Jump($HOME)
+    /// The char is emitted instead of jumping if the index is in the prompt.
     Jump(PathBuf, Option<char>),
 
     /// Go back
-    /// (Default bind: ctrl-z)
     Undo,
     /// Go forward
-    /// (Default bind: alt-z)
     Redo,
 
     // Display
@@ -77,50 +71,45 @@ pub enum FsAction {
     /// Clear the stack.
     ClearStash,
 
-    /// Show all* available actions on the current item(s).
-    /// (E to interact).
-    /// (not fully implemented)
+    /// Show available actions on the current item(s).
     Menu,
-    /// Toggle only showing directories
-    /// In [`FsPane::Files`], [`FsPane::Folders`], [`FsPane::Launch`], this toggles their sort order
+    /// Toggle only showing directories.
+    /// In [`FsPane::Files`], [`FsPane::Folders`], [`FsPane::Launch`], this toggles their sort order.
     ToggleDirs,
+    /// Toggle showing hidden files.
     ToggleHidden,
 
     // file actions
     // ----------------------------------
-    /// Cut file (to stack).
-    ///
-    /// Also copies the file to the system clipboard.
+    /// Cut file (to the [`STASH`] and the system clipboard).
     Cut,
-    /// Copy file (to stack).
-    ///
-    /// Also copies the file to the system clipboard.
+    /// Copy file (to the [`STASH`] and the system clipboard).
     Copy,
-    /// Copy full path
+    /// Copy full path.
     CopyPath,
-    /// Create a new file. (todo)
+    /// Create a new file.
     New,
     /// Create a new directory. (todo)
     NewDir,
-    /// Stash file (to stack) in Symlink mode.
+    /// Save a file to the [`STASH`] under the [`Symlink`](crate::run::stash::StashAction::Symlink) action.
     Symlink,
-    /// Save the file to the backup directory.
-    /// On the prompt, this invokes [Preset::Alternate].
-    Backup, // the extra behavior is a bit weird, dunno how to handle.
+    /// Save the file to the backup directory. (todo)
+    Backup,
     /// Delete the file using system trash.
     Trash,
-    /// Permanently delete the file. (todo: confirmation).
-    Delete,
+    /// Permanently delete the file.
+    Delete, // (todo: confirmation).
     /// Paste all stack items into the current or specified directory
     Paste(PathBuf), // dump Stack
-    /// Execute according to [`crate::lessfilter::RulesConfig`]
-    /// (preset, paging, header-mode)
-    /// header-mode: auto/always/never
-    // nonbindable
-    Lessfilter(Preset, bool, When),
+    /// Execute an action on the current item according [Lessfilter rules](crate::lessfilter::RulesConfig)
+    Lessfilter {
+        preset: Preset,
+        paging: bool, // whether to feed the output to a pager
+        header: When,
+    },
 
     // Nonbindable
-    // --------------------------
+    // ----------------------------------
     SaveInput,
     SetHeader(Option<Text<'static>>),
     SetFooter(Option<Text<'static>>),
@@ -129,9 +118,9 @@ pub enum FsAction {
     AcceptPrint,
 
     // Other
-    // --------------------------------------------
-    /// Jump and accept
-    /// 0 jumps to menu
+    // ----------------------------------
+    /// Jump and accept;
+    /// 0 jumps to menu.
     AutoJump(u8),
 }
 // print, accept
@@ -150,8 +139,6 @@ impl FsAction {
         Self::SetHeader(p.into())
     }
 }
-
-impl ActionExt for FsAction {}
 
 // --------- HELPERS ------------
 
@@ -302,7 +289,7 @@ pub fn fsaction_aliaser(
                                 let pool = GLOBAL::db();
 
                                 TASKS::spawn(async move {
-                                    let conn = else_default!(
+                                    let conn = unwrap!(
                                         pool.get_conn(crate::db::DbTable::dirs).await._elog()
                                     );
                                     open_wrapped(conn, None, &[path]).await._elog();
@@ -511,12 +498,12 @@ pub fn fsaction_handler(
 
             // If Nav, go to the parent of the cwd, otherwise go to the parent of the current item,
             let path = if STACK::with_current(|x| matches!(x, FsPane::Nav { .. })) {
-                else_default!(
+                unwrap!(
                     cwd.as_ref()
                         .and_then(|x| x.parent().map(AbsPath::new_unchecked))
                 )
             } else {
-                else_default!(
+                unwrap!(
                     state
                         .current_raw()
                         .and_then(|x| x.path.parent().map(AbsPath::new_unchecked))
@@ -752,7 +739,11 @@ pub fn fsaction_handler(
         }
         // ------------------------------------------------------
         // Execute/Accept
-        FsAction::Lessfilter(p, page, header) => {
+        FsAction::Lessfilter {
+            preset,
+            paging,
+            header,
+        } => {
             if APP::in_app_pane() {
                 // todo
                 return;
@@ -763,7 +754,7 @@ pub fn fsaction_handler(
             };
 
             // since in Nav pane, Advance is bound to edit cursor item, it's more useful to make the action always edit the menu item.
-            if matches!(p, Preset::Edit) && STACK::nav_cwd().is_some() {
+            if matches!(preset, Preset::Edit) && STACK::nav_cwd().is_some() {
                 TEMP::set_that_execute_handler_should_process_cwd();
             }
 
@@ -779,10 +770,10 @@ pub fn fsaction_handler(
                         .unwrap_or(crate::cli::paths::BINARY_SHORT),
                 )
             } else {
-                p.to_command_string(header)
+                preset.to_command_string(header)
             };
 
-            if page {
+            if paging {
                 // we need to use the renderer because the first pass of renderer won't render when it sees it is being piped
                 if let Some(pp) = text_renderer_path().shell_quote() {
                     #[cfg(windows)]
@@ -806,7 +797,7 @@ pub fn fsaction_handler(
                 let pool = GLOBAL::db();
 
                 TASKS::spawn(async move {
-                    let conn = else_default!(pool.get_conn(crate::db::DbTable::dirs).await.ok());
+                    let conn = unwrap!(pool.get_conn(crate::db::DbTable::dirs).await.ok());
                     open_wrapped(conn, None, &[path]).await._elog();
                 });
 
@@ -852,42 +843,82 @@ pub fn fsaction_handler(
 }
 
 // ------------- BOILERPLATE ---------------
-macro_rules! impl_display_and_from_str_enum {
+enum_from_str_display! {
+    FsAction;
+
+    units:
+    Advance, Parent, Find, Rg, History,
+    Undo, Redo,
+    Filters, Stash, ClearStash,
+    Menu, ToggleDirs, ToggleHidden,
+    Cut, Copy, CopyPath, New, NewDir,
+    Symlink, Backup, Trash, Delete;
+
+    tuples:
+    AutoJump;
+
+    defaults:
+    ;
+    options:
+    ;
+
+    lossy:
+    Paste;
+}
+
+macro_rules! enum_from_str_display {
     (
+        $enum:ty;
         units: $( $unit:ident ),* $(,)?;
         tuples: $( $tuple:ident ),* $(,)?;
-        defaults: $( $tuple_default:ident ),* $(,)?;
+        defaults: $(($default:ident, $default_value:expr)),*;
+        options: $($optional:ident),*;
+        lossy: $( $lossy:ident ),* ;
     ) => {
-        impl std::fmt::Display for FsAction {
+        impl std::fmt::Display for $enum {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                use $enum::*;
                 match self {
-                    /* ---------- unit variants ---------- */
-                    $( Self::$unit => write!(f, stringify!($unit)), )*
+                    $( $unit => write!(f, stringify!($unit)), )*
 
-                    /* ---------- tuple variants ---------- */
-                    $( Self::$tuple(inner) => write!(f, concat!(stringify!($tuple), "({})"), inner), )*
+                    $( $tuple(inner) => write!(f, concat!(stringify!($tuple), "({})"), inner), )*
 
-                    /* ---------- pathbuf with defaults ---------- */
-                    $( Self::$tuple_default(inner) => {
+                    $( $lossy(inner) => {
                         if inner.is_empty() {
-                            write!(f, stringify!($tuple_default))
+                            write!(f, stringify!($pathbuf))
                         } else {
-                            write!(f, concat!(stringify!($tuple_default), "({})"), inner.to_string_lossy())
+                            write!(f, concat!(stringify!($lossy), "({})"), std::ffi::OsString::from(inner).to_string_lossy())
+                        }
+                    }, )*
+
+                    $( $default(inner) => {
+                        if *inner == $default_value {
+                            write!(f, stringify!($default))
+                        } else {
+                            write!(f, concat!(stringify!($default), "({})"), inner)
+                        }
+                    }, )*
+
+                    $( $optional(opt) => {
+                        if let Some(inner) = opt {
+                            write!(f, concat!(stringify!($optional), "({})"), inner)
+                        } else {
+                            write!(f, stringify!($optional))
                         }
                     }, )*
 
                     /* ---------- Manually parsed ---------- */
-                    Self::Jump(path, _) => {
+                    Jump(path, _) => {
                         if path.is_empty() {
                             write!(f, "Jump(⌂)")
                         } else {
                             write!(f, "Jump({})", path.display())
                         }
                     }
-                    Self::SaveInput | Self::SetHeader(_) | Self::SetFooter(_) | Self::Reload | Self::AcceptPrompt | Self::AcceptPrint => Ok(()), // internal
-                    Self::Lessfilter(preset, page, _) => {
+                    SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint => Ok(()), // internal
+                    Lessfilter { preset, paging, header } => {
                         let mut preset = preset.to_string();
-                        if *page {
+                        if *paging {
                             preset.push('|')
                         };
                         write!(f, "Lessfilter({preset})")
@@ -896,7 +927,7 @@ macro_rules! impl_display_and_from_str_enum {
             }
         }
 
-        impl std::str::FromStr for FsAction {
+        impl std::str::FromStr for $enum {
             type Err = String;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -911,7 +942,6 @@ macro_rules! impl_display_and_from_str_enum {
                 };
 
                 match name {
-                    /* ---------- unit variants ---------- */
                     $( stringify!($unit) => {
                         if data.is_some() {
                             Err(format!("Unexpected data for {}", name))
@@ -920,7 +950,6 @@ macro_rules! impl_display_and_from_str_enum {
                         }
                     }, )*
 
-                    /* ---------- tuple variants ---------- */
                     $( stringify!($tuple) => {
                         let val = data
                         .ok_or_else(|| format!("Missing data for {}", name))?
@@ -929,15 +958,32 @@ macro_rules! impl_display_and_from_str_enum {
                         Ok(Self::$tuple(val))
                     }, )*
 
-                    /* ---------- tuple default variants ---------- */
-                    $( stringify!($tuple_default) => {
-                        let val = match data {
-                            Some(v) => v
-                            .parse()
-                            .map_err(|_| format!("Invalid data for {}", name))?,
+                    $( stringify!($lossy) => {
+                        let d = match data {
+                            Some(val) => val.parse()
+                            .map_err(|_| format!("Invalid data for {}", stringify!($lossy)))?,
                             None => Default::default(),
                         };
-                        Ok(Self::$tuple_default(val))
+                        Ok(Self::$lossy(d))
+                    }, )*
+
+                    $( stringify!($default) => {
+                        let d = match data {
+                            Some(val) => val.parse()
+                            .map_err(|_| format!("Invalid data for {}", stringify!($default)))?,
+                            None => $default_value,
+                        };
+                        Ok(Self::$default(d))
+                    }, )*
+
+                    $( stringify!($optional) => {
+                        let d = match data {
+                            Some(val) if !val.is_empty() => {
+                                Some(val.parse().map_err(|_| format!("Invalid data for {}", stringify!($optional)))?)
+                            }
+                            _ => None,
+                        };
+                        Ok(Self::$optional(d))
                     }, )*
 
                     /* ---------- Manually parsed ---------- */
@@ -946,35 +992,24 @@ macro_rules! impl_display_and_from_str_enum {
                         Ok(Self::Jump(path_str.into(), None))
                     }
                     "Lessfilter" => {
-                        let mut page = false;
+                        let mut paging = false;
                         let mut preset_str = data.ok_or_else(|| "Missing preset for Lessfilter")?;
 
                         if let Some(stripped) = preset_str.strip_suffix('|') {
                             preset_str = stripped;
-                            page = true;
+                            paging = true;
                         }
 
                         let preset = preset_str.to_lowercase().parse().map_err(|e| format!("Invalid preset for lessfilter: {preset_str}"))?;
-                        Ok(Self::Lessfilter(preset, page, When::default()))
+                        let header = When::default();
+                        Ok(Self::Lessfilter { preset, paging, header })
                     }
+                    /* ------------------------------------- */
+
                     _ => Err(format!("Unknown action {}", s)),
                 }
             }
         }
     };
 }
-impl_display_and_from_str_enum! {
-    units:
-    Advance, Parent, Find, Rg, History,
-    Undo, Redo,
-    Filters, Stash, ClearStash,
-    Menu, ToggleDirs, ToggleHidden,
-    Cut, Copy, CopyPath, New, NewDir,
-    Symlink, Backup, Trash, Delete;
-
-    tuples:
-    AutoJump;
-
-    defaults:
-    Paste;
-}
+use enum_from_str_display;

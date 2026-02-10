@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use cli_boilerplate_automation::{bo::load_type_or_default, bother::enums::When};
+use cli_boilerplate_automation::{bo::load_type_or_default, bother::types::When};
 use matchmaker::{
     action::Action,
     bindmap,
@@ -107,12 +107,12 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-shift-h), key!(alt-shift-h) => Action::Help("".into()),
         // spawning
         key!(alt-s) => Action::Execute("$SHELL".into()),
-        key!(ctrl-b) => FsAction::Lessfilter(Preset::Open, false, When::Auto),
-        key!(alt-b) => FsAction::Lessfilter(Preset::Edit, false, When::Auto),
-        // display
-        key!(ctrl-l) => FsAction::Lessfilter(Preset::Preview, true, When::Auto),
-        key!(alt-l) => FsAction::Lessfilter(Preset::Extended, true, When::Auto),
 
+        // lessfilter
+        key!(ctrl-b) => FsAction::Lessfilter { preset: Preset::Open, paging: false, header: When::Auto },
+        key!(alt-b) => FsAction::Lessfilter{ preset: Preset::Edit, paging: false, header: When::Auto},
+        key!(ctrl-l) => FsAction::Lessfilter{ preset: Preset::Preview, paging: true, header: When::Auto},
+        key!(alt-l) => FsAction::Lessfilter{ preset: Preset::Extended, paging: true, header: When::Auto},
 
         // misc
         // ---------------------------------------

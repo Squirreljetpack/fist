@@ -6,7 +6,7 @@ use crate::{
     utils::size::format_size,
 };
 use cli_boilerplate_automation::{
-    bath::PathExt, bum::Float32Ext, impl_transparent_wrapper, text::StrExt, vec_,
+    bath::PathExt, bum::Float32Ext, define_transparent_wrapper, text::StrExt, vec_,
 };
 use matchmaker::{
     action::Action,
@@ -30,7 +30,7 @@ use unicode_width::UnicodeWidthStr;
 #[serde(default, deny_unknown_fields)]
 pub struct StashConfig {
     pub border: BorderSetting,
-    pub bar_width: BarWidth,
+    pub bar_width: u16,
     pub column_spacing: usize,
 }
 
@@ -42,12 +42,11 @@ impl Default for StashConfig {
         };
         Self {
             border,
-            bar_width: Default::default(),
+            bar_width: 15,
             column_spacing: 2,
         }
     }
 }
-impl_transparent_wrapper!(BarWidth, u16, 15);
 
 // ratatui table
 // current row is highlighted

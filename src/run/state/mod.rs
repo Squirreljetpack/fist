@@ -82,8 +82,8 @@ impl TEMP {
     pub fn set_initial_relative_path(relative: bool) {
         ORIGINAL_RELATIVE_PATH.replace(Some(relative));
     }
-    pub fn take_original_relative_path() -> Option<bool> {
-        ORIGINAL_RELATIVE_PATH.with_borrow_mut(|x| x.take())
+    pub fn get_original_relative_path() -> Option<bool> {
+        ORIGINAL_RELATIVE_PATH.with_borrow(|x| *x)
     }
 
     pub fn set_that_execute_handler_should_process_cwd() {

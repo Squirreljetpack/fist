@@ -15,7 +15,7 @@
 
 use std::path::Path;
 
-use cli_boilerplate_automation::bath::{filename, split_ext};
+use cli_boilerplate_automation::bath::{PathExt, split_ext};
 use phf::{Map, phf_map};
 
 // drawn from crates eza and file-format
@@ -527,7 +527,7 @@ impl FileCategory {
 
     // todo: flesh out
     pub fn get(path: &Path) -> Option<FileCategory> {
-        let name = filename(path);
+        let name = path.filename();
         let ext = split_ext(&name)[1];
 
         // Case-insensitive readme check

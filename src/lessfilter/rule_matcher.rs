@@ -2,6 +2,7 @@
 
 use std::{fmt::Debug, marker::PhantomData, num::ParseIntError, str::FromStr};
 
+use cli_boilerplate_automation::define_collection_wrapper;
 use serde::{Deserialize, Deserializer};
 
 use crate::abspath::AbsPath;
@@ -220,19 +221,12 @@ impl<T, A> RuleMatcher<T, A> {
     // -------------------
     pub fn prepend(
         &mut self,
-        other: Self,
+        initial: &mut Self,
     ) {
-        let mut new_rules = other.rules;
-        new_rules.append(&mut self.rules);
-        self.rules = new_rules;
+        initial.rules.append(&mut self.rules);
+        std::mem::swap(initial, self);
     }
 
-    pub fn append(
-        &mut self,
-        other: Self,
-    ) {
-        self.rules.extend(other.rules);
-    }
     pub fn len(&self) -> usize {
         self.rules.len()
     }

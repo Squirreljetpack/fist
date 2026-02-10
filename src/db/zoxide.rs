@@ -1,6 +1,6 @@
 use chrono::Utc;
 use cli_boilerplate_automation::{
-    bait::ResultExt, bog::BogOkExt, impl_transparent_wrapper, prints,
+    bait::ResultExt, bog::BogOkExt, define_transparent_wrapper, prints,
 };
 use std::path::Path;
 
@@ -452,4 +452,4 @@ fn is_monotonic_substring(
 }
 
 // Transparent wrappers for type safety
-impl_transparent_wrapper!(TtlDays, i64, 90);
+define_transparent_wrapper!(TtlDays: i64 = 90);

@@ -4,14 +4,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use cli_boilerplate_automation::{bath::PathExt, impl_restricted_wrapper};
+use cli_boilerplate_automation::{bath::PathExt, define_restricted_wrapper};
 
 use crate::cli::paths;
 
-impl_restricted_wrapper!(
+define_restricted_wrapper!(
     /// Absolute path in which all components are [`std::path::Component::Normal`]
-    AbsPath,
-    PathBuf, paths::__cwd().into());
+    AbsPath: PathBuf = paths::__cwd().into()
+);
 
 impl AbsPath {
     /// Normalize + resolve paths relative to cwd
@@ -89,7 +89,7 @@ impl fmt::Display for AbsPath {
 
 // ------------- OSSTRINGWRAPPER
 
-impl_restricted_wrapper!(OsStringWrapper, OsString, OsString::new());
+define_restricted_wrapper!(OsStringWrapper: OsString = OsString::new());
 impl From<OsString> for OsStringWrapper {
     fn from(c: OsString) -> Self {
         Self(c)

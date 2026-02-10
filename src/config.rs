@@ -1,15 +1,15 @@
 use cli_boilerplate_automation::{
     bait::ResultExt,
-    bath::{_filename, RenamePolicy},
+    bath::{PathExt, RenamePolicy},
     bo::write_str,
     bog::BogOkExt,
-    bother::enums::When,
+    bother::types::When,
     bs::{create_dir, set_executable},
     ibog,
 };
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{cli::paths::*, lessfilter::Preset};
+use crate::{cli::paths::*, lessfilter::Preset, spawn::menu_action::MenuActions};
 use crate::{
     cli::paths::{liza_path, text_renderer_path},
     db::zoxide::HistoryConfig,
@@ -19,7 +19,7 @@ use crate::{
     watcher::WatcherConfig,
 };
 // ------ CONFIG ------
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     /// directory for storing history and other state.
@@ -50,6 +50,10 @@ pub struct Config {
     /// Settings related to saving to and retrieving from history.
     #[serde(default)]
     pub history: HistoryConfig,
+
+    /// Custom actions which appear in the menu
+    #[serde(default)]
+    pub actions: MenuActions,
 }
 
 impl Default for Config {
@@ -112,7 +116,7 @@ impl Config {
                 if !force
                 // less noise for debug
                 {
-                    ibog!("{} saved to: {}", _filename(path), path.to_string_lossy());
+                    ibog!("{} saved to: {}", path.filename(), path.to_string_lossy());
                 }
             }
         }

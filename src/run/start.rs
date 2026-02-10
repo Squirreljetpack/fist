@@ -142,7 +142,7 @@ pub async fn start(
         .matcher(MATCHER_CONFIG)
         .overlay(StashOverlay::new(scratch))
         .overlay(FilterOverlay::new(filters))
-        .overlay(MenuOverlay::new(menu, prompt));
+        .overlay(MenuOverlay::new(menu, prompt, cfg.actions));
 
     let render_tx = builder.render_tx();
 
