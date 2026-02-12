@@ -1,7 +1,6 @@
 use cli_boilerplate_automation::bath::{bytes_to_os_string, os_str_to_bytes};
 use sqlx::{
-    Decode, Encode, Sqlite, Type,
-    database::HasArguments,
+    Database, Decode, Encode, Sqlite, Type,
     encode::IsNull,
     error::BoxDynError,
     prelude::FromRow,
@@ -68,8 +67,8 @@ impl<'r> Decode<'r, Sqlite> for AbsPath {
 impl<'q> Encode<'q, Sqlite> for AbsPath {
     fn encode_by_ref(
         &self,
-        buf: &mut <Sqlite as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-    ) -> sqlx::encode::IsNull {
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
         let bytes = os_str_to_bytes(self.as_os_str());
         <Vec<u8> as Encode<Sqlite>>::encode(bytes.into_owned(), buf)
     }
@@ -93,8 +92,8 @@ impl<'r> Decode<'r, Sqlite> for OsStringWrapper {
 impl<'q> Encode<'q, Sqlite> for OsStringWrapper {
     fn encode_by_ref(
         &self,
-        buf: &mut <Sqlite as HasArguments<'q>>::ArgumentBuffer,
-    ) -> IsNull {
+        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+    ) -> Result<IsNull, BoxDynError> {
         let bytes = os_str_to_bytes(self.as_os_str());
         <Vec<u8> as Encode<Sqlite>>::encode(bytes.into_owned(), buf)
     }

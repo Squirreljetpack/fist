@@ -1,37 +1,6 @@
 use std::path::Path;
 
-#[derive(
-    Debug,
-    strum_macros::Display,
-    strum_macros::EnumString,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    std::hash::Hash,
-)]
-#[strum(serialize_all = "kebab-case")] // optional: converts variants to kebab-case by default
-pub enum FileType {
-    #[strum(serialize = "f")]
-    File,
-    #[strum(serialize = "d")]
-    Directory,
-    #[strum(serialize = "l")]
-    Symlink,
-    #[strum(serialize = "b")]
-    BlockDevice,
-    #[strum(serialize = "c")]
-    CharDevice,
-    #[strum(serialize = "x")]
-    Executable,
-    #[strum(serialize = "e")]
-    Empty,
-    #[strum(serialize = "s")]
-    Socket,
-    #[strum(serialize = "p")]
-    Pipe,
-}
-
+pub use super::types::FileType;
 impl FileType {
     pub fn get(path: &Path) -> Self {
         // query without following symlink

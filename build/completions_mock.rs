@@ -74,122 +74,12 @@ mod filters {
     }
 }
 
+mod utils {
+    include!("../src/utils/types.rs");
+}
+
 mod find {
-    pub mod fd {
-        #[derive(Debug, Clone)]
-        pub enum FileTypeArg {
-            Type(FileType),
-            FileCategory(FileCategory),
-            Ext(String),
-            Group(String), // todo: custom groups in config
-        }
-        impl std::str::FromStr for FileTypeArg {
-            type Err = String;
-
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                let s_lower = s.to_lowercase();
-
-                // extension if starts with "."
-                if let Some(s) = s_lower.strip_prefix('.') {
-                    return Ok(FileTypeArg::Ext(s.to_string()));
-                }
-
-                // try parse as FileType
-                if let Ok(ft) = FileType::from_str(&s_lower) {
-                    return Ok(FileTypeArg::Type(ft));
-                }
-
-                // try parse as FileCategory
-                if let Ok(cat) = FileCategory::from_str(&s_lower) {
-                    return Ok(FileTypeArg::FileCategory(cat));
-                }
-
-                // fallback to group
-                Ok(FileTypeArg::Group(s.to_string()))
-            }
-        }
-
-        #[derive(Debug, Clone, PartialEq, Eq, std::hash::Hash)]
-        pub enum FileCategory {
-            Image,
-            Video,
-            Music,
-            Lossless, // Lossless music, rather than any other kind of data...
-            Crypto,
-            Document,
-            Compressed,
-            Temp,
-            Compiled,
-            Build, // A “build file is something that can be run or activated somehow in order to
-            // kick off the build of a project. It’s usually only present in directories full of
-            // source code.
-            Source,
-            Configuration, // add configuration
-            Text,
-        }
-
-        #[derive(
-            Debug,
-            strum_macros::Display,
-            strum_macros::EnumString,
-            Clone,
-            Copy,
-            PartialEq,
-            Eq,
-            std::hash::Hash,
-        )]
-        #[strum(serialize_all = "kebab-case")] // optional: converts variants to kebab-case by default
-        pub enum FileType {
-            #[strum(serialize = "f")]
-            File,
-            #[strum(serialize = "d")]
-            Directory,
-            #[strum(serialize = "l")]
-            Symlink,
-            #[strum(serialize = "b")]
-            BlockDevice,
-            #[strum(serialize = "c")]
-            CharDevice,
-            #[strum(serialize = "x")]
-            Executable,
-            #[strum(serialize = "e")]
-            Empty,
-            #[strum(serialize = "s")]
-            Socket,
-            #[strum(serialize = "p")]
-            Pipe,
-        }
-
-        use std::str::FromStr;
-        use thiserror::Error;
-
-        #[derive(Debug, Error)]
-        #[error("Invalid type: {0}")]
-        pub struct ParseFileTypeError(pub String);
-
-        impl FromStr for FileCategory {
-            type Err = ParseFileTypeError;
-
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match s.to_lowercase().as_str() {
-                    "v" | "vid" | "video" => Ok(FileCategory::Video),
-                    "i" | "img" | "image" => Ok(FileCategory::Image),
-                    "a" | "aud" | "audio" => Ok(FileCategory::Music),
-                    "l" | "lossless" => Ok(FileCategory::Lossless),
-                    "crypto" => Ok(FileCategory::Crypto),
-                    "doc" | "document" => Ok(FileCategory::Document),
-                    "z" | "compressed" => Ok(FileCategory::Compressed),
-                    "t" | "tmp" | "temp" => Ok(FileCategory::Temp),
-                    // "b" | "build" => Ok(FileCategory::Build),
-                    "s" | "src" | "source" | "code" => Ok(FileCategory::Source),
-                    "o" | "compiled" => Ok(FileCategory::Compiled),
-                    "conf" => Ok(FileCategory::Configuration),
-                    "txt" => Ok(FileCategory::Text),
-                    _ => Err(ParseFileTypeError(s.to_string())),
-                }
-            }
-        }
-    }
+    include!("../src/find/ft_arg.rs");
 }
 
 mod lessfilter {

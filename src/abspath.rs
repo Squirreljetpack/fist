@@ -10,6 +10,7 @@ use crate::cli::paths;
 
 define_restricted_wrapper!(
     /// Absolute path in which all components are [`std::path::Component::Normal`]
+    #[derive(Eq, Clone)]
     AbsPath: PathBuf = paths::__cwd().into()
 );
 
@@ -89,7 +90,10 @@ impl fmt::Display for AbsPath {
 
 // ------------- OSSTRINGWRAPPER
 
-define_restricted_wrapper!(OsStringWrapper: OsString = OsString::new());
+define_restricted_wrapper!(
+    #[derive(Eq, Clone)]
+    OsStringWrapper: OsString = OsString::new()
+);
 impl From<OsString> for OsStringWrapper {
     fn from(c: OsString) -> Self {
         Self(c)

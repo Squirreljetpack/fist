@@ -26,11 +26,7 @@ use crate::{
     cli::DefaultCommand,
     db::{DbSortOrder, DbTable},
     filters::{SortOrder, Visibility},
-    find::{
-        apps::collect_apps,
-        fd::{FileTypeArg, build_fd_args},
-        walker::list_dir,
-    },
+    find::{FileTypeArg, apps::collect_apps, fd::build_fd_args, walker::list_dir},
     run::{
         FsAction,
         item::PathItem,

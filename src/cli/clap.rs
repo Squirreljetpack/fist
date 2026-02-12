@@ -9,7 +9,7 @@ use crate::{
     },
     db::{DbSortOrder, DbTable},
     filters::{SortOrder, Visibility},
-    find::fd::FileTypeArg,
+    find::FileTypeArg,
 };
 
 #[derive(Parser, Debug)]

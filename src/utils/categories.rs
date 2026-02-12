@@ -13,91 +13,11 @@
 //! # Contributors
 //! Please keep these lists sorted. If you're using vim, :sort i
 
-use std::path::Path;
-
 use cli_boilerplate_automation::bath::{PathExt, split_ext};
 use phf::{Map, phf_map};
+use std::path::Path;
 
-// drawn from crates eza and file-format
-#[derive(Debug, Clone, PartialEq, Eq, std::hash::Hash, strum_macros::EnumString)]
-#[strum(serialize_all = "lowercase")]
-pub enum FileCategory {
-    /// Animated images, icons, cursors, raster graphics and vector graphics.
-    Image,
-    /// Moving images, possibly with color and coordinated sound.
-    Video,
-    /// Musics, sound effects, and spoken audio recordings.
-    Audio,
-    /// Lossless music.
-    Lossless,
-    /// Cryptocurrency files.
-    Crypto,
-    /// Word processing and desktop publishing documents.
-    Document,
-    /// Files and directories stored in a single, possibly compressed, archive.
-    Compressed,
-    /// Temporary files.
-    Temp,
-    /// Compilation artifacts.
-    Compiled,
-    /// A “build file is something that can be run or activated somehow in order to kick off the build of a project. It’s usually only present in directories full of source code.
-    Build,
-    /// Source code.
-    Source,
-    /// Configuration and structured data
-    Configuration,
-    /// Plain text.
-    Text,
-
-    /// Organized collections of data.
-    Database,
-    /// Visual information using graphics and spatial relationships.
-    Diagram,
-    /// Floppy disk images, optical disc images and virtual machine disks.
-    Disk,
-    /// Electronic books.
-    Ebook,
-    /// Machine-executable code, virtual machine code and shared libraries.
-    Executable,
-    /// Typefaces used for displaying text on screen or in print.
-    Font,
-    /// Mathematical formulas.
-    Formula,
-    /// Collections of geospatial features, GPS tracks and other location-related files.
-    Geospatial,
-    /// Data that provides information about other data.
-    Metadata,
-    /// 3D models, CAD drawings, and other types of files used for creating or displaying 3D images.
-    Model,
-    /// Collections of files bundled together for software distribution.
-    Package,
-    /// Lists of audio or video files, organized in a specific order for sequential playback.
-    Playlist,
-    /// Slide shows.
-    Presentation,
-    /// Copies of a read-only memory chip of computers, cartridges, or other electronic devices.
-    Rom,
-    /// Data in tabular form.
-    Spreadsheet,
-    /// Subtitles and captions.
-    Subtitle,
-
-    /// Email data.
-    Email,
-    /// Academic and publishing.
-    Academic,
-    /// Markdown.
-    Markdown,
-
-    /// Data which do not fit in any of the other kinds.
-    Other,
-}
-
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-#[error("Invalid type: {0}")]
-pub struct ParseFileTypeError(pub String);
+pub use super::types::FileCategory;
 
 /// Mapping from full filenames to file type.
 const FILENAME_TYPES: Map<&'static str, FileCategory> = phf_map! {
@@ -556,45 +476,6 @@ impl FileCategory {
         };
 
         None
-    }
-
-    pub fn parse_with_aliases(s: &str) -> Result<FileCategory, ParseFileTypeError> {
-        use FileCategory::*;
-
-        // first try EnumString
-        if let Ok(category) = s.parse::<FileCategory>() {
-            return Ok(category);
-        }
-
-        // fallback to common aliases
-        let s_lower = s.to_lowercase();
-        let category = match s_lower.as_str() {
-            "v" | "vid" => Video,
-            "i" | "img" => Image,
-            "a" | "aud" => Audio,
-            "l" | "lossless" => Lossless,
-            "z" | "zip" => Compressed,
-            "t" | "tmp" => Temp,
-            "o" | "obj" => Compiled,
-            "b" => Build,
-            "s" | "src" | "code" => Source,
-            "conf" | "cfg" => Configuration,
-            "txt" => Text,
-
-            // new variants
-            "db" => Database,
-            "diag" => Diagram,
-            "x" | "exe" => Executable,
-            "geo" => Geospatial,
-            "pkg" => Package,
-            "ppt" => Presentation,
-            "xl" | "xlsx" => Spreadsheet,
-            "md" => Markdown,
-
-            _ => return Err(ParseFileTypeError(s.to_string())),
-        };
-
-        Ok(category)
     }
 
     // TODO: flesh out

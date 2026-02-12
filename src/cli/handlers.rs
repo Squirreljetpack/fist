@@ -35,10 +35,7 @@ use crate::{
     },
     errors::CliError,
     filters::{SortOrder, Visibility},
-    find::{
-        fd::{FileTypeArg, build_fd_args},
-        walker::list_dir,
-    },
+    find::{FileTypeArg, fd::build_fd_args, walker::list_dir},
     lessfilter,
     run::{
         FsPane,

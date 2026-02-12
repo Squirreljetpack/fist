@@ -452,4 +452,7 @@ fn is_monotonic_substring(
 }
 
 // Transparent wrappers for type safety
-define_transparent_wrapper!(TtlDays: i64 = 90);
+define_transparent_wrapper!(
+    #[derive(Copy, Clone)]
+    TtlDays: i64 = 90
+);
