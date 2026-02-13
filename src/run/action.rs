@@ -678,7 +678,6 @@ pub fn fsaction_handler(
                         _ => "score: ",
                     }
                 });
-                FILTERS::refilter();
 
                 if !p_str.is_empty() {
                     let prompt = Span::styled(
@@ -723,6 +722,7 @@ pub fn fsaction_handler(
                     }
                 });
             }
+            FILTERS::refilter();
         }
         FsAction::ToggleHidden => {
             FILTERS::with_mut(|_sort, vis| {

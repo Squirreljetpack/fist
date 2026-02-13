@@ -80,7 +80,6 @@ transparent advance into compressed files
 
 - Better column sizing, display paths from end
 - Table editing
-- Changing visibility with ctrl-d: should also apply on fd pane
 
 # FD
 
