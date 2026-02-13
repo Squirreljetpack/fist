@@ -222,6 +222,7 @@ none\:""))' \
 '--dir-widget-args=[Arguments passed to \`fs \:\:\` when dir widget is invoked]:DIR_WIDGET_ARGS:_default' \
 '--file-widget-args=[Arguments passed to \`fs \:\:\` when file widget is invoked]:FILE_WIDGET_ARGS:_default' \
 '--rg-widget-args=[Arguments passed to \`fs \:\` when rg widget is invoked]:RG_WIDGET_ARGS:_default' \
+'--shell=[]:SHELL:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -327,6 +328,7 @@ none\:""))' \
 '--dir-widget-args=[Arguments passed to \`fs \:\:\` when dir widget is invoked]:DIR_WIDGET_ARGS:_default' \
 '--file-widget-args=[Arguments passed to \`fs \:\:\` when file widget is invoked]:FILE_WIDGET_ARGS:_default' \
 '--rg-widget-args=[Arguments passed to \`fs \:\` when rg widget is invoked]:RG_WIDGET_ARGS:_default' \
+'--shell=[]:SHELL:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \

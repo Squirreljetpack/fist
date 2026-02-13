@@ -1,5 +1,5 @@
 function $${Z_NAME}() {
-  local line last
+  local line last #: zsh
 
   if (($# == 1)) && [ -d "$1" ]; then
     case "$1" in
@@ -45,7 +45,7 @@ function $${OPEN_NAME}() {
     $${BINARY_PATH} :t bump -- $@
     $${OPEN_CMD} $@
   else
-    local i len last
+    local i len last #: zsh
 
     i=0 len=$#
     for last; do
@@ -69,11 +69,12 @@ function $${OPEN_NAME}() {
   fi
 }
 
+#: zsh
 __fist_jump_hook() {
   $${BINARY_PATH} :tool bump "$PWD"
 }
 
-
+#: zsh
 if [[ ${precmd_functions[(Ie)__fist_jump_hook]:-} -eq 0 ]] && [[ ${chpwd_functions[(Ie)__fist_jump_hook]:-} -eq 0 ]]; then
     chpwd_functions+=(__fist_jump_hook)
 fi
@@ -127,3 +128,5 @@ zle -N __fist_rg_widget
 bindkey -M main '$${DIRW_BIND}' __fist_dir_widget
 bindkey -M main '$${FILEW_BIND}' __fist_file_widget
 # bindkey -M main '$${RGW_BIND}' __fist_rg_widget
+
+#:

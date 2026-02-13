@@ -294,13 +294,9 @@ async fn handle_default(
         {
             let conn = pool.get_conn(DbTable::dirs).await?;
 
-            let num_keywords = if nav_pane {
-                // nav doesn't have a search pattern
-                cmd.paths.len()
-            } else {
-                // the last path is the pattern, so determine the best match from keywords formed by all but the last
-                cmd.paths.len() - 1
-            };
+            // the last path is the pattern, so determine the best match from keywords formed by all but the last
+            let num_keywords = cmd.paths.len() - 1;
+
             let kw: Vec<String> = cmd
                 .paths
                 .drain(..num_keywords)

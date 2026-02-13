@@ -522,7 +522,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__shell)
-            opts="--z-name --z-dot-args --z-slash-args --z-sort --open-name --open-cmd --dir-widget-bind --file-widget-bind --rg-widget-bind --file-open-cmd --rg-open-cmd --dir-widget-args --file-widget-args --rg-widget-args --aliases --verbosity --override --config --mm-config"
+            opts="--z-name --z-dot-args --z-slash-args --z-sort --open-name --open-cmd --dir-widget-bind --file-widget-bind --rg-widget-bind --file-open-cmd --rg-open-cmd --dir-widget-args --file-widget-args --rg-widget-args --aliases --shell --verbosity --override --config --mm-config"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -581,6 +581,10 @@ _fs() {
                     return 0
                     ;;
                 --rg-widget-args)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --shell)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

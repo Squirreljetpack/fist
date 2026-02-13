@@ -55,6 +55,9 @@ pub struct ShellCommand {
 
     #[arg(long, default_value_t)]
     pub aliases: bool,
+
+    #[arg(long)]
+    pub shell: Option<String>,
 }
 
 #[derive(Debug, Parser, Default, Clone)]
