@@ -93,6 +93,28 @@ none\:""))' \
 '*::query -- initial query:_default' \
 && ret=0
 ;;
+(:fd)
+_arguments "${_arguments_options[@]}" : \
+'--sort=[]:SORT:(name mtime none size)' \
+'*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
+'*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
+'--list-fmt=[Template to format the list output as]:LIST_FMT:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'-h[show hidden files and folders]' \
+'-I[HIDE ignored files]' \
+'-a[show all]' \
+'-F[only show directories]' \
+'-f[show only files]' \
+'--list[]' \
+'--no-read[Never stream input from stdin]' \
+'--cd[print the first match]' \
+'--help[]' \
+'*::paths -- Paths to search in. (Default\: ~):_default' \
+&& ret=0
+;;
 (::)
 _arguments "${_arguments_options[@]}" : \
 '--sort=[]:SORT:(name mtime none size)' \
@@ -104,15 +126,30 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '-h[show hidden files and folders]' \
-'-H[show hidden files only]' \
 '-I[HIDE ignored files]' \
 '-a[show all]' \
-'-D[only show directories]' \
+'-F[only show directories]' \
+'-f[show only files]' \
 '--list[]' \
 '--no-read[Never stream input from stdin]' \
 '--cd[print the first match]' \
 '--help[]' \
 '*::paths -- Paths to search in. (Default\: ~):_default' \
+&& ret=0
+;;
+(:rg)
+_arguments "${_arguments_options[@]}" : \
+'--query=[initial query]:QUERY:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'-h[show hidden files and folders]' \
+'-I[HIDE ignored files]' \
+'-a[show all]' \
+'-F[only show directories]' \
+'-f[show only files]' \
+'--help[]' \
 && ret=0
 ;;
 (:)
@@ -123,10 +160,10 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '-h[show hidden files and folders]' \
-'-H[show hidden files only]' \
 '-I[HIDE ignored files]' \
 '-a[show all]' \
-'-D[only show directories]' \
+'-F[only show directories]' \
+'-f[show only files]' \
 '--help[]' \
 && ret=0
 ;;
@@ -168,16 +205,22 @@ _arguments "${_arguments_options[@]}" : \
 (shell)
 _arguments "${_arguments_options[@]}" : \
 '--z-name=[Name for jump function]:Z_NAME:_default' \
-'--z-slash-name=[Name for navigate function]:Z_SLASH_NAME:_default' \
-'--zz-name=[Name for open function]:ZZ_NAME:_default' \
-'--visual=[Command used by open function]:VISUAL:_default' \
+'--z-dot-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`.\`]:Z_DOT_ARGS:_default' \
 '--z-sort=[Default sort order for the interactive jump menu]:Z_SORT:((name\:""
 atime\:""
 frecency\:"Weighted frequency + recency"
 count\:""
 none\:""))' \
-'--z-dot-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`.\`]:Z_DOT_ARGS:_default' \
-'--z-slash-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`..\` (experimental)]:Z_SLASH_ARGS:_default' \
+'--open-name=[Name for open function]:OPEN_NAME:_default' \
+'--open-cmd=[Command used by open function]:OPEN_CMD:_default' \
+'--dir-widget-bind=[Bind for the directory widget]:DIR_WIDGET_BIND:_default' \
+'--file-widget-bind=[Bind for the directory widget]:FILE_WIDGET_BIND:_default' \
+'--rg-widget-bind=[Bind for the directory widget]:RG_WIDGET_BIND:_default' \
+'--file-open-cmd=[]:FILE_OPEN_CMD:_default' \
+'--rg-open-cmd=[]:RG_OPEN_CMD:_default' \
+'--dir-widget-args=[Arguments passed to \`fs \:\:\` when dir widget is invoked]:DIR_WIDGET_ARGS:_default' \
+'--file-widget-args=[Arguments passed to \`fs \:\:\` when file widget is invoked]:FILE_WIDGET_ARGS:_default' \
+'--rg-widget-args=[Arguments passed to \`fs \:\` when rg widget is invoked]:RG_WIDGET_ARGS:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -266,16 +309,22 @@ _arguments "${_arguments_options[@]}" : \
 (shell)
 _arguments "${_arguments_options[@]}" : \
 '--z-name=[Name for jump function]:Z_NAME:_default' \
-'--z-slash-name=[Name for navigate function]:Z_SLASH_NAME:_default' \
-'--zz-name=[Name for open function]:ZZ_NAME:_default' \
-'--visual=[Command used by open function]:VISUAL:_default' \
+'--z-dot-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`.\`]:Z_DOT_ARGS:_default' \
 '--z-sort=[Default sort order for the interactive jump menu]:Z_SORT:((name\:""
 atime\:""
 frecency\:"Weighted frequency + recency"
 count\:""
 none\:""))' \
-'--z-dot-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`.\`]:Z_DOT_ARGS:_default' \
-'--z-slash-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`..\` (experimental)]:Z_SLASH_ARGS:_default' \
+'--open-name=[Name for open function]:OPEN_NAME:_default' \
+'--open-cmd=[Command used by open function]:OPEN_CMD:_default' \
+'--dir-widget-bind=[Bind for the directory widget]:DIR_WIDGET_BIND:_default' \
+'--file-widget-bind=[Bind for the directory widget]:FILE_WIDGET_BIND:_default' \
+'--rg-widget-bind=[Bind for the directory widget]:RG_WIDGET_BIND:_default' \
+'--file-open-cmd=[]:FILE_OPEN_CMD:_default' \
+'--rg-open-cmd=[]:RG_OPEN_CMD:_default' \
+'--dir-widget-args=[Arguments passed to \`fs \:\:\` when dir widget is invoked]:DIR_WIDGET_ARGS:_default' \
+'--file-widget-args=[Arguments passed to \`fs \:\:\` when file widget is invoked]:FILE_WIDGET_ARGS:_default' \
+'--rg-widget-args=[Arguments passed to \`fs \:\` when rg widget is invoked]:RG_WIDGET_ARGS:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -357,7 +406,9 @@ _fs_commands() {
 ':o:Launch apps and files' \
 ':file:Recent files' \
 ':dir:Recent folders' \
+':fd:Find and browse. (Default)' \
 ':::Find and browse. (Default)' \
+':rg:Full text search' \
 '::Full text search' \
 ':tool:Plugins and utilities' \
 ':t:Plugins and utilities' \
@@ -365,20 +416,15 @@ _fs_commands() {
     )
     _describe -t commands 'fs commands' commands "$@"
 }
-(( $+functions[_fs__:_commands] )) ||
-_fs__:_commands() {
-    local commands; commands=()
-    _describe -t commands 'fs : commands' commands "$@"
-}
-(( $+functions[_fs__::_commands] )) ||
-_fs__::_commands() {
-    local commands; commands=()
-    _describe -t commands 'fs :: commands' commands "$@"
-}
 (( $+functions[_fs__:dir_commands] )) ||
 _fs__:dir_commands() {
     local commands; commands=()
     _describe -t commands 'fs :dir commands' commands "$@"
+}
+(( $+functions[_fs__:fd_commands] )) ||
+_fs__:fd_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :fd commands' commands "$@"
 }
 (( $+functions[_fs__:file_commands] )) ||
 _fs__:file_commands() {
@@ -394,6 +440,11 @@ _fs__:info_commands() {
 _fs__:open_commands() {
     local commands; commands=()
     _describe -t commands 'fs :open commands' commands "$@"
+}
+(( $+functions[_fs__:rg_commands] )) ||
+_fs__:rg_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :rg commands' commands "$@"
 }
 (( $+functions[_fs__:tool_commands] )) ||
 _fs__:tool_commands() {

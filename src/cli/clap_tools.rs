@@ -12,24 +12,44 @@ pub struct ShellCommand {
     /// Name for jump function.
     #[arg(long, default_value_t = String::from("z"))]
     pub z_name: String,
-    /// Name for navigate function.
-    #[arg(long, default_value_t = String::from("Z"))]
-    pub z_slash_name: String,
-    /// Name for open function.
-    #[arg(long, default_value_t = String::from("zz"))]
-    pub zz_name: String,
-    /// Command used by open function
-    #[arg(long, default_value_t = format!("{} :tool lessfilter edit", std::env::current_exe().unwrap_or(PathBuf::from("fs")).file_name().unwrap().to_string_lossy()))]
-    pub visual: String,
+    /// Arguments passed to `fs ::` when z is invoked with a trailing `.`
+    #[arg(long, default_value_t = String::from("-F"))]
+    pub z_dot_args: String,
     /// Default sort order for the interactive jump menu
     #[arg(long, default_value_t = DbSortOrder::atime)]
     pub z_sort: DbSortOrder,
-    /// Arguments passed to `fs ::` when z is invoked with a trailing `.`
-    #[arg(long, default_value_t = String::from("-D"))]
-    pub z_dot_args: String,
-    /// Arguments passed to `fs ::` when z is invoked with a trailing `..` (experimental)
+
+    /// Name for open function.
+    #[arg(long, default_value_t = String::from("zz"))]
+    pub open_name: String,
+    /// Command used by open function
+    #[arg(long, default_value_t = format!("{} :tool lessfilter edit", std::env::current_exe().unwrap_or(PathBuf::from("fs")).file_name().unwrap().to_string_lossy()))]
+    pub open_cmd: String,
+
+    /// Bind for the directory widget.
+    #[arg(long, default_value_t = String::from("^[[1;2C"))]
+    pub dir_widget_bind: String,
+    /// Bind for the directory widget.
+    #[arg(long, default_value_t = String::from("^[[1;2D"))]
+    pub file_widget_bind: String,
+    /// Bind for the directory widget.
+    #[arg(long, default_value_t = String::from("^[[1;2B"))]
+    pub rg_widget_bind: String,
+
+    #[arg(long)]
+    pub file_open_cmd: Option<String>,
+    #[arg(long)]
+    pub rg_open_cmd: Option<String>,
+    /// Arguments passed to `fs ::` when dir widget is invoked
+    #[arg(long, default_value_t = String::from("-F"))]
+    pub dir_widget_args: String,
+    /// Arguments passed to `fs ::` when file widget is invoked
+    #[arg(long, default_value_t = String::from("-f -- .."))]
+    pub file_widget_args: String,
+    /// Arguments passed to `fs :` when rg widget is invoked
     #[arg(long, default_value_t = String::from(""))]
-    pub z_slash_args: String,
+    pub rg_widget_args: String,
+
     #[arg(long, default_value_t)]
     pub aliases: bool,
 }

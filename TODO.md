@@ -80,6 +80,7 @@ transparent advance into compressed files
 
 - Better column sizing, display paths from end
 - Table editing
+- Changing visibility with ctrl-d: should also apply on fd pane
 
 # FD
 
@@ -162,10 +163,9 @@ better cli/env var handling: need a proc macro to generate a mirrored with every
 - when accepting an item, we need to check canonical
 - prepopulate some directories: trash, desktop, home etc.
 - z . should probably start the navigator. Then a keybind can start the directory jumper.
+- escape single quoted filenames
+
 https://github.com/mmalecot/file-format
 https://github.com/unicode-org/icu4x : for table printing
 
 Built-in edit: https://github.com/microsoft/edit/tree/main
-
-
-

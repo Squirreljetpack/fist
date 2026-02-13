@@ -15,6 +15,7 @@ mod cli {
     use clap::Subcommand;
     use std::ffi::OsString;
 
+    #[allow(clippy::large_enum_variant)]
     #[derive(Subcommand, Debug, Clone, strum_macros::Display)]
     #[strum(serialize_all = "lowercase")]
     pub enum SubTool {

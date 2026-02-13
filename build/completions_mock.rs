@@ -49,7 +49,7 @@ mod filters {
         #[arg(short = 'h')]
         pub hidden: bool,
 
-        #[arg(short = 'H')]
+        #[clap(skip)]
         /// show hidden files only
         pub hidden_files: bool,
 
@@ -62,12 +62,12 @@ mod filters {
         all: bool,
 
         /// only show directories
-        #[arg(short = 'D')]
+        #[arg(short = 'F')]
         pub dirs: bool,
-
-        /// show only files (tui only)
-        #[arg(skip)]
+        /// show only files
+        #[arg(short = 'f')]
         pub files: bool,
+
         /// Don't follow symlinks (tui only).
         #[arg(skip)]
         pub no_follow: bool,

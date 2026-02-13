@@ -5,8 +5,9 @@ pub mod menu_action;
 pub mod utils;
 
 use crate::abspath::AbsPath;
-use cli_boilerplate_automation::bog::BogOkExt;
+use cli_boilerplate_automation::bait::TransformExt;
 use cli_boilerplate_automation::vec_;
+use cli_boilerplate_automation::{bog::BogOkExt, broc::ChildExt};
 pub use program::*;
 // -----------
 use crate::db::{Connection, DbTable};
@@ -18,10 +19,21 @@ pub async fn open_wrapped(
     mut conn: Connection,
     prog: Option<Program>,
     files: &[OsString],
+    // true when not executing or when opening app
+    detach: bool,
 ) -> Result<(), CliError> {
-    if open(prog.as_ref(), files).is_none() {
-        return Err(CliError::Handled);
-    };
+    // todo: better errors
+    open(prog.as_ref(), files)
+        .ok_or(CliError::Handled)?
+        .transform(|mut c| {
+            if detach {
+                c.spawn_detached().map(|_| {})
+            } else {
+                c._spawn()
+                    .and_then(|mut child| (child.wait_for_code() == 0).then_some(()))
+            }
+        })
+        .ok_or(CliError::Handled)?;
 
     if let Some(prog) = prog {
         let path = prog.path();
@@ -41,14 +53,35 @@ pub async fn open_wrapped(
     Ok(())
 }
 
+pub async fn bump_after_open(
+    mut conn: Connection,
+    prog: Option<Program>,
+    files: &[OsString],
+) {
+    if let Some(prog) = prog {
+        let path = prog.path();
+        conn.switch_table(DbTable::apps);
+        conn.bump(path, 1).await._wbog_(format!(
+            "Failed to record {}",
+            prog.path().to_string_lossy()
+        ));
+    }
+
+    if !files.is_empty() {
+        conn.push_files_and_folders(files.iter().map(AbsPath::new))
+            .await
+            ._wbog_("Failed to record files");
+    }
+}
+
 use cli_boilerplate_automation::broc::{CommandExt, format_sh_command};
-use std::process::{Child, Command};
+use std::process::Command;
 
 /// Open some files, optionally with a [`Program`]
 pub fn open(
     prog: Option<&Program>,
     files: &[OsString],
-) -> Option<Child> {
+) -> Option<Command> {
     // Build the command words to spawn
     let words: Vec<OsString> = if let Some(prog) = prog {
         let mut cmd = prog.to_cmd()._ebog()?;
@@ -88,7 +121,7 @@ pub fn open(
         }
     };
 
-    spawn(&words)
+    (!words.is_empty()).then(|| spawn(&words))
 }
 
 static SPAWN_WITH: RwLock<Vec<String>> = RwLock::new(Vec::new());
@@ -98,25 +131,19 @@ pub fn init_spawn_with(cmd: Vec<String>) {
     *guard = cmd;
 }
 
+/// Requires words is nonempty
 /// submit words for shell/spawn_with to execute
-pub fn spawn(words: &[OsString]) -> Option<Child> {
-    if words.is_empty() {
-        return None;
-    }
-
-    if let Ok(guard) = SPAWN_WITH.read().as_ref()
-        && !guard.is_empty()
+pub fn spawn(words: &[OsString]) -> Command {
+    if let Ok(with) = SPAWN_WITH.read().as_ref()
+        && !with.is_empty()
     {
         let script = format_sh_command(words, false);
-        let program = &guard[0];
-        let args = &guard[1..];
+        let program = &with[0];
+        let args = &with[1..];
 
         let ok = Command::new(program).arg("status").success();
         if ok {
-            return Command::new(program)
-                .args(args)
-                .arg(script)
-                .spawn_detached();
+            return Command::new(program).with_args(args).with_arg(script);
         }
     }
 
@@ -124,12 +151,10 @@ pub fn spawn(words: &[OsString]) -> Option<Child> {
         if #[cfg(target_os = "windows")] {
             // todo: dunno how to format the script
             Command::new(words[0].clone())
-                .args(&words[1..])
-                .spawn_detached()
+            .with_args(&words[1..])
         } else {
             Command::new(words[0].clone())
-                .args(&words[1..])
-                .spawn_detached()
+            .with_args(&words[1..])
         }
     }
 }

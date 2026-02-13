@@ -197,7 +197,7 @@ pub async fn start(
 
                 let prog = Program::from_scanned_path(prog.path, prog.cmd);
 
-                open_wrapped(conn, Some(prog), &files).await?;
+                open_wrapped(conn, Some(prog), &files, true).await?;
                 Ok(())
             }
             Err(e) => Err(e.into()),
@@ -211,13 +211,13 @@ pub async fn start(
                     .map(|p| OsString::from(p.path.inner()))
                     .collect();
                 let conn = GLOBAL::db().get_conn(DbTable::apps).await?;
+                let prog =
+                    GLOBAL::with_env(|s| s.opener.as_ref().and_then(Program::from_os_string));
+                if prog.is_some() {
+                    crate::spawn::init_spawn_with(Vec::new()); // if opener is set explicitly, ignore spawn_with
+                }
                 // the default is the same behavior as fs :open, which also called by fs :tool lessfilter open
-                open_wrapped(
-                    conn,
-                    GLOBAL::with_env(|s| s.opener.as_ref().and_then(Program::from_os_string)),
-                    &files,
-                )
-                .await?;
+                open_wrapped(conn, prog, &files, false).await?;
                 Ok(())
             }
             Err(MatchError::Abort(i)) => std::process::exit(i),

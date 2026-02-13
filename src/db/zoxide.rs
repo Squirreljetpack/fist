@@ -14,8 +14,9 @@ use crate::{
 pub struct HistoryConfig {
     /// Ignore files matching these globs
     pub exclude: Vec<String>,
-    /// Whether to show missing files in queries.
+    /// Whether to show files that don't exist on the filesystem in queries.
     /// This is set to false by the binary when called with the "--cd" flag.
+    // todo: this probably should only be set internally
     pub show_missing: bool,
     /// Lazily remove nonexistant entries older than this many days
     pub missing_expiry: TtlDays,

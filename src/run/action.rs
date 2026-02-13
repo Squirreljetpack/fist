@@ -292,7 +292,7 @@ pub fn fsaction_aliaser(
                                     let conn = unwrap!(
                                         pool.get_conn(crate::db::DbTable::dirs).await._elog()
                                     );
-                                    open_wrapped(conn, None, &[path]).await._elog();
+                                    open_wrapped(conn, None, &[path], true).await._elog();
                                 });
 
                                 acs![Action::Quit(0)]
@@ -798,7 +798,7 @@ pub fn fsaction_handler(
 
                 TASKS::spawn(async move {
                     let conn = unwrap!(pool.get_conn(crate::db::DbTable::dirs).await.ok());
-                    open_wrapped(conn, None, &[path]).await._elog();
+                    open_wrapped(conn, None, &[path], true).await._elog();
                 });
 
                 state.should_quit = true;

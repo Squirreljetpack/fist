@@ -30,7 +30,8 @@ impl Cli {
         let first = std::env::args_os().nth(1);
 
         const SUBCMDS: &[&str] = &[
-            ":open", ":o", ":app", ":a", ":file", ":dir", "::", ":", ":tool", ":t", ":info",
+            ":open", ":o", ":app", ":a", ":file", ":dir", ":fd", "::", ":rg", ":", ":tool", ":t",
+            ":info",
         ];
 
         let non_default = match first.as_deref().map(|s| s.to_str()) {
@@ -124,6 +125,7 @@ impl CliOpts {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand, Debug)]
 pub enum SubCmd {
     #[command(name = ":open", visible_aliases = [":o"])]
@@ -133,9 +135,9 @@ pub enum SubCmd {
     #[command(name = ":dir")] // shell script wraps this with z
     Dirs(DirsCmd),
     /// Find and browse. (Default)
-    #[command(name = "::")]
+    #[command(name = ":fd", visible_aliases = ["::"])]
     Fd(DefaultCommand),
-    #[command(name = ":")]
+    #[command(name = ":rg", visible_aliases = [":"])]
     Rg(RgCommand),
     #[command(name =  ":tool", visible_aliases = [":t"])]
     Tools(ToolsCmd),

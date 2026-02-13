@@ -17,13 +17,16 @@ _fs() {
                 cmd="fs"
                 ;;
             fs,:)
-                cmd="fs__:"
+                cmd="fs__:rg"
                 ;;
             fs,::)
-                cmd="fs__::"
+                cmd="fs__:fd"
                 ;;
             fs,:dir)
                 cmd="fs__:dir"
+                ;;
+            fs,:fd)
+                cmd="fs__:fd"
                 ;;
             fs,:file)
                 cmd="fs__:file"
@@ -36,6 +39,9 @@ _fs() {
                 ;;
             fs,:open)
                 cmd="fs__:open"
+                ;;
+            fs,:rg)
+                cmd="fs__:rg"
                 ;;
             fs,:t)
                 cmd="fs__:tool"
@@ -68,92 +74,12 @@ _fs() {
 
     case "${cmd}" in
         fs)
-            opts="-V --verbosity --override --config --mm-config --dump-config --help --version :open :o :file :dir :: : :tool :t :info"
+            opts="-V --verbosity --override --config --mm-config --dump-config --help --version :open :o :file :dir :fd :: :rg : :tool :t :info"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
-                --verbosity)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --override)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --config)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --mm-config)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        fs__:)
-            opts="-h -H -I -a -D --query --help --verbosity --override --config --mm-config"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                --query)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --verbosity)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --override)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --config)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --mm-config)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        fs__::)
-            opts="-h -H -I -a -D -t --sort --types --list --no-read --list-fmt --cd --help --verbosity --override --config --mm-config [PATHS]... [FD_ARGS]..."
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                --sort)
-                    COMPREPLY=($(compgen -W "name mtime none size" -- "${cur}"))
-                    return 0
-                    ;;
-                --types)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -t)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --list-fmt)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
                 --verbosity)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -194,6 +120,52 @@ _fs() {
                     ;;
                 -l)
                     COMPREPLY=($(compgen -W "_ all" -- "${cur}"))
+                    return 0
+                    ;;
+                --verbosity)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --override)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --config)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --mm-config)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        fs__:fd)
+            opts="-h -I -a -F -f -t --sort --types --list --no-read --list-fmt --cd --help --verbosity --override --config --mm-config [PATHS]... [FD_ARGS]..."
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --sort)
+                    COMPREPLY=($(compgen -W "name mtime none size" -- "${cur}"))
+                    return 0
+                    ;;
+                --types)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -t)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --list-fmt)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --verbosity)
@@ -319,6 +291,40 @@ _fs() {
                     return 0
                     ;;
                 -w)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --verbosity)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --override)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --config)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --mm-config)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        fs__:rg)
+            opts="-h -I -a -F -f --query --help --verbosity --override --config --mm-config"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --query)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -516,7 +522,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__shell)
-            opts="--z-name --z-slash-name --zz-name --visual --z-sort --z-dot-args --z-slash-args --aliases --verbosity --override --config --mm-config"
+            opts="--z-name --z-dot-args --z-sort --open-name --open-cmd --dir-widget-bind --file-widget-bind --rg-widget-bind --file-open-cmd --rg-open-cmd --dir-widget-args --file-widget-args --rg-widget-args --aliases --verbosity --override --config --mm-config"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -526,15 +532,7 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --z-slash-name)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --zz-name)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --visual)
+                --z-dot-args)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -542,11 +540,43 @@ _fs() {
                     COMPREPLY=($(compgen -W "name atime frecency count none" -- "${cur}"))
                     return 0
                     ;;
-                --z-dot-args)
+                --open-name)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --z-slash-args)
+                --open-cmd)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --dir-widget-bind)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --file-widget-bind)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --rg-widget-bind)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --file-open-cmd)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --rg-open-cmd)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --dir-widget-args)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --file-widget-args)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --rg-widget-args)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

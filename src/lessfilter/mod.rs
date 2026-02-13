@@ -54,6 +54,8 @@ pub fn handle(
 
     let mut any_file_succeeded = false;
 
+    let mut singleton = paths.len() == 1;
+
     for path in paths {
         let apath = AbsPath::new(path.clone());
         let data = FileData::new(apath.clone(), &cfg.settings, &cfg.categories);
@@ -63,6 +65,7 @@ pub fn handle(
         if rule.is_empty() {
             continue;
         }
+        singleton &= rule.len() == 1;
 
         // show header
         if header == Some(true) {
@@ -70,6 +73,14 @@ pub fn handle(
             any_file_succeeded = true;
         }
         log::debug!("rule found: {rule:?}");
+
+        let maybe_tty = || {
+            if matches!(preset, Preset::Edit) {
+                tty_or_inherit()
+            } else {
+                Stdio::inherit()
+            }
+        };
 
         for (i, action) in rule.iter().enumerate() {
             log::debug!("Action: {action:?}");
@@ -81,17 +92,14 @@ pub fn handle(
                 };
                 let script = path_formatter(template, &AbsPath::new(path.clone()));
                 let mut cmd = Command::from_script(&script);
-                cmd.stdout(if matches!(preset, Preset::Edit) {
-                    tty_or_inherit()
-                } else {
-                    Stdio::inherit()
-                });
+                cmd.stdout(maybe_tty()).stdin(maybe_tty());
 
                 cmd.status()._ebog().is_some_and(|s| s.success())
             } else if matches!(action, Action::Extract) {
                 extract(&path)
             } else {
                 let (progs, perms) = action.to_progs(&path, preset);
+                singleton &= progs.len() == 1;
 
                 let mut all_progs_succeeded = true;
 
@@ -106,12 +114,12 @@ pub fn handle(
                         show_metadata(&path, i == 0)
                     } else {
                         log::debug!("Executing: {prog:?}");
+                        if singleton {
+                            let mut cmd = Command::new(prog.remove(0)).with_args(prog);
+                            cmd.stdin(maybe_tty()).stdout(maybe_tty())._exec();
+                        }
                         let mut cmd = Command::new(prog.remove(0));
-                        cmd.args(prog).stdout(if matches!(preset, Preset::Edit) {
-                            tty_or_inherit()
-                        } else {
-                            Stdio::inherit()
-                        });
+                        cmd.args(prog).stdin(maybe_tty()).stdout(maybe_tty());
 
                         !cmd.status()._ebog().is_some_and(|s| s.success())
                     }

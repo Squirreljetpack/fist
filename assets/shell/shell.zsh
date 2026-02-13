@@ -11,8 +11,7 @@ function $${Z_NAME}() {
   fi
 
   case "$last" in
-    ".") $${BINARY_PATH} :: $${Z_DOT_ARGS} --cd -- $@ ;;
-    */) $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd -- $@ ;;
+    "." | "./" | "..") $${BINARY_PATH} :: $${Z_DOT_ARGS} --no-read --cd -- $@ ;;
     *)  $${BINARY_PATH} :dir --sort $${Z_SORT} --cd -- $@ ;;
   esac | {
     read -r line
@@ -25,39 +24,23 @@ function $${Z_NAME}() {
   }
 }
 
-function $${Z_SLASH_NAME}() {
-  if (($#)) {
-    $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd -- $@ /;
-  } else {
-    $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd /
-  } | {
-    read -r line
-    [ -n "$line" ] || return
-    if [ -d "$line" ]; then
-      cd "$line" || return
-    else
-      line="$(dirname "$line")" && [ -d "$line" ] && cd "$line" || return
-    fi
-  }
-}
-
-function $${ZZ_NAME}() {
+function $${OPEN_NAME}() {
   if ! (( $# )); then
     $${BINARY_PATH} :t bump .
-    $${VISUAL} .
+    $${OPEN_CMD} .
   elif [ "${@: $#}" = "." ]; then
     if (($# == 1)); then
-      FS_OPTS="opener='$${VISUAL}' $FS_OPTS" $${BINARY_PATH}
+      FS_OPTS="opener='$${OPEN_CMD}' $FS_OPTS" $${BINARY_PATH}
     else
       z "${@:1:-1}" &&
-      FS_OPTS="opener='$${VISUAL}' $FS_OPTS" $${BINARY_PATH}
+      FS_OPTS="opener='$${OPEN_CMD}' $FS_OPTS" $${BINARY_PATH}
     fi
   elif [[ -e $1 ]]; then
     $${BINARY_PATH} :t bump -- $@
-    $${VISUAL} $@:a
+    $${OPEN_CMD} $@:a
   else
     z $@ &&
-    $${VISUAL} .
+    $${OPEN_CMD} .
   fi
 }
 
@@ -65,6 +48,57 @@ __fist_jump_hook() {
   $${BINARY_PATH} :tool bump "$PWD"
 }
 
+
 if [[ ${precmd_functions[(Ie)__fist_jump_hook]:-} -eq 0 ]] && [[ ${chpwd_functions[(Ie)__fist_jump_hook]:-} -eq 0 ]]; then
     chpwd_functions+=(__fist_jump_hook)
 fi
+
+__fist_dir_widget() {
+  emulate -L zsh
+  local line dir
+
+  $${BINARY_PATH} :: $${DIRW_ARGS} --no-read --cd -- .. | {
+    read -r line
+    [ -n "$line" ] || { zle reset-prompt; return; }
+    if [ -d "$line" ]; then
+      cd "$line" || { zle reset-prompt; return; }
+      zle push-line
+      zle accept-line
+    else
+      dir="$(dirname "$line")" && [ -d "$dir" ] && cd "$dir" && LBUFFER="${LBUFFER%% *} '$(basename "$line")' " || { zle reset-prompt; return; }
+      zle reset-prompt
+    fi
+  }
+}
+__fist_file_widget() {
+  emulate -L zsh
+  setopt localoptions pipefail
+  local line
+
+  FS_OPTS="opener='$${FILEW_CMD}' $FS_OPTS" $${BINARY_PATH} :: --no-read $${FILEW_ARGS} | {
+    read -r line
+    if [ -n "$line" ]; then
+      LBUFFER="${LBUFFER%% *} '$line' "
+    fi
+  }
+  zle reset-prompt
+}
+__fist_rg_widget() {
+  emulate -L zsh
+  setopt localoptions pipefail
+
+  FS_OPTS="opener='$${RGW_CMD}' $FS_OPTS" $${BINARY_PATH} :rg | {
+    read -r line
+    if [ -n "$line" ]; then
+      LBUFFER="${LBUFFER%% *} '$line' "
+    fi
+  }
+}
+
+zle -N __fist_dir_widget
+zle -N __fist_file_widget
+zle -N __fist_rg_widget
+
+bindkey -M main '$${DIRW_BIND}' __fist_dir_widget
+bindkey -M main '$${FILEW_BIND}' __fist_file_widget
+# bindkey -M main '$${RGW_BIND}' __fist_rg_widget

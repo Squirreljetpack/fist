@@ -149,7 +149,7 @@ impl MenuItem {
                 let pool = GLOBAL::db();
                 tokio::spawn(async move {
                     let conn = pool.get_conn(crate::db::DbTable::dirs).await?;
-                    open_wrapped(conn, None, &[path_clone.inner().into()]).await?;
+                    open_wrapped(conn, None, &[path_clone.inner().into()], true).await?;
                     anyhow::Ok(())
                 });
                 None

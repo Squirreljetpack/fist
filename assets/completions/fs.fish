@@ -35,7 +35,9 @@ complete -c fs -n "__fish_fs_needs_command" -f -a ":open" -d 'Launch apps and fi
 complete -c fs -n "__fish_fs_needs_command" -f -a ":o" -d 'Launch apps and files'
 complete -c fs -n "__fish_fs_needs_command" -f -a ":file" -d 'Recent files'
 complete -c fs -n "__fish_fs_needs_command" -f -a ":dir" -d 'Recent folders'
+complete -c fs -n "__fish_fs_needs_command" -f -a ":fd" -d 'Find and browse. (Default)'
 complete -c fs -n "__fish_fs_needs_command" -f -a "::" -d 'Find and browse. (Default)'
+complete -c fs -n "__fish_fs_needs_command" -f -a ":rg" -d 'Full text search'
 complete -c fs -n "__fish_fs_needs_command" -f -a ":" -d 'Full text search'
 complete -c fs -n "__fish_fs_needs_command" -f -a ":tool" -d 'Plugins and utilities'
 complete -c fs -n "__fish_fs_needs_command" -f -a ":t" -d 'Plugins and utilities'
@@ -80,6 +82,25 @@ complete -c fs -n "__fish_fs_using_subcommand :dir" -l config -d 'config path' -
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l help
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l sort -r -f -a "name\t''
+mtime\t''
+none\t''
+size\t''"
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l list-fmt -d 'Template to format the list output as' -r
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l verbosity -r
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l override -d 'config override' -r
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l config -d 'config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l mm-config -d 'matchmaker config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s h -d 'show hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s I -d 'HIDE ignored files'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s a -d 'show all'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s F -d 'only show directories'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s f -d 'show only files'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l list
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l no-read -d 'Never stream input from stdin'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l cd -d 'print the first match'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l help
 complete -c fs -n "__fish_fs_using_subcommand ::" -l sort -r -f -a "name\t''
 mtime\t''
 none\t''
@@ -91,24 +112,35 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -l override -d 'config overrid
 complete -c fs -n "__fish_fs_using_subcommand ::" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand ::" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand ::" -s h -d 'show hidden files and folders'
-complete -c fs -n "__fish_fs_using_subcommand ::" -s H -d 'show hidden files only'
 complete -c fs -n "__fish_fs_using_subcommand ::" -s I -d 'HIDE ignored files'
 complete -c fs -n "__fish_fs_using_subcommand ::" -s a -d 'show all'
-complete -c fs -n "__fish_fs_using_subcommand ::" -s D -d 'only show directories'
+complete -c fs -n "__fish_fs_using_subcommand ::" -s F -d 'only show directories'
+complete -c fs -n "__fish_fs_using_subcommand ::" -s f -d 'show only files'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l list
 complete -c fs -n "__fish_fs_using_subcommand ::" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l help
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l query -d 'initial query' -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l verbosity -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l override -d 'config override' -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l config -d 'config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l mm-config -d 'matchmaker config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s h -d 'show hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s I -d 'HIDE ignored files'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s a -d 'show all'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s F -d 'only show directories'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s f -d 'show only files'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l help
 complete -c fs -n "__fish_fs_using_subcommand :" -l query -d 'initial query' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :" -s h -d 'show hidden files and folders'
-complete -c fs -n "__fish_fs_using_subcommand :" -s H -d 'show hidden files only'
 complete -c fs -n "__fish_fs_using_subcommand :" -s I -d 'HIDE ignored files'
 complete -c fs -n "__fish_fs_using_subcommand :" -s a -d 'show all'
-complete -c fs -n "__fish_fs_using_subcommand :" -s D -d 'only show directories'
+complete -c fs -n "__fish_fs_using_subcommand :" -s F -d 'only show directories'
+complete -c fs -n "__fish_fs_using_subcommand :" -s f -d 'show only files'
 complete -c fs -n "__fish_fs_using_subcommand :" -l help
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l override -d 'config override' -r
@@ -130,16 +162,22 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l z-name -d 'Name for jump function' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l z-slash-name -d 'Name for navigate function' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l zz-name -d 'Name for open function' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l visual -d 'Command used by open function' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l z-dot-args -d 'Arguments passed to `fs ::` when z is invoked with a trailing `.`' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l z-sort -d 'Default sort order for the interactive jump menu' -r -f -a "name\t''
 atime\t''
 frecency\t'Weighted frequency + recency'
 count\t''
 none\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l z-dot-args -d 'Arguments passed to `fs ::` when z is invoked with a trailing `.`' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l z-slash-args -d 'Arguments passed to `fs ::` when z is invoked with a trailing `..` (experimental)' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l open-name -d 'Name for open function' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l open-cmd -d 'Command used by open function' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l dir-widget-bind -d 'Bind for the directory widget' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l file-widget-bind -d 'Bind for the directory widget' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l rg-widget-bind -d 'Bind for the directory widget' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l file-open-cmd -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l rg-open-cmd -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l dir-widget-args -d 'Arguments passed to `fs ::` when dir widget is invoked' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l file-widget-args -d 'Arguments passed to `fs ::` when file widget is invoked' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l rg-widget-args -d 'Arguments passed to `fs :` when rg widget is invoked' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l config -d 'config path' -r -F
@@ -182,16 +220,22 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l z-name -d 'Name for jump function' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l z-slash-name -d 'Name for navigate function' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l zz-name -d 'Name for open function' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l visual -d 'Command used by open function' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l z-dot-args -d 'Arguments passed to `fs ::` when z is invoked with a trailing `.`' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l z-sort -d 'Default sort order for the interactive jump menu' -r -f -a "name\t''
 atime\t''
 frecency\t'Weighted frequency + recency'
 count\t''
 none\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l z-dot-args -d 'Arguments passed to `fs ::` when z is invoked with a trailing `.`' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l z-slash-args -d 'Arguments passed to `fs ::` when z is invoked with a trailing `..` (experimental)' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l open-name -d 'Name for open function' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l open-cmd -d 'Command used by open function' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l dir-widget-bind -d 'Bind for the directory widget' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l file-widget-bind -d 'Bind for the directory widget' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l rg-widget-bind -d 'Bind for the directory widget' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l file-open-cmd -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l rg-open-cmd -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l dir-widget-args -d 'Arguments passed to `fs ::` when dir widget is invoked' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l file-widget-args -d 'Arguments passed to `fs ::` when file widget is invoked' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l rg-widget-args -d 'Arguments passed to `fs :` when rg widget is invoked' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l config -d 'config path' -r -F
