@@ -1,6 +1,6 @@
 use chrono::Utc;
 use cli_boilerplate_automation::{
-    bait::ResultExt, bog::BogOkExt, impl_transparent_wrapper, prints,
+    bait::ResultExt, bog::BogOkExt, define_transparent_wrapper, prints,
 };
 use std::path::Path;
 
@@ -14,8 +14,9 @@ use crate::{
 pub struct HistoryConfig {
     /// Ignore files matching these globs
     pub exclude: Vec<String>,
-    /// Whether to show missing files in queries.
+    /// Whether to show files that don't exist on the filesystem in queries.
     /// This is set to false by the binary when called with the "--cd" flag.
+    // todo: this probably should only be set internally
     pub show_missing: bool,
     /// Lazily remove nonexistant entries older than this many days
     pub missing_expiry: TtlDays,
@@ -65,6 +66,8 @@ impl Connection {
             .await
             .__ebog();
 
+        let maybe_cwd = std::env::current_dir().ok();
+
         entries.sort_by_key(|e| std::cmp::Reverse(db_filter.score(e)));
 
         for e in entries {
@@ -73,8 +76,8 @@ impl Connection {
                     remove.push(e.path.clone());
                 }
                 Some(true) => {
-                    if let Ok(cwd) = std::env::current_dir()
-                        && cwd == e.cmd.as_maybe_realpath().unwrap_or(e.path.inner())
+                    if let Some(cwd) = maybe_cwd.as_deref()
+                        && cwd == e.cmd.as_maybe_realpath().unwrap_or(&e.path)
                     {
                         match db_filter.refind {
                             RetryStrat::Next => continue,
@@ -90,7 +93,14 @@ impl Connection {
                         }
                     };
                     prints!(e.path.to_string_lossy());
+                    if let Some(p) = e.cmd.as_maybe_realpath()
+                        && let Ok(rp) = e.path.canonicalize()
+                        && p != rp
+                    {
+                        self.set_cmd(&e.path, &rp.into()).await._elog();
+                    }
                     found = Some(e.path);
+
                     break;
                 }
                 Some(false) => {}
@@ -111,12 +121,11 @@ impl Connection {
         }
     }
 
-    // None -> cwd is match
-    // Some(None) -> No match
+    // None -> no match/cwd is match
     pub async fn return_best_by_frecency(
         mut self,
         db_filter: &DbFilter,
-    ) -> Option<Option<AbsPath>> {
+    ) -> Option<AbsPath> {
         let mut remove = Vec::new();
         let mut found = None;
 
@@ -127,14 +136,16 @@ impl Connection {
 
         entries.sort_by_key(|e| std::cmp::Reverse(db_filter.score(e)));
 
+        let maybe_cwd = std::env::current_dir().ok();
+
         for e in entries {
             match db_filter.filter(&e.path, e.atime) {
                 None => {
                     remove.push(e.path.clone());
                 }
                 Some(true) => {
-                    if let Ok(cwd) = std::env::current_dir()
-                        && cwd == e.cmd.as_maybe_realpath().unwrap_or(e.path.inner())
+                    if let Some(cwd) = maybe_cwd.as_deref()
+                        && cwd == e.cmd.as_maybe_realpath().unwrap_or(&e.path)
                     {
                         match db_filter.refind {
                             RetryStrat::Next => continue,
@@ -149,7 +160,7 @@ impl Connection {
                             }
                         }
                     };
-                    found = Some(e.path);
+                    found = Some(e);
                     break;
                 }
                 Some(false) => {}
@@ -159,15 +170,22 @@ impl Connection {
         let _found = found.clone();
 
         tokio::spawn(async move {
-            if let Some(p) = _found {
-                self.bump(p, 1).await._elog();
+            if let Some(e) = _found {
+                if let Some(p) = e.cmd.as_maybe_realpath()
+                    && let Ok(rp) = e.path.canonicalize()
+                    && p != rp
+                {
+                    self.set_cmd(&e.path, &rp.into()).await._elog();
+                }
+                // bump because this opens up an interactive screen
+                self.bump(e.path, 1).await._elog();
             };
             if !remove.is_empty() {
                 self.remove_entries(&remove).await._elog();
             }
         });
 
-        Some(found)
+        found.map(|e| e.path)
     }
 }
 
@@ -435,4 +453,7 @@ fn is_monotonic_substring(
 }
 
 // Transparent wrappers for type safety
-impl_transparent_wrapper!(TtlDays, i64, 90);
+define_transparent_wrapper!(
+    #[derive(Copy, Clone)]
+    TtlDays: i64 = 90
+);

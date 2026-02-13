@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{bath::filename, bs::FsPathExt};
+use cli_boilerplate_automation::{bath::PathExt, bs::FsPathExt};
 // SPDX-FileCopyrightText: 2024 Christina Sørensen
 // SPDX-License-Identifier: EUPL-1.2
 //
@@ -1109,14 +1109,14 @@ const EXTENSION_ICONS: Map<&'static str, char> = phf_map! {
 
 pub fn icon_for_file(path: &Path) -> char {
     if path.is_dir() {
-        *DIRECTORY_ICONS.get(&filename(path)).unwrap_or_else(|| {
+        *DIRECTORY_ICONS.get(&path.filename()).unwrap_or_else(|| {
             if path.is_empty_dir() {
                 &Icons::FOLDER_OPEN // 
             } else {
                 &Icons::FOLDER // 
             }
         })
-    } else if let Some(icon) = FILENAME_ICONS.get(&filename(path)) {
+    } else if let Some(icon) = FILENAME_ICONS.get(&path.filename()) {
         *icon
     } else if let Some(ext) = path.extension() {
         *EXTENSION_ICONS

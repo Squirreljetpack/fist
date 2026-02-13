@@ -1,12 +1,13 @@
 //! CLI command handlers
 use clap::Parser;
 use cli_boilerplate_automation::{
-    bath::PathExt, bo::map_reader_lines, broc::CommandExt, bs::sort_by_mtime,
+    bait::TransformExt, bath::PathExt, bo::map_reader_lines, broc::CommandExt, bs::sort_by_mtime,
+    wbog,
 };
 use globset::GlobBuilder;
 use std::{
     env::{current_dir, set_current_dir},
-    path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR, PathBuf},
+    path::{MAIN_SEPARATOR_STR, PathBuf},
     process::{Command, exit},
 };
 
@@ -35,10 +36,7 @@ use crate::{
     },
     errors::CliError,
     filters::{SortOrder, Visibility},
-    find::{
-        fd::{FileTypeArg, build_fd_args},
-        walker::list_dir,
-    },
+    find::{FileTypeArg, fd::build_fd_args, walker::list_dir},
     lessfilter,
     run::{
         FsPane,
@@ -96,10 +94,11 @@ async fn handle_open(
         let conn = pool.get_conn(DbTable::apps).await?;
 
         let prog = cmd.with.and_then(Program::from_os_string);
+        if prog.is_none() {
+            crate::spawn::init_spawn_with(cfg.misc.spawn_with);
+        }
 
-        crate::spawn::init_spawn_with(cfg.misc.spawn_with);
-
-        open_wrapped(conn, prog, &cmd.files).await
+        open_wrapped(conn, prog, &cmd.files, false).await
     }
 }
 
@@ -243,6 +242,7 @@ async fn handle_default(
     mut cmd: DefaultCommand,
     mut cfg: Config,
 ) -> Result<(), CliError> {
+    // check input
     if !cmd.types.is_empty() {
         cmd.vis.dirs = cmd
             .types
@@ -257,8 +257,8 @@ async fn handle_default(
         return Err(CliError::ConflictingFlags("cd", "list"));
     }
 
-    // _dbg!(cli, cmd, cfg);
     let pool = Pool::new(cfg.db_path()).await?;
+
     let pane = if
     // piped input
     !atty::is(atty::Stream::Stdin) && !cmd.no_read && !cmd.list {
@@ -272,39 +272,31 @@ async fn handle_default(
         };
         FsPane::new_stream(AbsPath::new_unchecked(__cwd()), cmd.vis)
     } else if cmd.cd {
+        if !cmd.fd.is_empty() && !cmd.paths.is_empty() {
+            wbog!(
+                "fd_args are not supported with --cd: to avoid confusion, specify all paths after --."
+            )
+        }
         cmd.paths.append(&mut cmd.fd); // fd opts are not supported
         cfg.global.interface.alt_accept = true;
         cfg.history.show_missing = false;
 
-        // cd = true + last arg ends in slash -> interactively navigate the best match
-
-        let nav_pane = match cmd.paths.last() {
-            Some(s) if s == MAIN_SEPARATOR_STR => {
-                // treat last arg / as last arg ending in / because there is no posix way to modify last arg to end in /
-                cmd.paths.pop();
-                true
-            }
-            Some(s) if s.to_string_lossy().ends_with(MAIN_SEPARATOR) => true, // maybe this should be optional
-            _ => false,
-        };
+        let nav_pane = cmd.paths.last().is_some_and(|s| {
+            s.to_str().is_some_and(|s| {
+                s.strip_prefix('.')
+                    .is_some_and(|s| s == MAIN_SEPARATOR_STR || s == "/")
+            })
+        });
 
         // determine cwd
         let cwd = if cmd.paths.len() > 1
-            || (
-                nav_pane && !cmd.paths.is_empty()
-                // this happens when only path given is /
-            )
-        // treat paths as zoxide args
+        // treat paths as zoxide args (since searching over multiple paths should be uncommon with --cd)
         {
             let conn = pool.get_conn(DbTable::dirs).await?;
 
-            let num_keywords = if nav_pane {
-                // nav doesn't have a search pattern
-                cmd.paths.len()
-            } else {
-                // the last path is the pattern, so determine the best match from keywords formed by all but the last
-                cmd.paths.len() - 1
-            };
+            // the last path is the pattern, so determine the best match from keywords formed by all but the last
+            let num_keywords = cmd.paths.len() - 1;
+
             let kw: Vec<String> = cmd
                 .paths
                 .drain(..num_keywords)
@@ -314,7 +306,7 @@ async fn handle_default(
             let db_filter = DbFilter::new(&cfg.history).with_keywords(kw.clone());
 
             match conn.return_best_by_frecency(&db_filter).await {
-                None | Some(None) => {
+                None => {
                     if cfg.misc.cd_fallback_search && !cmd.list {
                         // todo: lowpri: relaunch this binary with :dir and get its result?
                         // let input = (kw.last().cloned().unwrap_or_default(), 0);
@@ -331,7 +323,7 @@ async fn handle_default(
                         return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
                     }
                 }
-                Some(Some(p)) => {
+                Some(p) => {
                     set_current_dir(&p)
                         .prefix("Failed to change directory")
                         ._elog();
@@ -339,9 +331,21 @@ async fn handle_default(
                 }
             }
         } else
-        // search in current directory
+        // if only pattern is given, determine a directory as follows:
         {
-            AbsPath::new_unchecked(__cwd())
+            // the z shell function passes through here when the last provided argument is ., .. or ./, corresponding to:
+            // - `.`: search all directories in default_dir
+            // - `..` (only argument): same as 1, but default_dir is forced to cwd
+            // - `./`: show all directories in current dir
+            // ..which is analgous to the behavior !cmd.cd, except that the analgue of 3 is the no-arg branch rather than `./`
+
+            let search_in_cwd = nav_pane || cmd.paths[0].cmp_exc("..", ".".into());
+
+            AbsPath::new_unchecked(if !search_in_cwd && cfg.global.fd.default_search_in_home {
+                __home()
+            } else {
+                __cwd()
+            })
         };
 
         if nav_pane {
@@ -369,9 +373,12 @@ async fn handle_default(
     {
         // pattern specified
         let cwd = if cmd.paths.len() == 1 {
+            // support `..` as a shorthand for 'search (any pattern in) current directory'
+            let search_in_cwd = cmd.paths[0].cmp_exc("..", ".".into());
+
             // last item is a pattern
             AbsPath::new_unchecked(
-                if cfg.global.fd.default_search_in_home {
+                if !search_in_cwd && cfg.global.fd.default_search_in_home {
                     __home()
                 } else {
                     __cwd()

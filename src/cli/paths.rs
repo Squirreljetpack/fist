@@ -77,4 +77,3 @@ expr_as_path_fn!(liza_path, cache_dir().join("liza"));
 // renders text. Also pages the output if stdout is /dev/tty for convenience.
 expr_as_path_fn!(text_renderer_path, cache_dir().join("pager"));
 expr_as_path_fn!(show_error_path, cache_dir().join("fist_show_error"));
-expr_as_path_fn!(binary_viewer_path, cache_dir().join("fist_binary_viewer"));

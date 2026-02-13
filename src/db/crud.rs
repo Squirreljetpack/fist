@@ -1,5 +1,5 @@
-use crate::db::*;
 use crate::errors::DbError;
+use crate::{abspath::OsStringWrapper, db::*};
 use cli_boilerplate_automation::bait::ResultExt;
 use log::trace;
 use sqlx::Acquire;
@@ -143,11 +143,11 @@ impl Connection {
     pub async fn set_cmd(
         &mut self,
         path: &AbsPath,
-        entry: &Entry,
+        cmd: &OsStringWrapper,
     ) -> Result<(), DbError> {
         let query = format!("UPDATE {} SET cmd = ? WHERE path = ?", self.table_name);
         sqlx::query(&query)
-            .bind(&entry.cmd)
+            .bind(cmd)
             .bind(path)
             .execute(&mut *self.conn)
             .await?;
@@ -326,18 +326,18 @@ mod tests {
     async fn test_set_cmd() {
         let mut db = setup_db().await;
         let path = AbsPath::new("/test_set_cmd");
-        let mut entry = Entry::new("test_set_cmd", path.clone());
+        let entry = Entry::new("test_set_cmd", path.clone());
         db.set_entry(&entry).await.unwrap();
 
-        entry.cmd = "new command".into();
-        db.set_cmd(&path, &entry).await.unwrap();
+        let cmd = "new command".into();
+        db.set_cmd(&path, &cmd).await.unwrap();
         let fetched_entry = db.get_entry(&path).await.unwrap().unwrap();
-        assert_eq!(fetched_entry.cmd, "new command".into());
+        assert_eq!(fetched_entry.cmd, cmd);
 
-        entry.cmd = "".into();
-        db.set_cmd(&path, &entry).await.unwrap();
+        let cmd = "".into();
+        db.set_cmd(&path, &cmd).await.unwrap();
         let fetched_entry_no_cmd = db.get_entry(&path).await.unwrap().unwrap();
-        assert_eq!(fetched_entry_no_cmd.cmd, "".into());
+        assert_eq!(fetched_entry_no_cmd.cmd, cmd);
     }
 
     #[tokio::test]

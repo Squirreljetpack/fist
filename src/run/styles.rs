@@ -20,6 +20,7 @@ pub struct FileStyles {
     pub source: Style,
     pub configuration: Style,
     pub text: Style,
+    pub other: Style,
 }
 
 impl FileStyles {
@@ -30,7 +31,7 @@ impl FileStyles {
         match file {
             FileCategory::Image => self.image,
             FileCategory::Video => self.video,
-            FileCategory::Music => self.music,
+            FileCategory::Audio => self.music,
             FileCategory::Lossless => self.lossless,
             FileCategory::Crypto => self.crypto,
             FileCategory::Document => self.document,
@@ -41,6 +42,8 @@ impl FileStyles {
             FileCategory::Source => self.source,
             FileCategory::Configuration => self.configuration,
             FileCategory::Text => self.text,
+
+            _ => self.other,
         }
     }
 }
@@ -134,6 +137,8 @@ impl FileStyles {
             underline_color: None,
         },
         text: Style::new(),
+
+        other: Style::new(),
     };
 }
 

@@ -18,14 +18,15 @@ fn get_test_config() -> RulesConfig {
 }
 
 fn get_best_action<'a>(
-    rules: &'a RuleMatcher<FileRule, ArrayVec<Action, 10>>,
+    rules: &'a RulePreset,
     path: &Path,
 ) -> Option<&'a Action> {
     let apath = AbsPath::new(path.to_path_buf());
-    let test = TestSettings {
+    let test = LessfilterSettings {
         ..Default::default()
     };
-    let data = FileData::new(apath, &test);
+    let categories = Categories::default();
+    let data = FileData::new(apath, &test, &categories);
     rules.get_best_match(path, data).and_then(|arr| arr.first())
 }
 
@@ -154,13 +155,15 @@ fn test_fallback_to_metadata() {
 #[test]
 fn debug_mime_types() {
     let dir = tempdir().unwrap();
+    let categories = Categories::default();
 
     // Empty PNG file
     let empty_png_path = dir.path().join("empty.png");
     File::create(&empty_png_path).unwrap();
     let empty_png_data = FileData::new(
         AbsPath::new(empty_png_path.clone()),
-        &TestSettings::default(),
+        &LessfilterSettings::default(),
+        &categories,
     );
     println!("Empty PNG mime: {:?}", empty_png_data.mime); // Expected: image/png (from extension guess) or application/octet-stream (if infer fails)
 
@@ -173,7 +176,8 @@ fn debug_mime_types() {
         .unwrap();
     let valid_png_data = FileData::new(
         AbsPath::new(valid_png_path.clone()),
-        &TestSettings::default(),
+        &LessfilterSettings::default(),
+        &categories,
     );
     println!("Valid PNG mime: {:?}", valid_png_data.mime); // Expected: image/png
 
@@ -183,7 +187,11 @@ fn debug_mime_types() {
         .unwrap()
         .write_all(b"\x7FELF\x02\x01\x01\x00")
         .unwrap();
-    let elf_data = FileData::new(AbsPath::new(elf_path.clone()), &TestSettings::default());
+    let elf_data = FileData::new(
+        AbsPath::new(elf_path.clone()),
+        &LessfilterSettings::default(),
+        &categories,
+    );
     println!("ELF mime: {:?}", elf_data.mime); // Expected: application/x-elf or application/octet-stream
 
     // Generic binary
@@ -194,7 +202,8 @@ fn debug_mime_types() {
         .unwrap();
     let generic_bin_data = FileData::new(
         AbsPath::new(generic_bin_path.clone()),
-        &TestSettings::default(),
+        &LessfilterSettings::default(),
+        &categories,
     );
     println!("Generic binary mime: {:?}", generic_bin_data.mime); // Expected: application/octet-stream
 }

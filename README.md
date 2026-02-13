@@ -79,12 +79,18 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 > the only argument is a valid path: `cd`.
 > no arguments: interactively select from history.
 > last argument is `.` : interactively search subdirectories of the best match.
-> last argument ends with `/`: interactively navigate the best match.
+> last argument is `./`: interactively navigate the best match [^2].
 > otherwise: cd into the best match[^1] for the search term (if one exists).
 
 [^1]: See: [zoxide](https://github.com/ajeetdsouza/zoxide)
 
+[^2]: If you have [aliases](#aliases) enabled, this is also just `Z`.
+
 The jump+open function (`zz`) is an analogous replacement for [`lessfilter edit`](#lessfilter): if the query head exists, it opens the target(s) in the editor. Otherwise the query is passed to `z`, and the editor opens in the destination.
+
+##### Aliases
+
+todo
 
 ### Lessfilter
 

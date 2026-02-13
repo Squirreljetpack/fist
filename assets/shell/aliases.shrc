@@ -8,6 +8,8 @@ function lz() {
 l()  { fs :tool lessfilter display  "${@:-.}"; }
 la() { fs :tool lessfilter extended "${@:-.}"; }
 ll() { fs :tool lessfilter info     "${@:-.}"; }
+
+# edit
 n()  {
   if (($#)) && [ -f "$1" ]; then
     fs :tool lessfilter edit "$@"
@@ -15,7 +17,13 @@ n()  {
     $EDITOR "$@"
   fi
 }
+
+# open
 o()  { fs :o "${@:-.}"; }
 
+# navigate
+Z() { z "$@" ./; }
+
+# recent files
 alias zf="fs :file --sort atime"
 

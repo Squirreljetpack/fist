@@ -186,6 +186,7 @@ impl FilterOverlay {
                 _ => {}
             }
         });
+        FILTERS::refilter();
     }
 }
 

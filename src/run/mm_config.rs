@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use cli_boilerplate_automation::{bo::load_type_or_default, bother::enums::When};
+use cli_boilerplate_automation::{bo::load_type_or_default, bother::types::When};
 use matchmaker::{
     action::Action,
     bindmap,
@@ -66,6 +66,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(enter) => Action::Accept,
         key!(ctrl-enter), key!(alt-enter) => Action::Print("".into()),
         key!(tab) => [Action::Toggle, Action::Down(1)],
+        key!(ctrl-a) => Action::CycleAll,
 
         key!(right) => FsAction::Advance,
         key!(left) => FsAction::Parent,
@@ -107,12 +108,12 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-shift-h), key!(alt-shift-h) => Action::Help("".into()),
         // spawning
         key!(alt-s) => Action::Execute("$SHELL".into()),
-        key!(ctrl-b) => FsAction::Display(Preset::Open, false, When::Auto),
-        key!(alt-b) => FsAction::Display(Preset::Edit, false, When::Auto),
-        // display
-        key!(ctrl-l) => FsAction::Display(Preset::Preview, true, When::Auto),
-        key!(alt-l) => FsAction::Display(Preset::Extended, true, When::Auto),
 
+        // lessfilter
+        key!(ctrl-b) => FsAction::Lessfilter { preset: Preset::Open, paging: false, header: When::Auto },
+        key!(alt-b) => FsAction::Lessfilter{ preset: Preset::Edit, paging: false, header: When::Auto},
+        key!(ctrl-l) => FsAction::Lessfilter{ preset: Preset::Preview, paging: true, header: When::Auto},
+        key!(alt-l) => FsAction::Lessfilter{ preset: Preset::Extended, paging: true, header: When::Auto},
 
         // misc
         // ---------------------------------------

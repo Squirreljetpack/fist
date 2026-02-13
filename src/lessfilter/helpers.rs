@@ -7,14 +7,16 @@ use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use std::{cell::OnceCell, fs::File};
 
-use cli_boilerplate_automation::StringError;
 use cli_boilerplate_automation::bait::ResultExt;
 use cli_boilerplate_automation::bo::map_reader_lines;
+use cli_boilerplate_automation::broc::CommandExt;
 use cli_boilerplate_automation::text::TableBuilder;
+use cli_boilerplate_automation::{StringError, wbog};
 use cli_boilerplate_automation::{bo::MapReaderError, bog::BogOkExt, broc::has, prints, vec_};
 use crossterm::style::Stylize;
 
-use crate::cli::paths::current_exe;
+use crate::cli::paths::{current_exe, text_renderer_path};
+use crate::lessfilter::mime_helpers::{detect_encoding, is_native};
 
 #[allow(clippy::ptr_arg)]
 pub fn is_header(cmd: &Vec<OsString>) -> bool {
@@ -42,16 +44,21 @@ pub fn show_header(path: &Path) {
     }
 }
 
-pub fn show_metadata(path: &Path) -> bool {
+// todo: in-house file -bL
+pub fn show_metadata(
+    path: &Path,
+    first: bool,
+) -> bool {
     if path.is_file() {
         if has("file") {
             let mut cmd = Command::new("file");
 
             // custom extra info
             let _path = path.to_path_buf();
-            let join = mime_guess::from_path(path)
-                .first()
-                .is_some_and(|mime| mime.type_() == "text")
+
+            let join = detect_encoding(path)
+                .as_deref()
+                .is_some_and(is_native)
                 .then_some(std::thread::spawn(move || count_file(_path)));
 
             let ret = cmd
@@ -63,10 +70,10 @@ pub fn show_metadata(path: &Path) -> bool {
 
             if let Some(s) = &ret {
                 let s = String::from_utf8_lossy(&s.stdout);
-                if !atty::is(atty::Stream::Stdout) {
+                if !atty::is(atty::Stream::Stdout) && !first {
                     println!("\n");
                 }
-                println!("{}", s.dim().italic())
+                print!("{}", s.dim().italic())
             };
 
             if let Some(join) = join {
@@ -79,7 +86,7 @@ pub fn show_metadata(path: &Path) -> bool {
                             .header_formatter(|s, _| s.dim().italic().to_string())
                             .cell_formatter(|s, _| s.dim().italic().to_string());
 
-                        if !atty::is(atty::Stream::Stdout) && ret.is_none() {
+                        if ret.is_some() || !first {
                             println!("\n");
                         }
                         table.print();
@@ -276,4 +283,31 @@ fn parse_line_column(s: &str) -> Option<(usize, usize)> {
     } else {
         None
     }
+}
+
+// ---------------- EXTRACT -----------------
+
+// todo: maybe we inhouse this with some kind of extractor library
+// although kreuzberg seems a bit overweight if using as a lib
+pub fn extract(path: &Path) -> bool {
+    if !has("kreuzberg") {
+        wbog!("Action::Extract requires the 'kreuzberg' command.");
+        return false;
+    }
+
+    let Some(kreuzberg) = Command::new("kreuzberg")
+        .args(["extract", "--output-format=plain"])
+        .arg(path)
+        .stdout(Stdio::piped())
+        .spawn_piped()
+        ._elog()
+    else {
+        return false;
+    };
+
+    let mut pager = Command::new(text_renderer_path());
+
+    pager.stdin(kreuzberg);
+
+    pager.status()._ebog().is_some_and(|s| s.success())
 }

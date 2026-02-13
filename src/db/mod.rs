@@ -68,6 +68,7 @@ impl Connection {
         self.switch_table(DbTable::dirs);
         for f in dirs {
             self.bump_entry(f, 1).await?;
+            // todo: maybe should also update the abspath?
         }
         self.switch_table(DbTable::files);
         for f in files {
@@ -81,23 +82,8 @@ impl Connection {
         path: AbsPath,
         count: i32,
     ) -> Result<(), DbError> {
+        // name doesn't really do anything
         let name = path.basename();
-        // can't decide what the name should be ^
-        // let name = {
-        //     let path_str = path.to_str();
-
-        //     let canonical_str = path.canonicalize().ok();
-
-        //     if let (Some(ps), Some(cs)) = (path_str, canonical_str) {
-        //         if cs.to_str().is_some_and(|s| s != ps) {
-        //             ps.to_string()
-        //         } else {
-        //             path.basename()
-        //         }
-        //     } else {
-        //         path.basename()
-        //     }
-        // };
 
         match self.get_entry(&path).await? {
             Some(e) => {
