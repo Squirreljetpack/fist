@@ -66,6 +66,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(enter) => Action::Accept,
         key!(ctrl-enter), key!(alt-enter) => Action::Print("".into()),
         key!(tab) => [Action::Toggle, Action::Down(1)],
+        key!(ctrl-a) => Action::CycleAll,
 
         key!(right) => FsAction::Advance,
         key!(left) => FsAction::Parent,

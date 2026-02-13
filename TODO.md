@@ -163,6 +163,7 @@ better cli/env var handling: need a proc macro to generate a mirrored with every
 - prepopulate some directories: trash, desktop, home etc.
 - z . should probably start the navigator. Then a keybind can start the directory jumper.
 - escape single quoted filenames
+- z .. behavior assumes shell automatically cd into paths
 
 https://github.com/mmalecot/file-format
 https://github.com/unicode-org/icu4x : for table printing

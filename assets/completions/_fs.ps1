@@ -215,6 +215,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
         'fs;:tool;shell' {
             [CompletionResult]::new('--z-name', '--z-name', [CompletionResultType]::ParameterName, 'Name for jump function')
             [CompletionResult]::new('--z-dot-args', '--z-dot-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when z is invoked with a trailing `.`')
+            [CompletionResult]::new('--z-slash-args', '--z-slash-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when z is invoked with a trailing `./`')
             [CompletionResult]::new('--z-sort', '--z-sort', [CompletionResultType]::ParameterName, 'Default sort order for the interactive jump menu')
             [CompletionResult]::new('--open-name', '--open-name', [CompletionResultType]::ParameterName, 'Name for open function')
             [CompletionResult]::new('--open-cmd', '--open-cmd', [CompletionResultType]::ParameterName, 'Command used by open function')
@@ -236,6 +237,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
         'fs;:t;shell' {
             [CompletionResult]::new('--z-name', '--z-name', [CompletionResultType]::ParameterName, 'Name for jump function')
             [CompletionResult]::new('--z-dot-args', '--z-dot-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when z is invoked with a trailing `.`')
+            [CompletionResult]::new('--z-slash-args', '--z-slash-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when z is invoked with a trailing `./`')
             [CompletionResult]::new('--z-sort', '--z-sort', [CompletionResultType]::ParameterName, 'Default sort order for the interactive jump menu')
             [CompletionResult]::new('--open-name', '--open-name', [CompletionResultType]::ParameterName, 'Name for open function')
             [CompletionResult]::new('--open-cmd', '--open-cmd', [CompletionResultType]::ParameterName, 'Command used by open function')

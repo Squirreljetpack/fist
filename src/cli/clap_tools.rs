@@ -15,6 +15,9 @@ pub struct ShellCommand {
     /// Arguments passed to `fs ::` when z is invoked with a trailing `.`
     #[arg(long, default_value_t = String::from("-F"))]
     pub z_dot_args: String,
+    /// Arguments passed to `fs ::` when z is invoked with a trailing `./`
+    #[arg(long, default_value_t = String::from(""))]
+    pub z_slash_args: String,
     /// Default sort order for the interactive jump menu
     #[arg(long, default_value_t = DbSortOrder::atime)]
     pub z_sort: DbSortOrder,

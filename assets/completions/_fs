@@ -206,6 +206,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '--z-name=[Name for jump function]:Z_NAME:_default' \
 '--z-dot-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`.\`]:Z_DOT_ARGS:_default' \
+'--z-slash-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`./\`]:Z_SLASH_ARGS:_default' \
 '--z-sort=[Default sort order for the interactive jump menu]:Z_SORT:((name\:""
 atime\:""
 frecency\:"Weighted frequency + recency"
@@ -310,6 +311,7 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '--z-name=[Name for jump function]:Z_NAME:_default' \
 '--z-dot-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`.\`]:Z_DOT_ARGS:_default' \
+'--z-slash-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`./\`]:Z_SLASH_ARGS:_default' \
 '--z-sort=[Default sort order for the interactive jump menu]:Z_SORT:((name\:""
 atime\:""
 frecency\:"Weighted frequency + recency"

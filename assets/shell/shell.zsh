@@ -1,18 +1,31 @@
 function $${Z_NAME}() {
-  if (($# == 1)) && [ "$1" != . ] && [ "$1" != / ] && [ -d "$1" ]; then
-    cd "$1"
-    return
+  local line last
+
+  if (($# == 1)) && [ -d "$1" ]; then
+    case "$1" in
+      "." | "./" | "..") ;;
+      *)
+        cd "$1"
+        return
+      ;;
+    esac
   fi
 
-  local line last
   unset last
   if    [ $# -gt 0 ]
   then  eval last=\${$#}
   fi
 
   case "$last" in
-    "." | "./" | "..") $${BINARY_PATH} :: $${Z_DOT_ARGS} --no-read --cd -- $@ ;;
-    *)  $${BINARY_PATH} :dir --sort $${Z_SORT} --cd -- $@ ;;
+    "." | "..") $${BINARY_PATH} :: $${Z_DOT_ARGS} --no-read --cd -- $@ ;;
+    "./") $${BINARY_PATH} :: $${Z_SLASH_ARGS} --no-read --cd -- $@ ;;
+    *)
+      if (($# == 1)) && [ "$1" = ".." ]; then
+        $${BINARY_PATH} :: $${Z_DOT_ARGS} --no-read --cd -- ..
+      else
+        $${BINARY_PATH} :dir --sort $${Z_SORT} --cd -- $@
+      fi
+      ;;
   esac | {
     read -r line
     [ -n "$line" ] || return
@@ -28,19 +41,31 @@ function $${OPEN_NAME}() {
   if ! (( $# )); then
     $${BINARY_PATH} :t bump .
     $${OPEN_CMD} .
-  elif [ "${@: $#}" = "." ]; then
-    if (($# == 1)); then
-      FS_OPTS="opener='$${OPEN_CMD}' $FS_OPTS" $${BINARY_PATH}
-    else
-      z "${@:1:-1}" &&
-      FS_OPTS="opener='$${OPEN_CMD}' $FS_OPTS" $${BINARY_PATH}
-    fi
-  elif [[ -e $1 ]]; then
+  elif [ -e "$1" ] && { [ "$#" -ne 1 ] || [ "$1" != "." ] && [ "$1" != "./" ]; } then
     $${BINARY_PATH} :t bump -- $@
-    $${OPEN_CMD} $@:a
+    $${OPEN_CMD} $@
   else
-    z $@ &&
-    $${OPEN_CMD} .
+    local i len last
+
+    i=0 len=$#
+    for last; do
+      if [ $((i+=1)) = 1 ]; then set --; fi
+      if [ $i = $len ]; then break; fi
+      set -- "$@" "$last"
+    done
+
+    # treat arguments as keywords, browse/open best match
+    case "$last" in
+      ".")
+        FS_OPTS="opener='$${OPEN_CMD}' $FS_OPTS" $${BINARY_PATH} :: $${Z_DOT_ARGS} --no-read "${@}" .
+      ;;
+      "./")
+        FS_OPTS="opener='$${OPEN_CMD}' $FS_OPTS" $${BINARY_PATH} :: $${Z_SLASH_ARGS} --no-read "${@}" .
+      ;;
+      *)
+        z "$@" "$last" && $${OPEN_CMD} .
+      ;;
+    esac
   fi
 }
 

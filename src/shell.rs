@@ -6,6 +6,7 @@ pub fn print_shell(
     ShellCommand {
         z_name,
         z_dot_args,
+        z_slash_args,
         z_sort,
         open_name,
         open_cmd,
@@ -24,6 +25,7 @@ pub fn print_shell(
     let mut s = include_str!("../assets/shell/shell.zsh")
         .replacen("$${Z_NAME}", z_name, 1)
         .replace("$${Z_DOT_ARGS}", z_dot_args)
+        .replace("$${Z_SLASH_ARGS}", z_slash_args)
         .replace("$${Z_SORT}", z_sort.into())
         //
         .replacen("$${OPEN_NAME}", open_name, 1)

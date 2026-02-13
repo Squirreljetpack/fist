@@ -288,12 +288,6 @@ async fn handle_default(
             })
         });
 
-        let search_in_cwd = nav_pane
-            || cmd
-                .paths
-                .last_mut()
-                .is_some_and(|s| s.cmp_exc("..", ".".into()));
-
         // determine cwd
         let cwd = if cmd.paths.len() > 1
         // treat paths as zoxide args (since searching over multiple paths should be uncommon with --cd)
@@ -345,9 +339,11 @@ async fn handle_default(
         {
             // the z shell function passes through here when the last provided argument is ., .. or ./, corresponding to:
             // - `.`: search all directories in default_dir
-            // - `..`: same as 1, but default_dir is forced to cwd
+            // - `..` (only argument): same as 1, but default_dir is forced to cwd
             // - `./`: show all directories in current dir
             // ..which is analgous to the behavior !cmd.cd, except that the analgue of 3 is the no-arg branch rather than `./`
+
+            let search_in_cwd = nav_pane || cmd.paths[0].cmp_exc("..", ".".into());
 
             AbsPath::new_unchecked(if !search_in_cwd && cfg.global.fd.default_search_in_home {
                 __home()
@@ -382,10 +378,7 @@ async fn handle_default(
         // pattern specified
         let cwd = if cmd.paths.len() == 1 {
             // support `..` as a shorthand for 'search (any pattern in) current directory'
-            let search_in_cwd = cmd
-                .paths
-                .last_mut()
-                .is_some_and(|s| s.cmp_exc("..", ".".into()));
+            let search_in_cwd = cmd.paths[0].cmp_exc("..", ".".into());
 
             // last item is a pattern
             AbsPath::new_unchecked(
