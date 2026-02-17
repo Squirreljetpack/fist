@@ -14,7 +14,9 @@ use crate::db::{Connection, DbTable};
 use crate::errors::CliError;
 
 /// # note
-/// Relative paths are resolved relative to the initial cwd
+/// Relative paths are resolved relative to the initial cwd.
+/// detach is usually specified iff fs is not exiting afterward.
+/// todo: lowpri: option to silence stderr/stdout even when !detach?
 pub async fn open_wrapped(
     mut conn: Connection,
     prog: Option<Program>,

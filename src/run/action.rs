@@ -754,7 +754,10 @@ pub fn fsaction_handler(
             };
 
             // since in Nav pane, Advance is bound to edit cursor item, it's more useful to make the action always edit the menu item.
-            if matches!(preset, Preset::Edit) && STACK::nav_cwd().is_some() {
+            if matches!(preset, Preset::Edit)
+                && STACK::nav_cwd().is_some()
+                && state.current_raw().is_some_and(|x| x.path.is_file())
+            {
                 TEMP::set_that_execute_handler_should_process_cwd();
             }
 

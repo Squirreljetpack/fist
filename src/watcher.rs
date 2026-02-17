@@ -4,16 +4,14 @@ use notify::{
     Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher,
     event::ModifyKind,
 };
-use std::{
-    path::PathBuf,
-    time::{Duration, Instant},
-};
+use std::{path::PathBuf, time::Duration};
 use tokio::sync::watch;
 
 // ----------------- WatcherMessage -----------------
 #[derive(Debug)]
 pub enum WatcherMessage {
     Switch(PathBuf, RecursiveMode),
+    Reload,
     Pause,
 }
 
@@ -33,7 +31,7 @@ impl Default for WatcherConfig {
     fn default() -> Self {
         Self {
             fs_poll_ms: Duration::from_secs(2),
-            debounce_ms: Duration::from_millis(200),
+            debounce_ms: Duration::from_millis(100),
         }
     }
 }
@@ -41,6 +39,7 @@ impl Default for WatcherConfig {
 // ----------------- Watcher -----------------
 pub struct FsWatcher {
     path_rx: watch::Receiver<WatcherMessage>,
+    path_tx: watch::Sender<WatcherMessage>,
     current_path: Option<PathBuf>,
     pub config: WatcherConfig,
     render_tx: RenderSender<FsAction>,
@@ -57,6 +56,7 @@ impl FsWatcher {
         let (path_tx, path_rx) = watch::channel(WatcherMessage::Pause);
         let watcher_struct = Self {
             path_rx,
+            path_tx: path_tx.clone(),
             current_path: None,
             config,
             render_tx,
@@ -64,75 +64,81 @@ impl FsWatcher {
         (watcher_struct, path_tx)
     }
 
-    // todo: directly send events to thread to impl edge debouncing
-    /// Start the filesystem watcher on a seperate thread, then listen for events to change the watched directory.
-    pub fn spawn(mut self) -> notify::Result<()> {
-        // create config
+    // start watcher, returning a handle
+    pub fn start_watcher(&self) -> Result<RecommendedWatcher, notify::Error> {
+        let watcher_tx = self.path_tx.clone();
         let notify_config = Config::default().with_poll_interval(self.config.fs_poll_ms);
-        let mut last_event = Instant::now();
 
-        // start watcher
-        let mut watcher = RecommendedWatcher::new(
-            {
-                move |res: Result<Event, notify::Error>| {
-                    if let Ok(event) = res {
-                        match event.kind {
-                            EventKind::Create(_)
-                            | EventKind::Modify(ModifyKind::Name(_))
-                            | EventKind::Remove(_) => {
-                                log::debug!("WatcherEvent: {:?}", event.kind);
-
-                                // todo: async to preserve last event
-                                let now = Instant::now();
-                                if now.duration_since(last_event) < self.config.debounce_ms {
-                                    return;
-                                }
-                                last_event = now;
-
-                                let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(
-                                    FsAction::SaveInput,
-                                )));
-                                let _ = self
-                                    .render_tx
-                                    .send(RenderCommand::Action(Action::Custom(FsAction::Reload)));
-                            }
-                            _ => {}
+        RecommendedWatcher::new(
+            move |res: Result<Event, notify::Error>| {
+                if let Ok(event) = res {
+                    match event.kind {
+                        EventKind::Create(_)
+                        | EventKind::Modify(ModifyKind::Name(_))
+                        | EventKind::Remove(_) => {
+                            log::debug!("WatcherEvent: {:?}", event.kind);
+                            let _ = watcher_tx.send(WatcherMessage::Reload);
                         }
+                        _ => {}
                     }
                 }
             },
             notify_config,
-        )?;
+        )
+    }
+
+    /// Start the filesystem watcher on a seperate thread, then listen for events to change the watched directory.
+    pub fn spawn(mut self) -> notify::Result<()> {
+        let mut watcher = self.start_watcher()?;
 
         tokio::spawn(async move {
-            while self.path_rx.changed().await.is_ok() {
-                match &*self.path_rx.borrow() {
-                    WatcherMessage::Switch(new_path, recursive_mode) => {
-                        match &mut self.current_path {
-                            None => {
-                                // Watch new directory non-recursively
-                                let _ = watcher.watch(new_path, *recursive_mode);
-                                self.current_path = Some(new_path.clone());
+            let debounce_timer = tokio::time::sleep(Duration::from_secs(3600 * 24 * 365));
+            tokio::pin!(debounce_timer);
+            let mut pending_reload = false;
 
-                                log::debug!("Watching: {:?}", new_path);
-                            }
-                            Some(old_path) => {
-                                if new_path != old_path {
-                                    let _ = watcher.unwatch(old_path);
-
-                                    // Watch new directory non-recursively
-                                    let _ = watcher.watch(new_path, *recursive_mode);
-                                    *old_path = new_path.clone();
-
-                                    log::debug!("Watching: {:?}", new_path);
+            loop {
+                tokio::select! {
+                    res = self.path_rx.changed() => {
+                        if res.is_err() { break; }
+                        let msg = self.path_rx.borrow_and_update();
+                        match &*msg {
+                            WatcherMessage::Switch(new_path, recursive_mode) => {
+                                match &mut self.current_path {
+                                    None => {
+                                        let _ = watcher.watch(new_path, *recursive_mode);
+                                        self.current_path = Some(new_path.clone());
+                                        log::debug!("Watching: {:?}", new_path);
+                                    }
+                                    Some(old_path) => {
+                                        if new_path != old_path {
+                                            let _ = watcher.unwatch(old_path);
+                                            let _ = watcher.watch(new_path, *recursive_mode);
+                                            *old_path = new_path.clone();
+                                            log::debug!("Watching: {:?}", new_path);
+                                        }
+                                    }
                                 }
+                                pending_reload = false
+                            }
+                            WatcherMessage::Pause => {
+                                if let Some(old_path) = self.current_path.take() {
+                                    let _ = watcher.unwatch(&old_path);
+                                }
+                                pending_reload = false
+                            }
+                            WatcherMessage::Reload => {
+                                pending_reload = true;
+                                debounce_timer.as_mut().reset(tokio::time::Instant::now() + self.config.debounce_ms);
                             }
                         }
                     }
-                    WatcherMessage::Pause => {
-                        if let Some(old_path) = self.current_path.take() {
-                            let _ = watcher.unwatch(&old_path);
-                        }
+                    _ = &mut debounce_timer, if pending_reload => {
+                        // debounce_timer expires, send events
+                        pending_reload = false;
+                        debounce_timer.as_mut().reset(tokio::time::Instant::now() + Duration::from_secs(3600 * 24 * 365));
+
+                        let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::SaveInput)));
+                        let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::Reload)));
                     }
                 }
             }
