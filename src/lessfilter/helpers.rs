@@ -33,7 +33,7 @@ pub fn is_metadata(cmd: &Vec<OsString>) -> bool {
 }
 
 pub fn metadata_viewer(path: &Path) -> Vec<OsString> {
-    vec_![""]
+    vec_![: ""]
 }
 
 // don't show header when printing to tty
@@ -180,7 +180,7 @@ fn infer_chafa_format() -> &'static str {
 }
 
 pub fn image_viewer(path: &Path) -> Vec<OsString> {
-    vec_!["chafa", "-f", infer_chafa_format(), path]
+    vec_![: "chafa", "-f", infer_chafa_format(), path]
 }
 
 pub fn infer_visual(path: &Path) -> Vec<OsString> {

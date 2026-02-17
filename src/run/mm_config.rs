@@ -29,6 +29,9 @@ pub struct MMConfig {
     // configure the ui
     #[serde(default, flatten)]
     pub render: RenderConfig,
+    /// Base overlay style
+    #[serde(default)]
+    pub overlay: OverlayConfig,
 
     // overlays
     #[serde(default)]
@@ -154,7 +157,6 @@ pub fn get_mm_cfg(
         preview,
         footer,
         header,
-        overlay,
     } = &mut mm_cfg.render;
 
     results.multi_prefix = results.multi_prefix.chars().next().unwrap_or('▌').into(); // single width
@@ -186,12 +188,6 @@ pub fn get_mm_cfg(
 
         preview.layout = vec![PreviewSetting { layout, command }]
     }
-
-    // Overlay
-    mm_cfg.render.overlay = Some(mm_cfg.render.overlay.unwrap_or(OverlayConfig {
-        outer_dim: false,
-        ..Default::default()
-    }));
 
     // non-fullscreen by default
     if mm_cfg.tui.layout.is_none() {

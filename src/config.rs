@@ -9,14 +9,21 @@ use cli_boilerplate_automation::{
 };
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{cli::paths::*, lessfilter::Preset, spawn::menu_action::MenuActions};
 use crate::{
-    cli::paths::{liza_path, text_renderer_path},
+    cli::{
+        ClapStyleSetting,
+        paths::{liza_path, text_renderer_path},
+    },
     db::zoxide::HistoryConfig,
     filters::*,
     run::FsPane,
     ui::styles_config::StyleConfig,
     watcher::WatcherConfig,
+};
+use crate::{
+    cli::{CliOpts, paths::*},
+    lessfilter::Preset,
+    spawn::menu_action::MenuActions,
 };
 // ------ CONFIG ------
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -118,6 +125,44 @@ impl Config {
                 {
                     ibog!("{} saved to: {}", path.filename(), path.to_string_lossy());
                 }
+            }
+        }
+    }
+
+    pub fn override_from(
+        &mut self,
+        cli: &CliOpts,
+    ) {
+        let style = &mut self.styles.path;
+        match cli.style {
+            ClapStyleSetting::Auto => {
+                // leave config unchanged
+            }
+            ClapStyleSetting::None => {
+                style.file_icons = false;
+                style.file_colors = false;
+                style.dir_icons = false;
+                style.dir_colors = false;
+            }
+            ClapStyleSetting::Icons => {
+                style.file_icons = true;
+                style.dir_icons = true;
+
+                style.file_colors = false;
+                style.dir_colors = false;
+            }
+            ClapStyleSetting::Colors => {
+                style.file_icons = false;
+                style.dir_icons = false;
+
+                style.file_colors = true;
+                style.dir_colors = true;
+            }
+            ClapStyleSetting::All => {
+                style.file_icons = true;
+                style.file_colors = true;
+                style.dir_icons = true;
+                style.dir_colors = true;
             }
         }
     }

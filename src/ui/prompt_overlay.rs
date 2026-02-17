@@ -25,7 +25,7 @@ impl Default for PromptConfig {
     fn default() -> Self {
         Self {
             border: BorderSetting {
-                sides: Borders::ALL,
+                sides: Some(Borders::ALL),
                 ..Default::default()
             },
             prompt: String::new(),

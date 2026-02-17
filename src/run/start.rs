@@ -109,6 +109,7 @@ pub async fn start(
         prompt,
         menu,
         tui,
+        overlay,
     } = mm_cfg;
     log::debug!("cfg: {cfg:?}");
 

@@ -36,7 +36,11 @@ use crate::{
     },
     errors::CliError,
     filters::{SortOrder, Visibility},
-    find::{FileTypeArg, fd::build_fd_args, walker::list_dir},
+    find::{
+        FileTypeArg,
+        fd::{auto_enable_hidden, build_fd_args},
+        walker::list_dir,
+    },
     lessfilter,
     run::{
         FsPane,
@@ -338,7 +342,7 @@ async fn handle_default(
             // - `..` (only argument): same as 1, but default_dir is forced to cwd
             // - `./`: show all directories in current dir
             // ..which is analgous to the behavior !cmd.cd, except that the analgue of 3 is the no-arg branch rather than `./`
-
+            // Note: another parsing approach is tor replace initial .. to . but that seems more confusing.
             let search_in_cwd = nav_pane || cmd.paths[0].cmp_exc("..", ".".into());
 
             AbsPath::new_unchecked(if !search_in_cwd && cfg.global.fd.default_search_in_home {
@@ -408,6 +412,10 @@ async fn handle_default(
         }
 
         if cmd.list {
+            if auto_enable_hidden(&cmd.paths) {
+                cmd.vis.hidden = true;
+            }
+
             let (prog, args) = (
                 "fd",
                 build_fd_args(

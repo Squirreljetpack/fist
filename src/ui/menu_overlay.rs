@@ -35,7 +35,7 @@ impl Default for MenuConfig {
         Self {
             border: BorderSetting {
                 title: "Menu".into(),
-                sides: Borders::ALL,
+                sides: Some(Borders::ALL),
                 padding: Padding::symmetric(2, 1),
                 ..Default::default()
             },

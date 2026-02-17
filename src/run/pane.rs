@@ -26,13 +26,17 @@ use crate::{
     cli::DefaultCommand,
     db::{DbSortOrder, DbTable},
     filters::{SortOrder, Visibility},
-    find::{FileTypeArg, apps::collect_apps, fd::build_fd_args, walker::list_dir},
+    find::{
+        FileTypeArg,
+        apps::collect_apps,
+        fd::{auto_enable_hidden, build_fd_args},
+        walker::list_dir,
+    },
     run::{
         FsAction,
         item::PathItem,
         start::FsInjector,
-        state::APP,
-        state::{GLOBAL, STACK},
+        state::{APP, GLOBAL, STACK},
     },
 };
 use crate::{config::GlobalConfig, utils::size::sort_by_size};
@@ -144,26 +148,21 @@ impl FsPane {
     }
 
     pub fn new_fd_from_command(
-        cmd: DefaultCommand,
+        mut cmd: DefaultCommand,
         cwd: AbsPath,
     ) -> Self {
+        if auto_enable_hidden(&cmd.paths) {
+            cmd.vis.hidden = true;
+        }
+
         let DefaultCommand {
             sort,
-            mut vis,
+            vis,
             types,
             paths,
             fd,
             ..
         } = cmd;
-
-        // autoenable hidden for alphanumeric patterns beginning with .
-        // hidden is not auto-enabled for the escaped prefix \. because it's plausible that's used to search for non-hidden extensions
-        if paths.last().and_then(|s| s.to_str()).is_some_and(|s| {
-            let mut chars = s.chars();
-            chars.next() == Some('.') && chars.all(|c| c.is_alphanumeric())
-        }) {
-            vis.hidden = true;
-        }
 
         Self::Fd {
             cwd,

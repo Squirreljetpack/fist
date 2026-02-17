@@ -74,7 +74,7 @@ _fs() {
 
     case "${cmd}" in
         fs)
-            opts="-V --verbosity --override --config --mm-config --dump-config --help --version :open :o :file :dir :fd :: :rg : :tool :t :info"
+            opts="-V --verbosity --override --config --mm-config --dump-config --style --help --version :open :o :file :dir :fd :: :rg : :tool :t :info"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -96,6 +96,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -104,7 +108,7 @@ _fs() {
             return 0
             ;;
         fs__:dir)
-            opts="-l --sort --list --cd --help --verbosity --override --config --mm-config [QUERY]..."
+            opts="-l --sort --list --cd --help --verbosity --override --config --mm-config --style [QUERY]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -138,6 +142,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -146,7 +154,7 @@ _fs() {
             return 0
             ;;
         fs__:fd)
-            opts="-h -I -a -F -f -t --sort --types --list --no-read --list-fmt --cd --help --verbosity --override --config --mm-config [PATHS]... [FD_ARGS]..."
+            opts="-h -I -a -F -f -t --sort --types --list --no-read --list-fmt --cd --help --verbosity --override --config --mm-config --style [PATHS]... [FD_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -184,6 +192,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -192,7 +204,7 @@ _fs() {
             return 0
             ;;
         fs__:file)
-            opts="-l --sort --list --query --help --verbosity --override --config --mm-config"
+            opts="-l --sort --list --query --help --verbosity --override --config --mm-config --style"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -230,6 +242,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -238,7 +254,7 @@ _fs() {
             return 0
             ;;
         fs__:info)
-            opts="-l -m --sort --limit --minimal --help --verbosity --override --config --mm-config apps files dirs"
+            opts="-l -m --sort --limit --minimal --help --verbosity --override --config --mm-config --style apps files dirs"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -272,6 +288,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -280,7 +300,7 @@ _fs() {
             return 0
             ;;
         fs__:open)
-            opts="-w --with --list --help --verbosity --override --config --mm-config [FILES]..."
+            opts="-w --with --list --help --verbosity --override --config --mm-config --style [FILES]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -310,6 +330,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -318,7 +342,7 @@ _fs() {
             return 0
             ;;
         fs__:rg)
-            opts="-h -I -a -F -f --query --help --verbosity --override --config --mm-config"
+            opts="-h -I -a -F -f --query --help --verbosity --override --config --mm-config --style"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -344,6 +368,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -352,7 +380,7 @@ _fs() {
             return 0
             ;;
         fs__:tool)
-            opts="--help --verbosity --override --config --mm-config [ARGS]... colors liza shell lessfilter bump types"
+            opts="--help --verbosity --override --config --mm-config --style [ARGS]... colors liza shell lessfilter bump types"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -374,6 +402,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -382,7 +414,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__bump)
-            opts="-g -c --glob --count --reset --verbosity --override --config --mm-config [PATHS]... apps files dirs"
+            opts="-g -c --glob --count --reset --verbosity --override --config --mm-config --style [PATHS]... apps files dirs"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -420,6 +452,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -428,7 +464,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__colors)
-            opts="--verbosity --override --config --mm-config"
+            opts="--verbosity --override --config --mm-config --style"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -450,6 +486,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -458,7 +498,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__lessfilter)
-            opts="--header --verbosity --override --config --mm-config preview display extended info open alternate edit [PATHS]..."
+            opts="--header --verbosity --override --config --mm-config --style preview display extended info open alternate edit [PATHS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -484,6 +524,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -492,7 +536,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__liza)
-            opts="--verbosity --override --config --mm-config [ARGS]..."
+            opts="--verbosity --override --config --mm-config --style [ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -514,6 +558,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -522,7 +570,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__shell)
-            opts="--z-name --z-dot-args --z-slash-args --z-sort --open-name --open-cmd --dir-widget-bind --file-widget-bind --rg-widget-bind --file-open-cmd --rg-open-cmd --dir-widget-args --file-widget-args --rg-widget-args --aliases --shell --verbosity --override --config --mm-config"
+            opts="--z-name --z-dot-args --z-slash-args --z-sort --open-name --open-cmd --dir-widget-bind --file-widget-bind --rg-widget-bind --file-open-cmd --rg-open-cmd --dir-widget-args --file-widget-args --rg-widget-args --aliases --shell --verbosity --override --config --mm-config --style"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -604,6 +652,10 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -612,7 +664,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__types)
-            opts="--verbosity --override --config --mm-config"
+            opts="--verbosity --override --config --mm-config --style"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -632,6 +684,10 @@ _fs() {
                     ;;
                 --mm-config)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons colors none all auto" -- "${cur}"))
                     return 0
                     ;;
                 *)

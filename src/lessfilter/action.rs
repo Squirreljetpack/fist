@@ -73,7 +73,7 @@ impl Action {
                     Action::Directory | Action::Text | Action::Image | Action::Metadata
                 ) {
                     return (
-                        arr![vec_![current_exe(), ":open", "--", path]],
+                        arr![vec_![: current_exe(), ":open", "--", path]],
                         [true, false, false],
                     );
                 }
@@ -84,22 +84,22 @@ impl Action {
         match self {
             Action::Directory => match preset {
                 Preset::Preview => (
-                    arr![vec_![current_exe(), ":tool", "liza", ":u2", path]],
+                    arr![vec_![: current_exe(), ":tool", "liza", ":u2", path]],
                     [true, false, true], // read + execute
                 ),
                 Preset::Display => (
-                    arr![vec_![current_exe(), ":tool", "liza", ":u", path]],
+                    arr![vec_![: current_exe(), ":tool", "liza", ":u", path]],
                     [true, false, true],
                 ),
                 Preset::Extended => (
                     arr![
                         header_viewer(path),
-                        vec_![current_exe(), ":tool", "liza", ":sba", path]
+                        vec_![: current_exe(), ":tool", "liza", ":sba", path]
                     ],
                     [true, false, true],
                 ),
                 Preset::Info => (
-                    arr![vec_![current_exe(), ":tool", "liza", ":l", path]],
+                    arr![vec_![: current_exe(), ":tool", "liza", ":l", path]],
                     [true, false, true],
                 ),
                 Preset::Edit => (arr![infer_visual(path)], [true, false, true]),
@@ -107,7 +107,7 @@ impl Action {
             },
             Action::Text => match preset {
                 Preset::Preview | Preset::Display => (
-                    arr![vec_![text_renderer_path(), path]],
+                    arr![vec_![: text_renderer_path(), path]],
                     [true, false, false],
                 ),
                 // another approach is to enable the "native" header in the handler:
@@ -118,7 +118,7 @@ impl Action {
                 Preset::Extended => (
                     arr![
                         header_viewer(path),
-                        vec_![text_renderer_path(), path],
+                        vec_![: text_renderer_path(), path],
                         metadata_viewer(path)
                     ],
                     [true, false, false],
@@ -145,7 +145,7 @@ impl Action {
                     [true, false, false],
                 ),
                 Preset::Edit => (
-                    arr![vec_![current_exe(), ":open", "--", path]],
+                    arr![vec_![: current_exe(), ":open", "--", path]],
                     [true, false, false],
                 ),
                 Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
@@ -158,20 +158,20 @@ impl Action {
                 ),
                 Preset::Info => (
                     arr![
-                        vec_![current_exe(), ":tool", "liza", ":l", path],
+                        vec_![: current_exe(), ":tool", "liza", ":l", path],
                         metadata_viewer(path)
                     ],
                     [true, false, true],
                 ),
                 Preset::Edit => (
-                    arr![vec_![show_error_path(), "No handler configured."]],
+                    arr![vec_![: show_error_path(), "No handler configured."]],
                     [true, false, false],
                 ),
                 _ => (arr![metadata_viewer(path)], [true, false, false]),
             },
 
             Action::Open => (
-                arr![vec_![current_exe(), ":open", "--", path]],
+                arr![vec_![: current_exe(), ":open", "--", path]],
                 [false, false, false],
             ),
             Action::Header => (arr![header_viewer(path)], [true, false, false]),

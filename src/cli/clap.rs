@@ -1,6 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use clap::{ArgAction, Parser, Subcommand, error::ErrorKind};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum, error::ErrorKind};
 
 use crate::{
     cli::{
@@ -116,6 +116,20 @@ If the output was detected to have been redirected, this prints the main configu
 Otherwise, this WILL OVERWRITE your main config."#
     )]
     pub dump_config: bool,
+
+    #[arg(long, global = true, default_value_t)]
+    pub style: ClapStyleSetting,
+}
+
+#[derive(Debug, ValueEnum, Default, Clone, strum_macros::Display)]
+#[strum(serialize_all = "lowercase")]
+pub enum ClapStyleSetting {
+    Icons,
+    Colors,
+    None,
+    All,
+    #[default]
+    Auto,
 }
 
 impl CliOpts {

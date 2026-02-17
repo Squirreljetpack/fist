@@ -137,6 +137,8 @@ Per-pane extensions:
 # CLI
 
 better cli/env var handling: need a proc macro to generate a mirrored with every concrete value wrapped in option, then a fn to merge that config into the main config
+support mm-partial somehow to specify ui styling?
+
 
 # CD
 
