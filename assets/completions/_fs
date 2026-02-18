@@ -118,7 +118,7 @@ _arguments "${_arguments_options[@]}" : \
 '--no-read[Never stream input from stdin]' \
 '--cd[print the first match]' \
 '--help[]' \
-'*::paths -- Paths to search in. (Default\: ~):_default' \
+'*::paths -- Paths to search in. Searches the current directory if none specified (and not otherwise configured):_default' \
 && ret=0
 ;;
 (::)
@@ -141,7 +141,7 @@ _arguments "${_arguments_options[@]}" : \
 '--no-read[Never stream input from stdin]' \
 '--cd[print the first match]' \
 '--help[]' \
-'*::paths -- Paths to search in. (Default\: ~):_default' \
+'*::paths -- Paths to search in. Searches the current directory if none specified (and not otherwise configured):_default' \
 && ret=0
 ;;
 (:rg)
