@@ -126,7 +126,7 @@ pub async fn start(
         tui,
         &cfg,
         print_handle.clone(),
-        pane.stability_multiplier(),
+        pane.stability_threshold(),
     );
 
     // init previewer

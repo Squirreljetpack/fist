@@ -1,5 +1,8 @@
 [panes.nav]
     show_preview = true
 
+[panes.fd]
+    on_leave_unset_dirs_only = true
+
 [misc]
     append_mode_logging = true

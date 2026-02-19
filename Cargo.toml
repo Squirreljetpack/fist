@@ -89,3 +89,6 @@
 
 [patch.crates-io]
     nucleo = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }
+
+[lints]
+    allow = [ "clippy::single_match" ]

@@ -7,7 +7,7 @@ use log::{self};
 use crate::{
     db::DbSortOrder,
     filters::{SortOrder, Visibility},
-    run::{FsAction, FsPane, state::STACK, state::GLOBAL},
+    run::{FsAction, FsPane, state::GLOBAL, state::STACK},
 };
 
 thread_local! {
@@ -47,6 +47,13 @@ impl FILTERS {
     ) {
         SORT.with(|cell| {
             *cell.borrow_mut() = (sort, vis);
+        });
+    }
+
+    pub fn with_vis_mut<F: FnOnce(&mut Visibility)>(f: F) {
+        SORT.with(|cell| {
+            let mut borrow = cell.borrow_mut();
+            f(&mut borrow.1); // borrow.1 is the Visibility
         });
     }
 

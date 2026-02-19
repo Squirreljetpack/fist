@@ -91,7 +91,6 @@ maybe when given paths which don't exist on cli, find should treat the query as 
 - Wrap the default command sort/visibility fields in option with optional struct, add config-powered default values and merge from those.
 
 - nav ignore?
-- option to untoggle directory filter after leaving
 
 # Menu overlay
 
@@ -139,7 +138,6 @@ Per-pane extensions:
 
 better cli/env var handling: need a proc macro to generate a mirrored with every concrete value wrapped in option, then a fn to merge that config into the main config
 support mm-partial somehow to specify ui styling?
-
 
 # CD
 

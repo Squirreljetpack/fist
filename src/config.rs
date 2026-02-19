@@ -368,6 +368,8 @@ pub struct FdPaneSettings {
     // ----------------------------
     /// Default visibility when no visibility is specified.
     pub default_visibility: Visibility,
+    /// When leaving the fd pane, untoggle the `only show directories` visibility filter.
+    pub on_leave_unset_dirs_only: bool,
 }
 
 impl Default for FdPaneSettings {
@@ -378,6 +380,7 @@ impl Default for FdPaneSettings {
             enter_prompt: true,
 
             default_visibility: Default::default(),
+            on_leave_unset_dirs_only: false,
         }
     }
 }

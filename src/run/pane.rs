@@ -235,7 +235,7 @@ impl FsPane {
     }
 
     #[inline]
-    pub fn stability_multiplier(&self) -> u32 {
+    pub fn stability_threshold(&self) -> u32 {
         // 0 -> always sort
         match self {
             FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Launch { .. } => 5,
