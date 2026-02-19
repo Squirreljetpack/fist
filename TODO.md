@@ -91,6 +91,7 @@ maybe when given paths which don't exist on cli, find should treat the query as 
 - Wrap the default command sort/visibility fields in option with optional struct, add config-powered default values and merge from those.
 
 - nav ignore?
+- option to untoggle directory filter after leaving
 
 # Menu overlay
 

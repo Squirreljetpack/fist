@@ -7,7 +7,7 @@
     description  = "Fist: Interactive Search Tool"
 
 [dependencies]
-    cli_boilerplate_automation = { version = "0.0.10", features = [ "text", "serde" ] }
+    cli_boilerplate_automation = { version = "0.0", features = [ "text", "serde" ] }
     matchmaker-lib             = { version = "0.0", features = [ "bracketed-paste", "experimental" ] }
 
     # tui + text

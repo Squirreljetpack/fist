@@ -175,17 +175,17 @@ pub fn fsaction_aliaser(
             }
             FsAction::SetHeader(text) => {
                 if let Some(text) = text {
-                    state.picker_ui.header.set(text);
+                    state.picker_ui.header.set(text, true);
                 } else {
-                    state.picker_ui.header.clear();
+                    state.picker_ui.header.clear(true);
                 }
                 acs![]
             }
             FsAction::SetFooter(text) => {
                 if let Some(text) = text {
-                    state.footer_ui.set(text);
+                    state.footer_ui.set(text, false);
                 } else {
-                    state.footer_ui.clear();
+                    state.footer_ui.clear(false);
                 }
                 acs![]
             }

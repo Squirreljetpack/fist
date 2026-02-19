@@ -361,7 +361,7 @@ async fn handle_default(
             // - `./`: show all directories in current dir
             // ..which is analgous to the behavior !cmd.cd, except that the analgue of 3 is the no-arg branch rather than `./`
             // Note: another parsing approach is tor replace initial .. to . but that seems more confusing.
-            let force_search_in_cwd = nav_pane || cmd.paths[0].cmp_exch("..", ".".into());
+            let force_search_in_cwd = nav_pane || cmd.paths[0].cmp_exc("..", ".".into());
 
             AbsPath::new_unchecked(
                 if !force_search_in_cwd && cfg.global.fd.default_search_in_home {
@@ -401,7 +401,7 @@ async fn handle_default(
             }
 
             // support `..` as a shorthand for 'search (any pattern in) current directory'
-            let force_search_in_cwd = cmd.paths[0].cmp_exch("..", ".".into());
+            let force_search_in_cwd = cmd.paths[0].cmp_exc("..", ".".into());
 
             // last item is a pattern
             AbsPath::new_unchecked(
