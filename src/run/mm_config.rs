@@ -1,11 +1,11 @@
 use std::path::Path;
 
-use cli_boilerplate_automation::{bo::load_type_or_default, bother::types::When};
+use cli_boilerplate_automation::bo::load_type_or_default;
 use matchmaker::{
     binds::BindMap,
     config::{
         DisplayConfig, OverlayConfig, Percentage, PreviewSetting, RenderConfig, RowConnectionStyle,
-        TerminalConfig, TerminalLayoutSettings,
+        TerminalConfig, TerminalLayoutSettings, When,
     },
     nucleo::nucleo,
 };

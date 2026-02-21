@@ -83,6 +83,8 @@ async fn handle_open(
     cmd: OpenCmd,
     mut cfg: Config,
 ) -> Result<(), CliError> {
+    let pool = Pool::new(cfg.db_path()).await?;
+
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
         *APP::TO_OPEN.lock().unwrap() = cmd.files;
@@ -91,10 +93,8 @@ async fn handle_open(
 
         let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
 
-        let pool = Pool::new(cfg.db_path()).await?;
         start(pane, cfg, mm_cfg, pool).await
     } else {
-        let pool = Pool::new(cfg.db_path()).await?;
         let conn = pool.get_conn(DbTable::apps).await?;
 
         let prog = cmd.with.and_then(Program::from_os_string);
@@ -361,7 +361,7 @@ async fn handle_default(
             // - `./`: show all directories in current dir
             // ..which is analgous to the behavior !cmd.cd, except that the analgue of 3 is the no-arg branch rather than `./`
             // Note: another parsing approach is tor replace initial .. to . but that seems more confusing.
-            let force_search_in_cwd = nav_pane || cmd.paths[0].cmp_exc("..", ".".into());
+            let force_search_in_cwd = nav_pane || cmd.paths[0].cmp_exch("..", ".".into());
 
             AbsPath::new_unchecked(
                 if !force_search_in_cwd && cfg.global.fd.default_search_in_home {
@@ -401,7 +401,7 @@ async fn handle_default(
             }
 
             // support `..` as a shorthand for 'search (any pattern in) current directory'
-            let force_search_in_cwd = cmd.paths[0].cmp_exc("..", ".".into());
+            let force_search_in_cwd = cmd.paths[0].cmp_exch("..", ".".into());
 
             // last item is a pattern
             AbsPath::new_unchecked(
@@ -432,8 +432,10 @@ async fn handle_default(
 
         // bump paths in db
         let paths = cmd.paths[..cmd.paths.len().saturating_sub(1)].to_vec();
+
+        let pool_clone = pool.clone();
         tokio::spawn(async move {
-            if let Ok(mut conn) = pool.get_conn(DbTable::dirs).await {
+            if let Ok(mut conn) = pool_clone.get_conn(DbTable::dirs).await {
                 for path in paths {
                     conn.bump(AbsPath::new(path), 1).await._elog();
                 }
@@ -530,7 +532,6 @@ async fn handle_default(
     };
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-    let pool = Pool::new(cfg.db_path()).await?;
     start(pane, cfg, mm_cfg, pool).await
 }
 

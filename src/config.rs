@@ -3,10 +3,10 @@ use cli_boilerplate_automation::{
     bath::{PathExt, RenamePolicy},
     bo::write_str,
     bog::BogOkExt,
-    bother::types::When,
     bs::{create_dir, set_executable},
     ibog,
 };
+use matchmaker::config::When;
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
@@ -235,13 +235,15 @@ impl Default for InterfaceConfig {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PanesSettings {
+    pub display_script_simultaneous_count: usize,
     pub display_script_batch_size: usize,
 }
 
 impl Default for PanesSettings {
     fn default() -> Self {
         Self {
-            display_script_batch_size: 15,
+            display_script_simultaneous_count: 15,
+            display_script_batch_size: 1000,
         }
     }
 }

@@ -71,7 +71,10 @@ transparent advance into compressed files
 
 # Rg
 
-- how to display it comfortably?
+- Header as query stash
+- multiline items
+- parse text blocks split by ---
+  - rhs Text, if multiline, be displayed on seperate lines as opposed to a column
 - Allow configuring tokens from actions
 
 # Global Filters
@@ -80,6 +83,9 @@ transparent advance into compressed files
 
 - Better column sizing, display paths from end
 - Table editing
+
+# Disk
+- Size tree
 
 # FD
 

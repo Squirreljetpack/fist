@@ -8,6 +8,9 @@ use crate::utils::text::split_whitespace_keep_single_quotes;
 pub struct EnvOpts {
     pub ancestor: Option<usize>,
     pub opener: Option<String>,
+    // - "display":
+    // - "display-batch": This script is run on `panes.settings.display_script_batch_size` items at once. Each item provides 2 arguments: its full path, and the tail
+    // Strongly recommended to supply "display-batch" for performance.
     pub display: Option<Result<String, String>>,
     pub delim: Option<char>,
 }

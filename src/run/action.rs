@@ -3,12 +3,11 @@
 
 use std::path::PathBuf;
 
-use cli_boilerplate_automation::{
-    bait::ResultExt, bath::PathExt, bother::types::When, prints, unwrap, wbog,
-};
+use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt, prints, unwrap, wbog};
 use matchmaker::{
     acs,
     action::{Action, Actions},
+    config::When,
     message::Interrupt,
     nucleo::{Color, Modifier, Span, Style},
 };

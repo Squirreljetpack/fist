@@ -85,6 +85,7 @@ fn init_logger(
     log_path: PathBuf,
     append: bool,
 ) {
+    use log::LevelFilter;
     bog::init_bogger(true, true);
     bog::init_filter(verbosity);
 
@@ -96,10 +97,10 @@ fn init_logger(
         #[cfg(debug_assertions)]
         {
             builder
-                .filter(None, log::LevelFilter::Info)
-                .filter(Some("nucleo"), log::LevelFilter::Debug)
-                .filter(Some("matchmaker"), log::LevelFilter::Debug)
-                .filter(Some(BINARY_FULL), log::LevelFilter::Trace);
+                .filter(None, LevelFilter::Info)
+                .filter(Some("nucleo"), LevelFilter::Debug)
+                .filter(Some("matchmaker"), LevelFilter::Debug)
+                .filter(Some(BINARY_FULL), LevelFilter::Trace);
         }
         #[cfg(not(debug_assertions))]
         {
@@ -111,7 +112,8 @@ fn init_logger(
             let level = cli_boilerplate_automation::bother::level_filter::from_env();
 
             builder
-                .filter(Some("nucleo"), log::LevelFilter::Trace)
+                .filter(Some("sqlx"), LevelFilter::Trace)
+                .filter(Some("nucleo"), LevelFilter::Trace)
                 .filter(Some("matchmaker"), level)
                 .filter(Some(BINARY_FULL), level);
         }

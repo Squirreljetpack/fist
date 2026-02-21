@@ -94,7 +94,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -105,7 +105,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -460,9 +460,25 @@ checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 
 [[package]]
 name = "cli_boilerplate_automation"
-version = "0.0.10"
+version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19f5c7ef6477c10fc72161f9aa1c29320e766a85d61895553433c2e3bb7d4321"
+checksum = "e2070fb9235303cd8c8bc91bbe1d72b48df77aab7e10e52333e70297eb96a142"
+dependencies = [
+ "anyhow",
+ "cfg-if",
+ "dirs",
+ "easy-ext",
+ "libc",
+ "log",
+ "serde",
+ "thiserror 2.0.18",
+ "unicode-width 0.1.14",
+ "which",
+]
+
+[[package]]
+name = "cli_boilerplate_automation"
+version = "0.0.12"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -875,7 +891,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1041,7 +1057,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1170,7 +1186,7 @@ dependencies = [
  "chrono",
  "clap",
  "clap_complete",
- "cli_boilerplate_automation",
+ "cli_boilerplate_automation 0.0.11",
  "comfy-table",
  "crossterm 0.29.0",
  "dirs",
@@ -2137,7 +2153,7 @@ dependencies = [
  "bitflags 2.11.0",
  "bitflags-derive",
  "boxcar",
- "cli_boilerplate_automation",
+ "cli_boilerplate_automation 0.0.12",
  "crokey",
  "crossterm 0.29.0",
  "easy-ext",
@@ -3176,7 +3192,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.11.0",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3742,7 +3758,7 @@ dependencies = [
  "getrandom 0.4.1",
  "once_cell",
  "rustix 1.1.3",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5265,7 +5281,3 @@ checksum = "410e9ecef634c709e3831c2cfdb8d9c32164fae1c67496d5b68fff728eec37fe"
 dependencies = [
  "zune-core 0.5.1",
 ]
-
-[[patch.unused]]
-name = "cli_boilerplate_automation"
-version = "0.0.11"

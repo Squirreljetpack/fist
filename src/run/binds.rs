@@ -1,8 +1,8 @@
-use cli_boilerplate_automation::bother::types::When;
 use matchmaker::{
     action::Action,
     bindmap,
     binds::{BindMap, key},
+    config::When,
 };
 
 use crate::lessfilter::Preset;

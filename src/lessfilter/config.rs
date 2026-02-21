@@ -1,8 +1,7 @@
 use std::{collections::HashMap, default, str::FromStr};
 
-use cli_boilerplate_automation::{
-    StringError, bo::load_type, bother::types::When, define_collection_wrapper,
-};
+use cli_boilerplate_automation::{StringError, bo::load_type, define_collection_wrapper};
+use matchmaker::config::When;
 use mime_guess::Mime;
 
 use crate::{
