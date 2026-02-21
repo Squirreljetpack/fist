@@ -109,6 +109,7 @@ pub async fn start(
         prompt,
         menu,
         tui,
+        overlay,
     } = mm_cfg;
     log::debug!("cfg: {cfg:?}");
 
@@ -125,7 +126,7 @@ pub async fn start(
         tui,
         &cfg,
         print_handle.clone(),
-        pane.stability_multiplier(),
+        pane.stability_threshold(),
     );
 
     // init previewer

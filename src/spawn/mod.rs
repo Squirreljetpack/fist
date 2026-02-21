@@ -14,7 +14,9 @@ use crate::db::{Connection, DbTable};
 use crate::errors::CliError;
 
 /// # note
-/// Relative paths are resolved relative to the initial cwd
+/// Relative paths are resolved relative to the initial cwd.
+/// detach is usually specified iff fs is not exiting afterward.
+/// todo: lowpri: option to silence stderr/stdout even when !detach?
 pub async fn open_wrapped(
     mut conn: Connection,
     prog: Option<Program>,
@@ -94,16 +96,16 @@ pub fn open(
     } else {
         // No program specified, just open files with default system behavior
         if cfg!(target_os = "macos") {
-            let mut cmd = vec_!["open"];
+            let mut cmd = vec_![: "open"];
             cmd.extend_from_slice(files);
             cmd
         } else if cfg!(target_os = "linux") {
-            let mut cmd = vec_!["xdg-open"];
+            let mut cmd = vec_![: "xdg-open"];
             cmd.extend_from_slice(files);
             cmd
         } else if cfg!(target_os = "windows") {
             // todo: untested
-            let mut cmd = vec_!["cmd", "/C", "start"];
+            let mut cmd = vec_![: "cmd", "/C", "start"];
             for f in files {
                 cmd.push(f.clone());
             }

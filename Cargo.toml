@@ -7,8 +7,8 @@
     description  = "Fist: Interactive Search Tool"
 
 [dependencies]
-    cli_boilerplate_automation = { version = "0.0.9", features = [ "text", "serde" ] }
-    match-maker                = { version = "0.0.5", features = [ "bracketed-paste" ] }
+    cli_boilerplate_automation = { version = "0.0.11", features = [ "text", "serde" ] }
+    matchmaker-lib             = { version = "0.0", features = [ "bracketed-paste", "experimental" ] }
 
     # tui + text
     atty                 = "0.2.14"
@@ -23,7 +23,7 @@
     # standard
     anyhow       = "1.0.101"
     arrayvec     = { version = "0.7.6", features = [ "serde" ] }
-    bitflags     = "2.10.0"
+    bitflags     = "2.11"
     cfg-if       = "1.0.4"
     chrono       = { version = "0.4.43", features = [ "serde" ] }
     clap         = { version = "4.5.58", features = [ "derive" ] }
@@ -69,15 +69,17 @@
     strum_macros               = "0.27.2"
     thiserror                  = "2.0.17"
     dirs                       = "6.0.0"
-    cli_boilerplate_automation = { version = "0" }
+    cli_boilerplate_automation = { version = "0.0.11" }
 
 [[bin]]
     name = "fs"
     path = "src/main.rs"
 
 [lints.clippy]
-    new_without_default = "allow"
-    collapsible_if      = "allow"
+    new_without_default   = "allow"
+    collapsible_if        = "allow"
+    single_match          = "allow"
+    uninlined_format_args = "allow"
 
 [features]
     default            = [ "image-defaults", "file-format" ]
@@ -86,3 +88,6 @@
     infer              = [ "dep:infer" ]
     file-format        = [ "dep:file-format" ]
     file-format-reader = [ "file-format/reader" ]
+
+[patch.crates-io]
+    nucleo = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }

@@ -30,10 +30,10 @@ pub struct ShellCommand {
     pub open_cmd: String,
 
     /// Bind for the directory widget.
-    #[arg(long, default_value_t = String::from("^[[1;2C"))]
+    #[arg(long, default_value_t = String::from("^[[1;2D"))]
     pub dir_widget_bind: String,
     /// Bind for the directory widget.
-    #[arg(long, default_value_t = String::from("^[[1;2D"))]
+    #[arg(long, default_value_t = String::from("^[[1;2C"))]
     pub file_widget_bind: String,
     /// Bind for the directory widget.
     #[arg(long, default_value_t = String::from("^[[1;2B"))]
@@ -44,7 +44,7 @@ pub struct ShellCommand {
     #[arg(long)]
     pub rg_open_cmd: Option<String>,
     /// Arguments passed to `fs ::` when dir widget is invoked
-    #[arg(long, default_value_t = String::from("-F"))]
+    #[arg(long, default_value_t = String::from("-F --style=colors"))]
     pub dir_widget_args: String,
     /// Arguments passed to `fs ::` when file widget is invoked
     #[arg(long, default_value_t = String::from("-f -- .."))]

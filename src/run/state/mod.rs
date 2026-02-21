@@ -291,8 +291,6 @@ impl TOAST {
             state.push((prefix_span, ToastContent::List(items.into_iter().collect())));
         }
 
-        debug!("{state:?}");
-
         let toast = make_toast(&state);
         GLOBAL::send_action(FsAction::set_footer(toast));
     }

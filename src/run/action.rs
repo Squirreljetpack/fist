@@ -3,12 +3,11 @@
 
 use std::path::PathBuf;
 
-use cli_boilerplate_automation::{
-    bait::ResultExt, bath::PathExt, bother::types::When, prints, unwrap, wbog,
-};
+use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt, prints, unwrap, wbog};
 use matchmaker::{
     acs,
     action::{Action, Actions},
+    config::When,
     message::Interrupt,
     nucleo::{Color, Modifier, Span, Style},
 };
@@ -175,17 +174,17 @@ pub fn fsaction_aliaser(
             }
             FsAction::SetHeader(text) => {
                 if let Some(text) = text {
-                    state.picker_ui.header.set(text);
+                    state.picker_ui.header.set(text, true);
                 } else {
-                    state.picker_ui.header.clear();
+                    state.picker_ui.header.clear(true);
                 }
                 acs![]
             }
             FsAction::SetFooter(text) => {
                 if let Some(text) = text {
-                    state.footer_ui.set(text);
+                    state.footer_ui.set(text, false);
                 } else {
-                    state.footer_ui.clear();
+                    state.footer_ui.clear(false);
                 }
                 acs![]
             }
@@ -754,7 +753,10 @@ pub fn fsaction_handler(
             };
 
             // since in Nav pane, Advance is bound to edit cursor item, it's more useful to make the action always edit the menu item.
-            if matches!(preset, Preset::Edit) && STACK::nav_cwd().is_some() {
+            if matches!(preset, Preset::Edit)
+                && STACK::nav_cwd().is_some()
+                && state.current_raw().is_some_and(|x| x.path.is_file())
+            {
                 TEMP::set_that_execute_handler_should_process_cwd();
             }
 

@@ -36,7 +36,11 @@ use crate::{
     },
     errors::CliError,
     filters::{SortOrder, Visibility},
-    find::{FileTypeArg, fd::build_fd_args, walker::list_dir},
+    find::{
+        FileTypeArg,
+        fd::{auto_enable_hidden, build_fd_args},
+        walker::list_dir,
+    },
     lessfilter,
     run::{
         FsPane,
@@ -79,6 +83,8 @@ async fn handle_open(
     cmd: OpenCmd,
     mut cfg: Config,
 ) -> Result<(), CliError> {
+    let pool = Pool::new(cfg.db_path()).await?;
+
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
         *APP::TO_OPEN.lock().unwrap() = cmd.files;
@@ -87,10 +93,8 @@ async fn handle_open(
 
         let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
 
-        let pool = Pool::new(cfg.db_path()).await?;
         start(pane, cfg, mm_cfg, pool).await
     } else {
-        let pool = Pool::new(cfg.db_path()).await?;
         let conn = pool.get_conn(DbTable::apps).await?;
 
         let prog = cmd.with.and_then(Program::from_os_string);
@@ -160,10 +164,13 @@ async fn handle_files(
 
 async fn handle_rg(
     cli: CliOpts,
-    cmd: RgCommand,
+    mut cmd: RgCommand,
     cfg: Config,
 ) -> Result<(), CliError> {
-    // _dbg!(cli, cmd, cfg);
+    if cmd.vis.is_default() {
+        cmd.vis = cfg.global.panes.rg.default_visibility
+    }
+
     todo!()
 }
 
@@ -243,6 +250,7 @@ async fn handle_default(
     mut cfg: Config,
 ) -> Result<(), CliError> {
     // check input
+    let cli_set_ignore = cmd.vis.ignore;
     if !cmd.types.is_empty() {
         cmd.vis.dirs = cmd
             .types
@@ -287,6 +295,14 @@ async fn handle_default(
                     .is_some_and(|s| s == MAIN_SEPARATOR_STR || s == "/")
             })
         });
+
+        if cmd.vis.is_default() {
+            cmd.vis = if nav_pane {
+                cfg.global.panes.nav.default_visibility
+            } else {
+                cfg.global.panes.fd.default_visibility
+            }
+        }
 
         // determine cwd
         let cwd = if cmd.paths.len() > 1
@@ -333,30 +349,33 @@ async fn handle_default(
         } else
         // if only pattern is given, determine a directory as follows:
         {
+            if cmd.paths.is_empty() {
+                cmd.paths.push("..".into())
+            } else if !nav_pane && cfg.global.fd.default_search_ignore && !cli_set_ignore {
+                cmd.vis.ignore = true;
+            }
+
             // the z shell function passes through here when the last provided argument is ., .. or ./, corresponding to:
             // - `.`: search all directories in default_dir
             // - `..` (only argument): same as 1, but default_dir is forced to cwd
             // - `./`: show all directories in current dir
             // ..which is analgous to the behavior !cmd.cd, except that the analgue of 3 is the no-arg branch rather than `./`
+            // Note: another parsing approach is tor replace initial .. to . but that seems more confusing.
+            let force_search_in_cwd = nav_pane || cmd.paths[0].cmp_exch("..", ".".into());
 
-            let search_in_cwd = nav_pane || cmd.paths[0].cmp_exc("..", ".".into());
-
-            AbsPath::new_unchecked(if !search_in_cwd && cfg.global.fd.default_search_in_home {
-                __home()
-            } else {
-                __cwd()
-            })
+            AbsPath::new_unchecked(
+                if !force_search_in_cwd && cfg.global.fd.default_search_in_home {
+                    __home()
+                } else {
+                    __cwd()
+                },
+            )
         };
 
         if nav_pane {
-            let vis = if cmd.vis.is_default() {
-                cfg.global.panes.nav.default_visibility
-            } else {
-                cmd.vis
-            };
             FsPane::new_nav(
                 cwd,
-                vis,
+                cmd.vis,
                 cmd.sort.unwrap_or(cfg.global.panes.nav.default_sort),
             )
         } else
@@ -371,14 +390,22 @@ async fn handle_default(
         || cmd.vis != Visibility::default()
         || !cmd.fd.is_empty()
     {
+        if cmd.vis.is_default() {
+            cmd.vis = cfg.global.panes.fd.default_visibility
+        }
+
         // pattern specified
         let cwd = if cmd.paths.len() == 1 {
+            if cfg.global.fd.default_search_ignore && !cli_set_ignore {
+                cmd.vis.ignore = true;
+            }
+
             // support `..` as a shorthand for 'search (any pattern in) current directory'
-            let search_in_cwd = cmd.paths[0].cmp_exc("..", ".".into());
+            let force_search_in_cwd = cmd.paths[0].cmp_exch("..", ".".into());
 
             // last item is a pattern
             AbsPath::new_unchecked(
-                if !search_in_cwd && cfg.global.fd.default_search_in_home {
+                if !force_search_in_cwd && cfg.global.fd.default_search_in_home {
                     __home()
                 } else {
                     __cwd()
@@ -397,17 +424,30 @@ async fn handle_default(
                 cmd.paths.remove(0).abs(current_dir().__ebog())
             })
         };
+
+        // set the cwd determined above
         set_current_dir(&cwd)
             .prefix(format!("Failed to enter {}", cwd.to_string_lossy()))
             .__ebog();
 
-        let mut conn = pool.get_conn(DbTable::dirs).await?;
-        // spawn cost is 1 microsecond, awaiting seems fine
-        for path in cmd.paths.iter().take(cmd.paths.len() - 1) {
-            conn.bump(AbsPath::new(path), 1).await._elog();
-        }
+        // bump paths in db
+        let paths = cmd.paths[..cmd.paths.len().saturating_sub(1)].to_vec();
+
+        let pool_clone = pool.clone();
+        tokio::spawn(async move {
+            if let Ok(mut conn) = pool_clone.get_conn(DbTable::dirs).await {
+                for path in paths {
+                    conn.bump(AbsPath::new(path), 1).await._elog();
+                }
+            }
+        });
 
         if cmd.list {
+            // mirror new_fd behavior
+            if auto_enable_hidden(&cmd.paths) {
+                cmd.vis.hidden = true;
+            }
+
             let (prog, args) = (
                 "fd",
                 build_fd_args(
@@ -455,7 +495,7 @@ async fn handle_default(
     } else {
         let DefaultCommand { sort, mut vis, .. } = cmd;
         if vis.is_default() {
-            vis = cfg.global.panes.nav.default_visibility
+            vis = cfg.global.panes.nav.default_visibility;
         }
 
         if cmd.list {
@@ -492,7 +532,6 @@ async fn handle_default(
     };
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-    let pool = Pool::new(cfg.db_path()).await?;
     start(pane, cfg, mm_cfg, pool).await
 }
 

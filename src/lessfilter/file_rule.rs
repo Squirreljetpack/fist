@@ -179,7 +179,10 @@ impl Test<Path> for FileRule {
 
             FileRuleKind::FileType(ft) => match ft {
                 OverloadedFileType::Ft(ft) => ft == &data.ft,
-                OverloadedFileType::Text => detect_encoding(item).as_deref().is_some_and(is_native), // this computed for each test instead of being cached
+                OverloadedFileType::Text => {
+                    data.mime.kind.as_ref().is_some_and(|x| x.is_text())
+                        || detect_encoding(item).as_deref().is_some_and(is_native)
+                } // this computed for each test instead of being cached
             },
 
             FileRuleKind::Have(cmd) => has(cmd),

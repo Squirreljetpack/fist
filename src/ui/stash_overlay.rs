@@ -37,7 +37,7 @@ pub struct StashConfig {
 impl Default for StashConfig {
     fn default() -> Self {
         let border = BorderSetting {
-            sides: Borders::ALL,
+            sides: Some(Borders::ALL),
             ..Default::default()
         };
         Self {

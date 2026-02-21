@@ -19,7 +19,7 @@ n()  {
 }
 
 # open
-o()  { fs :o "${@:-.}"; }
+o()  { fs :o "${@:-.}" 2>/dev/null; }
 
 # navigate
 Z() { z "$@" ./; }

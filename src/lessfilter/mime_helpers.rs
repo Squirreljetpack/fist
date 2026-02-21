@@ -79,5 +79,10 @@ pub fn detect_encoding(path: &Path) -> Option<String> {
 }
 
 pub fn is_native(enc: &str) -> bool {
-    enc.contains("utf-8") || enc.contains("unicode") || enc.contains("ascii")
+    enc.contains("utf-8")
+        || enc.contains("unicode")
+        || enc.contains("ascii")
+        || enc.contains("iso-8859")
+        || enc.contains("windows-125")
+        || enc.contains("mac")
 }

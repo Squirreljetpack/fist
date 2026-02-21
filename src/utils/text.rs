@@ -375,3 +375,17 @@ fn split_on_first_delim<const N: usize>(
     let (i, d) = first?;
     Some((&s[..i], d, &s[i + d.len_utf8()..]))
 }
+
+pub fn split_delim(
+    s: &str,
+    delim: Option<char>,
+) -> [&str; 2] {
+    if let Some(c) = delim {
+        match s.split_once(c) {
+            Some((head, rest)) => [head, rest],
+            None => [s, ""],
+        }
+    } else {
+        [s, ""]
+    }
+}

@@ -48,7 +48,7 @@ fn test_directory_matching() {
 
     let progs = action.to_progs(path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    let expected: Vec<OsString> = vec_![current_exe(), ":tool", "liza", ":u2", path];
+    let expected: Vec<OsString> = vec_![: current_exe(), ":tool", "liza", ":u2", path];
     assert_eq!(progs.0[0], expected);
 }
 

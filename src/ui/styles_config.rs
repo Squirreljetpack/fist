@@ -16,11 +16,11 @@ pub struct PathDisplayConfig {
     pub relative: bool,
     /// Whether to display file icons to the left of entries
     pub file_icons: bool,
-    /// Whether to color style files with colors
+    /// Whether to color files with colors
     pub file_colors: bool,
     /// Whether to display directory icons
     pub dir_icons: bool,
-    /// Whether to color style directory with colors
+    /// Whether to color directory with colors
     pub dir_colors: bool,
     /// Style configuration based on file type
     pub file_styles: FileStyles,

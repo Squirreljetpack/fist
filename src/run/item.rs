@@ -104,15 +104,9 @@ impl PathItem {
     }
 
     pub fn new_from_split(
-        s: String,
-        delimiter: char,
+        [first, tail]: [&str; 2],
         cwd: &Path,
     ) -> Self {
-        let (first, tail) = match s.split_once(delimiter) {
-            Some((head, rest)) => (head, rest),
-            None => (s.as_str(), ""),
-        };
-
         let path = AbsPath::new_unchecked(first.abs(cwd));
         let rendered = render(&path, cwd);
 

@@ -153,6 +153,17 @@ impl STACK {
         })
     }
 
+    pub fn with_previous<R, F: FnOnce(&FsPane) -> R>(f: F) -> Option<R> {
+        STACK.with(|cell| {
+            let Self { stack, index, .. } = &*cell.borrow();
+            if *index > 0 {
+                Some(f(&stack[*index - 1]))
+            } else {
+                None
+            }
+        })
+    }
+
     /// Return the cwd for Nav/Custom/Fd
     pub fn cwd() -> Option<AbsPath> {
         STACK.with(|cell| {

@@ -3,20 +3,27 @@ use cli_boilerplate_automation::{
     bath::{PathExt, RenamePolicy},
     bo::write_str,
     bog::BogOkExt,
-    bother::types::When,
     bs::{create_dir, set_executable},
     ibog,
 };
+use matchmaker::config::When;
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{cli::paths::*, lessfilter::Preset, spawn::menu_action::MenuActions};
 use crate::{
-    cli::paths::{liza_path, text_renderer_path},
+    cli::{
+        ClapStyleSetting,
+        paths::{liza_path, text_renderer_path},
+    },
     db::zoxide::HistoryConfig,
     filters::*,
     run::FsPane,
     ui::styles_config::StyleConfig,
     watcher::WatcherConfig,
+};
+use crate::{
+    cli::{CliOpts, paths::*},
+    lessfilter::Preset,
+    spawn::menu_action::MenuActions,
 };
 // ------ CONFIG ------
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -121,6 +128,44 @@ impl Config {
             }
         }
     }
+
+    pub fn override_from(
+        &mut self,
+        cli: &CliOpts,
+    ) {
+        let style = &mut self.styles.path;
+        match cli.style {
+            ClapStyleSetting::Auto => {
+                // leave config unchanged
+            }
+            ClapStyleSetting::None => {
+                style.file_icons = false;
+                style.file_colors = false;
+                style.dir_icons = false;
+                style.dir_colors = false;
+            }
+            ClapStyleSetting::Icons => {
+                style.file_icons = true;
+                style.dir_icons = true;
+
+                style.file_colors = false;
+                style.dir_colors = false;
+            }
+            ClapStyleSetting::Colors => {
+                style.file_icons = false;
+                style.dir_icons = false;
+
+                style.file_colors = true;
+                style.dir_colors = true;
+            }
+            ClapStyleSetting::All => {
+                style.file_icons = true;
+                style.file_colors = true;
+                style.dir_icons = true;
+                style.dir_colors = true;
+            }
+        }
+    }
 }
 
 /// Miscellaneous and Tool specific options.
@@ -190,13 +235,15 @@ impl Default for InterfaceConfig {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PanesSettings {
+    pub display_script_simultaneous_count: usize,
     pub display_script_batch_size: usize,
 }
 
 impl Default for PanesSettings {
     fn default() -> Self {
         Self {
-            display_script_batch_size: 15,
+            display_script_simultaneous_count: 15,
+            display_script_batch_size: 1000,
         }
     }
 }
@@ -209,9 +256,9 @@ pub struct PanesConfig {
     pub history: HistoryPaneSettings,
     pub nav: NavPaneSettings,
     pub stream: PaneSettings,
-    pub fd: PaneSettings,
+    pub fd: FdPaneSettings,
+    pub rg: RgPaneSettings,
     pub custom: PaneSettings,
-    pub rg: PaneSettings,
 
     pub settings: PanesSettings,
 }
@@ -227,10 +274,10 @@ impl Default for PanesConfig {
                 ..Default::default()
             },
             nav: NavPaneSettings::default(),
-            fd: PaneSettings {
+            fd: FdPaneSettings {
                 ..Default::default()
             },
-            rg: PaneSettings {
+            rg: RgPaneSettings {
                 ..Default::default()
             },
             custom: PaneSettings {
@@ -313,6 +360,61 @@ impl Default for PaneSettings {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
+pub struct FdPaneSettings {
+    /// Input prompt
+    pub prompt: Option<String>,
+    /// Whether to show the preview when switching to this pane. (Default: inherit).
+    pub show_preview: Option<bool>,
+    /// Whether to enter the prompt when switching to this pane
+    pub enter_prompt: bool,
+    // ----------------------------
+    /// Default visibility when no visibility is specified.
+    pub default_visibility: Visibility,
+    /// When leaving the fd pane, untoggle the `only show directories` visibility filter.
+    pub on_leave_unset_dirs_only: bool,
+}
+
+impl Default for FdPaneSettings {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            show_preview: None,
+            enter_prompt: true,
+
+            default_visibility: Default::default(),
+            on_leave_unset_dirs_only: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct RgPaneSettings {
+    /// Input prompt
+    pub prompt: Option<String>,
+    /// Whether to show the preview when switching to this pane. (Default: inherit).
+    pub show_preview: Option<bool>,
+    /// Whether to enter the prompt when switching to this pane
+    pub enter_prompt: bool,
+    // ----------------------------
+    /// Default visibility when no visibility is specified.
+    pub default_visibility: Visibility,
+}
+
+impl Default for RgPaneSettings {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            show_preview: None,
+            enter_prompt: true,
+
+            default_visibility: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct NavPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
@@ -320,6 +422,7 @@ pub struct NavPaneSettings {
     pub show_preview: Option<bool>,
     // ----------------------------
     pub default_sort: SortOrder,
+    /// Default visibility when no visibility is specified.
     pub default_visibility: Visibility,
 }
 
@@ -360,7 +463,7 @@ pub struct AppPaneSettings {
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FdConfig {
-    /// A map of folders to exclusion globs which should be applied when in them.
+    /// A map of folders => exclusion globs which should be applied when in them.
     /// ~ can be used in lieu of $HOME.
     /// If a list is specified for the empty path "", that list will override the list of default exclusions for the platform, and apply everywhere.
     /// Only one value (exclusion list) can apply to each path.
@@ -368,8 +471,12 @@ pub struct FdConfig {
 
     /// Arguments added to every fd command
     pub base_args: Vec<String>,
+
     /// When no path is given to fs, such as using `fs [pattern]`, whether to search in `$HOME` or the current directory.
     pub default_search_in_home: bool,
+
+    /// Enabling this will hide ignored files when a pattern but no path is given to fs, such as using `fs [pattern]`, (and ignore was not explicitly set in the cli).
+    pub default_search_ignore: bool,
     //  ---------------- Experimental/Nonstandard ---------------
     /// When given a set of paths to search with `fs`
     pub reduce_paths: bool,

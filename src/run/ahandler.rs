@@ -133,8 +133,18 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
     state
         .picker_ui
         .worker
-        .set_stability(STACK::with_current(FsPane::stability_multiplier));
+        .set_stability(STACK::with_current(FsPane::stability_threshold));
     let injector = IndexedInjector::new_globally_indexed(state.injector());
+
+    STACK::with_previous(|p| match p {
+        FsPane::Fd { .. } => {
+            if GLOBAL::with_cfg(|c| c.panes.fd.on_leave_unset_dirs_only) {
+                FILTERS::with_vis_mut(|v| v.dirs = false);
+            }
+        }
+        _ => {}
+    });
+
     STACK::populate(injector, || {});
 
     state.picker_ui.results.cursor_jump(0);

@@ -211,3 +211,12 @@ pub fn build_fd_args(
 
     ret
 }
+
+/// autoenable hidden for alphanumeric patterns beginning with .
+/// hidden is not auto-enabled for the escaped prefix \. because it's plausible that's used to search for non-hidden extensions
+pub fn auto_enable_hidden(paths: &[OsString]) -> bool {
+    paths.last().and_then(|s| s.to_str()).is_some_and(|s| {
+        let mut chars = s.chars();
+        s.len() > 1 && chars.next() == Some('.') && chars.all(|c| c.is_alphanumeric())
+    })
+}

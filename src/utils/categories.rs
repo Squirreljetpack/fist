@@ -512,6 +512,11 @@ impl FileCategory {
         }
     }
 
+    pub fn is_text(&self) -> bool {
+        use FileCategory::*;
+        matches!(self, Text | Source | Configuration)
+    }
+
     pub fn from_mime(mime: &str) -> Self {
         // documents = [
         // "application/pdf",
