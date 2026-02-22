@@ -6,7 +6,7 @@ use crate::{
     run::{
         FsPane,
         stash::STASH,
-        state::{FILTERS, GLOBAL, STACK, TEMP, TOAST},
+        state::{FILTERS, GLOBAL, STACK, TEMP, TOAST, ui::global_ui},
     },
     utils::text::{ToastStyle, format_cwd_prompt},
 };
@@ -141,6 +141,27 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
             if GLOBAL::with_cfg(|c| c.panes.fd.on_leave_unset_dirs_only) {
                 FILTERS::with_vis_mut(|v| v.dirs = false);
             }
+        }
+        FsPane::Rg { .. } => {
+            if let Some(o) = TEMP::take_pre_rg_options() {
+                todo!()
+            }
+        }
+        _ => {}
+    });
+
+    STACK::with_current(|p| match p {
+        FsPane::Fd { .. } => {
+            // set default visibility?
+        }
+        FsPane::Rg { .. } => {
+            state.picker_ui.header.set("fs:");
+            let c = &mut state.picker_ui.results.config;
+            let mmc = &global_ui().matchmaker;
+
+            c.horizontal_separator = mmc.horizontal_separator;
+
+            // set default visibility?
         }
         _ => {}
     });

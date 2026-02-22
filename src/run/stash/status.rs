@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use crate::utils::size::file_size;
+use crate::find::size::file_size;
 
 #[derive(Default, Debug, Clone)]
 pub struct StashItemStatus {

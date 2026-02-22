@@ -12,12 +12,11 @@ use crate::{
     abspath::AbsPath,
     cli::paths::__home,
     db::Entry,
-    run::state::GLOBAL,
-    ui::global::global_ui,
-    utils::{
-        categories::FileCategory,
-        icons::{Icons, icon_for_file},
-    },
+    run::state::{GLOBAL, ui::global_ui},
+};
+use fist_types::{
+    FileCategory,
+    icons::{Icons, icon_for_file},
 };
 
 /// The basic item underyling a line in the matchmaker
@@ -150,7 +149,7 @@ fn render(
     cwd: &Path,
 ) -> Text<'static> {
     let full_path = path;
-    let cfg = global_ui();
+    let cfg = &global_ui().path;
     // let ft = FileType::get(path);
 
     if cfg.relative
@@ -255,8 +254,8 @@ impl Eq for PathItem {}
 mod tests {
     use super::*;
     use crate::cli::paths::{__cwd, __home};
-    use crate::ui::global::global_ui_init;
-    use crate::ui::styles_config::{PathDisplayConfig, StyleConfig};
+    use crate::config::ui::{PathDisplayConfig, StyleConfig};
+    use crate::run::state::ui::global_ui_init;
     use std::path::Path;
 
     // Helper to set the config for a test and then restore it.
@@ -267,11 +266,12 @@ mod tests {
         F: FnOnce(),
     {
         let original_config = global_ui().clone();
-        global_ui_init(StyleConfig { path: config });
-        test_fn();
         global_ui_init(StyleConfig {
-            path: original_config,
+            path: config,
+            ..Default::default()
         });
+        test_fn();
+        global_ui_init(original_config);
     }
 
     // todo: test windows

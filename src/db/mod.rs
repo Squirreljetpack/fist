@@ -7,7 +7,7 @@ mod display;
 pub use display::*;
 
 pub mod zoxide;
-pub use crate::filters::DbSortOrder;
+pub use fist_types::filters::DbSortOrder;
 
 use crate::{abspath::AbsPath, errors::DbError};
 use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt};

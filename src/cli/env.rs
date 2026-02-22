@@ -1,5 +1,5 @@
 use cli_boilerplate_automation::{
-    bait::ResultExt, bog::BogOkExt, ebog, text::parse_next_escape, wbog,
+    bait::ResultExt, bog::BogOkExt, bring::parse_next_escape, ebog, wbog,
 };
 
 use crate::utils::text::split_whitespace_keep_single_quotes;

@@ -1,0 +1,21 @@
+[package]
+name = "fist-types"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[dependencies]
+cli_boilerplate_automation = { workspace = true }
+phf = { workspace = true }
+strum = { workspace = true }
+strum_macros = { workspace = true }
+clap = { workspace = true}
+
+file-format = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = []
+serde = ["dep:serde"]
+file-format = ["dep:file-format"]

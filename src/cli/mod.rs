@@ -1,5 +1,6 @@
 mod clap;
 mod clap_;
+pub mod clap_helpers;
 pub mod clap_tools;
 pub mod handlers;
 pub mod paths;

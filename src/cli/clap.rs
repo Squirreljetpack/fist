@@ -1,16 +1,17 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use clap::{ArgAction, Parser, Subcommand, ValueEnum, error::ErrorKind};
+use clap::{ArgAction, Parser, Subcommand, error::ErrorKind};
 
 use crate::{
     cli::{
         SubTool,
+        clap_helpers::*,
         paths::{BINARY_SHORT, config_path, mm_cfg_path},
     },
-    db::{DbSortOrder, DbTable},
-    filters::{SortOrder, Visibility},
-    find::FileTypeArg,
+    db::DbTable,
 };
+use fist_types::filetypes::FileTypeArg;
+use fist_types::filters::{DbSortOrder, SortOrder, Visibility};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -119,17 +120,6 @@ Otherwise, this WILL OVERWRITE your main config."#
 
     #[arg(long, global = true, default_value_t)]
     pub style: ClapStyleSetting,
-}
-
-#[derive(Debug, ValueEnum, Default, Clone, strum_macros::Display)]
-#[strum(serialize_all = "lowercase")]
-pub enum ClapStyleSetting {
-    Icons,
-    Colors,
-    None,
-    All,
-    #[default]
-    Auto,
 }
 
 impl CliOpts {
@@ -248,10 +238,36 @@ pub struct FilesCmd {
 pub struct RgCommand {
     #[command(flatten)]
     pub vis: Visibility,
+    pub sort: SortOrder,
 
-    /// initial query.
-    #[arg(long, default_value_t)]
-    pub query: String,
+    /// Files or directories to search in.
+    #[arg(short = 'p', long = "path", value_name = "PATH")]
+    pub paths: Vec<OsString>,
+
+    /// Patterns to search (`rg -e`).
+    #[arg(value_name = "PATTERNS")]
+    pub patterns: Vec<String>,
+
+    /// Args passed on verbatim to rg.
+    #[arg(last = true, value_name = "RG_ARGS")]
+    pub rg_args: Vec<OsString>,
+
+    // top level rg args reexposed for convenience
+    #[command(flatten)]
+    pub case: CaseArgs,
+    #[command(flatten)]
+    pub context: ContextArgs,
+
+    // /// initial query.
+    // #[arg(long, default_value_t)]
+    // pub query: String,
+
+    // todo: wider support (override default print handler)
+    /// Format the output as this template.
+    #[arg(short, long)]
+    pub output: Option<String>,
+    #[arg(long)]
+    pub list: bool,
     #[arg(long, action = ArgAction::Help)]
     pub help: (),
 }
@@ -266,29 +282,35 @@ pub struct DefaultCommand {
     pub sort: Option<SortOrder>,
     #[command(flatten)]
     pub vis: Visibility,
-    /// restrict search to certain file types and extensions
-    /// (use `:t types` to list).
-    #[arg(short = 't', long = "types", value_delimiter = ',')]
-    pub types: Vec<FileTypeArg>,
-    #[arg(value_name = "PATHS")]
-    /// Paths to search in. Searches the current directory if none specified (and not otherwise configured).
-    pub paths: Vec<OsString>,
-    /// Args passed on verbatim to fd.
-    #[arg(last = true, value_name = "FD_ARGS")]
-    // its neat that this works: using -- passes to fd only if paths has entries which is exactly what we want
-    pub fd: Vec<OsString>,
-    #[arg(long)]
-    pub list: bool,
-    /// Never stream input from stdin.
-    #[arg(long, default_value_t)]
-    pub no_read: bool,
-    /// Template to format the list output as
-    #[arg(long)]
-    pub list_fmt: Option<String>,
+
     /// print the first match.
     #[arg(long)]
     pub cd: bool,
 
+    /// restrict search to certain file types and extensions
+    /// (use `:t types` to list).
+    #[arg(short = 't', long = "types", value_delimiter = ',')]
+    pub types: Vec<FileTypeArg>,
+
+    #[arg(value_name = "PATHS")]
+    /// Paths to search in. Searches the current directory if none specified (and not otherwise configured).
+    pub paths: Vec<OsString>,
+
+    /// Args passed on verbatim to fd.
+    #[arg(last = true, value_name = "FD_ARGS")]
+    // its neat that this works: using -- passes to fd only if paths has entries which is exactly what we want
+    pub fd: Vec<OsString>,
+
+    /// Never stream input from stdin.
+    #[arg(long, default_value_t)]
+    pub no_read: bool,
+
+    // todo: wider support (override default print handler)
+    /// Format the output as this template.
+    #[arg(short, long)]
+    pub output: Option<String>,
+    #[arg(long)]
+    pub list: bool,
     #[arg(long, action = ArgAction::Help)]
     pub help: (),
 }
@@ -302,13 +324,4 @@ pub struct ToolsCmd {
     pub help: (),
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub args: Vec<OsString>,
-}
-
-// -----------------------------------------
-
-#[derive(clap::ValueEnum, Clone, Debug)]
-pub enum ListMode {
-    #[value(name = "_")]
-    Default,
-    All,
 }

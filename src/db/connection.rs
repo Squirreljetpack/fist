@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use crate::errors::DbError;
 use sqlx::{Sqlite, SqlitePool, pool::PoolConnection};
 
@@ -21,11 +19,6 @@ pub enum DbTable {
     apps,
     files,
     dirs,
-}
-impl DbTable {
-    pub fn of(p: &Path) -> Self {
-        if p.is_dir() { Self::dirs } else { Self::files }
-    }
 }
 
 impl Pool {

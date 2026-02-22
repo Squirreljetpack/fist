@@ -27,13 +27,10 @@ use crate::{
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
-        state::{APP, DB_FILTER, GLOBAL, STACK, TASKS},
+        state::{APP, DB_FILTER, GLOBAL, STACK, TASKS, ui::global_ui_init},
     },
     spawn::{Program, open_wrapped},
-    ui::{
-        filters_overlay::FilterOverlay, global::global_ui_init, menu_overlay::MenuOverlay,
-        stash_overlay::StashOverlay,
-    },
+    ui::{filters_overlay::FilterOverlay, menu_overlay::MenuOverlay, stash_overlay::StashOverlay},
     watcher::FsWatcher,
 };
 

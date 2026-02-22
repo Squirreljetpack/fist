@@ -1,12 +1,12 @@
 use std::path::{Path, PathBuf};
 
-use cli_boilerplate_automation::{StringError, bait::ResultExt, bath::PathExt};
+use cli_boilerplate_automation::{StringError, bait::ResultExt};
 use ignore::{
     WalkBuilder,
     overrides::{Override, OverrideBuilder},
 };
 
-use crate::filters::Visibility;
+use fist_types::filters::Visibility;
 
 // paths are relative to root
 pub fn list_dir(
@@ -28,7 +28,7 @@ pub fn list_dir(
         .max_depth(Some(1));
 
     // hidden handling
-    if vis.hidden_files {
+    if vis.hidden || vis.hidden_only {
         // ignore `hidden`, handle filtering manually
         builder.hidden(false);
     } else {
@@ -42,24 +42,7 @@ pub fn list_dir(
         .filter(move |e| e.path() != cwd)
         .filter(move |e| {
             let path = e.path();
-            let is_hidden = path.is_hidden();
-            let is_dir = path.is_dir();
-
-            if vis.hidden_files {
-                // non-hidden always allowed
-                if !is_hidden {
-                    return true;
-                }
-
-                !(vis.dirs ^ is_dir)
-            } else if vis.dirs {
-                // normal behavior: dirs flag only filters dirs
-                is_dir
-            } else if vis.files {
-                !is_dir
-            } else {
-                true
-            }
+            vis.filter(path)
         })
         .map(|e| e.into_path())
 }

@@ -4,7 +4,6 @@ pub mod cli;
 pub mod config;
 pub mod db;
 pub mod errors;
-pub mod filters;
 pub mod find;
 pub mod fs;
 pub mod lessfilter;

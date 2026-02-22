@@ -154,7 +154,7 @@ _fs() {
             return 0
             ;;
         fs__:fd)
-            opts="-h -I -a -F -f -t --sort --types --list --no-read --list-fmt --cd --help --verbosity --override --config --mm-config --style [PATHS]... [FD_ARGS]..."
+            opts="-h -I -a -F -f -t -o --sort --cd --types --no-read --output --list --help --verbosity --override --config --mm-config --style [PATHS]... [FD_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -172,7 +172,11 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --list-fmt)
+                --output)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -342,13 +346,49 @@ _fs() {
             return 0
             ;;
         fs__:rg)
-            opts="-h -I -a -F -f --query --help --verbosity --override --config --mm-config --style"
+            opts="-h -I -a -F -f -p -i -s -S -A -B -C -o --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --output --list --help --verbosity --override --config --mm-config --style name mtime none size [PATTERNS]... [RG_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
-                --query)
+                --path)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -p)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --after-context)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -A)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --before-context)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -B)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --context)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -C)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --output)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
