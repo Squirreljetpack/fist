@@ -1,9 +1,9 @@
 use std::ffi::OsString;
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use super::{action::*, file_rule::*, rule_matcher::*, *};
+use super::{action::*, file_rule::*, *};
 use crate::abspath::AbsPath;
 use crate::cli::paths::{current_exe, text_renderer_path};
 use crate::lessfilter::helpers::metadata_viewer;

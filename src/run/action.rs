@@ -7,7 +7,6 @@ use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt, prints, unwrap,
 use matchmaker::{
     acs,
     action::{Action, Actions},
-    config::When,
     message::Interrupt,
     nucleo::{Color, Modifier, Span, Style},
 };
@@ -18,7 +17,6 @@ use crate::{
     aliases::MMState,
     cli::paths::{__home, text_renderer_path},
     clipboard::{copy_files, copy_paths_as_text},
-    filters::SortOrder,
     lessfilter::Preset,
     run::{
         ahandler::{enter_dir_pane, enter_prompt, fs_reload, prepare_prompt},
@@ -31,6 +29,8 @@ use crate::{
     ui::menu_overlay::PromptKind,
     utils::text::ToastStyle,
 };
+use fist_types::When;
+use fist_types::filters::SortOrder;
 
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -174,7 +174,7 @@ pub fn fsaction_aliaser(
             }
             FsAction::SetHeader(text) => {
                 if let Some(text) = text {
-                    state.picker_ui.header.set(text, true);
+                    state.picker_ui.header.set(text);
                 } else {
                     state.picker_ui.header.clear(true);
                 }
@@ -182,7 +182,7 @@ pub fn fsaction_aliaser(
             }
             FsAction::SetFooter(text) => {
                 if let Some(text) = text {
-                    state.footer_ui.set(text, false);
+                    state.footer_ui.set(text);
                 } else {
                     state.footer_ui.clear(false);
                 }

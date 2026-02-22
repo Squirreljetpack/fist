@@ -1,6 +1,6 @@
 //! Based on code from https://github.com/eza-community/eza with modifications
 
-use crate::utils::categories::FileCategory;
+use fist_types::FileCategory;
 use matchmaker::nucleo::{Color, Modifier, Style};
 // -------- STYLES -------------
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

@@ -100,10 +100,14 @@ none\:""))' \
 ;;
 (:fd)
 _arguments "${_arguments_options[@]}" : \
-'--sort=[]:SORT:(name mtime none size)' \
+'--sort=[]:SORT:((name\:""
+mtime\:""
+none\:""
+size\:"Not always supported"))' \
 '*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
-'--list-fmt=[Template to format the list output as]:LIST_FMT:_default' \
+'-o+[Format the output as this template]:OUTPUT:_default' \
+'--output=[Format the output as this template]:OUTPUT:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -114,19 +118,23 @@ _arguments "${_arguments_options[@]}" : \
 '-a[show all]' \
 '-F[only show directories]' \
 '-f[show only files]' \
-'--list[]' \
-'--no-read[Never stream input from stdin]' \
 '--cd[print the first match]' \
+'--no-read[Never stream input from stdin]' \
+'--list[]' \
 '--help[]' \
 '*::paths -- Paths to search in. Searches the current directory if none specified (and not otherwise configured):_default' \
 && ret=0
 ;;
 (::)
 _arguments "${_arguments_options[@]}" : \
-'--sort=[]:SORT:(name mtime none size)' \
+'--sort=[]:SORT:((name\:""
+mtime\:""
+none\:""
+size\:"Not always supported"))' \
 '*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
-'--list-fmt=[Template to format the list output as]:LIST_FMT:_default' \
+'-o+[Format the output as this template]:OUTPUT:_default' \
+'--output=[Format the output as this template]:OUTPUT:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -137,16 +145,25 @@ _arguments "${_arguments_options[@]}" : \
 '-a[show all]' \
 '-F[only show directories]' \
 '-f[show only files]' \
-'--list[]' \
-'--no-read[Never stream input from stdin]' \
 '--cd[print the first match]' \
+'--no-read[Never stream input from stdin]' \
+'--list[]' \
 '--help[]' \
 '*::paths -- Paths to search in. Searches the current directory if none specified (and not otherwise configured):_default' \
 && ret=0
 ;;
 (:rg)
 _arguments "${_arguments_options[@]}" : \
-'--query=[initial query]:QUERY:_default' \
+'*-p+[Files or directories to search in]:PATH:_default' \
+'*--path=[Files or directories to search in]:PATH:_default' \
+'-A+[Show NUM lines after each match]:NUM:_default' \
+'--after-context=[Show NUM lines after each match]:NUM:_default' \
+'-B+[Show NUM lines before each match]:NUM:_default' \
+'--before-context=[Show NUM lines before each match]:NUM:_default' \
+'-C+[Show NUM lines before and after each match]:NUM:_default' \
+'--context=[Show NUM lines before and after each match]:NUM:_default' \
+'-o+[Format the output as this template]:OUTPUT:_default' \
+'--output=[Format the output as this template]:OUTPUT:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -157,12 +174,33 @@ _arguments "${_arguments_options[@]}" : \
 '-a[show all]' \
 '-F[only show directories]' \
 '-f[show only files]' \
+'-i[]' \
+'--ignore-case[]' \
+'-s[]' \
+'--case-sensitive[]' \
+'-S[]' \
+'--smart-case[]' \
+'--list[]' \
 '--help[]' \
+':sort:((name\:""
+mtime\:""
+none\:""
+size\:"Not always supported"))' \
+'*::patterns -- Patterns to search (`rg -e`):_default' \
 && ret=0
 ;;
 (:)
 _arguments "${_arguments_options[@]}" : \
-'--query=[initial query]:QUERY:_default' \
+'*-p+[Files or directories to search in]:PATH:_default' \
+'*--path=[Files or directories to search in]:PATH:_default' \
+'-A+[Show NUM lines after each match]:NUM:_default' \
+'--after-context=[Show NUM lines after each match]:NUM:_default' \
+'-B+[Show NUM lines before each match]:NUM:_default' \
+'--before-context=[Show NUM lines before each match]:NUM:_default' \
+'-C+[Show NUM lines before and after each match]:NUM:_default' \
+'--context=[Show NUM lines before and after each match]:NUM:_default' \
+'-o+[Format the output as this template]:OUTPUT:_default' \
+'--output=[Format the output as this template]:OUTPUT:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -173,7 +211,19 @@ _arguments "${_arguments_options[@]}" : \
 '-a[show all]' \
 '-F[only show directories]' \
 '-f[show only files]' \
+'-i[]' \
+'--ignore-case[]' \
+'-s[]' \
+'--case-sensitive[]' \
+'-S[]' \
+'--smart-case[]' \
+'--list[]' \
 '--help[]' \
+':sort:((name\:""
+mtime\:""
+none\:""
+size\:"Not always supported"))' \
+'*::patterns -- Patterns to search (`rg -e`):_default' \
 && ret=0
 ;;
 (:tool)

@@ -1,85 +1,14 @@
 // -----------------------------------------------------------------------------
 // Mocks to satisfy src/cli/types.rs dependencies
 // -----------------------------------------------------------------------------
-
 mod db {
-    use clap::ValueEnum;
-
     #[allow(non_camel_case_types)]
-    #[derive(Debug, Clone, ValueEnum, Default, strum_macros::Display)]
-    #[strum(serialize_all = "lowercase")]
-    pub enum DbSortOrder {
-        name,
-        atime,
-        /// Weighted frequency + recency
-        #[default]
-        frecency,
-        count,
-        none,
-    }
-
-    #[derive(Debug, Copy, Clone, ValueEnum)]
+    #[derive(Debug, Copy, Clone, clap::ValueEnum)]
     pub enum DbTable {
-        #[value(name = "apps")]
-        Apps,
-        #[value(name = "files")]
-        Files,
-        #[value(name = "dirs")]
-        Dirs,
+        apps,
+        files,
+        dirs,
     }
-}
-
-mod filters {
-    #[derive(Debug, Clone, clap::ValueEnum, Default)]
-    pub enum SortOrder {
-        #[value(name = "name")]
-        Name,
-        #[value(name = "mtime")]
-        Mtime,
-        #[default]
-        #[value(name = "none")]
-        None,
-        #[value(name = "size")]
-        Size,
-    }
-
-    #[derive(Debug, Default, Clone, Copy, clap::Args, PartialEq, Eq)]
-    pub struct Visibility {
-        /// show hidden files and folders
-        #[arg(short = 'h')]
-        pub hidden: bool,
-
-        #[clap(skip)]
-        /// show hidden files only
-        pub hidden_files: bool,
-
-        /// HIDE ignored files
-        #[arg(short = 'I')]
-        pub ignore: bool,
-
-        /// show all
-        #[arg(short = 'a', short_alias = 'u')]
-        all: bool,
-
-        /// only show directories
-        #[arg(short = 'F')]
-        pub dirs: bool,
-        /// show only files
-        #[arg(short = 'f')]
-        pub files: bool,
-
-        /// Don't follow symlinks (tui only).
-        #[arg(skip)]
-        pub no_follow: bool,
-    }
-}
-
-mod utils {
-    include!("../src/utils/types.rs");
-}
-
-mod find {
-    include!("../src/find/ft_arg.rs");
 }
 
 mod lessfilter {

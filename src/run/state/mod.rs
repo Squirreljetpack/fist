@@ -33,13 +33,22 @@ mod filters;
 pub use filters::*;
 mod stack;
 pub use stack::*;
+pub mod ui;
 
 // ------------- TRACKING -----------------------
+
+#[allow(unused)]
+pub struct PreRgOptions {
+    a: bool,
+}
+
 thread_local! {
     static PREV_DIRECTORY: RefCell<Option<AbsPath>> = const { RefCell::new(None) };
     static STASHED_INDEX: RefCell<Option<u32>> = const { RefCell::new(None) };
     static INPUT_BAR_CONTENT: RefCell<(Option<PromptKind>, Result<PathItem, AbsPath>)> = const { RefCell::new((None, Err(AbsPath::empty()))) };
     static ORIGINAL_RELATIVE_PATH: RefCell<Option<bool>> = const { RefCell::new(None) };
+
+    static PRE_RG_OPTIONS: RefCell<Option<PreRgOptions>> = const { RefCell::new(None) };
 }
 static TEMP_BOOL: AtomicBool = AtomicBool::new(false);
 pub struct TEMP {}
@@ -50,6 +59,7 @@ impl TEMP {
     pub fn set_prev_dir(path: Option<AbsPath>) {
         PREV_DIRECTORY.replace(path);
     }
+
     pub fn take_stashed_index() -> Option<u32> {
         STASHED_INDEX.with_borrow_mut(|i| i.take())
     }
@@ -93,6 +103,13 @@ impl TEMP {
         TEMP_BOOL
             .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
             .is_ok()
+    }
+
+    pub fn take_pre_rg_options() -> Option<PreRgOptions> {
+        PRE_RG_OPTIONS.with_borrow_mut(|i| i.take())
+    }
+    pub fn set_pre_rg_options(index: PreRgOptions) -> Option<PreRgOptions> {
+        PRE_RG_OPTIONS.replace(Some(index))
     }
 }
 

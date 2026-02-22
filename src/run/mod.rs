@@ -5,7 +5,6 @@ mod dhandlers;
 pub mod item;
 pub mod mm_config;
 pub mod stash;
-pub mod styles;
 pub use action::FsAction;
 mod pane;
 pub use pane::*;

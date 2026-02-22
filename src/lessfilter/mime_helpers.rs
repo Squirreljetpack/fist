@@ -1,12 +1,9 @@
 use std::{fs::File, io::Read, path::Path, str::FromStr};
 
-use cli_boilerplate_automation::bait::BoolExt;
-use mime_guess::{Mime, mime};
+use mime_guess::Mime;
 
-use crate::{
-    lessfilter::{InferMode, file_rule::OverloadedFileType},
-    utils::categories::FileCategory,
-};
+use crate::lessfilter::InferMode;
+use fist_types::FileCategory;
 
 // todo: flesh out the kind using a mime -> fc helper
 // wrapper cuz we can't add a param to Mime
@@ -64,7 +61,7 @@ impl Myme {
 }
 
 pub fn detect_encoding(path: &Path) -> Option<String> {
-    let mut file = File::open(path).ok()?;
+    let file = File::open(path).ok()?;
 
     // Read at most 64 KB
     let mut buf = Vec::new();

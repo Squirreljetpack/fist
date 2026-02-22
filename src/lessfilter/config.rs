@@ -1,13 +1,13 @@
-use std::{collections::HashMap, default, str::FromStr};
+use std::{collections::HashMap, str::FromStr};
 
-use cli_boilerplate_automation::{StringError, bo::load_type, define_collection_wrapper};
-use matchmaker::config::When;
+use cli_boilerplate_automation::define_collection_wrapper;
 use mime_guess::Mime;
 
 use crate::{
     cli::paths::{BINARY_SHORT, current_exe},
     lessfilter::{RulesConfig, file_rule::ParseFileRuleError},
 };
+use fist_types::When;
 
 #[derive(
     Default,
@@ -110,12 +110,12 @@ pub struct LessfilterSettings {
     pub early_exit: bool,
 }
 
-/// Name => Shell Script
-///
-/// # Notes
-/// Name is case insensitive
-///
 define_collection_wrapper!(
+    /// Name => Shell Script
+    ///
+    /// # Notes
+    /// Name is case insensitive
+    ///
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     CustomActions: HashMap<String, String>
 );

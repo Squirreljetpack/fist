@@ -1,6 +1,6 @@
 use std::path::{MAIN_SEPARATOR, Path, PathBuf};
 
-use cli_boilerplate_automation::text::consume_escaped;
+use cli_boilerplate_automation::bring::consume_escaped;
 use matchmaker::nucleo::{Line, Span, Style};
 use ratatui::{
     style::{Color, Modifier},
@@ -166,17 +166,6 @@ pub fn format_cwd_prompt(
     }
 
     out
-}
-
-use unicode_segmentation::UnicodeSegmentation;
-
-pub fn grapheme_index_to_byte_index(
-    s: &str,
-    grapheme_index: u16,
-) -> usize {
-    s.grapheme_indices(true)
-        .nth(grapheme_index as usize)
-        .map_or(s.len(), |(i, _)| i)
 }
 
 pub fn bold_indices(

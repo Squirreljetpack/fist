@@ -6,9 +6,9 @@ use log::{self};
 
 use crate::{
     db::DbSortOrder,
-    filters::{SortOrder, Visibility},
     run::{FsAction, FsPane, state::GLOBAL, state::STACK},
 };
+use fist_types::filters::{SortOrder, Visibility};
 
 thread_local! {
     static SORT: RefCell<(SortOrder, Visibility)> = const { RefCell::new((SortOrder::none, Visibility::DEFAULT)) }

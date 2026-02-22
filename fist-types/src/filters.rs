@@ -1,22 +1,16 @@
+use cli_boilerplate_automation::bath::PathExt;
 use std::path::Path;
 
-use cli_boilerplate_automation::bath::PathExt;
-use strum::IntoStaticStr;
-
 #[allow(non_camel_case_types)]
-#[derive(
-    Debug,
-    clap::ValueEnum,
-    Clone,
-    Copy,
-    Default,
-    strum_macros::Display,
-    PartialEq,
-    Eq,
-    serde::Serialize,
-    serde::Deserialize,
-    strum_macros::EnumIter,
-    strum_macros::IntoStaticStr,
+#[derive(Debug, Clone, Copy, Default, strum_macros::Display, PartialEq, Eq, clap::ValueEnum)]
+#[cfg_attr(
+    feature = "serde",
+    derive(
+        serde::Serialize,
+        serde::Deserialize,
+        strum_macros::EnumIter,
+        strum_macros::IntoStaticStr,
+    )
 )]
 #[strum(serialize_all = "lowercase")]
 pub enum SortOrder {
@@ -24,6 +18,7 @@ pub enum SortOrder {
     mtime,
     #[default]
     none,
+    /// Not always supported
     size,
 }
 
@@ -39,17 +34,17 @@ impl SortOrder {
 }
 
 // ------------------------------------------------------------
-#[derive(
-    Debug, Default, Clone, Copy, clap::Args, PartialEq, Eq, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Debug, Default, Clone, clap::Args, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Visibility {
     /// show hidden files and folders
     #[arg(short = 'h')]
     pub hidden: bool,
 
     #[clap(skip)]
-    /// show hidden files only
-    pub hidden_files: bool,
+    /// show hidden files only.
+    /// When combined with dir or files, the effect is inclusive: hidden or a file, hidden or a directory.
+    pub hidden_only: bool,
 
     /// HIDE ignored files
     #[arg(short = 'I')]
@@ -76,36 +71,62 @@ impl Visibility {
         all: false,
         no_follow: false,
         hidden: false,
-        hidden_files: false,
+        hidden_only: false,
         ignore: false,
         dirs: false,
         files: false,
     };
 
-    // can rust optimize out unnecessary file accesses?
+    // rust can probably optimize out unnecessary file accesses?
     pub fn filter(
         &self,
         path: &Path,
     ) -> bool {
         let mut push = true;
-        if !self.hidden {
+
+        if self.hidden_only {
+            push = if self.dirs {
+                path.is_dir()
+            } else if self.files {
+                path.is_file()
+            } else {
+                path.is_hidden()
+            }
+        } else if !self.hidden {
             push = !path.is_hidden()
         }
+
         if self.ignore {
             // todo
         }
-        if self.hidden_files && path.is_hidden() {
-            if self.dirs {
-                push = path.is_dir()
-            } else {
-                push = !path.is_dir()
-            }
-        };
+
         if self.dirs {
             push = path.is_dir()
         } else if self.files {
             push = path.is_file()
         }
+
+        if !self.all {
+            push = path.exists()
+        }
+        push
+    }
+
+    pub fn post_fd_filter(
+        &self,
+        path: &Path,
+    ) -> bool {
+        let mut push = true;
+
+        if self.hidden_only {
+            push = if self.dirs {
+                path.is_dir()
+            } else if self.files {
+                path.is_file()
+            } else {
+                path.is_hidden()
+            }
+        };
 
         if !self.all {
             push = path.exists()
@@ -149,6 +170,9 @@ impl Visibility {
             ..Default::default()
         }
     }
+    pub fn include_hidden(&self) -> bool {
+        self.hidden || self.hidden_only
+    }
 
     pub fn validated(mut self) -> Self {
         if self.all {
@@ -170,17 +194,10 @@ impl Visibility {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(
-    Debug,
-    clap::ValueEnum,
-    Clone,
-    Copy,
-    Default,
-    strum_macros::Display,
-    serde::Serialize,
-    serde::Deserialize,
-    PartialEq,
-    IntoStaticStr,
+#[derive(Debug, Clone, Copy, Default, strum_macros::Display, PartialEq, clap::ValueEnum)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize, strum_macros::IntoStaticStr)
 )]
 #[strum(serialize_all = "lowercase")]
 pub enum DbSortOrder {

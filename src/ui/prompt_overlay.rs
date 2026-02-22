@@ -1,24 +1,28 @@
 use std::cell::RefCell;
 
 use crate::run::{action::FsAction, state::TEMP};
-use crate::utils::text::grapheme_index_to_byte_index;
+use cli_boilerplate_automation::{auto_impl, define_transparent_wrapper};
 use matchmaker::{
     action::Action,
-    config::BorderSetting,
+    config::{BorderSetting, InputConfig},
     ui::{Overlay, OverlayEffect},
 };
 use ratatui::{
-    prelude::*,
+    layout::{Position, Rect},
+    style::Stylize,
+    text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
+use matchmaker::ui::InputUI;
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PromptConfig {
     pub border: BorderSetting,
-    prompt: String,
+    // pub prompt: String,
 }
 
 impl Default for PromptConfig {
@@ -28,159 +32,30 @@ impl Default for PromptConfig {
                 sides: Some(Borders::ALL),
                 ..Default::default()
             },
-            prompt: String::new(),
+            // prompt: String::new(),
         }
     }
 }
 
-pub struct PromptOverlay {
-    pub input: String,
-    pub cursor: u16, // grapheme index
-    pub config: PromptConfig,
-    pub ui_area: Rect,
-}
+#[derive(Debug)]
+pub struct PromptOverlay(InputUI, Rect);
+
+auto_impl!(PromptOverlay: Deref => InputUI; DerefMut);
 
 impl PromptOverlay {
     pub fn new(config: PromptConfig) -> Self {
-        Self {
-            input: String::new(),
-            cursor: 0,
-            ui_area: Rect::default(),
-            config,
-        }
+        let PromptConfig { border } = config;
+        let config = InputConfig {
+            border,
+            prompt: String::new(),
+            ..Default::default()
+        };
+        let inner = InputUI::new(config);
+        Self(inner, Rect::default())
     }
-    // ---------- GETTERS ---------
-    pub fn len(&self) -> usize {
-        self.input.len()
-    }
-    pub fn is_empty(&self) -> bool {
-        self.input.is_empty()
-    }
+}
 
-    pub fn cursor_offset(
-        &self,
-        rect: &Rect,
-    ) -> Position {
-        let left = self.config.border.left();
-        let top = self.config.border.top();
-        Position::new(rect.x + self.cursor + left, rect.y + top)
-    }
-    // ------------ SETTERS ---------------
-    pub fn set(
-        &mut self,
-        input: String,
-        cursor: u16,
-    ) {
-        let grapheme_count = input.graphemes(true).count() as u16;
-        self.input = input;
-        self.cursor = cursor.min(grapheme_count);
-    }
-    pub fn cancel(&mut self) {
-        self.input.clear();
-        self.cursor = 0;
-    }
-
-    // ---------- EDITING -------------
-    pub fn forward_char(&mut self) {
-        // Check against the total number of graphemes
-        if self.cursor < self.input.graphemes(true).count() as u16 {
-            self.cursor += 1;
-        }
-    }
-    pub fn backward_char(&mut self) {
-        if self.cursor > 0 {
-            self.cursor -= 1;
-        }
-    }
-    pub fn insert_char(
-        &mut self,
-        c: char,
-    ) {
-        let old_grapheme_count = self.input.graphemes(true).count() as u16;
-        let byte_index = grapheme_index_to_byte_index(&self.input, self.cursor);
-        self.input.insert(byte_index, c);
-        let new_grapheme_count = self.input.graphemes(true).count() as u16;
-        if new_grapheme_count > old_grapheme_count {
-            self.cursor += 1;
-        }
-    }
-
-    pub fn forward_word(&mut self) {
-        let post = self.input.graphemes(true).skip(self.cursor as usize);
-
-        let mut in_word = false;
-
-        for g in post {
-            self.cursor += 1;
-            if g.chars().all(|c| c.is_whitespace()) {
-                if in_word {
-                    return;
-                }
-            } else {
-                in_word = true;
-            }
-        }
-    }
-
-    pub fn backward_word(&mut self) {
-        let mut in_word = false;
-
-        let pre: Vec<&str> = self
-            .input
-            .graphemes(true)
-            .take(self.cursor as usize)
-            .collect();
-
-        for g in pre.iter().rev() {
-            self.cursor -= 1;
-
-            if g.chars().all(|c| c.is_whitespace()) {
-                if in_word {
-                    return;
-                }
-            } else {
-                in_word = true;
-            }
-        }
-
-        self.cursor = 0;
-    }
-
-    pub fn delete(&mut self) {
-        if self.cursor > 0 {
-            let byte_start = grapheme_index_to_byte_index(&self.input, self.cursor - 1);
-            let byte_end = grapheme_index_to_byte_index(&self.input, self.cursor);
-
-            self.input.replace_range(byte_start..byte_end, "");
-            self.cursor -= 1;
-        }
-    }
-
-    pub fn delete_word(&mut self) {
-        let old_cursor_grapheme = self.cursor;
-        self.backward_word();
-        let new_cursor_grapheme = self.cursor;
-
-        let byte_start = grapheme_index_to_byte_index(&self.input, new_cursor_grapheme);
-        let byte_end = grapheme_index_to_byte_index(&self.input, old_cursor_grapheme);
-
-        self.input.replace_range(byte_start..byte_end, "");
-    }
-
-    pub fn delete_line_start(&mut self) {
-        let byte_end = grapheme_index_to_byte_index(&self.input, self.cursor);
-
-        self.input.replace_range(0..byte_end, "");
-        self.cursor = 0;
-    }
-
-    pub fn delete_line_end(&mut self) {
-        let byte_index = grapheme_index_to_byte_index(&self.input, self.cursor);
-
-        // Truncate operates on the byte index
-        self.input.truncate(byte_index);
-    }
-
+impl PromptOverlay {
     // Some(true) -> success
     pub fn handle_action_(
         &mut self,
@@ -197,9 +72,7 @@ impl PromptOverlay {
             Action::DeleteLineEnd => self.delete_line_end(),
             Action::Cancel => self.cancel(),
             Action::InputPos(delta) => {
-                let len = self.input.graphemes(true).count() as i32;
-                let new = self.cursor as i32 + *delta;
-                self.cursor = new.clamp(0, len) as u16;
+                todo!()
             }
             Action::Accept => return Some(true),
             Action::Quit(1) => {
@@ -209,6 +82,34 @@ impl PromptOverlay {
         }
 
         None
+    }
+
+    pub fn auto_area(
+        &self,
+        ui_area: &Rect,
+    ) -> Rect {
+        let height = self.config.border.height() + 1;
+        let width = (ui_area.width * 8 / 10)
+            .max(self.input.width() as u16)
+            .clamp(12, 70);
+        let y = ui_area.y + (ui_area.height.saturating_sub(height + 16)) / 2;
+
+        if width < ui_area.width {
+            Rect {
+                x: (ui_area.width - width) / 2,
+                y,
+                width,
+                height,
+            }
+        } else {
+            // left align, not center
+            Rect {
+                x: 1,
+                y,
+                width: width.min(ui_area.width - 2),
+                height,
+            }
+        }
     }
 }
 
@@ -226,7 +127,7 @@ impl Overlay for PromptOverlay {
         if c == '\n' {
             return OverlayEffect::Disable;
         }
-        self.insert_char(c);
+        self.push_char(c);
         OverlayEffect::None
     }
 
@@ -234,8 +135,8 @@ impl Overlay for PromptOverlay {
         &mut self,
         ui_area: &Rect,
     ) -> Result<Rect, [u16; 2]> {
-        // recompute
-        self.ui_area = *ui_area;
+        self.1 = self.auto_area(ui_area);
+        self.0.update_width(self.1.width);
         Ok(Rect::default())
     }
 
@@ -244,44 +145,13 @@ impl Overlay for PromptOverlay {
         frame: &mut matchmaker::ui::Frame<'_>,
         _area: Rect,
     ) {
-        let para = Paragraph::new(self.input.as_str())
-            .left_aligned()
-            .block(self.config.border.as_block());
-
-        let height = self.config.border.height() + 1;
-        let width = (self.ui_area.width * 8 / 10)
-            .max(self.input.width() as u16)
-            .clamp(12, 70);
-        let y = self.ui_area.y + (self.ui_area.height.saturating_sub(height + 16)) / 2;
-
-        let area = if width < self.ui_area.width {
-            Rect {
-                x: (self.ui_area.width - width) / 2,
-                y,
-                width,
-                height,
-            }
-        } else {
-            // left align, not center
-            Rect {
-                x: 1,
-                y,
-                width: width.min(self.ui_area.width - 2),
-                height,
-            }
-        };
-
+        let area = self.1;
         frame.render_widget(Clear, area);
+        self.scroll_to_cursor();
+        let para = self.make_input();
         frame.render_widget(para, area);
 
-        let input_str = self
-            .input
-            .graphemes(true)
-            .take(self.cursor as usize)
-            .collect::<String>();
-        let cursor_x = area.x
-            + UnicodeWidthStr::width(input_str.as_str()) as u16
-            + self.config.border.width() / 2;
-        frame.set_cursor_position((cursor_x, area.y + 1));
+        let pos = self.cursor_offset(&area);
+        frame.set_cursor_position(pos);
     }
 }

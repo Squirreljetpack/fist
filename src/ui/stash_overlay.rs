@@ -1,12 +1,12 @@
 use crate::{
+    find::size::{format_size, sort_by_size},
     run::{
         action::FsAction,
         stash::{STASH, StashAction, StashItem, StashItemState, StashItemStatus},
     },
-    utils::size::format_size,
 };
 use cli_boilerplate_automation::{
-    bath::PathExt, bum::Float32Ext, define_transparent_wrapper, text::StrExt, vec_,
+    bath::PathExt, bring::StrExt, bum::Float32Ext, define_transparent_wrapper, vec_,
 };
 use matchmaker::{
     action::Action,

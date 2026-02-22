@@ -7,11 +7,11 @@ use matchmaker::SSS;
 
 use crate::{
     abspath::AbsPath,
+    run::state::ui::global_ui_mut,
     run::{
         FsInjector, FsPane,
         state::{FILTERS, GLOBAL, TEMP},
     },
-    ui::global::global_ui_mut,
     watcher::WatcherMessage,
 };
 
@@ -56,7 +56,7 @@ impl STACK {
             } = &mut *cell.borrow_mut();
             if *count == 1 {
                 if let Some(o) = TEMP::get_original_relative_path() {
-                    global_ui_mut().relative = o;
+                    global_ui_mut().path.relative = o;
                 }
             }
             stack.truncate(*index + 1);
@@ -77,7 +77,7 @@ impl STACK {
                 if *index == 0
                     && let Some(o) = TEMP::get_original_relative_path()
                 {
-                    global_ui_mut().relative = false;
+                    global_ui_mut().path.relative = false;
                 }
                 true
             } else {

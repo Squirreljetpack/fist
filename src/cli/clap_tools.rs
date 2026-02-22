@@ -2,10 +2,8 @@ use std::path::PathBuf;
 
 use clap::{ArgGroup, Parser};
 
-use crate::{
-    db::{DbSortOrder, DbTable},
-    lessfilter::Preset,
-};
+use crate::{db::DbTable, lessfilter::Preset};
+use fist_types::filters::DbSortOrder;
 
 #[derive(Debug, Parser, Default, Clone)]
 pub struct ShellCommand {
