@@ -1,19 +1,16 @@
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::path::Path;
 
 use arrayvec::ArrayVec;
 use cli_boilerplate_automation::vec_;
 use serde::{Deserialize, Deserializer};
 
-use crate::abspath::AbsPath;
 use crate::arr;
-use crate::cli::paths::{BINARY_SHORT, current_exe, show_error_path, text_renderer_path};
-use crate::lessfilter::file_rule::FileData;
+use crate::cli::paths::{current_exe, show_error_path, text_renderer_path};
+use crate::lessfilter::Preset;
 use crate::lessfilter::helpers::{
     header_viewer, image_viewer, infer_editor, infer_visual, metadata_viewer,
 };
-use crate::lessfilter::{LessfilterConfig, Preset};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, serde::Serialize)]
 #[serde(untagged)]

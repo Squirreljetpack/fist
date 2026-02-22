@@ -1,8 +1,9 @@
+use crate::run::action::FsAction;
 use crate::{
-    filters::*,
     run::state::{FILTERS, GLOBAL, STACK},
     utils::text::bold_indices,
 };
+use fist_types::filters::*;
 use matchmaker::{
     action::Action,
     config::BorderSetting,
@@ -14,9 +15,7 @@ use ratatui::{
 };
 use strum::IntoEnumIterator;
 
-use crate::run::action::FsAction;
-
-// todo: -8 on compact
+// todo: support compact
 const PANE_WIDTH: u16 = const { 4 + 17 + 1 };
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -89,22 +88,30 @@ impl FilterOverlay {
             .collect()
     }
 
+    // active or not
     fn get_visibility_items() -> Vec<(Vec<Span<'static>>, bool)> {
-        let visibility = FILTERS::visibility();
+        let vis = FILTERS::visibility();
 
-        let hidden_label = if visibility.hidden_files {
-            bold_indices("Hidden files", [0])
-        } else if visibility.hidden {
+        let hidden_label = if vis.hidden_only {
+            let label = if vis.files {
+                "Hidden+files"
+            } else if vis.dirs {
+                "Hidden+dirs"
+            } else {
+                "Hidden only"
+            };
+            bold_indices(label, [0])
+        } else if vis.hidden {
             bold_indices("hidden (files: H)", [0, 15])
         } else {
             bold_indices("hidden", [0])
         };
 
         vec![
-            (hidden_label, visibility.hidden || visibility.hidden_files),
-            (bold_indices("Ignore", [0]), visibility.ignore),
-            (bold_indices("Dirs", [0]), visibility.dirs),
-            (bold_indices("all", [0]), visibility.all()),
+            (hidden_label, vis.hidden || vis.hidden_only),
+            (bold_indices("Ignore", [0]), vis.ignore),
+            (bold_indices("Dirs", [0]), vis.dirs),
+            (bold_indices("all", [0]), vis.all()),
         ]
     }
 
@@ -150,28 +157,31 @@ impl FilterOverlay {
 
     /// Handler for cursor selection
     fn toggle_selected_option(&mut self) {
-        FILTERS::with_mut(|sort, visibility| {
+        FILTERS::with_mut(|sort, vis| {
             let [x, y] = self.cursor;
             match x {
                 // visibility pane
                 0 => {
                     if !matches!(y, 2 | 3) {
-                        visibility.set_all(false);
+                        vis.set_all(false);
                     }
                     match y {
                         0 => {
-                            (visibility.hidden, visibility.hidden_files) =
-                                if visibility.hidden_files {
-                                    (false, false)
-                                } else if visibility.hidden {
-                                    (false, true)
-                                } else {
-                                    (true, false)
+                            (vis.hidden, vis.hidden_only) = if vis.hidden_only {
+                                vis.files = false;
+                                (false, false)
+                            } else if vis.hidden {
+                                if !vis.dirs {
+                                    vis.files = true;
                                 }
+                                (false, true)
+                            } else {
+                                (true, false)
+                            }
                         }
-                        1 => visibility.ignore = !visibility.ignore,
-                        2 => visibility.dirs = !visibility.dirs,
-                        3 => visibility.toggle_all(),
+                        1 => vis.ignore = !vis.ignore,
+                        2 => vis.dirs = !vis.dirs,
+                        3 => vis.toggle_all(),
                         _ => {}
                     }
                 }
@@ -221,22 +231,21 @@ impl Overlay for FilterOverlay {
 
             // visibility toggles
             'h' | 'H' | 'I' | 'a' | 'd' | 'D' => {
-                FILTERS::with_mut(|_sort, visibility| {
+                FILTERS::with_mut(|_sort, vis| {
                     if !matches!(c, 'D' | 'a') {
-                        visibility.set_all(false);
+                        vis.set_all(false);
                     }
                     match c {
-                        'h' => {
-                            (visibility.hidden, visibility.hidden_files) =
-                                (!visibility.hidden, false)
-                        }
+                        'h' => (vis.hidden, vis.hidden_only) = (!vis.hidden, false),
                         'H' => {
-                            (visibility.hidden, visibility.hidden_files) =
-                                (false, !visibility.hidden_files)
+                            if !vis.dirs {
+                                vis.files = true;
+                            }
+                            (vis.hidden, vis.hidden_only) = (false, !vis.hidden_only)
                         }
-                        'd' | 'D' => visibility.dirs = !visibility.dirs,
-                        'I' => visibility.ignore = !visibility.ignore,
-                        'a' => visibility.toggle_all(),
+                        'd' | 'D' => vis.dirs = !vis.dirs,
+                        'I' => vis.ignore = !vis.ignore,
+                        'a' => vis.toggle_all(),
                         _ => {}
                     }
                 });

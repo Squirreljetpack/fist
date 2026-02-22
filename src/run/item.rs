@@ -14,10 +14,10 @@ use crate::{
     db::Entry,
     run::state::GLOBAL,
     ui::global::global_ui,
-    utils::{
-        categories::FileCategory,
-        icons::{Icons, icon_for_file},
-    },
+};
+use fist_types::{
+    FileCategory,
+    icons::{Icons, icon_for_file},
 };
 
 /// The basic item underyling a line in the matchmaker

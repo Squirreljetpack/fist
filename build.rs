@@ -10,6 +10,9 @@ mod cli {
     pub mod paths {
         include!("src/cli/paths.rs");
     }
+    pub mod clap_helpers {
+        include!("src/cli/clap_helpers.rs");
+    }
     use crate::cli::tool_types::*;
 
     use clap::Subcommand;

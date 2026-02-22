@@ -13,7 +13,6 @@ use std::{
 use anyhow::bail;
 use cli_boilerplate_automation::{
     bait::ResultExt,
-    bath::PathExt,
     bo::{MapReaderError, map_reader_lines},
     bog::BogOkExt,
     broc::{CommandExt, display_sh_prog_and_args},
@@ -27,7 +26,6 @@ use crate::{
     abspath::AbsPath,
     cli::DefaultCommand,
     db::{DbSortOrder, DbTable},
-    filters::{SortOrder, Visibility},
     find::{
         FileTypeArg,
         apps::collect_apps,
@@ -42,6 +40,7 @@ use crate::{
     },
     utils::text::split_delim,
 };
+use fist_types::filters::{SortOrder, Visibility};
 use crate::{config::GlobalConfig, utils::size::sort_by_size};
 
 #[derive(Debug, Clone)]
@@ -545,19 +544,7 @@ impl FsPane {
                     stdout,
                     move |line| {
                         let item = PathItem::new(line, &cwd);
-
-                        let mut push = true;
-                        // most checks were already handled by fd
-                        if vis.hidden_files && item.path.is_hidden() {
-                            if vis.dirs {
-                                push = item.path.is_dir();
-                            } else {
-                                push = !item.path.is_dir()
-                            }
-                        };
-                        if !vis.all() {
-                            push = item.path.exists()
-                        }
+                        let push = vis.post_fd_filter(&item.path);
 
                         if push { injector.push(item) } else { Ok(()) }
                     },
@@ -587,50 +574,32 @@ impl FsPane {
                     .spawn_piped()
                     ._ebog()?;
 
-                // Example output of rg 'command' --case-sensitive -C 2
-                // node_modules/@babel/core/lib/parser/util/missing-plugin-helper.js
-                // 328-You can re-run Babel with the BABEL_SHOW_CONFIG_FOR environment variable to show the loaded \
-                // 329-configuration:
-                // 330:\tnpx cross-env BABEL_SHOW_CONFIG_FOR=${msgFilename} <your build command>
-                // 331-See https://babeljs.io/docs/configuration#print-effective-configs for more info.
-                // 332-`;
-                // 89-      * accounting for any retained ranges.
-                // 90-      * @param {SourceRange} range The range to remove in the fix.
-                // 91-      * @param {string} text The text to insert in place of the range.
-                // 92:      * @returns {Object} The fix command.
-                // 93-      */
-                // 94-     replaceTextRange(range, text) {
+                // Example output of rg 'command' --column --case-sensitive -C 2
+                // src/components/settings/ClamshellMicrophoneSelector.tsx
+                // 1-import React, { useState, useEffect } from "react";
+                // 2-import { useTranslation } from "react-i18next";
+                // 3:10:import { commands } from "@/bindings";
+                // 4-import { Dropdown } from "../ui/Dropdown";
+                // 5-import { SettingContainer } from "../ui/SettingContainer";
                 // --
-                // 113-
-                // 114-    /**
-                // 115:     * Create a fix command that removes the given node or token, accounting for
-                // 116-     * any retained ranges.
-                // 117-     * @param {ASTNode|Token} nodeOrToken The node or token to remove.
-                // 118:     * @returns {Object} The fix command.
-                // 119-     */
-                // 120-    remove(nodeOrToken) {
+                // 30-      const checkIsLaptop = async () => {
+                // 31-        try {
+                // 32:32:          const result = await commands.isLaptop();
+                // 33-          if (result.status === "ok") {
+                // 34-            setIsLaptop(result.data);
                 //
-                // node_modules/@eslint-community/eslint-utils/node_modules/eslint-visitor-keys/README.md
-                // 94-Welcome. See [ESLint contribution guidelines](https://eslint.org/docs/developer-guide/contributing/).
-                // 95-
-                // 96:### Development commands
-                // 97-
-                // 98-- `npm test` runs tests and measures code coverage.
-                //
-                // node_modules/@babel/parser/CHANGELOG.md
-                // 89- * Changed Non-existent RestPattern to RestElement which is what is actually parsed (#409) [skip ci] (James Browning)
-                // 90- * Upgrade flow to 0.41 (Daniel Tschinder)
-                // 91: * Fix watch command (#403) (Brian Ng)
-                // 92- * Update yarn lock (Daniel Tschinder)
-                // 93: * Fix watch command (#403) (Brian Ng)
-                // 94- * chore(package): update flow-bin to version 0.41.0 (#395) (greenkeeper[bot])
-                // 95- * Add estree test for correct order of directives (Daniel Tschinder)
+                // src/components/settings/PostProcessingSettingsApi/usePostProcessProviderState.ts
+                // 1-import { useCallback, useMemo, useState } from "react";
+                // 2-import { useSettings } from "../../../hooks/useSettings";
+                // 3:10:import { commands, type PostProcessProvider } from "@/bindings";
+                // 4-import type { ModelOption } from "./types";
+                // 5-import type { DropdownOption } from "../../ui/Dropdown";
                 // --
-                // 487-![image](https://cloud.githubusercontent.com/assets/5233399/19420267/388f556e-93ad-11e6-813e-7c5c396be322.png)
-                // 488-
-                // 489:- add clean command [skip ci] ([#201](https://github.com/babel/babylon/pull/201)) (Henry Zhu)
-                // 490-- add ForAwaitStatement (async generator already added) [skip ci] ([#196](https://github.com/babel/babylon/pull/196)) (Henry Zhu)
-                // 491-
+                // 82-      // Check Apple Intelligence availability before selecting
+                // 83-      if (providerId === APPLE_PROVIDER_ID) {
+                // 84:33:        const available = await commands.checkAppleIntelligenceAvailable();
+                // 85-        if (!available) {
+                // 86-          setAppleIntelligenceUnavailable(true);
 
                 // with --no-heading:
                 // --
@@ -652,18 +621,7 @@ impl FsPane {
                     move |line| {
                         let item = PathItem::new(line, &cwd);
 
-                        let mut push = true;
-                        // most checks were already handled by fd
-                        if vis.hidden_files && item.path.is_hidden() {
-                            if vis.dirs {
-                                push = item.path.is_dir();
-                            } else {
-                                push = !item.path.is_dir()
-                            }
-                        };
-                        if !vis.all() {
-                            push = item.path.exists()
-                        }
+                        let push = vis.post_fd_filter(&item.path);
 
                         if push { injector.push(item) } else { Ok(()) }
                     },

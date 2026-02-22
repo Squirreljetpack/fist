@@ -13,14 +13,11 @@
 //! # Contributors
 //! Please keep these lists sorted. If you're using vim, :sort i
 
-use cli_boilerplate_automation::bath::{PathExt, split_ext};
+use super::categories::FileCategory;
 use phf::{Map, phf_map};
-use std::path::Path;
-
-pub use super::types::FileCategory;
 
 /// Mapping from full filenames to file type.
-const FILENAME_TYPES: Map<&'static str, FileCategory> = phf_map! {
+pub const FILENAME_TYPES: Map<&'static str, FileCategory> = phf_map! {
     /* Immediate file - kick off the build of a project */
     "Brewfile"           => FileCategory::Build,
     "bsconfig.json"      => FileCategory::Build,
@@ -74,7 +71,7 @@ const FILENAME_TYPES: Map<&'static str, FileCategory> = phf_map! {
 
 /// Mapping from lowercase file extension to file type.  If an image, video, music, or lossless
 /// extension is added also update the extension icon map.
-const EXTENSION_TYPES: Map<&'static str, FileCategory> = phf_map! {
+pub const EXTENSION_TYPES: Map<&'static str, FileCategory> = phf_map! {
     /* Immediate file - kick off the build of a project */
     "ninja"      => FileCategory::Build,
     /* Image files */
@@ -436,205 +433,3 @@ const EXTENSION_TYPES: Map<&'static str, FileCategory> = phf_map! {
     "tsv" => FileCategory::Text,
     "log" => FileCategory::Text,
 };
-
-impl FileCategory {
-    pub fn exts(&self) -> Vec<&'static str> {
-        EXTENSION_TYPES
-            .entries()
-            .filter_map(|(ext, cat)| (cat == self).then_some(*ext))
-            .collect()
-    }
-
-    // todo: flesh out
-    pub fn get(path: &Path) -> Option<FileCategory> {
-        let name = path.filename();
-        let ext = split_ext(&name)[1];
-
-        // Case-insensitive readme check
-        if name.to_lowercase().starts_with("readme") {
-            return Some(Self::Build);
-        }
-
-        // Check full filename mapping
-        if let Some(file_type) = FILENAME_TYPES.get(&*name) {
-            return Some(file_type.clone());
-        }
-
-        // Check extension mapping
-        if let Some(file_type) = EXTENSION_TYPES.get(ext) {
-            return Some(file_type.clone());
-        }
-
-        // Temporary file check (~ or #…#)
-        if name.ends_with('~') || (name.starts_with('#') && name.ends_with('#')) {
-            return Some(Self::Temp);
-        }
-
-        // Modification of original: just do a ext check
-        if EXTENSION_TYPES.get(ext) == Some(&Self::Compiled) {
-            return Some(Self::Compiled);
-        };
-
-        None
-    }
-
-    // TODO: flesh out
-    #[cfg(feature = "file-format")]
-    pub fn from_fileformat(format: file_format::FileFormat) -> Self {
-        use FileCategory::*;
-        use file_format::Kind;
-
-        match format.kind() {
-            Kind::Archive | Kind::Compressed => Compressed,
-            Kind::Audio => Audio,
-            Kind::Database => Database,
-            Kind::Diagram => Diagram,
-            Kind::Disk => Disk,
-            Kind::Document => Document,
-            Kind::Ebook => Ebook,
-            Kind::Executable => Executable,
-            Kind::Font => Font,
-            Kind::Formula => Formula,
-            Kind::Geospatial => Geospatial,
-            Kind::Image => Image,
-            Kind::Metadata => Metadata,
-            Kind::Model => Model,
-            Kind::Other if format.media_type().starts_with("text/") => Text,
-            Kind::Other => Other,
-            Kind::Package => Package,
-            Kind::Playlist => Playlist,
-            Kind::Presentation => Presentation,
-            Kind::Rom => Rom,
-            Kind::Spreadsheet => Spreadsheet,
-            Kind::Subtitle => Subtitle,
-            Kind::Video => Video,
-            _ => Other,
-        }
-    }
-
-    pub fn is_text(&self) -> bool {
-        use FileCategory::*;
-        matches!(self, Text | Source | Configuration)
-    }
-
-    pub fn from_mime(mime: &str) -> Self {
-        // documents = [
-        // "application/pdf",
-        // "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        // "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        // "application/msword",
-        // "application/vnd.ms-powerpoint",
-        // "application/vnd.oasis.opendocument.text",
-        // ]
-
-        // spreadsheets = [
-        // "application/vnd.ms-excel",
-        // "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        // "application/vnd.ms-excel.sheet.macroenabled.12",
-        // "application/vnd.ms-excel.sheet.binary.macroenabled.12",
-        // "application/vnd.ms-excel.addin.macroenabled.12",
-        // "application/vnd.ms-excel",
-        // "application/vnd.oasis.opendocument.spreadsheet",
-        // ]
-
-        // text_and_markup = [
-        // "text/plain",
-        // "text/markdown",
-        // "text/x-markdown",
-        // "text/html",
-        // "application/xhtml+xml",
-        // "application/xml",
-        // "text/xml",
-        // "image/svg+xml",
-        // "text/x-rst",
-        // "text/x-org",
-        // "application/rtf",
-        // "text/rtf",
-        // "text/x-djot",
-        // ]
-
-        // structured_data = [
-        // "application/json",
-        // "text/json",
-        // "application/x-yaml",
-        // "text/yaml",
-        // "text/x-yaml",
-        // "application/toml",
-        // "text/toml",
-        // "text/csv",
-        // "text/tab-separated-values",
-        // ]
-
-        // email = [
-        // "message/rfc822",
-        // "application/vnd.ms-outlook",
-        // ]
-
-        // images = [
-        // "image/png",
-        // "image/jpeg",
-        // "image/jpg",
-        // "image/webp",
-        // "image/bmp",
-        // "image/x-bmp",
-        // "image/x-ms-bmp",
-        // "image/tiff",
-        // "image/x-tiff",
-        // "image/gif",
-        // "image/jp2",
-        // "image/jpx",
-        // "image/jpm",
-        // "image/mj2",
-        // "image/x-jbig2",
-        // "image/x-portable-anymap",
-        // ]
-
-        // archives = [
-        // "application/zip",
-        // "application/x-zip-compressed",
-        // "application/x-tar",
-        // "application/x-bzip2",
-        // "application/x-xz",
-        // "application/tar",
-        // "application/x-gtar",
-        // "application/x-ustar",
-        // "application/x-7z-compressed",
-        // "application/gzip",
-        // "application/x-gzip",
-        // ]
-
-        // academic_and_publishing = [
-        // "application/x-latex",
-        // "text/x-tex",
-        // "application/epub+zip",
-        // "application/x-bibtex",
-        // "application/x-biblatex",
-        // "application/x-typst",
-        // "application/x-ipynb+json",
-        // "application/x-fictionbook+xml",
-        // "application/docbook+xml",
-        // "application/x-jats+xml",
-        // "application/x-opml+xml",
-        // "application/x-research-info-systems",
-        // "application/x-endnote+xml",
-        // "application/x-pubmed",
-        // "application/csl+json",
-        // ]
-
-        // markdown_variants = [
-        // "text/x-commonmark",
-        // "text/x-gfm",
-        // "text/x-multimarkdown",
-        // "text/x-markdown-extra",
-        // "text/x-djot",
-        // ]
-
-        // other_formats = [
-        // "text/x-mdoc",
-        // "text/troff",
-        // "text/x-pod",
-        // "text/x-dokuwiki",
-        // ]
-        todo!()
-    }
-}

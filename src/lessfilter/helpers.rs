@@ -12,7 +12,7 @@ use cli_boilerplate_automation::bo::map_reader_lines;
 use cli_boilerplate_automation::broc::CommandExt;
 use cli_boilerplate_automation::text::TableBuilder;
 use cli_boilerplate_automation::{StringError, wbog};
-use cli_boilerplate_automation::{bo::MapReaderError, bog::BogOkExt, broc::has, prints, vec_};
+use cli_boilerplate_automation::{bo::MapReaderError, bog::BogOkExt, broc::has, vec_};
 use crossterm::style::Stylize;
 
 use crate::cli::paths::{current_exe, text_renderer_path};
@@ -89,7 +89,7 @@ pub fn show_metadata(
                         if ret.is_some() || !first {
                             println!("\n");
                         }
-                        table.print();
+                        table.print()._elog();
                     }
                     _ => {
                         // error

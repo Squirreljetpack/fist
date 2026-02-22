@@ -5,7 +5,7 @@ use matchmaker::{
     binds::BindMap,
     config::{
         DisplayConfig, OverlayConfig, Percentage, PreviewSetting, RenderConfig, RowConnectionStyle,
-        TerminalConfig, TerminalLayoutSettings, When,
+        TerminalConfig, TerminalLayoutSettings,
     },
     nucleo::nucleo,
 };
@@ -19,6 +19,7 @@ use crate::{
         stash_overlay::StashConfig,
     },
 };
+use fist_types::When;
 
 // ------- Main config --------
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

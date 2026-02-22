@@ -6,25 +6,25 @@ use cli_boilerplate_automation::{
     bs::{create_dir, set_executable},
     ibog,
 };
-use matchmaker::config::When;
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{
-    cli::{
-        ClapStyleSetting,
-        paths::{liza_path, text_renderer_path},
-    },
-    db::zoxide::HistoryConfig,
-    filters::*,
-    run::FsPane,
-    ui::styles_config::StyleConfig,
-    watcher::WatcherConfig,
-};
 use crate::{
     cli::{CliOpts, paths::*},
     lessfilter::Preset,
     spawn::menu_action::MenuActions,
 };
+use crate::{
+    cli::{
+        clap_helpers::ClapStyleSetting,
+        paths::{liza_path, text_renderer_path},
+    },
+    db::zoxide::HistoryConfig,
+    run::FsPane,
+    ui::styles_config::StyleConfig,
+    watcher::WatcherConfig,
+};
+use fist_types::filters::*;
+use fist_types::When;
 // ------ CONFIG ------
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -403,12 +403,15 @@ pub struct RgPaneSettings {
 
 impl Default for RgPaneSettings {
     fn default() -> Self {
+        let mut default_visibility = Visibility::default();
+        default_visibility.ignore = true;
+
         Self {
             prompt: None,
             show_preview: None,
             enter_prompt: true,
 
-            default_visibility: Default::default(),
+            default_visibility,
         }
     }
 }
@@ -463,6 +466,7 @@ pub struct AppPaneSettings {
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FdConfig {
+    // todo: lowpri: lookup is by OsString but storage is as String...
     /// A map of folders => exclusion globs which should be applied when in them.
     /// ~ can be used in lieu of $HOME.
     /// If a list is specified for the empty path "", that list will override the list of default exclusions for the platform, and apply everywhere.
@@ -474,13 +478,29 @@ pub struct FdConfig {
 
     /// When no path is given to fs, such as using `fs [pattern]`, whether to search in `$HOME` or the current directory.
     pub default_search_in_home: bool,
-
-    /// Enabling this will hide ignored files when a pattern but no path is given to fs, such as using `fs [pattern]`, (and ignore was not explicitly set in the cli).
+    /// Enabling this will hide ignored files when a pattern but no path is given to fs, such as using `fs [pattern]`, provided that ignore was not explicitly specified to the cli.
     pub default_search_ignore: bool,
     //  ---------------- Experimental/Nonstandard ---------------
-    /// When given a set of paths to search with `fs`
+    /// When given a set of paths to search with `fs`, change the working directory to their common denominator.
     pub reduce_paths: bool,
     /// The set of arguments applied to the end of `fs ::` when no `fd_args` were given.
+    pub default_args: Vec<String>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct RgConfig {
+    /// A map of folders => globs which should be applied when in them.
+    /// ~ can be used in lieu of $HOME.
+    /// If a list is specified for the empty path "", that list will apply everywhere.
+    /// Only one value can apply to each path.
+    /// Multiple glob flags may be used. Globbing rules match .gitignore globs. Precede a glob with a ! to exclude it. If multiple globs match a file or directory, the glob given later in the command line takes precedence. Globs used via this flag are matched case insensitively. This is passed on to rg through the `--iglob` parameter.
+    pub iglobs: HashMap<PathBuf, Vec<String>>,
+    /// Arguments added to every rg command
+    pub base_args: Vec<String>,
+
+    //  ---------------- Experimental/Nonstandard ---------------
+    /// The set of arguments applied to the end of `fs :` when no `rg_args` were given.
     pub default_args: Vec<String>,
 }
 

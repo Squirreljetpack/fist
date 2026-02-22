@@ -4,10 +4,10 @@ use cli_boilerplate_automation::{vec_, wbog};
 
 use super::FileTypeArg;
 use crate::{
-    cli::paths::{self, __cwd, __home},
+    cli::paths::{__cwd, __home},
     config::FdConfig,
-    filters::Visibility,
 };
+use fist_types::filters::Visibility;
 
 // probably we can avoid clones + turn into const but this is easier
 pub fn default_exclusions() -> Vec<String> {
@@ -128,7 +128,7 @@ pub fn build_fd_args(
         ret.push("--follow".into());
     }
     // auto-enable hidden on some patterns
-    if !full_path_pattern && !vis.hidden_files && !vis.all() {
+    if !full_path_pattern && !vis.all() {
         if (glob_pattern
             && paths
                 .last()
@@ -148,7 +148,7 @@ pub fn build_fd_args(
         ret.push("--hidden".into());
         ret.push("--no-ignore".into());
     } else {
-        if vis.hidden_files || vis.hidden {
+        if vis.hidden || vis.hidden_only {
             ret.push("--hidden".into());
         }
         if !vis.ignore {
@@ -174,7 +174,7 @@ pub fn build_fd_args(
                 .unwrap_or_else(default_exclusions);
 
             // todo: check full/replaced for all paths
-            if paths::__cwd() == paths::__home() {
+            if __cwd() == __home() {
                 if let Some(excls) = cfg.exclusions.get(&PathBuf::from("~")) {
                     exclusions.extend(excls.iter().cloned());
                 }
@@ -206,6 +206,7 @@ pub fn build_fd_args(
         ret.push("--search-path".into());
         ret.push(p.clone());
     }
+    ret.push("--color=never".into());
 
     ret.append(&mut extra_args);
 

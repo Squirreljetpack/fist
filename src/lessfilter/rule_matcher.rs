@@ -1,11 +1,6 @@
-#![allow(unused)]
+use std::{fmt::Debug, str::FromStr};
 
-use std::{fmt::Debug, marker::PhantomData, num::ParseIntError, str::FromStr};
-
-use cli_boilerplate_automation::define_collection_wrapper;
 use serde::{Deserialize, Deserializer};
-
-use crate::abspath::AbsPath;
 
 // Could we come up with some kind of heuristic to optimize how many checks are needed to break above a certain threshold?
 
@@ -403,32 +398,3 @@ impl<'a, R, I> Iterator for BestMatches<'a, R, I> {
         }
     }
 }
-
-// ----------------
-// fn parse_rule<R: FromStr + DefaultScore>(s: &str) -> Result<Rule<R>, R::Err> {
-//     let mut parts = Vec::new();
-//     let mut buf = String::new();
-//     let mut escaped = false;
-
-//     for c in s.chars() {
-//         if escaped {
-//             buf.push(c);
-//             escaped = false;
-//         } else if c == '\\' {
-//             escaped = true;
-//         } else if c == ',' {
-//             if !buf.is_empty() {
-//                 parts.push(parse_rule_part(buf.trim())?);
-//                 buf.clear();
-//             }
-//         } else {
-//             buf.push(c);
-//         }
-//     }
-
-//     if !buf.is_empty() {
-//         parts.push(parse_rule_part(buf.trim())?);
-//     }
-
-//     Ok(parts)
-// }

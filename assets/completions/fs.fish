@@ -110,9 +110,9 @@ complete -c fs -n "__fish_fs_using_subcommand :dir" -l help
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l sort -r -f -a "name\t''
 mtime\t''
 none\t''
-size\t''"
+size\t'Not always supported'"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
-complete -c fs -n "__fish_fs_using_subcommand :fd" -l list-fmt -d 'Template to format the list output as' -r
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s o -l output -d 'Format the output as this template' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l config -d 'config path' -r -F
@@ -127,16 +127,16 @@ complete -c fs -n "__fish_fs_using_subcommand :fd" -s I -d 'HIDE ignored files'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s a -d 'show all'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s F -d 'only show directories'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s f -d 'show only files'
-complete -c fs -n "__fish_fs_using_subcommand :fd" -l list
-complete -c fs -n "__fish_fs_using_subcommand :fd" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l cd -d 'print the first match'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l no-read -d 'Never stream input from stdin'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l list
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l help
 complete -c fs -n "__fish_fs_using_subcommand ::" -l sort -r -f -a "name\t''
 mtime\t''
 none\t''
-size\t''"
+size\t'Not always supported'"
 complete -c fs -n "__fish_fs_using_subcommand ::" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
-complete -c fs -n "__fish_fs_using_subcommand ::" -l list-fmt -d 'Template to format the list output as' -r
+complete -c fs -n "__fish_fs_using_subcommand ::" -s o -l output -d 'Format the output as this template' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l config -d 'config path' -r -F
@@ -151,11 +151,15 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -s I -d 'HIDE ignored files'
 complete -c fs -n "__fish_fs_using_subcommand ::" -s a -d 'show all'
 complete -c fs -n "__fish_fs_using_subcommand ::" -s F -d 'only show directories'
 complete -c fs -n "__fish_fs_using_subcommand ::" -s f -d 'show only files'
-complete -c fs -n "__fish_fs_using_subcommand ::" -l list
-complete -c fs -n "__fish_fs_using_subcommand ::" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l cd -d 'print the first match'
+complete -c fs -n "__fish_fs_using_subcommand ::" -l no-read -d 'Never stream input from stdin'
+complete -c fs -n "__fish_fs_using_subcommand ::" -l list
 complete -c fs -n "__fish_fs_using_subcommand ::" -l help
-complete -c fs -n "__fish_fs_using_subcommand :rg" -l query -d 'initial query' -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s p -l path -d 'Files or directories to search in' -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s A -l after-context -d 'Show NUM lines after each match' -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s B -l before-context -d 'Show NUM lines before each match' -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s C -l context -d 'Show NUM lines before and after each match' -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s o -l output -d 'Format the output as this template' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l config -d 'config path' -r -F
@@ -170,8 +174,16 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s I -d 'HIDE ignored files'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s a -d 'show all'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s F -d 'only show directories'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s f -d 'show only files'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s i -l ignore-case
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l case-sensitive
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s S -l smart-case
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l list
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l help
-complete -c fs -n "__fish_fs_using_subcommand :" -l query -d 'initial query' -r
+complete -c fs -n "__fish_fs_using_subcommand :" -s p -l path -d 'Files or directories to search in' -r
+complete -c fs -n "__fish_fs_using_subcommand :" -s A -l after-context -d 'Show NUM lines after each match' -r
+complete -c fs -n "__fish_fs_using_subcommand :" -s B -l before-context -d 'Show NUM lines before each match' -r
+complete -c fs -n "__fish_fs_using_subcommand :" -s C -l context -d 'Show NUM lines before and after each match' -r
+complete -c fs -n "__fish_fs_using_subcommand :" -s o -l output -d 'Format the output as this template' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l config -d 'config path' -r -F
@@ -186,6 +198,10 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s I -d 'HIDE ignored files'
 complete -c fs -n "__fish_fs_using_subcommand :" -s a -d 'show all'
 complete -c fs -n "__fish_fs_using_subcommand :" -s F -d 'only show directories'
 complete -c fs -n "__fish_fs_using_subcommand :" -s f -d 'show only files'
+complete -c fs -n "__fish_fs_using_subcommand :" -s i -l ignore-case
+complete -c fs -n "__fish_fs_using_subcommand :" -s s -l case-sensitive
+complete -c fs -n "__fish_fs_using_subcommand :" -s S -l smart-case
+complete -c fs -n "__fish_fs_using_subcommand :" -l list
 complete -c fs -n "__fish_fs_using_subcommand :" -l help
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l override -d 'config override' -r

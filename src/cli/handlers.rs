@@ -28,14 +28,13 @@ use super::{
 };
 use crate::{
     abspath::AbsPath,
-    cli::SubTool,
+    cli::{SubTool, clap_helpers::ListMode},
     config::Config,
     db::{
         DbSortOrder, DbTable, Pool, display_entries,
         zoxide::{DbFilter, RetryStrat},
     },
     errors::CliError,
-    filters::{SortOrder, Visibility},
     find::{
         FileTypeArg,
         fd::{auto_enable_hidden, build_fd_args},
@@ -50,16 +49,10 @@ use crate::{
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
-    utils::{
-        colors::display_ratatui_colors, filetypes::FileType, path::paths_base, text::path_formatter,
-    },
+    utils::{colors::display_ratatui_colors, path::paths_base, text::path_formatter},
 };
-// #[ext(CliResultExt)]
-// impl Result<(), CliError> {
-//     fn default() -> Self {
-//         Err(CliError::Handled)
-//     }
-// }
+use fist_types::filetypes::FileType;
+use fist_types::filters::{SortOrder, Visibility};
 
 pub async fn handle_subcommand(
     cli: Cli,
@@ -466,20 +459,10 @@ async fn handle_default(
 
             let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
                 let path = PathBuf::from(line);
-                let mut push = true;
-                // most checks were already handled by fd
-                if cmd.vis.hidden_files && path.is_hidden() {
-                    if cmd.vis.dirs {
-                        push = path.is_dir();
-                    } else {
-                        push = !path.is_dir()
-                    }
-                };
-                if !cmd.vis.all() {
-                    push = path.exists()
-                }
+                let push = cmd.vis.post_fd_filter(&path);
+
                 if push {
-                    if let Some(template) = &cmd.list_fmt {
+                    if let Some(template) = &cmd.output {
                         let s = path_formatter(template, &AbsPath::new(path));
                         prints!(s)
                     } else {

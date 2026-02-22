@@ -85,6 +85,7 @@ transparent advance into compressed files
 - Table editing
 
 # Disk
+
 - Size tree
 
 # FD
@@ -145,8 +146,6 @@ Per-pane extensions:
 better cli/env var handling: need a proc macro to generate a mirrored with every concrete value wrapped in option, then a fn to merge that config into the main config
 support mm-partial somehow to specify ui styling?
 
-# CD
-
 # Stash
 
 - overridden actions should hide the overridden toast as well somehow.
@@ -156,23 +155,22 @@ support mm-partial somehow to specify ui styling?
 
 - sync handler never runs if no elements
   - need display toast on empty dir
-- copy/cut cause lag
--
+- how to make file operations feel bulletproof
 
 # Shell
 
-- should we include completion generation in cli (no?)
+- [x] should we include completion generation in cli (verdict: no)
 - currently completions seems to complete flags, why doesn't it complete subcommands?
 - we have some zsh specific scripts, posix/something crossplatform would be better.
-- fn with +linebuffer capability would be very nice, but which?
 - aging algorithm
-- when accepting an item, we need to check canonical
 - prepopulate some directories: trash, desktop, home etc.
-- z . should probably start the navigator. Then a keybind can start the directory jumper.
-- escape single quoted filenames
-- z .. behavior assumes shell automatically cd into paths
 
-https://github.com/mmalecot/file-format
-https://github.com/unicode-org/icu4x : for table printing
+# Refactor
 
-Built-in edit: https://github.com/microsoft/edit/tree/main
+- workspaces: unlikely
+- Built-in edit under a feature flag? https://github.com/microsoft/edit/tree/main
+- https://github.com/unicode-org/icu4x : for table printing
+
+# Other tables
+
+- version controlled, generic, incremental backups

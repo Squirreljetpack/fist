@@ -1,33 +1,27 @@
-#![allow(unused)]
-
+//! Match files to actions based on matching rules.
+//! Based on a RuleMatcher implementation in the standalone file rule_matcher.rs.
 pub mod action;
 mod config;
 pub mod file_rule;
 mod helpers;
 pub mod rule_matcher;
-use cfg_if::cfg_if;
 use cli_boilerplate_automation::broc::tty_or_inherit;
 pub use config::*;
 
 pub mod mime_helpers;
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::bait::OptionExt;
 use cli_boilerplate_automation::bog::BogUnwrapExt;
 use cli_boilerplate_automation::{bog::BogOkExt, broc::CommandExt};
 use cli_boilerplate_automation::{ebog, unwrap};
-use std::path::Path;
+use std::process::exit;
 use std::process::{Command, Stdio};
-use std::{path::PathBuf, process::exit};
 
 use crate::cli::clap_tools::LessfilterCommand;
-use crate::lessfilter::helpers::{
-    extract, header_viewer, is_header, is_metadata, show_header, show_metadata,
-};
+use crate::lessfilter::helpers::{extract, is_header, is_metadata, show_header, show_metadata};
 use crate::utils::text::path_formatter;
 use crate::{
     abspath::AbsPath,
-    config::Config,
     lessfilter::{
         action::Action,
         file_rule::{FileData, FileRule},
@@ -101,7 +95,7 @@ pub fn handle(
                 let (progs, perms) = action.to_progs(&path, preset);
                 singleton &= progs.len() == 1;
 
-                let mut all_progs_succeeded = true;
+                let all_progs_succeeded = true;
 
                 progs.into_iter().all(|mut prog| {
                     // filter out headers

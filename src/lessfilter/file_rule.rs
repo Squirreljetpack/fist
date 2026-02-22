@@ -1,19 +1,19 @@
-use cli_boilerplate_automation::broc::has;
-use cli_boilerplate_automation::bs::permissions;
-use cli_boilerplate_automation::{unwrap, wbog};
-use globset::{Glob as GlobBuilder, GlobMatcher};
-use mime_guess::{Mime, mime};
-use std::ffi::OsString;
-use std::path::Path;
-use std::str::FromStr;
-use std::sync::OnceLock;
+use std::{ffi::OsString, path::Path, str::FromStr, sync::OnceLock};
 
-use crate::abspath::AbsPath;
-use crate::lessfilter::mime_helpers::{Myme, detect_encoding, is_native};
-use crate::lessfilter::rule_matcher::{DefaultScore, Score, Test};
-use crate::lessfilter::{Categories, LessfilterSettings, MimeString};
-use crate::utils::categories::FileCategory;
-use crate::utils::filetypes::FileType;
+use globset::{Glob as GlobBuilder, GlobMatcher};
+
+use cli_boilerplate_automation::{broc::has, bs::permissions, wbog};
+
+use fist_types::{categories::FileCategory, filetypes::FileType};
+
+use crate::{
+    abspath::AbsPath,
+    lessfilter::{
+        Categories, LessfilterSettings, MimeString,
+        mime_helpers::{Myme, detect_encoding, is_native},
+        rule_matcher::{DefaultScore, Score, Test},
+    },
+};
 
 /// compiled GlobMatcher
 pub type Glob = GlobMatcher;
