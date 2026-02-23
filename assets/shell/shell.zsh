@@ -113,7 +113,7 @@ __fist_rg_widget() {
   emulate -L zsh
   setopt localoptions pipefail
 
-  FS_OPTS="opener='$${RGW_CMD}' $FS_OPTS" $${BINARY_PATH} :rg | {
+  FS_OPTS="opener='$${RGW_CMD}' $FS_OPTS" $${BINARY_PATH} :rg $${RGW_ARGS} | {
     read -r line
     if [ -n "$line" ]; then
       LBUFFER="${LBUFFER%% *} '$line' "
@@ -127,6 +127,6 @@ zle -N __fist_rg_widget
 
 bindkey -M main '$${DIRW_BIND}' __fist_dir_widget
 bindkey -M main '$${FILEW_BIND}' __fist_file_widget
-# bindkey -M main '$${RGW_BIND}' __fist_rg_widget
+bindkey -M main '$${RGW_BIND}' __fist_rg_widget
 
 #:

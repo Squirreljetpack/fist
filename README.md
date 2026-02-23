@@ -62,6 +62,12 @@ For more information on bindings, see [matchmaker](https://github.com/Squirrelje
 
 F:ist records the files, directories and applications that you've visited in a local database, using it to sort the results in the `App` and `History` panes by relevance.
 
+## Fd
+
+## Rg
+
+fs has two columns: the main filepath column, and sometimes a secondary context column displayed after it. In the `rg` pane, the context column contains the query matches and their context. To search them, type `%`, which switches the active filtering column.
+
 # Tools
 
 ### Shell integration
@@ -127,7 +133,6 @@ The patterns are:
 For example:
 
 ```toml
-
 ```
 
 The built-in actions are:

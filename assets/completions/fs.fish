@@ -163,7 +163,10 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s p -l path -d 'Files or dir
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s A -l after-context -d 'Show NUM lines after each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s B -l before-context -d 'Show NUM lines before each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s C -l context -d 'Show NUM lines before and after each match' -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l no-heading -d 'Display each match on a seperate line' -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s o -l output -d 'Format the output as this template' -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l query -d 'initial query' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l config -d 'config path' -r -F
@@ -191,7 +194,10 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s p -l path -d 'Files or direc
 complete -c fs -n "__fish_fs_using_subcommand :" -s A -l after-context -d 'Show NUM lines after each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -s B -l before-context -d 'Show NUM lines before each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -s C -l context -d 'Show NUM lines before and after each match' -r
+complete -c fs -n "__fish_fs_using_subcommand :" -s s -l no-heading -d 'Display each match on a seperate line' -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -s o -l output -d 'Format the output as this template' -r
+complete -c fs -n "__fish_fs_using_subcommand :" -l query -d 'initial query' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l config -d 'config path' -r -F

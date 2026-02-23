@@ -1,7 +1,11 @@
 //! CLI command handlers
 use clap::Parser;
 use cli_boilerplate_automation::{
-    bait::TransformExt, bath::PathExt, bo::map_reader_lines, broc::CommandExt, bs::sort_by_mtime,
+    bait::{MaybeExt, TransformExt},
+    bath::PathExt,
+    bo::map_reader_lines,
+    broc::CommandExt,
+    bs::sort_by_mtime,
     wbog,
 };
 use globset::GlobBuilder;
@@ -158,7 +162,7 @@ async fn handle_files(
 async fn handle_rg(
     cli: CliOpts,
     mut cmd: RgCommand,
-    cfg: Config,
+    mut cfg: Config,
 ) -> Result<(), CliError> {
     if cmd.vis.is_default() {
         cmd.vis = cfg.global.panes.rg.default_visibility
@@ -167,17 +171,21 @@ async fn handle_rg(
         .sort
         .unwrap_or(cfg.global.panes.rg.default_sort.unwrap_or(SortOrder::none));
 
+    cfg.global.panes.rg.no_heading._take(cmd.no_heading);
+    let no_heading = cfg.global.panes.rg.no_heading;
+
     if cmd.list {
         let (prog, args) = (
             "rg",
             build_rg_args(
                 cmd.vis.validated(),
                 sort,
-                &cmd.paths,
-                &cmd.patterns,
-                &cmd.rg,
-                cmd.case.resolve(),
                 cmd.context.resolve(),
+                cmd.case.resolve(),
+                no_heading,
+                &cmd.patterns,
+                &cmd.paths,
+                &cmd.rg,
                 &cfg.global.rg,
             ),
         );
@@ -195,13 +203,16 @@ async fn handle_rg(
     };
 
     let pool = Pool::new(cfg.db_path()).await?;
+
     let pane = FsPane::new_rg_full(
         AbsPath::default(),
         sort,
         cmd.vis,
         cmd.paths,
+        cmd.query,
         cmd.context.resolve(),
         cmd.case.resolve(),
+        no_heading,
         cmd.patterns,
         cmd.rg,
     );

@@ -28,7 +28,7 @@ use crate::{
     config::GlobalConfig,
     find::rg::build_rg_args,
     run::FsPane,
-    utils::text::{scrub_text_styles, text_to_lines},
+    utils::text::{extract_rg_line_no_path, parse_rg_line, scrub_text_styles, text_to_lines},
 };
 use crate::{
     db::{DbSortOrder, DbTable},
@@ -188,7 +188,7 @@ impl FsPane {
                                         let mut batch_iter = batch.into_iter();
 
                                         match map_reader_lines::<true, ()>(stdout, move |line| {
-                                            let [p1, p2] = unwrap!(batch_iter.next(); ());
+                                            let [p1, p2] = unwrap!(batch_iter.next(), ());
                                             {
                                                 let mut item =
                                                     PathItem::new_from_split([&p1, &p2], &cwd);
@@ -358,11 +358,12 @@ impl FsPane {
                 cwd,
                 input,
                 //
-                sort,
                 vis,
+                sort,
                 //
                 context,
                 case,
+                no_heading,
                 patterns,
                 paths,
                 rg,
@@ -373,7 +374,17 @@ impl FsPane {
                 let cwd = cwd.clone();
                 let (prog, args) = (
                     "rg",
-                    build_rg_args(vis, *sort, paths, patterns, rg, *case, *context, &cfg.rg),
+                    build_rg_args(
+                        vis,
+                        *sort,
+                        *context,
+                        *case,
+                        *no_heading,
+                        patterns,
+                        paths,
+                        rg,
+                        &cfg.rg,
+                    ),
                 );
 
                 log::info!("spawning: {}", display_sh_prog_and_args(prog, &args));
@@ -422,50 +433,85 @@ impl FsPane {
                 // -- => context break
 
                 // haven't yet tested multiline
-                // currently, we take the easiest approach of having a seperate item for each context block
+                // possible extensions: seperate items for each context block, parsing blocks for line numbers
 
-                let mut current_path = String::new();
-                // let mut current_line_data = Text::default();
-                let mut current_context = vec![];
-                map_reader(
-                    stdout,
-                    move |line| {
-                        if current_path.is_empty() {
-                            // rg emits ansi resets if we enable color
-                            current_path = line
-                                .as_bytes()
-                                .into_text()
-                                .ok()
-                                .and_then(|x| text_to_lines(&x).first().cloned())
-                                .unwrap_or_default();
-                            anyhow::Ok(())
-                        } else if line.is_empty() {
-                            if current_path.is_empty() {
-                                current_context.clear();
-                                return Ok(());
+                if *no_heading {
+                    map_reader(
+                        stdout,
+                        move |line| {
+                            let failed_to_parse = |e| {
+                                log::error!("ParseError: {e}: {line}");
+                                anyhow::Ok(())
+                            };
+                            let mut text =
+                                unwrap!(line.as_bytes().into_text(); |e| failed_to_parse(e));
+                            if text.lines.is_empty() {
+                                return failed_to_parse("empty".into());
                             }
-                            let mut item = PathItem::new(std::mem::take(&mut current_path), &cwd);
-                            let mut text = Text::from(std::mem::take(&mut current_context));
-                            scrub_text_styles(&mut text);
+                            let (path, data, text) = unwrap!(parse_rg_line(text.lines.remove(0), ':'); failed_to_parse("failed to split".into()));
+
+                            let mut item = PathItem::new(path, &cwd);
+                            item.cmd = Some(data);
                             item.tail = text;
-                            let push = vis.post_fd_filter(&item.path);
-                            if push {
-                                injector.push(item).cast()
-                            } else {
-                                Ok(())
-                            }
-                        } else {
-                            current_context.extend(
-                                line.as_bytes()
+
+                            injector.push(item).cast()
+                        },
+                        complete.clone(),
+                        false,
+                    )
+                } else {
+                    let mut current_path = String::new();
+                    // let mut current_line_data = Text::default();
+                    let mut current_context = vec![];
+                    let mut current_places = String::new();
+
+                    map_reader(
+                        stdout,
+                        move |line| {
+                            if current_path.is_empty() {
+                                // rg emits ansi resets if we enable color
+                                current_path = line
+                                    .as_bytes()
                                     .into_text()
-                                    .unwrap_or(Text::from_iter([line])),
-                            );
-                            anyhow::Ok(())
-                        }
-                    },
-                    complete.clone(),
-                    STACK::len() == 1,
-                )
+                                    .ok()
+                                    .and_then(|x| text_to_lines(&x).first().cloned())
+                                    .unwrap_or_default();
+                                anyhow::Ok(())
+                            } else if line.is_empty() {
+                                if current_path.is_empty() {
+                                    current_context.clear();
+                                    return Ok(());
+                                }
+                                let mut item =
+                                    PathItem::new(std::mem::take(&mut current_path), &cwd);
+                                let mut text = Text::from(std::mem::take(&mut current_context));
+                                scrub_text_styles(&mut text);
+                                for line in &text.lines {
+                                    extract_rg_line_no_path(line, &mut current_places);
+                                }
+
+                                item.tail = text;
+                                item.cmd = Some(std::mem::take(&mut current_places));
+
+                                let push = vis.post_fd_filter(&item.path);
+                                if push {
+                                    injector.push(item).cast()
+                                } else {
+                                    Ok(())
+                                }
+                            } else {
+                                current_context.extend(
+                                    line.as_bytes()
+                                        .into_text()
+                                        .unwrap_or(Text::from_iter([line])),
+                                );
+                                anyhow::Ok(())
+                            }
+                        },
+                        complete.clone(),
+                        false,
+                    )
+                }
             }
             Self::Files { sort, .. } => {
                 let sort = *sort;

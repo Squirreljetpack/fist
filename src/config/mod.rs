@@ -4,7 +4,7 @@ use cli_boilerplate_automation::{
     bo::write_str,
     bog::BogOkExt,
     bs::{create_dir, set_executable},
-    ibog,
+    ibog, vec_,
 };
 use std::{collections::HashMap, path::PathBuf};
 
@@ -263,7 +263,7 @@ pub struct FdConfig {
     pub default_args: Vec<String>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RgConfig {
     /// A map of folders => globs which should be applied when in them.
@@ -278,6 +278,20 @@ pub struct RgConfig {
     //  ---------------- Experimental/Nonstandard ---------------
     /// The set of arguments applied to the end of `fs :` when no `rg_args` were given.
     pub default_args: Vec<String>,
+}
+
+impl Default for RgConfig {
+    fn default() -> Self {
+        RgConfig {
+            iglobs: Default::default(),
+            base_args: vec_![
+                "--color=ansi",
+                "--no-context-separator",
+                "--field-context-separator=-",
+            ],
+            default_args: Default::default(),
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

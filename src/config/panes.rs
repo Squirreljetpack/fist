@@ -172,8 +172,12 @@ pub struct RgPaneSettings {
     pub default_visibility: Visibility,
     /// Initial sort entering the rg pane.
     pub default_sort: Option<SortOrder>,
+    /// Whether to display each match on a seperate line. This can be overridden with the --no-heading command line option.
+    pub no_heading: bool,
 
+    /// Template to display when searching with ripgrep
     pub rg_status_template: String,
+    /// Template to display when filtering with fs
     pub fs_status_template: String,
 }
 
@@ -186,12 +190,13 @@ impl Default for RgPaneSettings {
             prompt: None,
             show_preview: None,
             enter_prompt: true,
+            no_heading: false, // todo: lowpri: false or true?
 
             default_visibility,
             default_sort: Some(SortOrder::none),
 
-            rg_status_template: r"filter: {}\s\m/\t".into(),
-            fs_status_template: r"query: {}\s\m/\t".into(),
+            rg_status_template: r"{blue:filter: {}} \s\m/\t".into(),
+            fs_status_template: r"{red:query: {}} \s\m/\t".into(),
         }
     }
 }

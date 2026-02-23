@@ -10,7 +10,7 @@ use matchmaker::{
     message::Interrupt,
     nucleo::{Color, Modifier, Span, Style},
 };
-use ratatui::text::Text;
+use ratatui::text::{Line, Text};
 
 use crate::{
     abspath::AbsPath,
@@ -115,6 +115,8 @@ pub enum FsAction {
     Reload,
     AcceptPrompt,
     AcceptPrint,
+    Filtering(Option<bool>),
+    SetStatus(Option<Line<'static>>),
 
     // Other
     // ----------------------------------
@@ -186,6 +188,18 @@ pub fn fsaction_aliaser(
                 } else {
                     state.footer_ui.clear(false);
                 }
+                acs![]
+            }
+            FsAction::Filtering(s) => {
+                if let Some(s) = s {
+                    state.filtering = s
+                } else {
+                    state.filtering = !state.filtering
+                };
+                acs![]
+            }
+            FsAction::SetStatus(s) => {
+                state.picker_ui.results.set_status_line(s);
                 acs![]
             }
 
@@ -431,23 +445,26 @@ pub fn fsaction_handler(
 
         FsAction::Rg => {
             // save input
-            let (content, index) = state.get_content_and_index();
-            STACK::save_input(content, index);
-
             if STACK::with_current_mut(|x| match x {
                 FsPane::Rg {
                     input,
                     filtering,
                     patterns,
+                    pattern_index,
                     ..
                 } => {
                     if patterns.is_empty() {
                         patterns.push(String::new());
                     }
-                    std::mem::swap(
-                        patterns.get_mut(0).unwrap(),
-                        &mut state.picker_ui.input.input,
-                    );
+                    if *filtering {
+                        // load picker_ui.input from patterns, reload will start reading last pattern from picker_ui.input
+                        std::mem::swap(
+                            &mut patterns[*pattern_index],
+                            &mut state.picker_ui.input.input,
+                        );
+                    } else {
+                        std::mem::swap(&mut input.0, &mut state.picker_ui.input.input);
+                    }
                     state.picker_ui.input.recompute_graphemes();
                     state.picker_ui.input.set(None, u16::MAX);
                     *filtering = !*filtering;
@@ -458,7 +475,12 @@ pub fn fsaction_handler(
                 // let mut vis = FILTERS::visibility(); // todo: merge instead of overwrite
                 let vis = GLOBAL::with_cfg(|cfg| cfg.panes.rg.default_visibility);
 
-                let pane = FsPane::new_rg(STACK::cwd().unwrap_or_default(), FILTERS::sort(), vis);
+                let pane = FsPane::new_rg(
+                    STACK::cwd().unwrap_or_default(),
+                    FILTERS::sort(),
+                    vis,
+                    GLOBAL::with_cfg(|c| c.panes.rg.no_heading),
+                );
                 STACK::push(pane);
                 prepare_prompt(state);
             }
@@ -942,7 +964,7 @@ macro_rules! enum_from_str_display {
                             write!(f, "Jump({})", path.display())
                         }
                     }
-                    SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint => Ok(()), // internal
+                    SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) => Ok(()), // internal
                     Lessfilter { preset, paging, header } => {
                         let mut preset = preset.to_string();
                         if *paging {

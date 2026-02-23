@@ -1,6 +1,6 @@
 use std::{ffi::OsString, sync::Arc};
 
-use cli_boilerplate_automation::{bait::ResultExt, bog::BogOkExt, prints};
+use cli_boilerplate_automation::{bog::BogOkExt, prints};
 use matchmaker::{
     MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector, acs,
     action::Action,
@@ -14,6 +14,7 @@ use matchmaker::{
         injector::{IndexedInjector, WorkerInjector},
     },
     preview::AppendOnly,
+    ui::StatusUI,
 };
 
 use crate::{
@@ -120,7 +121,7 @@ pub async fn start(
     if let Some(x) = cfg.global.panes.prompt(&pane) {
         render.input.prompt = x
     }
-    if matches!(pane, FsPane::Rg { .. }) {
+    if let FsPane::Rg { filtering, .. } = pane {
         let r = &mut render.results;
         let s = &mut render.status;
         let mm = &cfg.styles.matchmaker;
@@ -128,12 +129,15 @@ pub async fn start(
         r.horizontal_separator = mm.horizontal_separator;
         r.stacked_columns = true;
         s.show = true;
-        binds.insert(Event::QueryChange.into(), acs![FsAction::Reload]);
+
+        if !filtering {
+            binds.insert(Event::QueryChange.into(), acs![FsAction::Reload]);
+        }
     }
 
     let print_handle = AppendOnly::new();
     let tick_rate = render.tick_rate();
-    
+
     // init MM
     let (mut mm, injector, formatter) = make_mm(
         render,
@@ -178,8 +182,43 @@ pub async fn start(
             if !input.0.is_empty() {
                 render_tx
                     .send(RenderCommand::Action(Action::SetQuery(input.0.clone())))
-                    ._elog();
+                    .ok();
             }
+        }
+        FsPane::Rg {
+            patterns,
+            input,
+            filtering,
+            ..
+        } => {
+            let f = *filtering;
+            // set status line
+            let base = if f {
+                render_tx
+                    .send(RenderCommand::Action(Action::SetQuery(input.0.clone())))
+                    .ok();
+
+                &cfg.global.panes.rg.fs_status_template
+            } else {
+                // enable auto-reload
+                render_tx
+                    .send(RenderCommand::Action(
+                        FsAction::Filtering(Some(false)).into(),
+                    ))
+                    .ok();
+                &cfg.global.panes.rg.rg_status_template
+            };
+            let mut t = StatusUI::parse_template_to_status_line(base);
+
+            // perform other_query replacement
+            let replacement = if f { &patterns.join(" / ") } else { &input.0 }; // todo: lowpri: styling
+            for s in t.spans.iter_mut() {
+                s.content = s.content.replace("{}", replacement).into();
+            }
+
+            render_tx
+                .send(RenderCommand::Action(FsAction::SetStatus(Some(t)).into()))
+                .ok();
         }
         _ => {}
     }

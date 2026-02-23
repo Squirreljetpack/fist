@@ -61,7 +61,7 @@ pub fn default_home_exclusions() -> Vec<String> {
 pub fn build_fd_args(
     mut vis: Visibility,
     types: &[FileTypeArg],
-    paths: &[OsString],
+    paths: &[OsString], // last element is the pattern
     fd_args: &[OsString],
     cfg: &FdConfig,
 ) -> Vec<OsString> {

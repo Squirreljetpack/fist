@@ -82,14 +82,14 @@ impl MenuItem {
 
     pub fn line(&self) -> Line<'static> {
         match self {
-            MenuItem::New => Line::from(bold_indices("new", [0])),
-            MenuItem::Rename => Line::from(bold_indices("rename", [0])),
-            MenuItem::Cut => Line::from(bold_indices("cut (x)", [6])),
-            MenuItem::Copy => Line::from(bold_indices("copy", [0])),
-            MenuItem::Trash => Line::from(bold_indices("trash", [0])),
-            MenuItem::Delete => Line::from(bold_indices("deleTe", [5])),
-            MenuItem::Open => Line::from(bold_indices("open", [0])),
-            MenuItem::OpenWith => Line::from(bold_indices("open with", [6])),
+            MenuItem::New => Line::from(bold_indices("new", [0], Style::new())),
+            MenuItem::Rename => Line::from(bold_indices("rename", [0], Style::new())),
+            MenuItem::Cut => Line::from(bold_indices("cut (x)", [6], Style::new())),
+            MenuItem::Copy => Line::from(bold_indices("copy", [0], Style::new())),
+            MenuItem::Trash => Line::from(bold_indices("trash", [0], Style::new())),
+            MenuItem::Delete => Line::from(bold_indices("deleTe", [5], Style::new())),
+            MenuItem::Open => Line::from(bold_indices("open", [0], Style::new())),
+            MenuItem::OpenWith => Line::from(bold_indices("open with", [6], Style::new())),
             MenuItem::Custom { name, .. } => Line::from(name.clone()),
         }
     }

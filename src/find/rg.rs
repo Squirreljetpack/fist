@@ -13,11 +13,12 @@ use fist_types::filters::{SortOrder, Visibility};
 pub fn build_rg_args(
     mut vis: Visibility,
     sort: SortOrder,
-    paths: &[PathBuf],
-    patterns: &[String],
-    rg_args: &[OsString],
-    case: When,
     context: [usize; 2],
+    case: When,
+    no_heading: bool,
+    patterns: &[String],
+    paths: &[PathBuf],
+    rg_args: &[OsString],
     cfg: &RgConfig,
 ) -> Vec<OsString> {
     let mut ret: Vec<OsString> = vec![];
@@ -73,20 +74,16 @@ pub fn build_rg_args(
         ret.push(p.into());
     }
     ret.append(&mut vec_![
-        OsString:
-        "--no-context-separator",
-        "--field-context-separator=-",
-        "--field-context-separator=:",
-        "--line-number",
-        "--column",
-        "--heading",
-
-        "--hyperlink-format=",
-        "--color=ansi",
-        "--colors=path:none",
-        "--colors=line:none",
-        "--colors=column:none",
-        "--colors=match:fg:red" // todo: store this somewhere
+    OsString:
+    "--field-context-separator=:",
+    "--line-number",
+    "--column",
+    if no_heading {
+        "--no-heading"
+    } else {
+        "--heading"
+    },
+    "--hyperlink-format="
     ]);
 
     let case = match case {

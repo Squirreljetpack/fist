@@ -22,3 +22,12 @@ define_when! {
         Always
     }
 }
+impl When {
+    pub fn cycle(&mut self) {
+        *self = match self {
+            When::Never => When::Auto,
+            When::Auto => When::Always,
+            When::Always => When::Never,
+        };
+    }
+}

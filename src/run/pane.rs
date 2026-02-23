@@ -62,6 +62,8 @@ pub enum FsPane {
         context: [usize; 2],
         case: When,
         patterns: Vec<String>,
+        pattern_index: usize,
+        no_heading: bool,
 
         rg: Vec<OsString>,
         complete: Arc<AtomicBool>,
@@ -164,7 +166,7 @@ impl FsPane {
         vis: Visibility,
     ) -> Self {
         Self::Fd {
-            paths: vec![cwd.inner().into()],
+            paths: vec![cwd.inner().into(), ".".into()], // last is pattern
             cwd,
             complete: Default::default(),
             input: Default::default(),
@@ -179,6 +181,7 @@ impl FsPane {
         cwd: AbsPath,
         sort: SortOrder,
         vis: Visibility,
+        no_heading: bool,
     ) -> Self {
         let context = Default::default();
         let case = Default::default();
@@ -189,9 +192,11 @@ impl FsPane {
             sort,
             vis,
             paths,
+            String::new(),
             context,
             case,
-            vec![String::new()],
+            no_heading,
+            vec![],
             vec![],
         )
     }
@@ -202,16 +207,24 @@ impl FsPane {
         vis: Visibility,
         //
         paths: Vec<PathBuf>,
+        query: String,
         context: [usize; 2],
         case: When,
-        patterns: Vec<String>,
+        no_heading: bool,
+        mut patterns: Vec<String>, // enforce nonempty
         //
         rg: Vec<OsString>,
     ) -> Self {
+        if patterns.is_empty() {
+            patterns.push(String::new());
+        }
+        let pattern_index = patterns.len() - 1;
+
         Self::Rg {
             cwd,
-            input: Default::default(),
-            filtering: false,
+            input: (query, 0),
+            pattern_index,
+            filtering: !patterns[pattern_index].is_empty(),
 
             sort,
             vis: vis.validated(),
@@ -220,6 +233,7 @@ impl FsPane {
             context,
             case,
             patterns,
+            no_heading,
 
             rg,
             complete: Default::default(),
@@ -259,7 +273,7 @@ impl FsPane {
     }
 
     #[inline]
-    pub fn supports_sort(&self) -> bool {
+    pub fn supports_vis(&self) -> bool {
         matches!(
             self,
             FsPane::Nav { .. } | FsPane::Custom { .. } | FsPane::Fd { .. }

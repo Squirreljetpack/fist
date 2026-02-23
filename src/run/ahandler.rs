@@ -2,6 +2,7 @@ use matchmaker::{
     acs,
     message::{BindDirective, Event},
     nucleo::{Color, Modifier, Span, Style, injector::IndexedInjector},
+    ui::StatusUI,
 };
 
 use crate::{
@@ -72,6 +73,7 @@ pub fn enter_prompt(
 // read the current pane's enter_prompt and default prompt values
 // call after creating new pane
 pub fn prepare_prompt(state: &mut MMState<'_, '_>) {
+    // set default prompt/enter prompt
     STACK::with_current(|pane| {
         if let Some(p) = GLOBAL::with_cfg(|c| c.panes.prompt(pane)) {
             state.picker_ui.input.config.prompt = p
@@ -92,8 +94,6 @@ pub fn prepare_prompt(state: &mut MMState<'_, '_>) {
 
     // always clear selections
     state.picker_ui.selector.clear();
-    // ensure filtering
-    state.filtering = true;
 
     if !state.picker_ui.results.cursor_disabled {
         state.picker_ui.input.reset_prompt();
@@ -164,42 +164,57 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
         _ => {}
     });
 
-    STACK::with_current(|pane| {
-        GLOBAL::with_cfg(|cfg| {
-            if let Some(x) = cfg.panes.preview_show(pane) {
-                state.preview_ui.as_mut().map(|p| p.show(x));
-            }
-            if let Some(x) = cfg.panes.prompt(pane) {
-                state.picker_ui.input.config.prompt = x
-            }
-        });
-
+    STACK::with_current_mut(|pane| {
+        if matches!(pane, FsPane::Rg { .. }) {
+            GLOBAL::with_cfg(|cfg| {
+                if let Some(x) = cfg.panes.preview_show(pane) {
+                    state.preview_ui.as_mut().map(|p| p.show(x));
+                }
+            });
+        }
         match pane {
             FsPane::Rg {
                 filtering,
                 patterns,
+                input,
+                pattern_index,
+                no_heading,
                 ..
             } => {
+                let f = *filtering;
+
                 let r = &mut state.picker_ui.results;
                 let mm = &global_ui().matchmaker;
 
-                // todo: where to add a place to configure this? pane/ui/other?
-                r.config.horizontal_separator = mm.horizontal_separator;
-                r.config.stacked_columns = true;
-                r.status_config.show = true;
+                if !*no_heading {
+                    // todo: where to add a place to configure this? pane/ui/other?
+                    r.config.horizontal_separator = mm.horizontal_separator;
+                    r.config.stacked_columns = true;
+                    r.status_config.show = true;
+                } else {
+                    r.config.horizontal_separator = Default::default();
+                    r.config.stacked_columns = false;
+                    r.set_status_line(None);
+                }
 
                 // set status
                 // todo: more style flexibility in status
-                r.status_config.template = GLOBAL::with_cfg(|c| {
-                    if *filtering {
+                let status = GLOBAL::with_cfg(|c| {
+                    let base = if f {
                         &c.panes.rg.fs_status_template
                     } else {
                         &c.panes.rg.rg_status_template
+                    };
+                    let mut t = StatusUI::parse_template_to_status_line(base);
+                    let replacement = if f { &patterns.join(" / ") } else { &input.0 }; // todo: lowpri: styling
+                    for s in t.spans.iter_mut() {
+                        s.content = s.content.replace("{}", replacement).into();
                     }
-                    .replace("{}", &patterns.join(" "))
+                    t
                 });
+                r.set_status_line(Some(status));
 
-                if *filtering {
+                if f {
                     GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()));
                 } else {
                     GLOBAL::send_bind(BindDirective::Bind(
@@ -208,9 +223,27 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
                     ));
                 }
 
-                state.filtering = *filtering;
+                if f {
+                    input.0 = state.picker_ui.input.input.clone()
+                } else {
+                    patterns[*pattern_index] = state.picker_ui.input.input.clone()
+                }
+
+                state.filtering = f;
             }
-            _ => {}
+            _ => {
+                //
+                GLOBAL::with_cfg(|cfg| {
+                    if let Some(x) = cfg.panes.preview_show(pane) {
+                        state.preview_ui.as_mut().map(|p| p.show(x));
+                    }
+                    if let Some(x) = cfg.panes.prompt(pane) {
+                        state.picker_ui.input.config.prompt = x
+                    }
+                });
+                state.filtering = true;
+                GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()))
+            }
         }
     });
 

@@ -258,6 +258,9 @@ pub struct RgCommand {
     pub case: CaseArgs,
     #[command(flatten)]
     pub context: ContextArgs,
+    /// Display each match on a seperate line.
+    #[arg(long, short = 's')]
+    pub no_heading: Option<bool>,
 
     // /// initial query.
     // #[arg(long, default_value_t)]
@@ -269,6 +272,9 @@ pub struct RgCommand {
     pub output: Option<String>,
     #[arg(long)]
     pub list: bool,
+    /// initial query.
+    #[arg(long, default_value_t)]
+    pub query: String,
     #[arg(long, action = ArgAction::Help)]
     pub help: (),
 }

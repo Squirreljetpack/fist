@@ -76,6 +76,14 @@ transparent advance into compressed files
 - parse text blocks split by ---
   - rhs Text, if multiline, be displayed on seperate lines as opposed to a column
 - Allow configuring tokens from actions
+- probably a good option is to enable filtering on contents
+
+
+- options for parsing line and column:
+  - single lines
+  - clumped + heading
+  - one clump?
+  - dunno...
 
 # Global Filters
 

@@ -166,8 +166,11 @@ size\:"Not always supported"))' \
 '--before-context=[Show NUM lines before each match]:NUM:_default' \
 '-C+[Show NUM lines before and after each match]:NUM:_default' \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
+'-s+[Display each match on a seperate line]:NO_HEADING:(true false)' \
+'--no-heading=[Display each match on a seperate line]:NO_HEADING:(true false)' \
 '-o+[Format the output as this template]:OUTPUT:_default' \
 '--output=[Format the output as this template]:OUTPUT:_default' \
+'--query=[initial query]:QUERY:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -203,8 +206,11 @@ size\:"Not always supported"))' \
 '--before-context=[Show NUM lines before each match]:NUM:_default' \
 '-C+[Show NUM lines before and after each match]:NUM:_default' \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
+'-s+[Display each match on a seperate line]:NO_HEADING:(true false)' \
+'--no-heading=[Display each match on a seperate line]:NO_HEADING:(true false)' \
 '-o+[Format the output as this template]:OUTPUT:_default' \
 '--output=[Format the output as this template]:OUTPUT:_default' \
+'--query=[initial query]:QUERY:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
