@@ -1,6 +1,7 @@
 pub mod colors;
 pub mod path;
 pub mod serde;
+pub mod string;
 pub mod text;
 
 #[macro_export]

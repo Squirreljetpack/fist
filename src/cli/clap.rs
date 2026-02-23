@@ -238,11 +238,12 @@ pub struct FilesCmd {
 pub struct RgCommand {
     #[command(flatten)]
     pub vis: Visibility,
-    pub sort: SortOrder,
+    #[arg(long)]
+    pub sort: Option<SortOrder>,
 
     /// Files or directories to search in.
-    #[arg(short = 'p', long = "path", value_name = "PATH")]
-    pub paths: Vec<OsString>,
+    #[arg(short = 'p', long = "path")]
+    pub paths: Vec<PathBuf>,
 
     /// Patterns to search (`rg -e`).
     #[arg(value_name = "PATTERNS")]
@@ -250,7 +251,7 @@ pub struct RgCommand {
 
     /// Args passed on verbatim to rg.
     #[arg(last = true, value_name = "RG_ARGS")]
-    pub rg_args: Vec<OsString>,
+    pub rg: Vec<OsString>,
 
     // top level rg args reexposed for convenience
     #[command(flatten)]

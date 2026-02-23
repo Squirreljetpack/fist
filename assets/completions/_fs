@@ -154,8 +154,12 @@ size\:"Not always supported"))' \
 ;;
 (:rg)
 _arguments "${_arguments_options[@]}" : \
-'*-p+[Files or directories to search in]:PATH:_default' \
-'*--path=[Files or directories to search in]:PATH:_default' \
+'--sort=[]:SORT:((name\:""
+mtime\:""
+none\:""
+size\:"Not always supported"))' \
+'*-p+[Files or directories to search in]:PATHS:_files' \
+'*--path=[Files or directories to search in]:PATHS:_files' \
 '-A+[Show NUM lines after each match]:NUM:_default' \
 '--after-context=[Show NUM lines after each match]:NUM:_default' \
 '-B+[Show NUM lines before each match]:NUM:_default' \
@@ -182,17 +186,17 @@ _arguments "${_arguments_options[@]}" : \
 '--smart-case[]' \
 '--list[]' \
 '--help[]' \
-':sort:((name\:""
-mtime\:""
-none\:""
-size\:"Not always supported"))' \
 '*::patterns -- Patterns to search (`rg -e`):_default' \
 && ret=0
 ;;
 (:)
 _arguments "${_arguments_options[@]}" : \
-'*-p+[Files or directories to search in]:PATH:_default' \
-'*--path=[Files or directories to search in]:PATH:_default' \
+'--sort=[]:SORT:((name\:""
+mtime\:""
+none\:""
+size\:"Not always supported"))' \
+'*-p+[Files or directories to search in]:PATHS:_files' \
+'*--path=[Files or directories to search in]:PATHS:_files' \
 '-A+[Show NUM lines after each match]:NUM:_default' \
 '--after-context=[Show NUM lines after each match]:NUM:_default' \
 '-B+[Show NUM lines before each match]:NUM:_default' \
@@ -219,10 +223,6 @@ _arguments "${_arguments_options[@]}" : \
 '--smart-case[]' \
 '--list[]' \
 '--help[]' \
-':sort:((name\:""
-mtime\:""
-none\:""
-size\:"Not always supported"))' \
 '*::patterns -- Patterns to search (`rg -e`):_default' \
 && ret=0
 ;;

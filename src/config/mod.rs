@@ -84,6 +84,10 @@ pub struct GlobalConfig {
     /// This affects [FsAction::Find](`crate::run::fsaction::FsAction::Find`) and the default subcommand.
     pub fd: FdConfig,
 
+    /// Configure behavior of the rg tool.
+    /// This affects [FsAction::Rg](`crate::run::fsaction::FsAction::Rg`) and the rg subcommand.
+    pub rg: RgConfig,
+
     /// Configure behavior of filesystem actions.
     pub panes: PanesConfig,
 }

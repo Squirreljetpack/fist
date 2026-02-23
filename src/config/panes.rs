@@ -168,9 +168,13 @@ pub struct RgPaneSettings {
     /// Whether to enter the prompt when switching to this pane
     pub enter_prompt: bool,
     // ----------------------------
-    /// Default visibility when no visibility is specified.
+    /// Initial visibility when entering the rg pane.
     pub default_visibility: Visibility,
-    // ----------------------------
+    /// Initial sort entering the rg pane.
+    pub default_sort: Option<SortOrder>,
+
+    pub rg_status_template: String,
+    pub fs_status_template: String,
 }
 
 impl Default for RgPaneSettings {
@@ -184,6 +188,10 @@ impl Default for RgPaneSettings {
             enter_prompt: true,
 
             default_visibility,
+            default_sort: Some(SortOrder::none),
+
+            rg_status_template: r"filter: {}\s\m/\t".into(),
+            fs_status_template: r"query: {}\s\m/\t".into(),
         }
     }
 }

@@ -23,7 +23,7 @@ use crate::{
         item::short_display,
         pane::FsPane,
         stash::{STASH, StashItem},
-        state::{APP, FILTERS, GLOBAL, STACK, TASKS, TEMP, TOAST},
+        state::{APP, FILTERS, GLOBAL, STACK, TASKS, TEMP, TOAST, context::ActionContext},
     },
     spawn::open_wrapped,
     ui::menu_overlay::PromptKind,
@@ -73,7 +73,7 @@ pub enum FsAction {
     /// Show available actions on the current item(s).
     Menu,
     /// Toggle only showing directories.
-    /// In [`FsPane::Files`], [`FsPane::Folders`], [`FsPane::Launch`], this toggles their sort order.
+    /// In [`FsPane::Files`], [`FsPane::Folders`], [`FsPane::Launch`], [`FsPane::Rg`], this toggles their sort order.
     ToggleDirs,
     /// Toggle showing hidden files.
     ToggleHidden,
@@ -193,7 +193,7 @@ pub fn fsaction_aliaser(
             // -------------------------------------------------
             FsAction::Jump(_, c) => {
                 if raw_input && let Some(c) = c {
-                    acs![Action::Input(c)]
+                    acs![Action::Char(c)]
                 } else {
                     acs![Action::Custom(fa)]
                 }
@@ -394,9 +394,14 @@ pub fn fsaction_aliaser(
 pub fn fsaction_handler(
     a: FsAction,
     state: &mut MMState<'_, '_>,
+    context: &mut ActionContext,
 ) {
     match a {
         FsAction::Find => {
+            if STACK::with_current(|p| matches!(p, FsPane::Fd { .. })) {
+                // what do here?
+                return;
+            }
             // save input
             let (content, index) = state.get_content_and_index();
             STACK::save_input(content, index);
@@ -429,15 +434,35 @@ pub fn fsaction_handler(
             let (content, index) = state.get_content_and_index();
             STACK::save_input(content, index);
 
-            // let pane = FsPane::new_fd(
-            //     STACK::cwd().unwrap_or_default(),
-            //     FILTERS::sort(),
-            //     FILTERS::visibility(),
-            // );
-            // STACK::push(pane);
-            // todo!();
+            if STACK::with_current_mut(|x| match x {
+                FsPane::Rg {
+                    input,
+                    filtering,
+                    patterns,
+                    ..
+                } => {
+                    if patterns.is_empty() {
+                        patterns.push(String::new());
+                    }
+                    std::mem::swap(
+                        patterns.get_mut(0).unwrap(),
+                        &mut state.picker_ui.input.input,
+                    );
+                    state.picker_ui.input.recompute_graphemes();
+                    state.picker_ui.input.set(None, u16::MAX);
+                    *filtering = !*filtering;
+                    false
+                }
+                _ => true,
+            }) {
+                // let mut vis = FILTERS::visibility(); // todo: merge instead of overwrite
+                let vis = GLOBAL::with_cfg(|cfg| cfg.panes.rg.default_visibility);
 
-            prepare_prompt(state);
+                let pane = FsPane::new_rg(STACK::cwd().unwrap_or_default(), FILTERS::sort(), vis);
+                STACK::push(pane);
+                prepare_prompt(state);
+            }
+
             fs_reload(state);
         }
 
@@ -925,6 +950,7 @@ macro_rules! enum_from_str_display {
                         };
                         write!(f, "Lessfilter({preset})")
                     }
+                    /* ------------------------------------- */
                 }
             }
         }

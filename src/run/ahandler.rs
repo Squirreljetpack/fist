@@ -1,14 +1,18 @@
-use matchmaker::nucleo::{Color, Modifier, Span, Style, injector::IndexedInjector};
+use matchmaker::{
+    acs,
+    message::{BindDirective, Event},
+    nucleo::{Color, Modifier, Span, Style, injector::IndexedInjector},
+};
 
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
     run::{
-        FsPane,
+        FsAction, FsPane,
         stash::STASH,
         state::{FILTERS, GLOBAL, STACK, TEMP, TOAST, ui::global_ui},
     },
-    utils::text::{ToastStyle, format_cwd_prompt},
+    utils::{string::format_cwd_prompt, text::ToastStyle},
 };
 
 pub fn paste_handler(
@@ -88,6 +92,8 @@ pub fn prepare_prompt(state: &mut MMState<'_, '_>) {
 
     // always clear selections
     state.picker_ui.selector.clear();
+    // ensure filtering
+    state.filtering = true;
 
     if !state.picker_ui.results.cursor_disabled {
         state.picker_ui.input.reset_prompt();
@@ -136,34 +142,76 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
         .set_stability(STACK::with_current(FsPane::stability_threshold));
     let injector = IndexedInjector::new_globally_indexed(state.injector());
 
-    STACK::with_previous(|p| match p {
+    STACK::with_previous(|p, same| match p {
         FsPane::Fd { .. } => {
-            if GLOBAL::with_cfg(|c| c.panes.fd.on_leave_unset_dirs_only) {
+            if !same && GLOBAL::with_cfg(|c| c.panes.fd.on_leave_unset_dirs_only) {
                 FILTERS::with_vis_mut(|v| v.dirs = false);
             }
         }
         FsPane::Rg { .. } => {
-            if let Some(o) = TEMP::take_pre_rg_options() {
-                todo!()
+            if same {
+                return;
             }
+            GLOBAL::with_cfg(|c| {
+                let r = &mut state.picker_ui.results;
+
+                // todo: save and restore
+                r.config.horizontal_separator = Default::default();
+                r.config.stacked_columns = false;
+                r.set_status_line(None);
+            })
         }
         _ => {}
     });
 
-    STACK::with_current(|p| match p {
-        FsPane::Fd { .. } => {
-            // set default visibility?
-        }
-        FsPane::Rg { .. } => {
-            state.picker_ui.header.set("fs:");
-            let c = &mut state.picker_ui.results.config;
-            let mmc = &global_ui().matchmaker;
+    STACK::with_current(|pane| {
+        GLOBAL::with_cfg(|cfg| {
+            if let Some(x) = cfg.panes.preview_show(pane) {
+                state.preview_ui.as_mut().map(|p| p.show(x));
+            }
+            if let Some(x) = cfg.panes.prompt(pane) {
+                state.picker_ui.input.config.prompt = x
+            }
+        });
 
-            c.horizontal_separator = mmc.horizontal_separator;
+        match pane {
+            FsPane::Rg {
+                filtering,
+                patterns,
+                ..
+            } => {
+                let r = &mut state.picker_ui.results;
+                let mm = &global_ui().matchmaker;
 
-            // set default visibility?
+                // todo: where to add a place to configure this? pane/ui/other?
+                r.config.horizontal_separator = mm.horizontal_separator;
+                r.config.stacked_columns = true;
+                r.status_config.show = true;
+
+                // set status
+                // todo: more style flexibility in status
+                r.status_config.template = GLOBAL::with_cfg(|c| {
+                    if *filtering {
+                        &c.panes.rg.fs_status_template
+                    } else {
+                        &c.panes.rg.rg_status_template
+                    }
+                    .replace("{}", &patterns.join(" "))
+                });
+
+                if *filtering {
+                    GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()));
+                } else {
+                    GLOBAL::send_bind(BindDirective::Bind(
+                        Event::QueryChange.into(),
+                        acs![FsAction::Reload],
+                    ));
+                }
+
+                state.filtering = *filtering;
+            }
+            _ => {}
         }
-        _ => {}
     });
 
     STACK::populate(injector, || {});

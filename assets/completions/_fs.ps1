@@ -138,6 +138,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:rg' {
+            [CompletionResult]::new('--sort', '--sort', [CompletionResultType]::ParameterName, 'sort')
             [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Files or directories to search in')
             [CompletionResult]::new('--path', '--path', [CompletionResultType]::ParameterName, 'Files or directories to search in')
             [CompletionResult]::new('-A', '-A ', [CompletionResultType]::ParameterName, 'Show NUM lines after each match')
@@ -169,6 +170,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:' {
+            [CompletionResult]::new('--sort', '--sort', [CompletionResultType]::ParameterName, 'sort')
             [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Files or directories to search in')
             [CompletionResult]::new('--path', '--path', [CompletionResultType]::ParameterName, 'Files or directories to search in')
             [CompletionResult]::new('-A', '-A ', [CompletionResultType]::ParameterName, 'Show NUM lines after each match')

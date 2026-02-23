@@ -72,6 +72,7 @@ pub fn get_mm_cfg(
         ui,
         input,
         results,
+        status,
         preview,
         footer,
         header,
@@ -79,6 +80,8 @@ pub fn get_mm_cfg(
 
     results.multi_prefix = results.multi_prefix.chars().next().unwrap_or('▌').into(); // single width
     results.right_align_last = true;
+    results.stacked_columns = false;
+    results.horizontal_separator = Default::default();
 
     *footer = DisplayConfig {
         modifier: Default::default(),

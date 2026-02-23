@@ -155,7 +155,11 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -l cd -d 'print the first matc
 complete -c fs -n "__fish_fs_using_subcommand ::" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l list
 complete -c fs -n "__fish_fs_using_subcommand ::" -l help
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s p -l path -d 'Files or directories to search in' -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l sort -r -f -a "name\t''
+mtime\t''
+none\t''
+size\t'Not always supported'"
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s p -l path -d 'Files or directories to search in' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s A -l after-context -d 'Show NUM lines after each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s B -l before-context -d 'Show NUM lines before each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s C -l context -d 'Show NUM lines before and after each match' -r
@@ -179,7 +183,11 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s S -l smart-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l list
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l help
-complete -c fs -n "__fish_fs_using_subcommand :" -s p -l path -d 'Files or directories to search in' -r
+complete -c fs -n "__fish_fs_using_subcommand :" -l sort -r -f -a "name\t''
+mtime\t''
+none\t''
+size\t'Not always supported'"
+complete -c fs -n "__fish_fs_using_subcommand :" -s p -l path -d 'Files or directories to search in' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :" -s A -l after-context -d 'Show NUM lines after each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -s B -l before-context -d 'Show NUM lines before each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -s C -l context -d 'Show NUM lines before and after each match' -r

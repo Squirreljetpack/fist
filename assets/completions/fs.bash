@@ -346,12 +346,16 @@ _fs() {
             return 0
             ;;
         fs__:rg)
-            opts="-h -I -a -F -f -p -i -s -S -A -B -C -o --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --output --list --help --verbosity --override --config --mm-config --style name mtime none size [PATTERNS]... [RG_ARGS]..."
+            opts="-h -I -a -F -f -p -i -s -S -A -B -C -o --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --output --list --help --verbosity --override --config --mm-config --style [PATTERNS]... [RG_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --sort)
+                    COMPREPLY=($(compgen -W "name mtime none size" -- "${cur}"))
+                    return 0
+                    ;;
                 --path)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0

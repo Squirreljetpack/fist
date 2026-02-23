@@ -3,7 +3,7 @@ use std::{ffi::OsString, process::Command};
 use cli_boilerplate_automation::{
     bog::BogOkExt,
     broc::{CommandExt, SHELL, tty_or_inherit},
-    unwrap, env_vars, prints,
+    env_vars, prints, unwrap,
 };
 use easy_ext::ext;
 use log::{debug, info};
@@ -23,6 +23,7 @@ use crate::{
         pane::FsPane,
         state::{FILTERS, STACK, TEMP},
     },
+    utils::string::path_formatter,
 };
 
 // before reload, store a recovery method
@@ -60,6 +61,16 @@ pub fn sync_handler(
     };
 }
 
+// before reload, store a recovery method
+pub fn query_handler(
+    state: &mut MMState<'_, '_>,
+    _: &Event,
+) {
+    if TEMP::QUERY_RELOAD.load(std::sync::atomic::Ordering::SeqCst) {
+        todo!()
+    }
+}
+
 #[ext(MMExt)]
 // overrides to support static formatter
 impl Matchmaker<Indexed<PathItem>, PathItem> {
@@ -80,6 +91,7 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
                         STACK::cwd().unwrap_or_default(),
                         FILTERS::visibility(),
                         command,
+                        false,
                     );
                     STACK::push(pane);
 
@@ -152,7 +164,7 @@ pub fn mm_formatter(
     item: &Indexed<PathItem>,
     template: &str,
 ) -> String {
-    crate::utils::text::path_formatter(template, &item.inner.path)
+    path_formatter(template, &item.inner.path)
 }
 
 fn execute(
@@ -160,7 +172,7 @@ fn execute(
     path: &AbsPath,
     state: &MMState<'_, '_>,
 ) {
-    let cmd = crate::utils::text::path_formatter(template, path);
+    let cmd = path_formatter(template, path);
 
     let vars = state.make_env_vars();
 

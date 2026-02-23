@@ -19,7 +19,7 @@ use std::process::{Command, Stdio};
 
 use crate::cli::clap_tools::LessfilterCommand;
 use crate::lessfilter::helpers::{extract, is_header, is_metadata, show_header, show_metadata};
-use crate::utils::text::path_formatter;
+use crate::utils::string::path_formatter;
 use crate::{
     abspath::AbsPath,
     lessfilter::{

@@ -37,6 +37,7 @@ use crate::{
     errors::CliError,
     find::{
         fd::{auto_enable_hidden, build_fd_args},
+        rg::build_rg_args,
         walker::list_dir,
     },
     lessfilter,
@@ -48,7 +49,7 @@ use crate::{
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
-    utils::{colors::display_ratatui_colors, path::paths_base, text::path_formatter},
+    utils::{colors::display_ratatui_colors, path::paths_base, string::path_formatter},
 };
 use fist_types::filetypes::{FileType, FileTypeArg};
 use fist_types::filters::{SortOrder, Visibility};
@@ -162,8 +163,51 @@ async fn handle_rg(
     if cmd.vis.is_default() {
         cmd.vis = cfg.global.panes.rg.default_visibility
     }
+    let sort = cmd
+        .sort
+        .unwrap_or(cfg.global.panes.rg.default_sort.unwrap_or(SortOrder::none));
 
-    todo!()
+    if cmd.list {
+        let (prog, args) = (
+            "rg",
+            build_rg_args(
+                cmd.vis.validated(),
+                sort,
+                &cmd.paths,
+                &cmd.patterns,
+                &cmd.rg,
+                cmd.case.resolve(),
+                cmd.context.resolve(),
+                &cfg.global.rg,
+            ),
+        );
+
+        let stdout = match Command::new(prog).args(args).spawn_piped()._ebog() {
+            Some(s) => s,
+            None => return Err(CliError::Handled),
+        };
+
+        let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
+            prints!(line);
+            Ok(())
+        });
+        return Ok(());
+    };
+
+    let pool = Pool::new(cfg.db_path()).await?;
+    let pane = FsPane::new_rg_full(
+        AbsPath::default(),
+        sort,
+        cmd.vis,
+        cmd.paths,
+        cmd.context.resolve(),
+        cmd.case.resolve(),
+        cmd.patterns,
+        cmd.rg,
+    );
+
+    let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
+    start(pane, cfg, mm_cfg, pool).await
 }
 
 async fn handle_dirs(
@@ -270,7 +314,7 @@ async fn handle_default(
             TEMP::set_initial_relative_path(cfg.styles.path.relative);
             cfg.styles.path.relative = false;
         };
-        FsPane::new_stream(AbsPath::new_unchecked(__cwd()), cmd.vis)
+        FsPane::new_stream(AbsPath::new_unchecked(__cwd()), cmd.vis, true)
     } else if cmd.cd {
         if !cmd.fd.is_empty() && !cmd.paths.is_empty() {
             wbog!(

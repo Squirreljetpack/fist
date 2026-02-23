@@ -1,11 +1,7 @@
-#![allow(clippy::upper_case_acronyms)]
-
+#![allow(non_snake_case)]
 use std::{
     cell::RefCell,
-    sync::{
-        LazyLock, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::{LazyLock, Mutex},
 };
 
 use cli_boilerplate_automation::bait::ResultExt;
@@ -19,12 +15,10 @@ use tokio;
 
 use crate::config::GlobalConfig;
 use crate::{
-    abspath::AbsPath,
     cli::env::EnvOpts,
     db::{Connection, DbSortOrder, Pool, zoxide::DbFilter},
     errors::DbError,
-    run::{FsPane, action::FsAction, item::PathItem},
-    ui::menu_overlay::PromptKind,
+    run::{FsPane, action::FsAction},
     utils::text::{ToastContent, ToastStyle, make_toast},
     watcher::{WatcherMessage, WatcherSender},
 };
@@ -33,99 +27,30 @@ mod filters;
 pub use filters::*;
 mod stack;
 pub use stack::*;
+pub mod context;
+mod temp;
 pub mod ui;
+pub use temp::*;
 
 // ------------- TRACKING -----------------------
 
-#[allow(unused)]
-pub struct PreRgOptions {
-    a: bool,
-}
-
-thread_local! {
-    static PREV_DIRECTORY: RefCell<Option<AbsPath>> = const { RefCell::new(None) };
-    static STASHED_INDEX: RefCell<Option<u32>> = const { RefCell::new(None) };
-    static INPUT_BAR_CONTENT: RefCell<(Option<PromptKind>, Result<PathItem, AbsPath>)> = const { RefCell::new((None, Err(AbsPath::empty()))) };
-    static ORIGINAL_RELATIVE_PATH: RefCell<Option<bool>> = const { RefCell::new(None) };
-
-    static PRE_RG_OPTIONS: RefCell<Option<PreRgOptions>> = const { RefCell::new(None) };
-}
-static TEMP_BOOL: AtomicBool = AtomicBool::new(false);
-pub struct TEMP {}
-impl TEMP {
-    pub fn take_prev_dir() -> Option<AbsPath> {
-        PREV_DIRECTORY.with_borrow_mut(|x| x.take())
-    }
-    pub fn set_prev_dir(path: Option<AbsPath>) {
-        PREV_DIRECTORY.replace(path);
-    }
-
-    pub fn take_stashed_index() -> Option<u32> {
-        STASHED_INDEX.with_borrow_mut(|i| i.take())
-    }
-    pub fn set_stashed_index(index: u32) -> Option<u32> {
-        STASHED_INDEX.replace(Some(index))
-    }
-
-    pub fn take_input_bar() -> (Option<PromptKind>, Result<PathItem, AbsPath>) {
-        INPUT_BAR_CONTENT
-            .with_borrow_mut(|(p, s)| (p.take(), std::mem::replace(s, Err(AbsPath::empty()))))
-    }
-
-    /// If menu_prompt is set, menu starts an input overlay.
-    ///
-    /// The Ok variant of menu_target describes the target,
-    /// while the Err variant corresponds to no target
-    /// -- instead defining the cwd context, in which case
-    /// only a restrictred subset of the menu actions is available.
-    ///
-    /// # Additional
-    /// When the prompt is set and the target is Ok, the target's filename is shown in the title of the input bar.
-    #[allow(unused_must_use)]
-    pub fn set_input_bar(
-        menu_prompt: Option<PromptKind>,
-        menu_target: Result<PathItem, AbsPath>,
-    ) {
-        INPUT_BAR_CONTENT.replace((menu_prompt, menu_target));
-    }
-
-    pub fn set_initial_relative_path(relative: bool) {
-        ORIGINAL_RELATIVE_PATH.replace(Some(relative));
-    }
-    pub fn get_original_relative_path() -> Option<bool> {
-        ORIGINAL_RELATIVE_PATH.with_borrow(|x| *x)
-    }
-
-    pub fn set_that_execute_handler_should_process_cwd() {
-        TEMP_BOOL.store(true, Ordering::SeqCst);
-    }
-    pub fn take_whether_execute_handler_should_process_cwd() -> bool {
-        TEMP_BOOL
-            .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
-            .is_ok()
-    }
-
-    pub fn take_pre_rg_options() -> Option<PreRgOptions> {
-        PRE_RG_OPTIONS.with_borrow_mut(|i| i.take())
-    }
-    pub fn set_pre_rg_options(index: PreRgOptions) -> Option<PreRgOptions> {
-        PRE_RG_OPTIONS.replace(Some(index))
-    }
-}
-
-// ------------- READ_ONLY ------------------------
-thread_local! {
-    static CONFIG: RefCell<Option<GlobalConfig>> = const { RefCell::new(None) };
-    static WATCHER_TX: RefCell<Option<WatcherSender>> = const { RefCell::new(None) };
-    static DB: RefCell<Option<Pool>> = const { RefCell::new(None) };
-}
-static RENDER_TX: Mutex<Option<RenderSender<FsAction>>> = const { Mutex::new(None) };
 // just try different kinds of locks :p
 pub static DB_FILTER: tokio::sync::Mutex<Option<DbFilter>> =
     const { tokio::sync::Mutex::const_new(None) };
 static ENV_OPTS: LazyLock<Option<EnvOpts>> = LazyLock::new(EnvOpts::init);
-pub struct GLOBAL {}
-impl GLOBAL {
+// ------------- READ_ONLY ------------------------
+pub mod GLOBAL {
+    use matchmaker::{event::BindSender, message::BindDirective};
+
+    use super::*;
+    thread_local! {
+        static CONFIG: RefCell<Option<GlobalConfig>> = const { RefCell::new(None) };
+        static WATCHER_TX: RefCell<Option<WatcherSender>> = const { RefCell::new(None) };
+        static DB: RefCell<Option<Pool>> = const { RefCell::new(None) };
+        static BIND_TX: RefCell<Option<BindSender<FsAction>>> = const { RefCell::new(None) };
+    }
+    static RENDER_TX: Mutex<Option<RenderSender<FsAction>>> = const { Mutex::new(None) };
+
     /// All global methods can be called iff this has been called
     /// DB_FILTER needs to be initialized seperately with async
     pub fn init(
@@ -134,6 +59,7 @@ impl GLOBAL {
         watcher_tx: WatcherSender,
         db_pool: Pool,
         pane: FsPane,
+        bind_tx: BindSender<FsAction>,
     ) {
         // need to handle the patterns listened on by sync_handler
         let sort = match &pane {
@@ -159,6 +85,7 @@ impl GLOBAL {
         *RENDER_TX.lock().unwrap() = Some(render_tx);
         WATCHER_TX.with(|tx| *tx.borrow_mut() = Some(watcher_tx));
         DB.with(|d| *d.borrow_mut() = Some(db_pool));
+        BIND_TX.with(|d| *d.borrow_mut() = Some(bind_tx));
         STACK::init(pane);
     }
 
@@ -196,6 +123,13 @@ impl GLOBAL {
     /// must be called in initializing thread
     pub fn send_watcher(msg: WatcherMessage) {
         WATCHER_TX.with(|tx| {
+            let guard = tx.borrow();
+            let tx = guard.as_ref().expect("watcher tx missing");
+            tx.send(msg)._elog();
+        });
+    }
+    pub fn send_bind(msg: BindDirective<FsAction>) {
+        BIND_TX.with(|tx| {
             let guard = tx.borrow();
             let tx = guard.as_ref().expect("watcher tx missing");
             tx.send(msg)._elog();
@@ -361,7 +295,6 @@ impl TOAST {
 
 // -----------------------------------------
 
-#[allow(non_snake_case)]
 pub mod APP {
     use std::{
         ffi::OsString,
@@ -379,7 +312,6 @@ pub mod APP {
 }
 
 // -------------------------------------------
-#[allow(non_snake_case)]
 pub mod TASKS {
     use std::{cell::RefCell, time::Duration};
 

@@ -460,7 +460,7 @@ checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 
 [[package]]
 name = "cli_boilerplate_automation"
-version = "0.0.15"
+version = "0.0.16"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1946,9 +1946,9 @@ checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
 name = "jiff"
-version = "0.2.20"
+version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c867c356cc096b33f4981825ab281ecba3db0acefe60329f044c1789d94c6543"
+checksum = "b3e3d65f018c6ae946ab16e80944b97096ed73c35b221d1c478a6c81d8f57940"
 dependencies = [
  "jiff-static",
  "log",
@@ -1959,9 +1959,9 @@ dependencies = [
 
 [[package]]
 name = "jiff-static"
-version = "0.2.20"
+version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7946b4325269738f270bb55b3c19ab5c5040525f83fd625259422a9d25d9be5"
+checksum = "a17c2b211d863c7fde02cbea8a3c1a439b98e109286554f2860bdded7ff83818"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2139,7 +2139,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-lib"
-version = "0.0.5"
+version = "0.0.7"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -2178,9 +2178,9 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-partial-macros"
-version = "0.0.5"
+version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bc69c0b57b5391136a0f4a4cc8eebcfa2e7a3b950010176a6d9be18fda4b179"
+checksum = "1993a2b07d3dd1ac18773dccb56bda5c4ddd2a09f844899aaf82f6534006e87e"
 dependencies = [
  "proc-macro2",
  "quote",

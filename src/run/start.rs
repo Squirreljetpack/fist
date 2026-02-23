@@ -2,10 +2,11 @@ use std::{ffi::OsString, sync::Arc};
 
 use cli_boilerplate_automation::{bait::ResultExt, bog::BogOkExt, prints};
 use matchmaker::{
-    MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector,
+    MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector, acs,
     action::Action,
     binds::display_binds,
     config::{PreviewerConfig, RenderConfig, TerminalConfig},
+    event::EventLoop,
     make_previewer,
     message::{Event, RenderCommand},
     nucleo::{
@@ -21,13 +22,14 @@ use crate::{
     db::{DbTable, Pool, zoxide::DbFilter},
     errors::CliError,
     run::{
+        FsAction,
         action::{fsaction_aliaser, fsaction_handler},
         ahandler::paste_handler,
-        dhandlers::{MMExt, mm_formatter, sync_handler},
+        dhandlers::{MMExt, mm_formatter, query_handler, sync_handler},
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
-        state::{APP, DB_FILTER, GLOBAL, STACK, TASKS, ui::global_ui_init},
+        state::{APP, DB_FILTER, GLOBAL, STACK, TASKS, context::ActionContext, ui::global_ui_init},
     },
     spawn::{Program, open_wrapped},
     ui::{filters_overlay::FilterOverlay, menu_overlay::MenuOverlay, stash_overlay::StashOverlay},
@@ -85,7 +87,9 @@ fn make_mm(
     mm.register_become_handler_();
     mm.register_execute_handler_();
     mm.register_reload_handler_();
+
     mm.register_event_handler(Event::Synced, sync_handler);
+    mm.register_event_handler(Event::QueryChange, query_handler);
 
     (mm, injector, formatter)
 }
@@ -100,7 +104,7 @@ pub async fn start(
     // init configs
     let MMConfig {
         mut render,
-        binds,
+        mut binds,
         scratch,
         filters,
         prompt,
@@ -116,7 +120,20 @@ pub async fn start(
     if let Some(x) = cfg.global.panes.prompt(&pane) {
         render.input.prompt = x
     }
+    if matches!(pane, FsPane::Rg { .. }) {
+        let r = &mut render.results;
+        let s = &mut render.status;
+        let mm = &cfg.styles.matchmaker;
+
+        r.horizontal_separator = mm.horizontal_separator;
+        r.stacked_columns = true;
+        s.show = true;
+        binds.insert(Event::QueryChange.into(), acs![FsAction::Reload]);
+    }
+
     let print_handle = AppendOnly::new();
+    let tick_rate = render.tick_rate();
+    
     // init MM
     let (mut mm, injector, formatter) = make_mm(
         render,
@@ -131,10 +148,15 @@ pub async fn start(
     let help_str = display_binds(&binds, Some(&previewer_config.help_colors));
     let previewer = make_previewer(&mut mm, previewer_config, formatter, help_str);
 
+    let event_loop = EventLoop::with_binds(binds).with_tick_rate(tick_rate);
+    let bind_tx = event_loop.bind_controller();
+    let mut context = ActionContext::new();
+
     // configure mm
-    let mut builder = PickOptions::with_binds(binds)
+    let mut builder = PickOptions::new()
         .previewer(previewer)
-        .ext_handler(fsaction_handler)
+        .event_loop(event_loop)
+        .ext_handler(move |x, y| fsaction_handler(x, y, &mut context))
         .ext_aliaser(fsaction_aliaser)
         .paste_handler(paste_handler)
         .matcher(MATCHER_CONFIG)
@@ -155,7 +177,7 @@ pub async fn start(
         | FsPane::Files { input, .. } => {
             if !input.0.is_empty() {
                 render_tx
-                    .send(RenderCommand::Action(Action::SetInput(input.0.clone())))
+                    .send(RenderCommand::Action(Action::SetQuery(input.0.clone())))
                     ._elog();
             }
         }
@@ -169,7 +191,7 @@ pub async fn start(
     }
 
     // init global
-    GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane);
+    GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane, bind_tx);
     clipboard::init(cfg.misc.clipboard_delay_ms);
     crate::spawn::init_spawn_with(cfg.misc.spawn_with);
     global_ui_init(cfg.styles);

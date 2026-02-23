@@ -85,42 +85,45 @@ fn init_logger(
     log_path: PathBuf,
     append: bool,
 ) {
-    use log::LevelFilter;
+    // init bogger
+    use log::LevelFilter::*;
     bog::init_bogger(true, true);
     bog::init_filter(verbosity);
 
-    let rust_log = std::env::var("RUST_LOG").ok().map(|val| val.to_lowercase());
-
+    // init levels from `RUST_LOG`
     let mut builder = env_logger::Builder::from_default_env();
 
+    // override levels
+    let rust_log = std::env::var("RUST_LOG").ok().map(|val| val.to_lowercase());
     if rust_log.is_none() {
         #[cfg(debug_assertions)]
         {
             builder
-                .filter(None, LevelFilter::Info)
-                .filter(Some("nucleo"), LevelFilter::Debug)
-                .filter(Some("matchmaker"), LevelFilter::Debug)
-                .filter(Some(BINARY_FULL), LevelFilter::Trace);
+                .filter(None, Info)
+                .filter(Some("nucleo"), Debug)
+                .filter(Some("matchmaker"), Debug)
+                .filter(Some(BINARY_FULL), Trace);
         }
         #[cfg(not(debug_assertions))]
         {
+            // set style
             builder
                 .format_module_path(false)
                 .format_target(false)
                 .format_timestamp(None);
 
-            let level = cli_boilerplate_automation::bother::level_filter::from_env();
-
+            // set levels
+            let level = cli_boilerplate_automation::bother::level_filter::from_verbosity(verbosity);
             builder
-                .filter(Some("sqlx"), LevelFilter::Trace)
-                .filter(Some("nucleo"), LevelFilter::Trace)
+                .filter(Some("sqlx"), level)
+                .filter(Some("cli_boilerplate_automation"), level)
                 .filter(Some("matchmaker"), level)
                 .filter(Some(BINARY_FULL), level);
         }
     }
 
+    // open log file in open/append
     let mut opts = OpenOptions::new();
-
     opts.create(true);
     if append {
         opts.append(true);
@@ -128,6 +131,7 @@ fn init_logger(
         opts.truncate(true).write(true);
     }
 
+    // target log file
     if let Some(log_file) = opts
         .open(log_path)
         .prefix("Failed to open log file")
