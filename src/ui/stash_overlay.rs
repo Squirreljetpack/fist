@@ -4,13 +4,15 @@ use crate::{
         action::FsAction,
         stash::{STASH, StashAction, StashItem, StashItemState, StashItemStatus},
     },
+    utils::serde::border_result,
 };
+
 use cli_boilerplate_automation::{
     bath::PathExt, bring::StrExt, bum::Float32Ext, define_transparent_wrapper, vec_,
 };
 use matchmaker::{
     action::Action,
-    config::{self, BorderSetting},
+    config::{self, BorderSetting, PartialBorderSetting},
     ui::{Overlay, OverlayEffect},
 };
 use ratatui::{
@@ -20,28 +22,30 @@ use ratatui::{
         TableState,
     },
 };
+use unicode_width::UnicodeWidthStr;
+
 use std::{
     fmt::Alignment,
     sync::atomic::{AtomicBool, AtomicU8, Ordering},
 };
-use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct StashConfig {
-    pub border: BorderSetting,
+    #[serde(with = "border_result")]
+    pub border: Result<BorderSetting, PartialBorderSetting>,
     pub bar_width: u16,
     pub column_spacing: usize,
 }
 
 impl Default for StashConfig {
     fn default() -> Self {
-        let border = BorderSetting {
-            sides: Some(Borders::ALL),
+        let border = PartialBorderSetting {
+            title: Some("Stash".into()),
             ..Default::default()
         };
         Self {
-            border,
+            border: Err(border),
             bar_width: 15,
             column_spacing: 2,
         }
@@ -78,13 +82,17 @@ impl StashOverlay {
         }
     }
 
+    pub fn border(&self) -> &BorderSetting {
+        self.config.border.as_ref().unwrap()
+    }
+
     pub fn enter_edit(&mut self) {
         let e = todo!();
         self.editing = Some(e);
     }
 
     pub fn width(&self) -> u16 {
-        self.widths.iter().sum::<u16>() + self.config.border.width()
+        self.widths.iter().sum::<u16>() + self.border().width()
     }
 
     /// Computes and stores the column widths for Path, Size, and Flags
@@ -120,7 +128,7 @@ impl StashOverlay {
         let mut size_w = 10;
 
         let available_path_w = available_ui_w
-            .saturating_sub(self.config.border.width())
+            .saturating_sub(self.border().width())
             .saturating_sub(kind_w + dst_w + size_w)
             .max(16);
 
@@ -182,7 +190,7 @@ impl StashOverlay {
             .column_spacing(0)
             .header(header)
             // .row_highlight_style(Style::default().bg(Color::Black))
-            .block(self.config.border.as_static_block())
+            .block(self.border().as_static_block())
     }
 }
 
@@ -331,7 +339,7 @@ impl Overlay for StashOverlay {
             if scratch.is_empty() {
                 self.table_state.select(None);
                 let msg = "Scratch is empty";
-                area.height = 3 + self.config.border.height();
+                area.height = 3 + self.border().height();
                 frame.render_widget(Clear, area);
                 frame.render_widget(
                     Paragraph::new(vec![
@@ -339,7 +347,7 @@ impl Overlay for StashOverlay {
                         Line::raw(msg).alignment(HorizontalAlignment::Center),
                         Line::raw("".pad(area.width as usize, 0)),
                     ])
-                    .block(self.config.border.as_block()),
+                    .block(self.border().as_block()),
                     area,
                 );
                 return;

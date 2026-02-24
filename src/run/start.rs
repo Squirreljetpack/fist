@@ -109,7 +109,7 @@ pub async fn start(
     let MMConfig {
         mut render,
         mut binds,
-        scratch,
+        stash,
         filters,
         prompt,
         menu,
@@ -181,7 +181,7 @@ pub async fn start(
         .hidden_columns(vec![false, false, true])
         .matcher(MATCHER_CONFIG)
         .overlay_config(overlay)
-        .overlay(StashOverlay::new(scratch))
+        .overlay(StashOverlay::new(stash))
         .overlay(FilterOverlay::new(filters))
         .overlay(MenuOverlay::new(menu, prompt, cfg.actions));
 

@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use cli_boilerplate_automation::bo::load_type_or_default;
 use matchmaker::{
     binds::BindMap,
@@ -9,6 +7,8 @@ use matchmaker::{
     },
     nucleo::nucleo,
 };
+use matchmaker_partial::Apply;
+use std::path::Path;
 
 use super::{FsAction, binds::default_binds};
 use crate::{
@@ -34,7 +34,7 @@ pub struct MMConfig {
 
     // overlays
     #[serde(default)]
-    pub scratch: StashConfig,
+    pub stash: StashConfig,
     #[serde(default)]
     pub filters: FiltersConfig,
     #[serde(default)]
@@ -126,6 +126,23 @@ pub fn get_mm_cfg(
         tui.clear_on_exit = false;
     }
 
+    if let Err(p) = mm_cfg.filters.base.border {
+        let mut full = mm_cfg.overlay.border.clone();
+        full.apply(p);
+        mm_cfg.filters.base.border = Ok(full)
+    }
+    if let Err(p) = mm_cfg.menu.border {
+        let mut full = mm_cfg.overlay.border.clone();
+        full.apply(p);
+        mm_cfg.menu.border = Ok(full)
+    }
+    if let Err(p) = mm_cfg.stash.border {
+        let mut full = mm_cfg.overlay.border.clone();
+        full.apply(p);
+        mm_cfg.stash.border = Ok(full)
+    }
+
     log::debug!("{mm_cfg:?}");
+
     mm_cfg
 }

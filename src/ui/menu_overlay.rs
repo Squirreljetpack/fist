@@ -1,44 +1,54 @@
-use std::path::Path;
-
-use crate::abspath::AbsPath;
-use crate::cli::paths::__cwd;
-use crate::fs::{auto_dest, create_all, rename};
-use crate::run::action::FsAction;
-use crate::run::item::{PathItem, short_display};
-use crate::run::stash::{STASH, StashItem};
-use crate::run::state::{GLOBAL, TASKS, TEMP, TOAST};
-use crate::spawn::menu_action::MenuActions;
-use crate::spawn::open_wrapped;
-use crate::ui::prompt_overlay::{PromptConfig, PromptOverlay};
-use crate::utils::text::{ToastStyle, bold_indices};
-use cli_boilerplate_automation::bath::{PathExt, RenamePolicy, auto_dest_for_src, root_dir};
-use cli_boilerplate_automation::bog::BogUnwrapExt;
-use matchmaker::action::Action;
-use matchmaker::config::BorderSetting;
-use matchmaker::ui::{Overlay, OverlayEffect};
-use ratatui::widgets::Padding;
-use ratatui::{
-    prelude::*,
-    widgets::{Block, Borders, Clear, Paragraph},
+use crate::{
+    abspath::AbsPath,
+    cli::paths::__cwd,
+    fs::{auto_dest, create_all, rename},
+    run::{
+        action::FsAction,
+        item::{PathItem, short_display},
+        stash::{STASH, StashItem},
+        state::{GLOBAL, TASKS, TEMP, TOAST},
+    },
+    spawn::{menu_action::MenuActions, open_wrapped},
+    ui::prompt_overlay::{PromptConfig, PromptOverlay},
+    utils::{
+        serde::border_result,
+        text::{ToastStyle, bold_indices},
+    },
 };
 
+use cli_boilerplate_automation::{
+    bath::{PathExt, RenamePolicy, auto_dest_for_src, root_dir},
+    bog::BogUnwrapExt,
+};
+use matchmaker::{
+    action::Action,
+    config::{BorderSetting, PartialBorderSetting},
+    ui::{Overlay, OverlayEffect},
+};
+use ratatui::{
+    prelude::*,
+    widgets::{Block, Borders, Clear, Padding, Paragraph},
+};
+use std::path::Path;
 const MAX_ITEM_WIDTH: u16 = 9;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MenuConfig {
-    pub border: BorderSetting,
+    #[serde(with = "border_result")]
+    pub border: Result<BorderSetting, PartialBorderSetting>,
 }
 
 impl Default for MenuConfig {
     fn default() -> Self {
+        let border = PartialBorderSetting {
+            title: Some("Menu".into()),
+            sides: Some(Borders::ALL),
+            padding: Some(Padding::symmetric(2, 1)),
+            ..Default::default()
+        };
         Self {
-            border: BorderSetting {
-                title: "Menu".into(),
-                sides: Some(Borders::ALL),
-                padding: Padding::symmetric(2, 1),
-                ..Default::default()
-            },
+            border: Err(border),
         }
     }
 }
@@ -174,31 +184,35 @@ pub struct MenuOverlay {
     items: Vec<MenuItem>,
 }
 
+pub static MENU_ITEMS: [MenuItem; 8] = [
+    MenuItem::New,
+    MenuItem::Rename,
+    MenuItem::Cut,
+    MenuItem::Copy,
+    MenuItem::Trash,
+    MenuItem::Delete,
+    MenuItem::Open,
+    MenuItem::OpenWith,
+];
+
 impl MenuOverlay {
     pub fn new(
         config: MenuConfig,
         prompt_config: PromptConfig,
         actions: MenuActions,
     ) -> Self {
-        let items: Vec<MenuItem> = vec![
-            MenuItem::New,
-            MenuItem::Rename,
-            MenuItem::Cut,
-            MenuItem::Copy,
-            MenuItem::Trash,
-            MenuItem::Delete,
-            MenuItem::Open,
-            MenuItem::OpenWith,
-        ];
-
         Self {
             cursor: 0,
             config,
             prompt_kind: None,
             prompt: PromptOverlay::new(prompt_config),
             target: Ok(PathItem::_uninit()),
-            items,
+            items: MENU_ITEMS.to_vec(),
         }
+    }
+
+    pub fn border(&self) -> &BorderSetting {
+        self.config.border.as_ref().unwrap()
     }
 
     fn make_widget(&self) -> Paragraph<'_> {
@@ -218,7 +232,7 @@ impl MenuOverlay {
                 line
             })
             .collect();
-        Paragraph::new(lines).block(self.config.border.as_block())
+        Paragraph::new(lines).block(self.border().as_block())
     }
 
     fn target_path(&self) -> AbsPath {
@@ -450,8 +464,8 @@ impl Overlay for MenuOverlay {
     ) -> Result<Rect, [u16; 2]> {
         self.prompt.area(ui_area);
         Err([
-            MAX_ITEM_WIDTH + self.config.border.width(),
-            self.items.len() as u16 + self.config.border.height(),
+            MAX_ITEM_WIDTH + self.border().width(),
+            self.items.len() as u16 + self.border().height(),
         ])
     }
 

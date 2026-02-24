@@ -1,17 +1,23 @@
-use crate::run::FsPane;
-use crate::run::action::FsAction;
-use crate::utils::text::bold_segments;
 use crate::{
-    run::state::{FILTERS, GLOBAL, STACK},
-    utils::text::bold_indices,
+    run::{
+        FsPane,
+        action::FsAction,
+        state::{FILTERS, GLOBAL, STACK},
+    },
+    utils::{
+        serde::border_result,
+        text::{bold_indices, bold_segments},
+    },
 };
+
 use cli_boilerplate_automation::bum::UsizeExt;
 use fist_types::{When, filters::*};
 use matchmaker::{
     action::Action,
-    config::BorderSetting,
+    config::{BorderSetting, PartialBorderSetting},
     ui::{Overlay, OverlayEffect},
 };
+
 use ratatui::{
     prelude::*,
     widgets::{Block, Borders, Clear, Paragraph},
@@ -23,34 +29,49 @@ const PANE_WIDTH: u16 = const { 4 + 17 + 1 };
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct FiltersConfig {
-    border: BorderSetting,
-    item_fg: Color,
-    item_modifier: Modifier,
-    filter_border: BorderSetting,
-    sort_border: BorderSetting,
-    rg_border: BorderSetting,
+pub struct FilterBaseConfig {
+    #[serde(with = "border_result")]
+    pub border: Result<BorderSetting, PartialBorderSetting>,
+    pub item_fg: Color,
+    pub item_modifier: Modifier,
+    pub alignment: HorizontalAlignment,
 }
 
-impl Default for FiltersConfig {
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct FilterPaneConfig {
+    pub border: BorderSetting,
+    pub alignment: Option<HorizontalAlignment>,
+}
+
+impl Default for FilterBaseConfig {
     fn default() -> Self {
-        let filter_border = BorderSetting {
-            ..Default::default()
-        };
-        let sort_border = BorderSetting {
-            ..Default::default()
-        };
-        let rg_border = BorderSetting {
+        let border = PartialBorderSetting {
+            title: Some("Filters".into()),
             ..Default::default()
         };
         Self {
-            border: Default::default(),
+            border: Err(border),
             item_fg: Color::DarkGray,
             item_modifier: Default::default(),
-            filter_border,
-            sort_border,
-            rg_border,
+            alignment: Default::default(),
         }
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct FiltersConfig {
+    #[serde(flatten)]
+    pub base: FilterBaseConfig,
+    pub filter: FilterPaneConfig,
+    pub sort: FilterPaneConfig,
+    pub pane: FilterPaneConfig,
+}
+
+impl FiltersConfig {
+    pub fn into_tuple(self) -> (FilterBaseConfig, [FilterPaneConfig; 3]) {
+        (self.base, [self.filter, self.sort, self.pane])
     }
 }
 
@@ -58,16 +79,23 @@ impl Default for FiltersConfig {
 pub struct FilterOverlay {
     cursor: [usize; 2], // [pane_index, item_index]
     pane_lens: [usize; 3],
-    config: FiltersConfig,
+    config: FilterBaseConfig,
+    pub configs: [FilterPaneConfig; 3],
 }
 
 /// Renders a horizontal mural of paragraphs, declared in [`FilterOverlay::make_widgets`]
 impl FilterOverlay {
     pub fn new(config: FiltersConfig) -> Self {
+        let (config, configs) = config.into_tuple();
         Self {
             config,
+            configs,
             ..Default::default()
         }
+    }
+
+    pub fn border(&self) -> &BorderSetting {
+        self.config.border.as_ref().unwrap()
     }
 
     pub fn item_style(&self) -> Style {
@@ -82,11 +110,11 @@ impl FilterOverlay {
             .max()
             .map(|v| *v as u16 + 2)
             .unwrap_or(2)
-            + self.config.border.height()
+            + self.border().height()
     }
     pub fn width(&self) -> u16 {
         self.pane_lens.iter().filter(|&&v| v != 0).count() as u16 * PANE_WIDTH
-            + self.config.border.width()
+            + self.border().width()
     }
     pub fn num_panes(&self) -> usize {
         self.pane_lens.iter().filter(|&&v| v > 0).count()
@@ -202,7 +230,29 @@ impl FilterOverlay {
 
     // make_widgets now just prepends checkboxes and handles cursor styling
     fn make_widgets(&self) -> Vec<Paragraph<'static>> {
-        let mut make_pane = |pane_idx, items: &[(Vec<Span<'static>>, Option<bool>)]| {
+        let mut make_pane = |pane_idx: usize, items: &[(Vec<Span<'static>>, Option<bool>)]| {
+            let max_width = items
+                .iter()
+                .map(|(spans, checked)| {
+                    let mut width = 0;
+
+                    if let Some(checked) = checked {
+                        width += 4; // "[x] " or "[ ] "
+                    }
+
+                    for span in spans {
+                        width += span.width()
+                    }
+
+                    width
+                })
+                .max()
+                .unwrap_or(0);
+
+            let alignment = self.configs[pane_idx]
+                .alignment
+                .unwrap_or(self.config.alignment);
+
             let lines: Vec<Line> = items
                 .iter()
                 .enumerate()
@@ -215,7 +265,13 @@ impl FilterOverlay {
 
                     line_spans.extend(spans.clone());
 
-                    let mut line = Line::from(line_spans);
+                    let mut line = Line::from(line_spans).alignment(alignment);
+
+                    let right_pad = max_width.saturating_sub(line.width());
+                    if right_pad > 0 {
+                        let padding = " ".repeat(right_pad);
+                        line.spans.push(Span::raw(padding));
+                    }
 
                     if pane_idx == self.cursor[0] && idx == self.cursor[1] {
                         line = line.patch_style(Style::default().add_modifier(Modifier::BOLD));
@@ -225,7 +281,7 @@ impl FilterOverlay {
                 })
                 .collect();
 
-            Paragraph::new(lines).block(Block::default())
+            Paragraph::new(lines).block(self.configs[pane_idx].border.as_static_block())
         };
 
         let mut widgets = vec![];
@@ -531,15 +587,22 @@ impl Overlay for FilterOverlay {
         let constraints: Vec<Constraint> = (0..widgets.len())
             .map(|_| Constraint::Length(PANE_WIDTH))
             .collect();
+
+        let mut inner_area = area;
+        inner_area.width -= self.border().width();
+        inner_area.height -= self.border().height();
+        inner_area.x += self.border().left();
+        inner_area.y += self.border().top();
+
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(constraints)
-            .split(area);
+            .split(inner_area);
 
         for (i, widget) in widgets.into_iter().enumerate() {
             frame.render_widget(widget, chunks[i]);
         }
 
-        frame.render_widget(self.config.border.as_block(), area);
+        frame.render_widget(self.border().as_block(), area);
     }
 }
