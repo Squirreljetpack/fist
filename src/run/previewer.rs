@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::env_vars;
+use cli_boilerplate_automation::{bring::StrExt, env_vars};
 use log::warn;
 use matchmaker::{config::PreviewerConfig, message::Event, preview::previewer::{PreviewMessage, Previewer}};
 use ratatui::text::Text;
@@ -25,11 +25,12 @@ pub fn make_previewer(
             let cmd = mm_formatter(t, m);
 
             // unwrap allowed by visible
-            let target = state.preview_ui.as_ref().unwrap().config.scroll.index.as_ref().and_then(|index_col| {
+            let index = state.preview_ui.as_ref().unwrap().config.scroll.index.as_ref();
+
+            let target = 
                 state.current_raw().and_then(|item| {
-                    state.picker_ui.worker.format_with(item, index_col).and_then(|t| t.parse::<isize>().ok())
-                })
-            }); // reset to 0 each time
+                    state.picker_ui.worker.format_with(item, "3").and_then(|t| t.as_ref().split_delim(':')[0].parse::<isize>().ok())
+                });
             state.preview_ui.as_mut().unwrap().set_target(target.unwrap_or(0));
 
 

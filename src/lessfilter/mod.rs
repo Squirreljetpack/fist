@@ -7,7 +7,7 @@ mod helpers;
 pub mod rule_matcher;
 use cli_boilerplate_automation::broc::tty_or_inherit;
 pub use config::*;
-
+pub mod env;
 pub mod mime_helpers;
 
 use arrayvec::ArrayVec;
@@ -18,6 +18,7 @@ use std::process::exit;
 use std::process::{Command, Stdio};
 
 use crate::cli::clap_tools::LessfilterCommand;
+use crate::lessfilter::env::line_column;
 use crate::lessfilter::helpers::{extract, is_header, is_metadata, show_header, show_metadata};
 use crate::utils::string::path_formatter;
 use crate::{
@@ -50,6 +51,8 @@ pub fn handle(
     let mut any_file_succeeded = false;
 
     let mut singleton = paths.len() == 1;
+
+    line_column::init_from_env();
 
     for path in paths {
         let apath = AbsPath::new(path.clone());

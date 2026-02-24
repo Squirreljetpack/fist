@@ -4,17 +4,17 @@ use std::env;
 use std::ffi::OsString;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::sync::Mutex;
 use std::{cell::OnceCell, fs::File};
 
 use cli_boilerplate_automation::bait::ResultExt;
 use cli_boilerplate_automation::bo::map_reader_lines;
-use cli_boilerplate_automation::broc::CommandExt;
 use cli_boilerplate_automation::bring::TableBuilder;
+use cli_boilerplate_automation::broc::CommandExt;
 use cli_boilerplate_automation::{StringError, wbog};
 use cli_boilerplate_automation::{bo::MapReaderError, bog::BogOkExt, broc::has, vec_};
 use crossterm::style::Stylize;
 
+use super::env::line_column;
 use crate::cli::paths::{current_exe, text_renderer_path};
 use crate::lessfilter::mime_helpers::{detect_encoding, is_native};
 
@@ -214,7 +214,6 @@ pub fn infer_visual(path: &Path) -> Vec<OsString> {
 
 // ---------------------- EDITOR -----------------------------
 
-pub static LINE_COLUMN: Mutex<Option<(usize, usize)>> = const { Mutex::new(None) };
 pub fn infer_editor(path: &Path) -> Vec<OsString> {
     // get base_cmd
     let base_cmd: Vec<String> = if let Ok(v) = env::var("FS_EDITOR") {
@@ -238,18 +237,13 @@ pub fn infer_editor(path: &Path) -> Vec<OsString> {
     // Try to apply line/column if supported
     let editor_name = cmd.first().and_then(|s| s.to_str()).unwrap_or_default();
 
-    let line_col: Option<(usize, usize)> = {
-        let guard = LINE_COLUMN.lock().unwrap();
-        if guard.is_some() {
-            *guard
-        } else if let Ok(v) = env::var("FS_LINE_COLUMN") {
-            parse_line_column(&v)
-        } else {
-            None
-        }
-    };
+    let (line, col) = line_column::get();
 
-    if let Some((line, col)) = line_col {
+    let (line, col) = line_column::get();
+
+    if let Some(line) = line
+        && line >= 0
+    {
         match editor_name {
             "micro" => {
                 let s = format!("{}:{}", path.display(), line);
@@ -260,7 +254,13 @@ pub fn infer_editor(path: &Path) -> Vec<OsString> {
                 cmd.push(path.into());
             }
             "nano" => {
-                cmd.push(OsString::from(format!("+{},{}", line, col)));
+                if let Some(col) = col
+                    && col >= 0
+                {
+                    cmd.push(OsString::from(format!("+{},{}", line, col)));
+                } else {
+                    cmd.push(OsString::from(format!("+{}", line)));
+                }
                 cmd.push(path.into());
             }
             _ => {
@@ -272,17 +272,6 @@ pub fn infer_editor(path: &Path) -> Vec<OsString> {
     }
 
     cmd
-}
-
-/// Parse line/column string like "10:3" or "10,3"
-fn parse_line_column(s: &str) -> Option<(usize, usize)> {
-    if let Some((l, c)) = s.split_once(':') {
-        Some((l.parse().ok()?, c.parse().ok()?))
-    } else if let Some((l, c)) = s.split_once(',') {
-        Some((l.parse().ok()?, c.parse().ok()?))
-    } else {
-        None
-    }
 }
 
 // ---------------- EXTRACT -----------------

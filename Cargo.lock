@@ -460,7 +460,7 @@ checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 
 [[package]]
 name = "cli_boilerplate_automation"
-version = "0.0.16"
+version = "0.0.17"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1184,7 +1184,7 @@ dependencies = [
  "infer",
  "log",
  "matchmaker-lib",
- "matchmaker-partial",
+ "matchmaker-partial 0.0.7",
  "matchmaker-partial-macros",
  "mime_guess",
  "notify",
@@ -2141,7 +2141,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-lib"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -2158,7 +2158,7 @@ dependencies = [
  "futures",
  "indexmap",
  "log",
- "matchmaker-partial",
+ "matchmaker-partial 0.0.8",
  "matchmaker-partial-macros",
  "mio",
  "nix 0.31.1",
@@ -2184,6 +2184,16 @@ name = "matchmaker-partial"
 version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33eb64bab20c2861ab1a1d9d08b9b35eaa970f30d1c5520f31d1801b3e0c43d8"
+dependencies = [
+ "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "matchmaker-partial"
+version = "0.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76cfeb177b511c12da758fa7e4e9fe125ffad93283388a00a2a856fe50af7b1c"
 dependencies = [
  "serde",
  "thiserror 2.0.18",

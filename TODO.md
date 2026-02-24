@@ -40,6 +40,8 @@ lowpri: Preview command also needs to switch cwd if there is an efficient way
 
 - configurable extractor
 
+- connect env vars "LINE_NUMBER" "COLUMN_NUMBER" to editor
+
 - Low pri
   - rle_matcher is not perfect because it doesn't support expressing fallback conditions
   - prettier + tmp file formatting isn't hard but maybe out of scope?
@@ -172,7 +174,6 @@ support mm-partial somehow to specify ui styling?
 - aging algorithm
 - prepopulate some directories: trash, desktop, home etc.
 - option for second pass on z jump fail: search children and parents
-
 
 # Refactor
 

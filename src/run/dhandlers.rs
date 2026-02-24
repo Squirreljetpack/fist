@@ -2,6 +2,7 @@ use std::{ffi::OsString, process::Command};
 
 use cli_boilerplate_automation::{
     bog::BogOkExt,
+    bring::StrExt,
     broc::{CommandExt, SHELL, tty_or_inherit},
     env_vars, prints, unwrap,
 };
@@ -128,6 +129,20 @@ impl FsMatchmaker {
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
                 vars.extend(extra);
+                if let Some((line, col)) = state.current_raw().and_then(|item| {
+                    state.picker_ui.worker.format_with(item, "3").map(|t| {
+                        let x = t.as_ref().split_delim(':');
+                        let line = x[0].parse::<isize>().ok();
+                        let col = x[1].split_delim(':')[0].parse::<isize>().ok();
+                        (line, col)
+                    })
+                }) && let Some(t) = line
+                {
+                    vars.push(("LINE_NUMBER".to_string(), t.to_string()));
+                    if let Some(t) = col {
+                        vars.push(("COLUMN_NUMBER".to_string(), t.to_string()));
+                    }
+                };
 
                 if let Some(cwd) = STACK::cwd() {
                     std::env::set_current_dir(cwd)._ebog();
@@ -171,11 +186,27 @@ fn execute(
 ) {
     let cmd = path_formatter(template, path);
 
-    let vars = state.make_env_vars();
+    let mut vars = state.make_env_vars();
 
     if let Some(cwd) = STACK::cwd() {
         std::env::set_current_dir(cwd)._ebog();
     }
+
+    // lowpri: dow we expose fs_preview_command here?
+    if let Some((line, col)) = state.current_raw().and_then(|item| {
+        state.picker_ui.worker.format_with(item, "3").map(|t| {
+            let x = t.as_ref().split_delim(':');
+            let line = x[0].parse::<isize>().ok();
+            let col = x[1].split_delim(':')[0].parse::<isize>().ok();
+            (line, col)
+        })
+    }) && let Some(t) = line
+    {
+        vars.push(("LINE_NUMBER".to_string(), t.to_string()));
+        if let Some(t) = col {
+            vars.push(("COLUMN_NUMBER".to_string(), t.to_string()));
+        }
+    };
 
     if let Some(mut child) = Command::from_script(&cmd)
         .envs(vars)

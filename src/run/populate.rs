@@ -16,6 +16,7 @@ use cli_boilerplate_automation::{
     bait::ResultExt,
     bo::{MapReaderError, map_reader_lines},
     bog::BogOkExt,
+    bring::StrExt,
     broc::{CommandExt, display_sh_prog_and_args},
     bs::sort_by_mtime,
     unwrap,
@@ -39,7 +40,6 @@ use crate::{
         start::FsInjector,
         state::{APP, GLOBAL, STACK},
     },
-    utils::string::split_delim,
 };
 use fist_types::filters::SortOrder;
 
@@ -101,7 +101,7 @@ impl FsPane {
                     None => map_reader(
                         stdout,
                         move |line| {
-                            let item = PathItem::new_from_split(split_delim(&line, delim), &cwd);
+                            let item = PathItem::new_from_split(line.split_delim(delim), &cwd);
                             if vis.filter(&item.path) {
                                 if let Some(stored) = &stored {
                                     stored.push(item.clone());
@@ -131,14 +131,12 @@ impl FsPane {
                                     let _permit = sem.acquire_owned().await.unwrap();
                                     if let Ok(out) =
                                         crate::spawn::utils::tokio_command_from_script(&script)
-                                            .args(split_delim(&line, delim))
+                                            .args(line.split_delim(delim))
                                             .output()
                                             .await
                                     {
-                                        let mut item = PathItem::new_from_split(
-                                            split_delim(&line, delim),
-                                            &cwd,
-                                        );
+                                        let mut item =
+                                            PathItem::new_from_split(line.split_delim(delim), &cwd);
                                         if out.status.success() {
                                             if let Ok(rendered) =
                                                 ansi_to_tui::IntoText::into_text(&out.stdout)
@@ -166,7 +164,7 @@ impl FsPane {
                             if STOP.load(Ordering::SeqCst) {
                                 bail!("Canceled");
                             }
-                            let [p1, p2] = split_delim(&line, delim);
+                            let [p1, p2] = line.split_delim(delim);
                             batch_collect.push([p1.to_string(), p2.to_string()]);
 
                             if batch_collect.len() >= batch_collect_size {
@@ -269,7 +267,7 @@ impl FsPane {
                 map_reader(
                     io::stdin(),
                     move |line| {
-                        let mut item = PathItem::new_from_split(split_delim(&line, delim), &cwd);
+                        let mut item = PathItem::new_from_split(line.split_delim(delim), &cwd);
 
                         if !vis.filter(&item.path) {
                             return Ok(());
