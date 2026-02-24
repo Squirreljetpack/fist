@@ -217,3 +217,9 @@ spawn_with = ["pueue", "add", "-g", "apps", "--"]
 ```
 
 [^1]: `/` on unix and `\` on windows
+
+# Configuration
+
+### Notes
+
+- Variant values such as `RetryStrat` or `SortOrder` should be given in CamelCase.

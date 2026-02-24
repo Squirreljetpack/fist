@@ -1,10 +1,11 @@
-use std::{fs::OpenOptions, io::Write, path::PathBuf, process};
+use std::{fs::OpenOptions, io::Write, path::PathBuf, process::exit};
 
 use cli_boilerplate_automation::{
+    _ibog,
     bait::ResultExt,
     bo::{load_type_or_default, write_str},
     bog::{self, BogOkExt},
-    ebog, ibog,
+    ebog,
 };
 use fist::{
     cli::{
@@ -20,6 +21,7 @@ use matchmaker::MatchError;
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
     let cli = Cli::parse_custom();
+    let verbosity = cli.opts.verbosity();
 
     bog::init_bogger(true, false);
     if matches!(
@@ -47,6 +49,7 @@ async fn main() {
     }
 
     // load config
+
     let mut cfg: Config = load_type_or_default(config_path(), |s| toml::from_str(s));
     cfg.override_from(&cli.opts);
 
@@ -67,24 +70,26 @@ async fn main() {
     {
         // skip
     } else {
-        init_logger(
-            cli.opts.verbosity(),
-            cfg.log_path(),
-            cfg.misc.append_mode_logging,
-        );
+        init_logger(verbosity, cfg.log_path(), cfg.misc.append_mode_logging);
     }
 
     match handle_subcommand(cli, cfg).await {
         Ok(()) => (),
-        Err(CliError::Handled) => process::exit(1),
+        Err(CliError::Handled) => exit(1),
         Err(e) => {
-            ebog!("{e}");
             let code = match e {
                 CliError::MatchError(MatchError::EventLoopClosed) => 127,
-                CliError::MatchError(MatchError::NoMatch) => 22,
+                CliError::MatchError(MatchError::NoMatch) => {
+                    if verbosity >= 1 {
+                        ebog!("{e}")
+                    }
+                    exit(22)
+                }
+
                 _ => 1,
             };
-            process::exit(code);
+            ebog!("{e}");
+            exit(code);
         }
     }
 }
@@ -115,14 +120,17 @@ fn init_logger(
         }
         #[cfg(not(debug_assertions))]
         {
+            use cli_boilerplate_automation::bait::TransformExt;
+
             // set style
             builder
                 .format_module_path(false)
                 .format_target(false)
                 .format_timestamp(None);
 
-            // set levels
-            let level = cli_boilerplate_automation::bother::level_filter::from_verbosity(verbosity);
+            let level = cli_boilerplate_automation::bother::level_filter::from_verbosity(
+                verbosity.transform_if(verbosity > 4, |v| v - 1),
+            );
             builder
                 .filter(Some("sqlx"), level)
                 .filter(Some("cli_boilerplate_automation"), level)
@@ -165,7 +173,7 @@ fn dump_config(
             ._ebog()
             .is_some()
         {
-            ibog!("Wrote config to {}", &opts.config.to_string_lossy());
+            _ibog!("Wrote config to {}", &opts.config.to_string_lossy());
             // overwrite helper files
             Config::default().check_scripts(true);
         } else {
@@ -177,7 +185,7 @@ fn dump_config(
                 ._ebog()
                 .is_some()
         {
-            ibog!("Wrote config to {}", opts.mm_config.to_string_lossy())
+            _ibog!("Wrote config to {}", opts.mm_config.to_string_lossy())
         }
         if !lessfilter_cfg_path.exists()
             && write_str(
@@ -187,7 +195,7 @@ fn dump_config(
             ._ebog()
             .is_some()
         {
-            ibog!("Wrote config to {}", lessfilter_cfg_path.to_string_lossy())
+            _ibog!("Wrote config to {}", lessfilter_cfg_path.to_string_lossy())
         }
     } else {
         // if piped: dump the current cfg
@@ -207,7 +215,7 @@ fn dump_config(
         }
     }
 
-    std::process::exit(0);
+    exit(0);
 }
 
 fn check(cfg: &Config) {

@@ -138,9 +138,9 @@ impl FsMatchmaker {
                     })
                 }) && let Some(t) = line
                 {
-                    vars.push(("LINE_NUMBER".to_string(), t.to_string()));
+                    vars.push(("HIGHLIGHT_LINE".to_string(), t.to_string()));
                     if let Some(t) = col {
-                        vars.push(("COLUMN_NUMBER".to_string(), t.to_string()));
+                        vars.push(("HIGHLIGHT_COLUMN".to_string(), t.to_string()));
                     }
                 };
 
@@ -202,9 +202,9 @@ fn execute(
         })
     }) && let Some(t) = line
     {
-        vars.push(("LINE_NUMBER".to_string(), t.to_string()));
+        vars.push(("HIGHLIGHT_LINE".to_string(), t.to_string()));
         if let Some(t) = col {
-            vars.push(("COLUMN_NUMBER".to_string(), t.to_string()));
+            vars.push(("HIGHLIGHT_COLUMN".to_string(), t.to_string()));
         }
     };
 

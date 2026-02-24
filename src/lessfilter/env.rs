@@ -8,13 +8,13 @@ pub mod line_column {
     }
 
     /// Populate from environment variables:
-    /// LINE_NUMBER and COLUMN_NUMBER
+    /// HIGHLIGHT_LINE and HIGHLIGHT_COLUMN
     pub fn init_from_env() {
-        let line = env::var("LINE_NUMBER")
+        let line = env::var("HIGHLIGHT_LINE")
             .ok()
             .and_then(|v| v.parse::<isize>().ok());
 
-        let column = env::var("COLUMN_NUMBER")
+        let column = env::var("HIGHLIGHT_COLUMN")
             .ok()
             .and_then(|v| v.parse::<isize>().ok());
 

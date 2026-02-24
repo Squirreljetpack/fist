@@ -372,8 +372,7 @@ pub fn fsaction_aliaser(
                     } else {
                         acs![Action::Up(i.saturating_sub(1))]
                     }
-                } else if i as u32 >= state.picker_ui.results.index() && !state.picker_ui.reverse()
-                {
+                } else if i as u32 > state.picker_ui.results.index() && !state.picker_ui.reverse() {
                     // entering the prompt
                     enter_prompt(state, true);
                     acs![]
@@ -393,7 +392,7 @@ pub fn fsaction_aliaser(
                     } else {
                         acs![Action::Down(i.saturating_sub(1))]
                     }
-                } else if i as u32 >= state.picker_ui.results.index() && state.picker_ui.reverse() {
+                } else if i as u32 > state.picker_ui.results.index() && state.picker_ui.reverse() {
                     // entering the prompt
                     enter_prompt(state, true);
                     acs![]
@@ -449,10 +448,6 @@ pub fn fsaction_handler(
 ) {
     match a {
         FsAction::Find => {
-            if STACK::with_current(|p| matches!(p, FsPane::Fd { .. })) {
-                // what do here?
-                return;
-            }
             // save input
             let (content, index) = state.get_content_and_index();
             STACK::save_input(content, index);
@@ -463,6 +458,10 @@ pub fn fsaction_handler(
                 FILTERS::sort(),
                 FILTERS::visibility(),
             );
+
+            if STACK::with_current(|p| *p == pane) {
+                return;
+            }
             STACK::push(pane);
 
             prepare_prompt(state);

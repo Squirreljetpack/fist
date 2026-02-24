@@ -88,6 +88,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--sort', '--sort', [CompletionResultType]::ParameterName, 'history sort order')
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'l')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
+            [CompletionResult]::new('--initial-input', '--initial-input', [CompletionResultType]::ParameterName, 'initial-input')
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')

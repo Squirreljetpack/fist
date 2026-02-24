@@ -1,7 +1,9 @@
 use chrono::Utc;
 use cli_boilerplate_automation::{
-    bait::ResultExt, bog::BogOkExt, define_transparent_wrapper, prints,
+    bait::ResultExt, bird::transform::camelcase_normalized, bog::BogOkExt,
+    define_transparent_wrapper, prints,
 };
+
 use std::path::Path;
 
 use crate::{
@@ -25,6 +27,7 @@ pub struct HistoryConfig {
     pub atime_expiry: TtlDays,
 
     /// What to do when the best match by [`Connection::print_best_by_frecency`] is the current directory
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub refind: RetryStrat,
 
     /// Whether to save resolved paths (todo)
@@ -53,7 +56,11 @@ impl Default for HistoryConfig {
 
 impl Connection {
     /// some optimizations on the [`Self::get_entries`] for faster printing
-    /// Abuses RetryStrat as a signal: Next => Success, None => NoMatch
+    ///
+    /// Abuses RetryStrat as a signal:
+    /// - Next: Found
+    /// - None: No Match
+    /// - Search: First match was the current directory and RetryStrat == Search
     pub async fn print_best_by_frecency(
         mut self,
         db_filter: &DbFilter,
@@ -121,7 +128,7 @@ impl Connection {
         }
     }
 
-    // None -> no match/cwd is match
+    // None -> no match/(cwd is match + refind = RetryStrat::Search)
     pub async fn return_best_by_frecency(
         mut self,
         db_filter: &DbFilter,

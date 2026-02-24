@@ -108,7 +108,7 @@ _fs() {
             return 0
             ;;
         fs__:dir)
-            opts="-l --sort --list --cd --help --verbosity --override --config --mm-config --style --fullscreen [QUERY]..."
+            opts="-l --sort --list --cd --initial-input --help --verbosity --override --config --mm-config --style --fullscreen [QUERY]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -124,6 +124,10 @@ _fs() {
                     ;;
                 -l)
                     COMPREPLY=($(compgen -W "_ all" -- "${cur}"))
+                    return 0
+                    ;;
+                --initial-input)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --verbosity)

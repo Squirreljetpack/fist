@@ -315,7 +315,7 @@ pub mod APP {
 pub mod TASKS {
     use std::{cell::RefCell, time::Duration};
 
-    use cli_boilerplate_automation::{dbog, ibog, wbog};
+    use cli_boilerplate_automation::{dbog, _ibog, wbog};
     use tokio::{self, task::JoinSet};
 
     thread_local! {
@@ -377,7 +377,7 @@ pub mod TASKS {
                             join_set.len()
                         );
                     } else if join_set.len() != remaining {
-                        ibog!(
+                        _ibog!(
                             "{} task(s) remaining.",
                             join_set.len()
                         );

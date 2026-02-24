@@ -86,8 +86,8 @@ impl From<NavCli> for Cli {
 
 #[derive(Debug, Args, Default, Clone)]
 pub struct CliOpts {
-    #[arg(long, global = true, default_value_t = 3)]
-    pub verbosity: u8,
+    #[arg(long, global = true, default_value = "4")]
+    pub verbosity: Option<u8>,
 
     /// config override
     #[arg(long = "override", global = true, value_name = "PATH")]
@@ -127,8 +127,14 @@ Otherwise, this will OVERWRITE your main config."#
 
 impl CliOpts {
     pub fn verbosity(&self) -> u8 {
-        // (2 + self.verbose).saturating_sub(self.quiet)
-        self.verbosity
+        if let Some(v) = self.verbosity {
+            v
+        } else {
+            std::env::var("FS_VERBOSITY")
+                .ok()
+                .and_then(|env| env.parse::<u8>().ok())
+                .unwrap_or(4)
+        }
     }
 }
 
@@ -208,6 +214,10 @@ pub struct DirsCmd {
     /// print the first match.
     #[arg(long)]
     pub cd: bool,
+
+    #[arg(long, hide = true, default_value_t)]
+    pub initial_input: String,
+
     /// initial query.
     #[arg(trailing_var_arg = true)]
     pub query: Vec<String>,

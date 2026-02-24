@@ -92,6 +92,7 @@ count\:""
 none\:""))' \
 '-l+[]::LIST:(_ all)' \
 '--list=[]::LIST:(_ all)' \
+'--initial-input=[]:INITIAL_INPUT:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \

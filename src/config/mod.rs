@@ -4,7 +4,7 @@ use cli_boilerplate_automation::{
     bo::write_str,
     bog::BogOkExt,
     bs::{create_dir, set_executable},
-    ibog, vec_,
+    _ibog, vec_,
 };
 use std::{collections::HashMap, path::PathBuf};
 
@@ -83,11 +83,11 @@ pub struct GlobalConfig {
     pub fs: FsConfig,
 
     /// Configure behavior of the fd tool.
-    /// This affects [FsAction::Find](`crate::run::fsaction::FsAction::Find`) and the default subcommand.
+    /// This affects [FsAction::Find](`crate::run::FsAction::Find`) and the default subcommand.
     pub fd: FdConfig,
 
     /// Configure behavior of the rg tool.
-    /// This affects [FsAction::Rg](`crate::run::fsaction::FsAction::Rg`) and the rg subcommand.
+    /// This affects [FsAction::Rg](`crate::run::FsAction::Rg`) and the rg subcommand.
     pub rg: RgConfig,
 
     /// Configure various pane related settings.
@@ -135,7 +135,7 @@ impl Config {
                 if !force
                 // less noise for debug
                 {
-                    ibog!("{} saved to: {}", path.filename(), path.to_string_lossy());
+                    _ibog!("{} saved to: {}", path.filename(), path.to_string_lossy());
                 }
             }
         }
@@ -188,8 +188,6 @@ impl Config {
 pub struct MiscConfig {
     /// How long to wait between consecutive clipboard actions
     pub clipboard_delay_ms: u64,
-    /// When --cd is specified, whether to error or begin search when no match is found.
-    pub cd_fallback_search: bool,
     /// Overwrite or append logs on application start.
     pub append_mode_logging: bool,
     /// Pass the spawning command to this instead of invoking it directly.
@@ -200,7 +198,6 @@ impl Default for MiscConfig {
     fn default() -> Self {
         Self {
             clipboard_delay_ms: 20,
-            cd_fallback_search: false,
             append_mode_logging: false,
             spawn_with: Vec::new(),
         }
@@ -215,7 +212,7 @@ impl Default for MiscConfig {
 /// It is recommended not to change these.
 pub struct InterfaceConfig {
     // actions
-    /// The command template to execute when [FsAction::Advance](`crate::run::fsaction::FsAction::Advance`) is invoked on a file.
+    /// The command template to execute when [FsAction::Advance](`crate::run::FsAction::Advance`) is invoked on a file.
     pub advance_command: String,
     /// If true, the functions of the Accept and Print actions will be swapped.
     pub alt_accept: bool,
@@ -227,8 +224,9 @@ pub struct InterfaceConfig {
     // display
     /// The prefix to display when the cursor is in the prompt.
     pub cwd_prompt: String,
-    /// Display a toast when current directory has no entries.
-    pub toast_on_empty: bool, // todo
+    /// Display a toast when current directory has no entries. (TODO)
+    pub toast_on_empty: bool,
+    /// If [AutoJump](`crate::run::FsAction::AutoJump`) should accept or advance
     pub autojump_advance: bool,
 }
 

@@ -1,5 +1,5 @@
 function $${Z_NAME}() {
-  local line last #: zsh
+  local line last results #: zsh
 
   if (($# == 1)) && [ -d "$1" ]; then
     case "$1" in
@@ -16,25 +16,24 @@ function $${Z_NAME}() {
   then  eval last=\${$#}
   fi
 
-  case "$last" in
+  results="$(case "$last" in
     "." | "..") $${BINARY_PATH} :: $${Z_DOT_ARGS} --no-read --cd -- $@ ;;
     "./") $${BINARY_PATH} :: $${Z_SLASH_ARGS} --no-read --cd -- $@ ;;
     *)
       if (($# == 1)) && [ "$1" = ".." ]; then
         $${BINARY_PATH} :: $${Z_DOT_ARGS} --no-read --cd -- ..
       else
-        $${BINARY_PATH} :dir --sort $${Z_SORT} --cd -- $@
+        $${BINARY_PATH} :dir --sort $${Z_SORT} --cd --initial-input="$FS_INITIAL_INPUT" -- $@
       fi
       ;;
-  esac | {
-    read -r line
-    [ -n "$line" ] || return
-    if [ -d "$line" ]; then
-      cd "$line" || return
-    else
-      line="$(dirname "$line")" && [ -d "$line" ] && cd "$line" || return
-    fi
-  }
+  esac)" || return
+
+  IFS= read -r line <<< "$results"
+  if [ -d "$line" ]; then
+    cd "$line" || return
+  else
+    line="$(dirname "$line")" && [ -d "$line" ] && cd "$line" || return
+  fi
 }
 
 function $${OPEN_NAME}() {
@@ -91,7 +90,9 @@ __fist_dir_widget() {
       zle push-line
       zle accept-line
     else
-      dir="$(dirname "$line")" && [ -d "$dir" ] && cd "$dir" && LBUFFER="${LBUFFER%% *} '$(basename "$line")' " || { zle reset-prompt; return; }
+      dir="$(dirname "$line")" && [ -d "$dir" ] && cd "$dir" &&
+      LBUFFER="${LBUFFER%% *} '$(basename "$line")' " ||
+      { zle reset-prompt; return; }
       zle reset-prompt
     fi
   }
@@ -99,26 +100,30 @@ __fist_dir_widget() {
 __fist_file_widget() {
   emulate -L zsh
   setopt localoptions pipefail
-  local line
+  local line results
 
-  FS_OPTS="opener='$${FILEW_CMD}' $FS_OPTS" $${BINARY_PATH} :: --no-read $${FILEW_ARGS} | {
-    read -r line
+  results="$(FS_OPTS="opener='$${FILEW_CMD}' $FS_OPTS" $${BINARY_PATH} :: --no-read $${FILEW_ARGS})" || return
+
+  while IFS= read -r line; do
     if [ -n "$line" ]; then
       LBUFFER="${LBUFFER%% *} '$line' "
     fi
-  }
+  done <<< "$results"
+
   zle reset-prompt
 }
 __fist_rg_widget() {
   emulate -L zsh
   setopt localoptions pipefail
 
-  FS_OPTS="opener='$${RGW_CMD}' $FS_OPTS" $${BINARY_PATH} :rg $${RGW_ARGS} | {
-    read -r line
+  results="$(FS_OPTS="opener='$${RGW_CMD}' $FS_OPTS" $${BINARY_PATH} :rg $${RGW_ARGS})" || return
+
+  while IFS= read -r line; do
     if [ -n "$line" ]; then
       LBUFFER="${LBUFFER%% *} '$line' "
     fi
-  }
+  done <<< "$results"
+
   zle reset-prompt
 }
 

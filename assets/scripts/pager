@@ -34,7 +34,7 @@ opts=()
 opts+=($@)
 
 bat -p $opts | {
-	read -r line
+	IFS= read -r line
     if [ $? -eq 0 ] || [[ -n "$line" ]]; then
         { echo $line && cat } | LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p less -R
     fi

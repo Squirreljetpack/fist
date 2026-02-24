@@ -6,7 +6,7 @@ use cli_boilerplate_automation::{
     bo::map_reader_lines,
     broc::CommandExt,
     bs::sort_by_mtime,
-    wbog,
+    ibog, wbog,
 };
 use globset::GlobBuilder;
 use std::{
@@ -17,11 +17,11 @@ use std::{
 
 #[allow(unused_imports)]
 use cli_boilerplate_automation::{
-    _dbg,
+    _dbg, _ibog,
     bait::ResultExt,
     bo::load_type_or_default,
     bog::{BogOkExt, BogUnwrapExt},
-    ebog, ibog, prints,
+    ebog, prints,
 };
 
 use super::{
@@ -241,13 +241,17 @@ async fn handle_dirs(
             let conn = pool.get_conn(DbTable::dirs).await?;
             let db_filter = DbFilter::new(&cfg.history).with_keywords(cmd.query.clone());
 
-            match conn.print_best_by_frecency(&db_filter).await {
+            let result = conn.print_best_by_frecency(&db_filter).await;
+            match result {
                 RetryStrat::Next => return Ok(()),
-                RetryStrat::None if !cfg.misc.cd_fallback_search => {
+                RetryStrat::None if db_filter.refind != RetryStrat::Search => {
                     return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
                 }
                 _ => {
-                    cmd.query.truncate(1); // since no match, truncating is more desirable
+                    if matches!(result, RetryStrat::None) {
+                        // since no match, truncating is more desirable
+                        cmd.query.truncate(1);
+                    }
                 }
             }
         };
@@ -280,7 +284,9 @@ async fn handle_dirs(
         return Ok(());
     }
 
-    let input = if !cmd.query.is_empty() {
+    let input = if !cmd.initial_input.is_empty() {
+        (cmd.initial_input, 0)
+    } else if !cmd.query.is_empty() {
         (cmd.query.join(" "), 0)
     } else {
         (String::new(), 0)
@@ -373,20 +379,23 @@ async fn handle_default(
 
             match conn.return_best_by_frecency(&db_filter).await {
                 None => {
-                    if cfg.misc.cd_fallback_search && !cmd.list {
-                        // todo: lowpri: relaunch this binary with :dir and get its result?
-                        // let input = (kw.last().cloned().unwrap_or_default(), 0);
-                        // let pane = FsPane::Folders {
-                        //     sort: DbSortOrder::frecency,
-                        //     input,
-                        // };
-                        // let mm_cfg_path = cli.mm_config.as_deref().unwrap_or(mm_cfg_path());
-                        // let mm_cfg = get_mm_cfg(mm_cfg_path, &cfg);
-                        // start(pane, cfg, mm_cfg, pool).await
-                        //
+                    if !matches!(db_filter.refind, RetryStrat::Search) && !cmd.list {
                         return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
                     } else {
-                        return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
+                        ibog!("Searching from `fs :dir` due to `refind = Search`");
+                        let sort = cmd.sort.unwrap_or(if nav_pane {
+                            cfg.global.panes.nav.default_sort
+                        } else {
+                            Default::default()
+                        });
+
+                        let cmd = DirsCmd {
+                            sort: sort.into(),
+                            cd: true,
+                            query: kw,
+                            ..Default::default()
+                        };
+                        return handle_dirs(cli, cmd, cfg).await;
                     }
                 }
                 Some(p) => {
@@ -648,10 +657,10 @@ async fn handle_tools(
                 if let Some(table) = table {
                     let mut conn = Pool::new(cfg.db_path()).await?.get_conn(table).await?;
                     conn.reset_table().await?;
-                    ibog!("Deleted {table}");
+                    _ibog!("Deleted {table}");
                 } else {
                     match std::fs::remove_file(cfg.db_path()) {
-                        Ok(()) => ibog!("Deleted {}", cfg.db_path().to_string_lossy()),
+                        Ok(()) => _ibog!("Deleted {}", cfg.db_path().to_string_lossy()),
                         Err(e) => ebog!("Couldn't delete {}: {e}", cfg.db_path().to_string_lossy()),
                     }
                 }
@@ -710,7 +719,7 @@ async fn handle_tools(
                     }
 
                     if !msg.is_empty() {
-                        ibog!("Removed {}.", msg);
+                        _ibog!("Removed {}.", msg);
                     }
                 } else {
                     conn.push_files_and_folders(entry_queue).await?;
@@ -750,9 +759,9 @@ async fn handle_tools(
                 log::debug!("Matched {matched} paths.");
                 if count == 0 {
                     let removed_count = conn.remove_entries(&to_remove).await?;
-                    ibog!("Removed {removed_count} entries.");
+                    _ibog!("Removed {removed_count} entries.");
                 } else {
-                    ibog!("Matched {matched} paths.");
+                    _ibog!("Matched {matched} paths.");
                 }
             }
 

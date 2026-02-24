@@ -4,5 +4,8 @@
 [panes.fd]
     on_leave_unset_dirs_only = true
 
+[history]
+    refind = "Search"
+
 [misc]
     append_mode_logging = true

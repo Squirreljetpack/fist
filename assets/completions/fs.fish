@@ -100,6 +100,7 @@ count\t''
 none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -s l -l list -r -f -a "_\t''
 all\t''"
+complete -c fs -n "__fish_fs_using_subcommand :dir" -l initial-input -r
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l config -d 'config path' -r -F
