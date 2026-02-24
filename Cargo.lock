@@ -1184,6 +1184,8 @@ dependencies = [
  "infer",
  "log",
  "matchmaker-lib",
+ "matchmaker-partial",
+ "matchmaker-partial-macros",
  "mime_guess",
  "notify",
  "phf 0.13.1",
@@ -2156,6 +2158,7 @@ dependencies = [
  "futures",
  "indexmap",
  "log",
+ "matchmaker-partial",
  "matchmaker-partial-macros",
  "mio",
  "nix 0.31.1",
@@ -2174,6 +2177,16 @@ dependencies = [
  "unicode-segmentation",
  "unicode-width 0.2.2",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "matchmaker-partial"
+version = "0.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33eb64bab20c2861ab1a1d9d08b9b35eaa970f30d1c5520f31d1801b3e0c43d8"
+dependencies = [
+ "serde",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

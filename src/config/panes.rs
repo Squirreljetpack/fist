@@ -212,7 +212,7 @@ impl Default for RgPaneSettings {
 
         Self {
             prompt: None,
-            show_preview: None,
+            show_preview: Some(true),
             enter_prompt: true,
             preview_layout_index: 1,
 

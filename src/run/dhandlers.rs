@@ -8,7 +8,6 @@ use cli_boilerplate_automation::{
 use easy_ext::ext;
 use log::{debug, info};
 use matchmaker::{
-    Matchmaker,
     message::{Event, Interrupt},
     nucleo::Indexed,
     preview::AppendOnly,
@@ -18,6 +17,7 @@ use crate::{
     abspath::AbsPath,
     aliases::MMState,
     run::{
+        FsMatchmaker,
         ahandler::fs_reload,
         item::PathItem,
         pane::FsPane,
@@ -70,7 +70,7 @@ pub fn query_handler(
 
 #[ext(MMExt)]
 // overrides to support static formatter
-impl Matchmaker<Indexed<PathItem>, PathItem> {
+impl FsMatchmaker {
     pub fn register_reload_handler_(&mut self) {
         self.register_interrupt_handler(Interrupt::Reload, move |state| {
             let template = state.payload();

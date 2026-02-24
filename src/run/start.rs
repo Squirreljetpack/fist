@@ -7,7 +7,6 @@ use matchmaker::{
     binds::display_binds,
     config::{PreviewerConfig, RenderConfig, TerminalConfig},
     event::EventLoop,
-    make_previewer,
     message::{Event, RenderCommand},
     nucleo::{
         Column, Indexed, Render, Worker,
@@ -16,6 +15,7 @@ use matchmaker::{
     preview::AppendOnly,
     ui::StatusUI,
 };
+use ratatui::text::Text;
 
 use crate::{
     clipboard,
@@ -26,10 +26,11 @@ use crate::{
         FsAction,
         action::{fsaction_aliaser, fsaction_handler},
         ahandler::paste_handler,
-        dhandlers::{MMExt, mm_formatter, query_handler, sync_handler},
+        dhandlers::{MMExt, query_handler, sync_handler},
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
+        previewer::make_previewer,
         state::{APP, DB_FILTER, GLOBAL, STACK, TASKS, context::ActionContext, ui::global_ui_init},
     },
     spawn::{Program, open_wrapped},
@@ -38,7 +39,7 @@ use crate::{
 };
 
 pub type FsInjector = IndexedInjector<PathItem, WorkerInjector<Indexed<PathItem>>>;
-
+pub type FsMatchmaker = Matchmaker<Indexed<PathItem>, PathItem>;
 fn exist_validator(s: &PathItem) -> bool {
     s.path.exists()
 }
@@ -52,15 +53,21 @@ fn make_mm(
     _cfg: &Config,
     print_handle: AppendOnly<String>,
     stability: u32,
-) -> (
-    Matchmaker<Indexed<PathItem>, PathItem>,
-    FsInjector,
-    FormatterFn,
-) {
+) -> (Matchmaker<Indexed<PathItem>, PathItem>, FsInjector) {
     let mut worker = Worker::new(
         [
             Column::new("_", |item: &Indexed<PathItem>| item.inner.as_text()),
             Column::new("", |item: &Indexed<PathItem>| item.inner.tail.clone()),
+            Column::new("3", |item: &Indexed<PathItem>| {
+                Text::from(
+                    item.inner
+                        .cmd
+                        .as_deref()
+                        .and_then(|s| s.split_once(':').map(|x| x.0))
+                        .unwrap_or_default(),
+                )
+            })
+            .without_filtering(),
         ],
         0,
     );
@@ -73,10 +80,6 @@ fn make_mm(
     // if cfg.global.interface.no_multi {
     //     selector = selector.disabled()
     // }
-
-    #[allow(clippy::type_complexity)]
-    let formatter: Arc<Box<dyn Fn(&Indexed<PathItem>, &str) -> String + Send + Sync>> =
-        Arc::new(Box::new(mm_formatter));
 
     let mut mm = Matchmaker::new(worker, selector);
 
@@ -92,7 +95,7 @@ fn make_mm(
     mm.register_event_handler(Event::Synced, sync_handler);
     mm.register_event_handler(Event::QueryChange, query_handler);
 
-    (mm, injector, formatter)
+    (mm, injector)
 }
 
 // "entrypoint", called ONCE
@@ -129,6 +132,7 @@ pub async fn start(
         ..
     } = pane
     {
+        render.preview.scroll.index = Some("3".into());
         let r = &mut render.results;
         let s = &mut render.status;
         let mm = &cfg.styles.matchmaker;
@@ -148,7 +152,7 @@ pub async fn start(
     let tick_rate = render.tick_rate();
 
     // init MM
-    let (mut mm, injector, formatter) = make_mm(
+    let (mut mm, injector) = make_mm(
         render,
         tui,
         &cfg,
@@ -159,7 +163,7 @@ pub async fn start(
     // init previewer
     let previewer_config = PreviewerConfig::default();
     let help_str = display_binds(&binds, Some(&previewer_config.help_colors));
-    let previewer = make_previewer(&mut mm, previewer_config, formatter, help_str);
+    let previewer = make_previewer(&mut mm, previewer_config);
 
     let event_loop = EventLoop::with_binds(binds).with_tick_rate(tick_rate);
     let bind_tx = event_loop.bind_controller();
@@ -172,6 +176,7 @@ pub async fn start(
         .ext_handler(move |x, y| fsaction_handler(x, y, &mut context))
         .ext_aliaser(fsaction_aliaser)
         .paste_handler(paste_handler)
+        .hidden_columns(vec![false, false, true])
         .matcher(MATCHER_CONFIG)
         .overlay_config(overlay)
         .overlay(StashOverlay::new(scratch))

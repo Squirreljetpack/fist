@@ -1,15 +1,20 @@
-pub mod action;
 mod ahandler;
 mod binds;
 mod dhandlers;
+mod previewer;
+
+// mm/init
 pub mod item;
 pub mod mm_config;
-pub mod stash;
-pub use action::FsAction;
-mod pane;
-pub use pane::*;
 mod start;
 pub use start::*;
-pub mod state;
-
+// logic
+pub mod action;
+pub use action::FsAction;
 mod populate;
+
+// globals
+mod pane;
+pub use pane::*;
+pub mod stash;
+pub mod state;

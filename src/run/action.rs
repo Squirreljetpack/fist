@@ -105,6 +105,7 @@ pub enum FsAction {
         preset: Preset,
         paging: bool, // whether to feed the output to a pager
         header: When,
+        special: u8,
     },
 
     // Nonbindable
@@ -138,6 +139,27 @@ impl FsAction {
     #[inline]
     pub fn set_header(p: impl Into<Option<Text<'static>>>) -> Self {
         Self::SetHeader(p.into())
+    }
+
+    pub fn new_lessfilter(
+        preset: Preset,
+        paging: bool,
+    ) -> Self {
+        Self::Lessfilter {
+            preset,
+            paging,
+            header: When::Auto,
+            special: Default::default(),
+        }
+    }
+
+    pub fn help() -> Self {
+        Self::Lessfilter {
+            preset: Preset::Preview,
+            paging: true,
+            header: When::Auto,
+            special: 1,
+        }
     }
 }
 
@@ -789,6 +811,7 @@ pub fn fsaction_handler(
             preset,
             paging,
             header,
+            special,
         } => {
             if APP::in_app_pane() {
                 // todo
@@ -807,11 +830,7 @@ pub fn fsaction_handler(
                 TEMP::set_that_execute_handler_should_process_cwd();
             }
 
-            let mut template = if state
-                .preview_set_payload
-                .as_ref()
-                .is_some_and(|s| s.is_empty())
-            {
+            let mut template = if special == 1 {
                 format!(
                     "'{}' :tool show-binds",
                     crate::cli::paths::current_exe()
@@ -965,7 +984,7 @@ macro_rules! enum_from_str_display {
                         }
                     }
                     SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) => Ok(()), // internal
-                    Lessfilter { preset, paging, header: _ } => {
+                    Lessfilter { preset, paging, header: _, .. } => {
                         let mut preset = preset.to_string();
                         if *paging {
                             preset.push('|')
@@ -1052,7 +1071,7 @@ macro_rules! enum_from_str_display {
 
                         let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for lessfilter: {preset_str}"))?;
                         let header = When::default();
-                        Ok(Self::Lessfilter { preset, paging, header })
+                        Ok(Self::Lessfilter { preset, paging, header, special: Default::default() })
                     }
                     /* ------------------------------------- */
 

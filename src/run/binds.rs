@@ -59,15 +59,15 @@ pub fn default_binds() -> BindMap<FsAction> {
         // preview
         key!('?') => Action::Preview(Preset::Preview.to_command_string(When::Auto)),
         key!(alt - '/') => Action::Preview(Preset::Display.to_command_string(When::Always)),
-        key!(ctrl-shift-h), key!(alt-shift-h) => Action::Help("".into()),
+        key!(ctrl-shift-h), key!(alt-shift-h) => FsAction::help(),
         // spawning
         key!(alt-s) => Action::Execute("$SHELL".into()),
 
         // lessfilter
-        key!(ctrl-b) => FsAction::Lessfilter { preset: Preset::Open, paging: false, header: When::Auto },
-        key!(alt-b) => FsAction::Lessfilter{ preset: Preset::Edit, paging: false, header: When::Auto},
-        key!(ctrl-l) => FsAction::Lessfilter{ preset: Preset::Preview, paging: true, header: When::Auto},
-        key!(alt-l) => FsAction::Lessfilter{ preset: Preset::Extended, paging: true, header: When::Auto},
+        key!(ctrl-b) => FsAction::new_lessfilter(Preset::Open, false),
+        key!(alt-b)  => FsAction::new_lessfilter(Preset::Edit, false),
+        key!(ctrl-l) => FsAction::new_lessfilter(Preset::Preview, true),
+        key!(alt-l)  => FsAction::new_lessfilter(Preset::Extended, true),
 
         // misc
         // ---------------------------------------

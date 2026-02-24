@@ -37,8 +37,8 @@ description  = "Fist: Interactive Search Tool"
 fist-types                 = { workspace = true, features = ["serde", "file-format"] }
 cli_boilerplate_automation = { workspace = true }
 matchmaker-lib             = { version = "0.0.*", features = [ "bracketed-paste", "experimental" ] }
-# matchmaker-partial             = "0.0.*"
-# matchmaker-partial-macros             = { version = "0.0.*", features = [ "partial" ] }
+matchmaker-partial             = { version = "0.0.*", optional = true }
+matchmaker-partial-macros             = { version = "0.0.*", features = [ "partial" ], optional = true}
 
 # tui + text
 atty                 = "0.2.14"
@@ -113,6 +113,7 @@ uninlined_format_args = "allow"
 too_many_arguments = "allow"
 [features]
 default            = [ "image-defaults", "file-format" ]
+partial = ["matchmaker-lib/partial", "matchmaker-lib/experimental", "matchmaker-partial", "matchmaker-partial-macros/partial"]
 image-defaults     = [ "image/png", "image/jpeg" ]
 image-all          = [ "image/png", "image/jpeg", "image/gif", "image/bmp", "image/ico", "image/tiff", "image/webp" ]
 infer              = [ "dep:infer" ]

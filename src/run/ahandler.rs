@@ -98,6 +98,12 @@ pub fn prepare_prompt(state: &mut MMState<'_, '_>) {
     if !state.picker_ui.results.cursor_disabled {
         state.picker_ui.input.reset_prompt();
     }
+
+    // currently only rg supports scroll index
+    // lowpri: maybe wider support
+    if let Some(p) = state.preview_ui {
+        p.config.scroll.index = None
+    }
 }
 
 pub fn enter_dir_pane(
@@ -176,6 +182,7 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
                 };
             }
         });
+
         match pane {
             FsPane::Rg {
                 filtering,
@@ -186,7 +193,9 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
                 ..
             } => {
                 let f = *filtering;
-
+                if let Some(p) = state.preview_ui {
+                    p.config.scroll.index = Some("3".into())
+                }
                 let r = &mut state.picker_ui.results;
                 let mm = &global_ui().matchmaker;
 

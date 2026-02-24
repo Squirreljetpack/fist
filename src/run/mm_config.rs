@@ -78,10 +78,12 @@ pub fn get_mm_cfg(
         header: _,
     } = &mut mm_cfg.render;
 
+    // disable some configuration settings for consistency
     results.multi_prefix = results.multi_prefix.chars().next().unwrap_or('▌').into(); // single width
     results.right_align_last = true;
     results.stacked_columns = false;
     results.horizontal_separator = Default::default();
+    results.min_wrap_width = results.min_wrap_width.max(10);
 
     *footer = DisplayConfig {
         modifier: Default::default(),
@@ -93,6 +95,9 @@ pub fn get_mm_cfg(
 
     // Preview display
     let default_command = Preset::Preview.to_command_string(When::Auto);
+
+    preview.scroll.index = None;
+    preview.scroll.percentage = Percentage::new(70);
     if preview.layout.len() <= 1 {
         let (layout, command) = if let Some(p) = preview.layout.pop() {
             (
