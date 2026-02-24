@@ -171,6 +171,9 @@ async fn handle_rg(
         .sort
         .unwrap_or(cfg.global.panes.rg.default_sort.unwrap_or(SortOrder::none));
 
+    if cmd._no_heading_alias {
+        cmd.no_heading = Some(true);
+    };
     cfg.global.panes.rg.no_heading._take(cmd.no_heading);
     let no_heading = cfg.global.panes.rg.no_heading;
 

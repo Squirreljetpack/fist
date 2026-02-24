@@ -15,6 +15,7 @@ define_const_default!(
 // --------- Path Display -----------
 
 define_const_default!(
+    // #[partial(path)]
     #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
     #[serde(default, deny_unknown_fields)]
     pub struct PathDisplayConfig {

@@ -119,15 +119,24 @@ pub async fn start(
         render.preview.show = x
     }
     if let Some(x) = cfg.global.panes.prompt(&pane) {
-        render.input.prompt = x
+        render.input.prompt = x;
     }
-    if let FsPane::Rg { filtering, .. } = pane {
+    let preview_layout_index = cfg.global.panes.preview_layout_index(&pane);
+
+    if let FsPane::Rg {
+        filtering,
+        no_heading,
+        ..
+    } = pane
+    {
         let r = &mut render.results;
         let s = &mut render.status;
         let mm = &cfg.styles.matchmaker;
 
-        r.horizontal_separator = mm.horizontal_separator;
-        r.stacked_columns = true;
+        if !no_heading {
+            r.horizontal_separator = mm.horizontal_separator;
+            r.stacked_columns = true;
+        }
         s.show = true;
 
         if !filtering {
@@ -174,6 +183,11 @@ pub async fn start(
     let (watcher, watcher_tx) = FsWatcher::new(cfg.notify, render_tx.clone());
 
     // set input
+    render_tx
+        .send(RenderCommand::Action(Action::SetPreview(Some(
+            preview_layout_index,
+        ))))
+        .ok();
     match &pane {
         FsPane::Custom { input, .. }
         | FsPane::Nav { input, .. }

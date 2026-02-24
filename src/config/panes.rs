@@ -108,6 +108,21 @@ impl PanesConfig {
             FsPane::Rg { .. } => self.rg.show_preview,
         }
     }
+
+    pub fn preview_layout_index(
+        &self,
+        pane: &FsPane,
+    ) -> u8 {
+        match pane {
+            FsPane::Custom { .. } => self.custom.preview_layout_index,
+            FsPane::Stream { .. } => self.stream.preview_layout_index,
+            FsPane::Fd { .. } => self.fd.preview_layout_index,
+            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.preview_layout_index,
+            FsPane::Launch { .. } => self.app.preview_layout_index,
+            FsPane::Nav { .. } => self.nav.preview_layout_index,
+            FsPane::Rg { .. } => self.rg.preview_layout_index,
+        }
+    }
 }
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -118,6 +133,9 @@ pub struct PaneSettings {
     pub show_preview: Option<bool>,
     /// Whether to enter the prompt when switching to this pane
     pub enter_prompt: bool,
+
+    /// Default preview layout index for this pane
+    pub preview_layout_index: u8,
 }
 impl Default for PaneSettings {
     fn default() -> Self {
@@ -125,6 +143,7 @@ impl Default for PaneSettings {
             prompt: None,
             show_preview: None,
             enter_prompt: true,
+            preview_layout_index: 0,
         }
     }
 }
@@ -138,6 +157,8 @@ pub struct FdPaneSettings {
     pub show_preview: Option<bool>,
     /// Whether to enter the prompt when switching to this pane
     pub enter_prompt: bool,
+    /// Default preview layout index for this pane
+    pub preview_layout_index: u8,
     // ----------------------------
     /// Default visibility when no visibility is specified.
     pub default_visibility: Visibility,
@@ -151,6 +172,7 @@ impl Default for FdPaneSettings {
             prompt: None,
             show_preview: None,
             enter_prompt: true,
+            preview_layout_index: 0,
 
             default_visibility: Default::default(),
             on_leave_unset_dirs_only: false,
@@ -167,6 +189,8 @@ pub struct RgPaneSettings {
     pub show_preview: Option<bool>,
     /// Whether to enter the prompt when switching to this pane
     pub enter_prompt: bool,
+    /// Default preview layout index for this pane
+    pub preview_layout_index: u8,
     // ----------------------------
     /// Initial visibility when entering the rg pane.
     pub default_visibility: Visibility,
@@ -190,8 +214,9 @@ impl Default for RgPaneSettings {
             prompt: None,
             show_preview: None,
             enter_prompt: true,
-            no_heading: false, // todo: lowpri: false or true?
+            preview_layout_index: 1,
 
+            no_heading: false, // todo: lowpri: false or true?
             default_visibility,
             default_sort: Some(SortOrder::none),
 
@@ -208,6 +233,8 @@ pub struct NavPaneSettings {
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<bool>,
+    /// Default preview layout index for this pane
+    pub preview_layout_index: u8,
     // ----------------------------
     pub default_sort: SortOrder,
     /// Default visibility when no visibility is specified.
@@ -219,6 +246,7 @@ impl Default for NavPaneSettings {
         Self {
             prompt: None,
             show_preview: None,
+            preview_layout_index: 0,
 
             default_sort: SortOrder::mtime,
             default_visibility: Default::default(),
@@ -234,6 +262,8 @@ pub struct HistoryPaneSettings {
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<bool>,
     pub enter_prompt: bool,
+    /// Default preview layout index for this pane
+    pub preview_layout_index: u8,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -244,6 +274,8 @@ pub struct AppPaneSettings {
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<bool>,
     pub enter_prompt: bool,
+    /// Default preview layout index for this pane
+    pub preview_layout_index: u8,
     // ----------------------------
     pub app_scan_directories: Vec<PathBuf>,
 }

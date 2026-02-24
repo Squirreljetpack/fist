@@ -20,7 +20,7 @@ _fs() {
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
-'--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this WILL OVERWRITE your main config.]' \
+'--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.]' \
 '--help[]' \
 '-V[Print version]' \
 '--version[Print version]' \
@@ -166,8 +166,7 @@ size\:"Not always supported"))' \
 '--before-context=[Show NUM lines before each match]:NUM:_default' \
 '-C+[Show NUM lines before and after each match]:NUM:_default' \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
-'-s+[Display each match on a seperate line]:NO_HEADING:(true false)' \
-'--no-heading=[Display each match on a seperate line]:NO_HEADING:(true false)' \
+'--no-heading=[Display each match on a separate line. Alias\: \`-1\`]:NO_HEADING:(true false)' \
 '-o+[Format the output as this template]:OUTPUT:_default' \
 '--output=[Format the output as this template]:OUTPUT:_default' \
 '--query=[initial query]:QUERY:_default' \
@@ -187,6 +186,7 @@ size\:"Not always supported"))' \
 '--case-sensitive[]' \
 '-S[]' \
 '--smart-case[]' \
+'-1[]' \
 '--list[]' \
 '--help[]' \
 '*::patterns -- Patterns to search (`rg -e`):_default' \
@@ -206,8 +206,7 @@ size\:"Not always supported"))' \
 '--before-context=[Show NUM lines before each match]:NUM:_default' \
 '-C+[Show NUM lines before and after each match]:NUM:_default' \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
-'-s+[Display each match on a seperate line]:NO_HEADING:(true false)' \
-'--no-heading=[Display each match on a seperate line]:NO_HEADING:(true false)' \
+'--no-heading=[Display each match on a separate line. Alias\: \`-1\`]:NO_HEADING:(true false)' \
 '-o+[Format the output as this template]:OUTPUT:_default' \
 '--output=[Format the output as this template]:OUTPUT:_default' \
 '--query=[initial query]:QUERY:_default' \
@@ -227,6 +226,7 @@ size\:"Not always supported"))' \
 '--case-sensitive[]' \
 '-S[]' \
 '--smart-case[]' \
+'-1[]' \
 '--list[]' \
 '--help[]' \
 '*::patterns -- Patterns to search (`rg -e`):_default' \

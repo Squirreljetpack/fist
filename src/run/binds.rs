@@ -1,7 +1,7 @@
 use matchmaker::{
     action::Action,
     bindmap,
-    binds::{BindMap, key},
+    binds::{BindMap, BindMapExt, key},
 };
 
 use crate::lessfilter::Preset;
@@ -10,7 +10,7 @@ use fist_types::When;
 use super::FsAction;
 
 pub fn default_binds() -> BindMap<FsAction> {
-    let ret = bindmap!(
+    let mut fs = bindmap!(
         // Nav
         // ----------------------------------
         key!(up) => Action::Up(1),
@@ -87,5 +87,9 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-8) => FsAction::AutoJump(8),
         key!(ctrl-9) => FsAction::AutoJump(9),
     );
-    ret
+
+    let mut base = BindMap::default_binds();
+    base.append(&mut fs);
+
+    base
 }

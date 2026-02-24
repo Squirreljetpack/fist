@@ -55,8 +55,10 @@ Call as:
 - `ctrl-l`: Full preview.
 - `/` and `~`: Jump to home
 
-For a full list of binds within the app, type `ctrl-shift-h`.\
+For a full list of binds within the app, type `ctrl-shift-h`[^3].\
 For more information on bindings, see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
+
+[^3]: in the same order .
 
 # Panes
 
@@ -96,7 +98,17 @@ The jump+open function (`zz`) is an analogous replacement for [`lessfilter edit`
 
 ##### Aliases
 
-todo
+The `--aliases` flag can be enabled to additionally output a few simple alias definitions:
+
+- [lessfilter](#lessfilter)
+- lz: directory display
+- l: lessfilter (display preset)
+- la: lessfilter (extended preset)
+- ll: lessfilter (info preset)
+- n: edit (lessfilter with edit preset)
+- o: [open](#app)
+- Z: `z`, then navigate
+- `zf`: recent files history
 
 ### Lessfilter
 
@@ -124,15 +136,30 @@ The score modifiers are:
 
 The patterns are:
 
-- Glob
-- Ext
-- Child
-- Mime
-- Have
+- Glob: (default score: `Max(100)`)
+- Child: (default score: `Max(50)`)
+- Mime: (default score: `Max(20)`)
+- Cat: (default score: `Max(20)`)
+- Ext: (default score: `Max(10)`)
+- Have: (default score: `Req`)
+- Filetype: (default score: `Req`)
 
-For example:
+Though the syntax has many parts, configuration should be fairly straightforward. F:ist comes with a sane set of defaults with wide coverage for a variety of filetypes, and declaring overrides is as simple as declaring the desired action together with the conditions which it requires. For example:
 
 ```toml
+preview = [
+  # ...
+  # On an file with mime-type sqlite-3 and a system with sqlite3, this rule gets a score of 20.
+  [ [ "sqlite" ], [ "application/vnd.sqlite3", "have:sqlite3" ] ],
+  # ...
+]
+
+# When invoking the edit action (in `fist` or through the `n` alias),
+# any file belonging to this category will be opened with the system's default preferred application.
+# Note that since this rule has minimal priority (at most 1), any subsequent rule will override it.
+edit = [
+  [ [ "Open" ], [ "1|cat:document", "1|cat:spreadsheet", "1|cat:email", "1|cat:academic" ] ],
+]
 ```
 
 The built-in actions are:

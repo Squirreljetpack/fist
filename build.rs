@@ -46,9 +46,6 @@ include!("build/completions_mock.rs");
 include!("src/cli/clap.rs");
 
 fn main() {
-    println!("cargo:rerun-if-changed=src/cli/types.rs");
-    println!("cargo:rerun-if-changed=build.rs");
-
     let out_dir = {
         let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
         let out_dir = manifest_dir.join("assets").join("completions");

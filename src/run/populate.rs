@@ -449,6 +449,10 @@ impl FsPane {
                                 return failed_to_parse("empty".into());
                             }
                             let (path, data, text) = unwrap!(parse_rg_line(text.lines.remove(0), ':'); failed_to_parse("failed to split".into()));
+                            // skip empty lines
+                            if text.lines.iter().all(|l| l.spans.is_empty()) {
+                                return Ok(());
+                            }
 
                             let mut item = PathItem::new(path, &cwd);
                             item.cmd = Some(data);

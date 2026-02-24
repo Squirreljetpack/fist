@@ -165,13 +165,17 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
     });
 
     STACK::with_current_mut(|pane| {
-        if matches!(pane, FsPane::Rg { .. }) {
-            GLOBAL::with_cfg(|cfg| {
-                if let Some(x) = cfg.panes.preview_show(pane) {
-                    state.preview_ui.as_mut().map(|p| p.show(x));
-                }
-            });
-        }
+        GLOBAL::with_cfg(|cfg| {
+            if let Some(x) = cfg.panes.preview_show(pane) {
+                state.preview_ui.as_mut().map(|p| p.show(x));
+            }
+            if let Some(x) = cfg.panes.prompt(pane) {
+                state.picker_ui.input.config.prompt = x;
+                if let Some(p) = state.preview_ui {
+                    p.set_layout(cfg.panes.preview_layout_index(pane));
+                };
+            }
+        });
         match pane {
             FsPane::Rg {
                 filtering,
@@ -232,15 +236,6 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
                 state.filtering = f;
             }
             _ => {
-                //
-                GLOBAL::with_cfg(|cfg| {
-                    if let Some(x) = cfg.panes.preview_show(pane) {
-                        state.preview_ui.as_mut().map(|p| p.show(x));
-                    }
-                    if let Some(x) = cfg.panes.prompt(pane) {
-                        state.picker_ui.input.config.prompt = x
-                    }
-                });
                 state.filtering = true;
                 GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()))
             }

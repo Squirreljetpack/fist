@@ -114,7 +114,7 @@ pub struct CliOpts {
         help = r#"Dump the main config and any other missing configuration
 files to default locations:
 If the output was detected to have been redirected, this prints the main configuration.
-Otherwise, this WILL OVERWRITE your main config."#
+Otherwise, this will OVERWRITE your main config."#
     )]
     pub dump_config: bool,
 
@@ -258,9 +258,13 @@ pub struct RgCommand {
     pub case: CaseArgs,
     #[command(flatten)]
     pub context: ContextArgs,
-    /// Display each match on a seperate line.
-    #[arg(long, short = 's')]
+    /// Display each match on a separate line.
+    /// Alias: `-1`
+    #[arg(long = "no-heading")]
     pub no_heading: Option<bool>,
+
+    #[arg(short = '1', hide = true)]
+    pub _no_heading_alias: bool,
 
     // /// initial query.
     // #[arg(long, default_value_t)]

@@ -33,7 +33,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_needs_command" -l dump-config -d 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this WILL OVERWRITE your main config.'
+complete -c fs -n "__fish_fs_needs_command" -l dump-config -d 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.'
 complete -c fs -n "__fish_fs_needs_command" -l help
 complete -c fs -n "__fish_fs_needs_command" -s V -l version -d 'Print version'
 complete -c fs -n "__fish_fs_needs_command" -f -a ":open" -d 'Launch apps and files'
@@ -163,7 +163,7 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s p -l path -d 'Files or dir
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s A -l after-context -d 'Show NUM lines after each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s B -l before-context -d 'Show NUM lines before each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s C -l context -d 'Show NUM lines before and after each match' -r
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l no-heading -d 'Display each match on a seperate line' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l no-heading -d 'Display each match on a separate line. Alias: `-1`' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s o -l output -d 'Format the output as this template' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l query -d 'initial query' -r
@@ -184,6 +184,7 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s f -d 'show only files'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s i -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s S -l smart-case
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s 1
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l list
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l help
 complete -c fs -n "__fish_fs_using_subcommand :" -l sort -r -f -a "name\t''
@@ -194,7 +195,7 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s p -l path -d 'Files or direc
 complete -c fs -n "__fish_fs_using_subcommand :" -s A -l after-context -d 'Show NUM lines after each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -s B -l before-context -d 'Show NUM lines before each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -s C -l context -d 'Show NUM lines before and after each match' -r
-complete -c fs -n "__fish_fs_using_subcommand :" -s s -l no-heading -d 'Display each match on a seperate line' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :" -l no-heading -d 'Display each match on a separate line. Alias: `-1`' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -s o -l output -d 'Format the output as this template' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l query -d 'initial query' -r
@@ -215,6 +216,7 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s f -d 'show only files'
 complete -c fs -n "__fish_fs_using_subcommand :" -s i -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :" -s S -l smart-case
+complete -c fs -n "__fish_fs_using_subcommand :" -s 1
 complete -c fs -n "__fish_fs_using_subcommand :" -l list
 complete -c fs -n "__fish_fs_using_subcommand :" -l help
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l verbosity -r
