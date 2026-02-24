@@ -59,7 +59,7 @@ pub const MATCHER_CONFIG: nucleo::Config = const { nucleo::Config::DEFAULT.match
 
 pub fn get_mm_cfg(
     path: &Path,
-    _cfg: &Config,
+    cfg: &Config,
 ) -> MMConfig {
     let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
 
@@ -84,6 +84,9 @@ pub fn get_mm_cfg(
     results.stacked_columns = false;
     results.horizontal_separator = Default::default();
     results.min_wrap_width = results.min_wrap_width.max(10);
+    if cfg.global.mm.reverse {
+        results.reverse = Some(true)
+    }
 
     *footer = DisplayConfig {
         modifier: Default::default(),
@@ -94,33 +97,33 @@ pub fn get_mm_cfg(
     };
 
     // Preview display
-    let default_command = Preset::Preview.to_command_string(When::Auto);
 
     preview.scroll.index = None;
     preview.scroll.percentage = Percentage::new(70);
-    if preview.layout.len() <= 1 {
-        let (layout, command) = if let Some(p) = preview.layout.pop() {
-            (
-                p.layout,
-                if p.command.is_empty() {
-                    default_command
-                } else {
-                    p.command
-                },
-            )
-        } else {
-            (Default::default(), default_command)
-        };
 
-        preview.layout = vec![PreviewSetting { layout, command }]
+    let command = Preset::Preview.to_command_string(When::Auto);
+    if preview.layout.is_empty() {
+        preview.layout = vec![PreviewSetting {
+            command,
+            ..Default::default()
+        }]
+    } else if preview.layout[0].command.is_empty() {
+        preview.layout[0].command = command
     }
 
+    let tui = &mut mm_cfg.tui;
     // non-fullscreen by default
-    if mm_cfg.tui.layout.is_none() {
-        mm_cfg.tui.layout = Some(TerminalLayoutSettings {
+    if cfg.global.mm.fullscreen {
+        tui.layout = None
+    } else if tui.layout.is_none() {
+        tui.layout = Some(TerminalLayoutSettings {
             percentage: Percentage::new(60),
             ..Default::default()
         })
+    }
+    #[cfg(debug_assertions)]
+    {
+        tui.clear_on_exit = false;
     }
 
     log::debug!("{mm_cfg:?}");

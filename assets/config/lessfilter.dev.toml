@@ -1,5 +1,3 @@
-infer = true
-
 [rules]
 default = [
   [["Metadata"], ["1|*/*"]],

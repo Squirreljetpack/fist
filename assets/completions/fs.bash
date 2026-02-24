@@ -74,7 +74,7 @@ _fs() {
 
     case "${cmd}" in
         fs)
-            opts="-V --verbosity --override --config --mm-config --dump-config --style --help --version :open :o :file :dir :fd :: :rg : :tool :t :info"
+            opts="-V --verbosity --override --config --mm-config --dump-config --style --fullscreen --help --version :open :o :file :dir :fd :: :rg : :tool :t :info"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -108,7 +108,7 @@ _fs() {
             return 0
             ;;
         fs__:dir)
-            opts="-l --sort --list --cd --help --verbosity --override --config --mm-config --style [QUERY]..."
+            opts="-l --sort --list --cd --help --verbosity --override --config --mm-config --style --fullscreen [QUERY]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -154,7 +154,7 @@ _fs() {
             return 0
             ;;
         fs__:fd)
-            opts="-h -I -a -F -f -t -o --sort --cd --types --no-read --output --list --help --verbosity --override --config --mm-config --style [PATHS]... [FD_ARGS]..."
+            opts="-h -I -a -F -f -t -o --sort --cd --types --no-read --output --list --help --verbosity --override --config --mm-config --style --fullscreen [PATHS]... [FD_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -208,7 +208,7 @@ _fs() {
             return 0
             ;;
         fs__:file)
-            opts="-l --sort --list --query --help --verbosity --override --config --mm-config --style"
+            opts="-l --sort --list --query --help --verbosity --override --config --mm-config --style --fullscreen"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -258,7 +258,7 @@ _fs() {
             return 0
             ;;
         fs__:info)
-            opts="-l -m --sort --limit --minimal --help --verbosity --override --config --mm-config --style apps files dirs"
+            opts="-l -m --sort --limit --minimal --help --verbosity --override --config --mm-config --style --fullscreen apps files dirs"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -304,7 +304,7 @@ _fs() {
             return 0
             ;;
         fs__:open)
-            opts="-w --with --list --help --verbosity --override --config --mm-config --style [FILES]..."
+            opts="-w --with --list --help --verbosity --override --config --mm-config --style --fullscreen [FILES]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -346,7 +346,7 @@ _fs() {
             return 0
             ;;
         fs__:rg)
-            opts="-h -I -a -F -f -p -i -s -S -A -B -C -1 -o --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --no-heading --output --list --query --help --verbosity --override --config --mm-config --style [PATTERNS]... [RG_ARGS]..."
+            opts="-h -I -a -F -f -p -i -s -S -A -B -C -1 -o --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --no-heading --output --list --query --help --verbosity --override --config --mm-config --style --fullscreen [PATTERNS]... [RG_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -432,7 +432,7 @@ _fs() {
             return 0
             ;;
         fs__:tool)
-            opts="--help --verbosity --override --config --mm-config --style [ARGS]... colors liza shell lessfilter bump types"
+            opts="--help --verbosity --override --config --mm-config --style --fullscreen [ARGS]... colors liza shell lessfilter bump types"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -466,7 +466,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__bump)
-            opts="-g -c --glob --count --reset --verbosity --override --config --mm-config --style [PATHS]... apps files dirs"
+            opts="-g -c --glob --count --reset --verbosity --override --config --mm-config --style --fullscreen [PATHS]... apps files dirs"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -516,7 +516,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__colors)
-            opts="--verbosity --override --config --mm-config --style"
+            opts="--verbosity --override --config --mm-config --style --fullscreen"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -550,7 +550,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__lessfilter)
-            opts="-a --arg --header --verbosity --override --config --mm-config --style preview display extended info open alternate edit [PATHS]..."
+            opts="-a --arg --header --verbosity --override --config --mm-config --style --fullscreen preview display extended info open alternate edit [PATHS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -596,7 +596,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__liza)
-            opts="--verbosity --override --config --mm-config --style [ARGS]..."
+            opts="--verbosity --override --config --mm-config --style --fullscreen [ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -630,7 +630,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__shell)
-            opts="--z-name --z-dot-args --z-slash-args --z-sort --open-name --open-cmd --dir-widget-bind --file-widget-bind --rg-widget-bind --file-open-cmd --rg-open-cmd --dir-widget-args --file-widget-args --rg-widget-args --aliases --shell --verbosity --override --config --mm-config --style"
+            opts="--z-name --z-dot-args --z-slash-args --z-sort --open-name --open-cmd --dir-widget-bind --file-widget-bind --rg-widget-bind --file-open-cmd --rg-open-cmd --dir-widget-args --file-widget-args --rg-widget-args --aliases --shell --verbosity --override --config --mm-config --style --fullscreen"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -724,7 +724,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__types)
-            opts="--verbosity --override --config --mm-config --style"
+            opts="--verbosity --override --config --mm-config --style --fullscreen"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -367,21 +367,36 @@ pub fn fsaction_aliaser(
                     acs![a]
                 } else if state.picker_ui.results.cursor_disabled {
                     enter_prompt(state, false);
-                    acs![Action::Up(i)]
-                } else if i as u32 <= state.picker_ui.results.index() {
-                    acs![a]
-                } else {
+                    if !state.picker_ui.reverse() {
+                        acs![a]
+                    } else {
+                        acs![Action::Up(i.saturating_sub(1))]
+                    }
+                } else if i as u32 >= state.picker_ui.results.index() && !state.picker_ui.reverse()
+                {
                     // entering the prompt
                     enter_prompt(state, true);
                     acs![]
+                } else {
+                    acs![a]
                 }
             }
             Action::Down(i) => {
                 TOAST::clear();
 
-                if state.overlay_index().is_none() && state.picker_ui.results.cursor_disabled {
+                if state.overlay_index().is_some() {
+                    acs![a]
+                } else if state.picker_ui.results.cursor_disabled {
                     enter_prompt(state, false);
-                    acs![Action::Down(i.saturating_sub(1))]
+                    if state.picker_ui.reverse() {
+                        acs![a]
+                    } else {
+                        acs![Action::Down(i.saturating_sub(1))]
+                    }
+                } else if i as u32 >= state.picker_ui.results.index() && state.picker_ui.reverse() {
+                    // entering the prompt
+                    enter_prompt(state, true);
+                    acs![]
                 } else {
                     acs![a]
                 }

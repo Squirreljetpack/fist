@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_fs_global_optspecs
-	string join \n verbosity= override= config= mm-config= dump-config style= help V/version
+	string join \n verbosity= override= config= mm-config= dump-config style= fullscreen help V/version
 end
 
 function __fish_fs_needs_command
@@ -34,6 +34,7 @@ none\t''
 all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_needs_command" -l dump-config -d 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.'
+complete -c fs -n "__fish_fs_needs_command" -l fullscreen
 complete -c fs -n "__fish_fs_needs_command" -l help
 complete -c fs -n "__fish_fs_needs_command" -s V -l version -d 'Print version'
 complete -c fs -n "__fish_fs_needs_command" -f -a ":open" -d 'Launch apps and files'
@@ -59,6 +60,7 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :open" -l list
 complete -c fs -n "__fish_fs_using_subcommand :open" -l help -d 'initial query'
+complete -c fs -n "__fish_fs_using_subcommand :open" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :o" -s w -l with -d 'app to open files with' -r
 complete -c fs -n "__fish_fs_using_subcommand :o" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :o" -l override -d 'config override' -r
@@ -71,6 +73,7 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :o" -l list
 complete -c fs -n "__fish_fs_using_subcommand :o" -l help -d 'initial query'
+complete -c fs -n "__fish_fs_using_subcommand :o" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :file" -l sort -d 'history sort order' -r -f -a "name\t''
 atime\t''
 frecency\t'Weighted frequency + recency'
@@ -89,6 +92,7 @@ none\t''
 all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :file" -l help
+complete -c fs -n "__fish_fs_using_subcommand :file" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l sort -d 'history sort order' -r -f -a "name\t''
 atime\t''
 frecency\t'Weighted frequency + recency'
@@ -107,6 +111,7 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l help
+complete -c fs -n "__fish_fs_using_subcommand :dir" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l sort -r -f -a "name\t''
 mtime\t''
 none\t''
@@ -131,6 +136,7 @@ complete -c fs -n "__fish_fs_using_subcommand :fd" -l cd -d 'print the first mat
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l list
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l help
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand ::" -l sort -r -f -a "name\t''
 mtime\t''
 none\t''
@@ -155,6 +161,7 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -l cd -d 'print the first matc
 complete -c fs -n "__fish_fs_using_subcommand ::" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l list
 complete -c fs -n "__fish_fs_using_subcommand ::" -l help
+complete -c fs -n "__fish_fs_using_subcommand ::" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l sort -r -f -a "name\t''
 mtime\t''
 none\t''
@@ -187,6 +194,7 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s S -l smart-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s 1
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l list
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l help
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :" -l sort -r -f -a "name\t''
 mtime\t''
 none\t''
@@ -219,6 +227,7 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s S -l smart-case
 complete -c fs -n "__fish_fs_using_subcommand :" -s 1
 complete -c fs -n "__fish_fs_using_subcommand :" -l list
 complete -c fs -n "__fish_fs_using_subcommand :" -l help
+complete -c fs -n "__fish_fs_using_subcommand :" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l config -d 'config path' -r -F
@@ -229,6 +238,7 @@ none\t''
 all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l help
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -a "colors"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -a "liza" -d 'List directory (eza wrapper)'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -a "shell" -d 'Dump the initialization code for your shell'
@@ -244,6 +254,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l config -d 'config path' -r -F
@@ -253,6 +264,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l z-name -d 'Name for jump function' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l z-dot-args -d 'Arguments passed to `fs ::` when z is invoked with a trailing `.`' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l z-slash-args -d 'Arguments passed to `fs ::` when z is invoked with a trailing `./`' -r
@@ -282,6 +294,7 @@ none\t''
 all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l aliases
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -s a -l arg -d 'Arguments to pass to the first executed command (experimental)' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l header -r -f -a "true\t''
 false\t''"
@@ -294,6 +307,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -s g -l glob -d 'glob pattern to bump' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -s c -l count -d 'amount to bump by, 0 to clear' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l verbosity -r
@@ -306,6 +320,7 @@ none\t''
 all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l reset -d 'reset the database'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l config -d 'config path' -r -F
@@ -315,6 +330,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l config -d 'config path' -r -F
@@ -325,6 +341,7 @@ none\t''
 all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l help
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -a "colors"
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -a "liza" -d 'List directory (eza wrapper)'
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -a "shell" -d 'Dump the initialization code for your shell'
@@ -340,6 +357,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l config -d 'config path' -r -F
@@ -349,6 +367,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l z-name -d 'Name for jump function' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l z-dot-args -d 'Arguments passed to `fs ::` when z is invoked with a trailing `.`' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l z-slash-args -d 'Arguments passed to `fs ::` when z is invoked with a trailing `./`' -r
@@ -378,6 +397,7 @@ none\t''
 all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l aliases
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -s a -l arg -d 'Arguments to pass to the first executed command (experimental)' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l header -r -f -a "true\t''
 false\t''"
@@ -390,6 +410,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -s g -l glob -d 'glob pattern to bump' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -s c -l count -d 'amount to bump by, 0 to clear' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l verbosity -r
@@ -402,6 +423,7 @@ none\t''
 all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l reset -d 'reset the database'
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l config -d 'config path' -r -F
@@ -411,6 +433,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :info" -l sort -d 'history sort order' -r -f -a "name\t''
 atime\t''
 frecency\t'Weighted frequency + recency'
@@ -428,3 +451,4 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :info" -s m -l minimal -d 'Don\'t print decorations'
 complete -c fs -n "__fish_fs_using_subcommand :info" -l help
+complete -c fs -n "__fish_fs_using_subcommand :info" -l fullscreen

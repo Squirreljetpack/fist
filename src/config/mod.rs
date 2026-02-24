@@ -15,7 +15,7 @@ use crate::{
 };
 use crate::{
     cli::{
-        clap_helpers::ClapStyleSetting,
+        clap_helpers::ClapStyleOverride,
         paths::{liza_path, text_renderer_path},
     },
     db::zoxide::HistoryConfig,
@@ -24,8 +24,10 @@ use crate::{
 use fist_types::When;
 
 mod panes;
+mod partial;
 mod styles;
 pub use panes::*;
+pub use partial::*;
 pub mod ui;
 use ui::StyleConfig;
 // ------ CONFIG ------
@@ -45,7 +47,7 @@ pub struct Config {
     #[serde(flatten, default)]
     pub global: GlobalConfig,
 
-    /// All styling options not governed by match-maker
+    /// All styling options not governed by the match-maker cfg
     #[serde(default)]
     pub styles: StyleConfig,
 
@@ -88,8 +90,11 @@ pub struct GlobalConfig {
     /// This affects [FsAction::Rg](`crate::run::fsaction::FsAction::Rg`) and the rg subcommand.
     pub rg: RgConfig,
 
-    /// Configure behavior of filesystem actions.
+    /// Configure various pane related settings.
     pub panes: PanesConfig,
+
+    /// Matchmaker styling overrides for panes.
+    pub mm: MatchmakerOverrides, // not sure about the role, eventually we want some pane-specific matchmaker overrides, should be stored
 }
 
 impl Config {
@@ -142,36 +147,38 @@ impl Config {
     ) {
         let style = &mut self.styles.path;
         match cli.style {
-            ClapStyleSetting::Auto => {
+            ClapStyleOverride::Auto => {
                 // leave config unchanged
             }
-            ClapStyleSetting::None => {
+            ClapStyleOverride::None => {
                 style.file_icons = false;
                 style.file_colors = false;
                 style.dir_icons = false;
                 style.dir_colors = false;
             }
-            ClapStyleSetting::Icons => {
+            ClapStyleOverride::Icons => {
                 style.file_icons = true;
                 style.dir_icons = true;
 
                 style.file_colors = false;
                 style.dir_colors = false;
             }
-            ClapStyleSetting::Colors => {
+            ClapStyleOverride::Colors => {
                 style.file_icons = false;
                 style.dir_icons = false;
 
                 style.file_colors = true;
                 style.dir_colors = true;
             }
-            ClapStyleSetting::All => {
+            ClapStyleOverride::All => {
                 style.file_icons = true;
                 style.file_colors = true;
                 style.dir_icons = true;
                 style.dir_colors = true;
             }
         }
+
+        self.global.mm.fullscreen |= cli.fullscreen
     }
 }
 

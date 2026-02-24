@@ -182,6 +182,7 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
                 };
             }
         });
+        state.picker_ui.results.config.right_align_last = true;
 
         match pane {
             FsPane::Rg {
@@ -198,6 +199,7 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
                 }
                 let r = &mut state.picker_ui.results;
                 let mm = &global_ui().matchmaker;
+                r.config.right_align_last = false;
 
                 if !*no_heading {
                     // todo: where to add a place to configure this? pane/ui/other?

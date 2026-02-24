@@ -27,6 +27,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
             [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'Print version')
@@ -53,6 +54,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'initial query')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:o' {
@@ -65,6 +67,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'initial query')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:file' {
@@ -78,6 +81,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:dir' {
@@ -91,6 +95,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:fd' {
@@ -113,6 +118,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Never stream input from stdin')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;::' {
@@ -135,6 +141,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Never stream input from stdin')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:rg' {
@@ -170,6 +177,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-1', '-1', [CompletionResultType]::ParameterName, '1')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:' {
@@ -205,6 +213,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-1', '-1', [CompletionResultType]::ParameterName, '1')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:tool' {
@@ -214,6 +223,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('colors', 'colors', [CompletionResultType]::ParameterValue, 'colors')
             [CompletionResult]::new('liza', 'liza', [CompletionResultType]::ParameterValue, 'List directory (eza wrapper)')
             [CompletionResult]::new('shell', 'shell', [CompletionResultType]::ParameterValue, 'Dump the initialization code for your shell')
@@ -229,6 +239,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('colors', 'colors', [CompletionResultType]::ParameterValue, 'colors')
             [CompletionResult]::new('liza', 'liza', [CompletionResultType]::ParameterValue, 'List directory (eza wrapper)')
             [CompletionResult]::new('shell', 'shell', [CompletionResultType]::ParameterValue, 'Dump the initialization code for your shell')
@@ -243,6 +254,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:t;colors' {
@@ -251,6 +263,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:tool;liza' {
@@ -259,6 +272,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:t;liza' {
@@ -267,6 +281,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:tool;shell' {
@@ -291,6 +306,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--aliases', '--aliases', [CompletionResultType]::ParameterName, 'aliases')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:t;shell' {
@@ -315,6 +331,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--aliases', '--aliases', [CompletionResultType]::ParameterName, 'aliases')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:tool;lessfilter' {
@@ -326,6 +343,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:t;lessfilter' {
@@ -337,6 +355,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:tool;bump' {
@@ -350,6 +369,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--reset', '--reset', [CompletionResultType]::ParameterName, 'reset the database')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:t;bump' {
@@ -363,6 +383,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--reset', '--reset', [CompletionResultType]::ParameterName, 'reset the database')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:tool;types' {
@@ -371,6 +392,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:t;types' {
@@ -379,6 +401,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
         'fs;:info' {
@@ -393,6 +416,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-m', '-m', [CompletionResultType]::ParameterName, 'Don''t print decorations')
             [CompletionResult]::new('--minimal', '--minimal', [CompletionResultType]::ParameterName, 'Don''t print decorations')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
     })

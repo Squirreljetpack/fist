@@ -15,6 +15,7 @@ use fist::{
     config::Config,
     errors::CliError,
 };
+use matchmaker::MatchError;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
@@ -76,7 +77,15 @@ async fn main() {
     match handle_subcommand(cli, cfg).await {
         Ok(()) => (),
         Err(CliError::Handled) => process::exit(1),
-        Err(e) => ebog!("{e}"),
+        Err(e) => {
+            ebog!("{e}");
+            let code = match e {
+                CliError::MatchError(MatchError::EventLoopClosed) => 127,
+                CliError::MatchError(MatchError::NoMatch) => 22,
+                _ => 1,
+            };
+            process::exit(code);
+        }
     }
 }
 

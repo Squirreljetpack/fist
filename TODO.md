@@ -171,6 +171,8 @@ support mm-partial somehow to specify ui styling?
 - we have some zsh specific scripts, posix/something crossplatform would be better.
 - aging algorithm
 - prepopulate some directories: trash, desktop, home etc.
+- option for second pass on z jump fail: search children and parents
+
 
 # Refactor
 

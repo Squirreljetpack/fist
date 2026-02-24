@@ -9,6 +9,7 @@ define_const_default!(
     pub struct StyleConfig {
         pub path: PathDisplayConfig,
         pub matchmaker: MatchmakerExtraConfig,
+
     }
 );
 
@@ -49,3 +50,5 @@ define_const_default!(
         pub horizontal_separator: HorizontalSeparator = HorizontalSeparator::Light,
     }
 );
+
+

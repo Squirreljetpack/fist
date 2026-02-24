@@ -4,7 +4,7 @@ use fist_types::When;
 
 #[derive(Debug, ValueEnum, Default, Clone, strum_macros::Display)]
 #[strum(serialize_all = "lowercase")]
-pub enum ClapStyleSetting {
+pub enum ClapStyleOverride {
     Icons,
     Colors,
     None,

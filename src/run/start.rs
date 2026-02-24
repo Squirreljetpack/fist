@@ -137,6 +137,8 @@ pub async fn start(
         let s = &mut render.status;
         let mm = &cfg.styles.matchmaker;
 
+        r.right_align_last = false;
+
         if !no_heading {
             r.horizontal_separator = mm.horizontal_separator;
             r.stacked_columns = true;

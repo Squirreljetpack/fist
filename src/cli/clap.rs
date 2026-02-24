@@ -1,6 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use clap::{ArgAction, Parser, Subcommand, error::ErrorKind};
+use clap::{ArgAction, Args, Parser, Subcommand, error::ErrorKind};
 
 use crate::{
     cli::{
@@ -84,9 +84,9 @@ impl From<NavCli> for Cli {
     }
 }
 
-#[derive(Debug, Parser, Default, Clone)]
+#[derive(Debug, Args, Default, Clone)]
 pub struct CliOpts {
-    #[arg(long, global = true, default_value_t = 2)]
+    #[arg(long, global = true, default_value_t = 3)]
     pub verbosity: u8,
 
     /// config override
@@ -119,7 +119,10 @@ Otherwise, this will OVERWRITE your main config."#
     pub dump_config: bool,
 
     #[arg(long, global = true, default_value_t)]
-    pub style: ClapStyleSetting,
+    pub style: ClapStyleOverride,
+
+    #[arg(long, global = true, default_value_t)]
+    pub fullscreen: bool,
 }
 
 impl CliOpts {

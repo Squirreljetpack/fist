@@ -22,7 +22,10 @@ n()  {
 o()  { fs :o "${@:-.}" 2>/dev/null; }
 
 # navigate
-Z() { z "$@" ./; }
+Z() {
+  z "$@" ./ 2>/dev/null;
+  [ $? -eq 22 ] && z
+}
 
 # recent files
 alias zf="fs :file --sort atime"
