@@ -62,7 +62,7 @@ impl FsPane {
                 stored,
                 cwd,
                 vis,
-                sort,
+                sort: _,
                 complete,
                 ..
             } => {
@@ -242,7 +242,7 @@ impl FsPane {
                 stored,
                 cwd,
                 vis,
-                sort,
+                sort: _,
                 complete,
                 ..
             } => {
@@ -356,7 +356,6 @@ impl FsPane {
             }
             Self::Rg {
                 cwd,
-                input,
                 //
                 vis,
                 sort,
@@ -448,11 +447,12 @@ impl FsPane {
                             if text.lines.is_empty() {
                                 return failed_to_parse("empty".into());
                             }
-                            let (path, data, text) = unwrap!(parse_rg_line(text.lines.remove(0), ':'); failed_to_parse("failed to split".into()));
+                            let (path, data, mut text) = unwrap!(parse_rg_line(text.lines.remove(0), ':'); failed_to_parse("failed to split".into()));
                             // skip empty lines
                             if text.lines.iter().all(|l| l.spans.is_empty()) {
                                 return Ok(());
                             }
+                            scrub_text_styles(&mut text);
 
                             let mut item = PathItem::new(path, &cwd);
                             item.cmd = Some(data);
@@ -563,7 +563,6 @@ impl FsPane {
             }
             Self::Launch { sort, .. } => {
                 let sort = *sort;
-                let cwd = STACK::cwd().unwrap_or_default();
                 let pool = GLOBAL::db();
                 let pool_clone = pool.clone();
 

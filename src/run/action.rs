@@ -408,7 +408,7 @@ pub fn fsaction_aliaser(
 pub fn fsaction_handler(
     a: FsAction,
     state: &mut MMState<'_, '_>,
-    context: &mut ActionContext,
+    _context: &mut ActionContext,
 ) {
     match a {
         FsAction::Find => {
@@ -965,7 +965,7 @@ macro_rules! enum_from_str_display {
                         }
                     }
                     SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) => Ok(()), // internal
-                    Lessfilter { preset, paging, header } => {
+                    Lessfilter { preset, paging, header: _ } => {
                         let mut preset = preset.to_string();
                         if *paging {
                             preset.push('|')
@@ -1050,7 +1050,7 @@ macro_rules! enum_from_str_display {
                             paging = true;
                         }
 
-                        let preset = preset_str.to_lowercase().parse().map_err(|e| format!("Invalid preset for lessfilter: {preset_str}"))?;
+                        let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for lessfilter: {preset_str}"))?;
                         let header = When::default();
                         Ok(Self::Lessfilter { preset, paging, header })
                     }

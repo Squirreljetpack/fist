@@ -105,7 +105,7 @@ async fn handle_open(
 
 // todo: partitioned info
 async fn handle_info(
-    cli: CliOpts,
+    _cli: CliOpts,
     cmd: InfoCmd,
     cfg: Config,
 ) -> Result<(), CliError> {

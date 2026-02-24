@@ -42,6 +42,19 @@ pub fn build_rg_args(
         }
     }
 
+    match sort {
+        SortOrder::mtime => {
+            ret.push("--sortr=modified".into());
+        }
+        SortOrder::name => {
+            ret.push("--sort=path".into());
+        }
+        // SortOrder::none => {
+        //     ret.push("--sort=none".into());
+        // }
+        _ => {}
+    }
+
     // add --iglob
     if !vis.all() {
         let iglobs = {
@@ -96,6 +109,7 @@ pub fn build_rg_args(
     ret.append(&mut vec_![: "--before-context", context[0].to_string(), "--after-context", context[1].to_string()]);
 
     ret.append(&mut extra_args);
+    ret.extend_from_slice(rg_args);
 
     // rg [OPTIONS] -e PATTERN ... [PATH ...]
     ret.extend(paths.iter().map(Into::into));

@@ -59,7 +59,7 @@ pub const MATCHER_CONFIG: nucleo::Config = const { nucleo::Config::DEFAULT.match
 
 pub fn get_mm_cfg(
     path: &Path,
-    cfg: &Config,
+    _cfg: &Config,
 ) -> MMConfig {
     let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
 
@@ -69,13 +69,13 @@ pub fn get_mm_cfg(
 
     // Render display
     let RenderConfig {
-        ui,
-        input,
+        ui: _,
+        input: _,
         results,
-        status,
+        status: _,
         preview,
         footer,
-        header,
+        header: _,
     } = &mut mm_cfg.render;
 
     results.multi_prefix = results.multi_prefix.chars().next().unwrap_or('▌').into(); // single width

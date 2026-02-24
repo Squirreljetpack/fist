@@ -96,7 +96,7 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 
 The jump+open function (`zz`) is an analogous replacement for [`lessfilter edit`](#lessfilter): if the query head exists, it opens the target(s) in the editor. Otherwise the query is passed to `z`, and the editor opens in the destination.
 
-##### Aliases
+##### Additional
 
 The `--aliases` flag can be enabled to additionally output a few simple alias definitions:
 
@@ -110,16 +110,19 @@ The `--aliases` flag can be enabled to additionally output a few simple alias de
 - Z: `z`, then navigate
 - `zf`: recent files history
 
+For speed and safety, it is recommended pass your actual shell through to `--shell`.[^4] Another optimization you can make is to cache the generated command: my [zcomet fork](#https://github.com/Squirreljetpack/zcomet) supports this.
+
 ### Lessfilter
 
 The previewer is controlled by the lessfilter tool.
 
-The lessfilter tool dispatches to 9 presets:
+The lessfilter tool dispatches to 10 presets:
 
 - preview: For the preview pane
 - display: For terminal display
 - extended: For terminal interaction/verbose display
 - info: Metadata/raw info
+- extract: extract document contents with [kreuzberg](#https://github.com/kreuzberg-dev)
 - open: System open
 - alternate: Alternate (custom) open
 - edit: For editing
@@ -186,6 +189,7 @@ code = 'code --add {}'
 ###### Addditional notes
 
 - Image display requires [chafa](https://github.com/hpjansson/chafa).
+- document preview (i.e. pdf) requires [kreuzberg](#https://github.com/kreuzberg-dev)
 
 # Additional
 

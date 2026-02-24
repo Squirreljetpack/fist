@@ -152,7 +152,7 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
             if same {
                 return;
             }
-            GLOBAL::with_cfg(|c| {
+            GLOBAL::with_cfg(|_c| {
                 let r = &mut state.picker_ui.results;
 
                 // todo: save and restore

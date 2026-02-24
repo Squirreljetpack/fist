@@ -68,7 +68,4 @@ pub mod TEMP {
             .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
             .is_ok()
     }
-
-    // lowpri: drop here for now, alternative approach is mm to support dynamic rebinding
-    pub static QUERY_RELOAD: AtomicBool = AtomicBool::new(false);
 }

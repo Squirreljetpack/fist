@@ -61,14 +61,11 @@ pub fn sync_handler(
     };
 }
 
-// before reload, store a recovery method
 pub fn query_handler(
-    state: &mut MMState<'_, '_>,
+    _state: &mut MMState<'_, '_>,
     _: &Event,
 ) {
-    if TEMP::QUERY_RELOAD.load(std::sync::atomic::Ordering::SeqCst) {
-        todo!()
-    }
+    // rg query change is handled by rebinds
 }
 
 #[ext(MMExt)]

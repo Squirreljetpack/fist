@@ -39,6 +39,7 @@ pub fn handle(
         preset,
         header,
         paths,
+        mut args,
     }: LessfilterCommand,
     mut cfg: LessfilterConfig,
 ) -> ! {
@@ -95,8 +96,6 @@ pub fn handle(
                 let (progs, perms) = action.to_progs(&path, preset);
                 singleton &= progs.len() == 1;
 
-                let all_progs_succeeded = true;
-
                 progs.into_iter().all(|mut prog| {
                     // filter out headers
                     if is_header(&prog) {
@@ -109,11 +108,16 @@ pub fn handle(
                     } else {
                         log::debug!("Executing: {prog:?}");
                         if singleton {
-                            let mut cmd = Command::new(prog.remove(0)).with_args(prog);
+                            let mut cmd = Command::new(prog.remove(0))
+                                .with_args(prog)
+                                .with_args(args.drain(..));
                             cmd.stdin(maybe_tty()).stdout(maybe_tty())._exec();
                         }
                         let mut cmd = Command::new(prog.remove(0));
-                        cmd.args(prog).stdin(maybe_tty()).stdout(maybe_tty());
+                        cmd.args(prog)
+                            .args(args.drain(..))
+                            .stdin(maybe_tty())
+                            .stdout(maybe_tty());
 
                         !cmd.status()._ebog().is_some_and(|s| s.success())
                     }

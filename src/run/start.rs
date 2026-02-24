@@ -49,7 +49,7 @@ pub type FormatterFn = Arc<RenderFn<Indexed<PathItem>>>;
 fn make_mm(
     render: RenderConfig,
     tui: TerminalConfig,
-    cfg: &Config,
+    _cfg: &Config,
     print_handle: AppendOnly<String>,
     stability: u32,
 ) -> (
@@ -173,6 +173,7 @@ pub async fn start(
         .ext_aliaser(fsaction_aliaser)
         .paste_handler(paste_handler)
         .matcher(MATCHER_CONFIG)
+        .overlay_config(overlay)
         .overlay(StashOverlay::new(scratch))
         .overlay(FilterOverlay::new(filters))
         .overlay(MenuOverlay::new(menu, prompt, cfg.actions));

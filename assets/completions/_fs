@@ -301,6 +301,8 @@ none\:""))' \
 ;;
 (lessfilter)
 _arguments "${_arguments_options[@]}" : \
+'*-a+[Arguments to pass to the first executed command (experimental)]:ARGS:_default' \
+'*--arg=[Arguments to pass to the first executed command (experimental)]:ARGS:_default' \
 '--header=[]:HEADER:(true false)' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
@@ -414,6 +416,8 @@ none\:""))' \
 ;;
 (lessfilter)
 _arguments "${_arguments_options[@]}" : \
+'*-a+[Arguments to pass to the first executed command (experimental)]:ARGS:_default' \
+'*--arg=[Arguments to pass to the first executed command (experimental)]:ARGS:_default' \
 '--header=[]:HEADER:(true false)' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \

@@ -550,12 +550,20 @@ _fs() {
             return 0
             ;;
         fs__:tool__lessfilter)
-            opts="--header --verbosity --override --config --mm-config --style preview display extended info open alternate edit [PATHS]..."
+            opts="-a --arg --header --verbosity --override --config --mm-config --style preview display extended info open alternate edit [PATHS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --arg)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -a)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --header)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0

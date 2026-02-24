@@ -318,6 +318,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;lessfilter' {
+            [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'Arguments to pass to the first executed command (experimental)')
+            [CompletionResult]::new('--arg', '--arg', [CompletionResultType]::ParameterName, 'Arguments to pass to the first executed command (experimental)')
             [CompletionResult]::new('--header', '--header', [CompletionResultType]::ParameterName, 'header')
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
@@ -327,6 +329,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;lessfilter' {
+            [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'Arguments to pass to the first executed command (experimental)')
+            [CompletionResult]::new('--arg', '--arg', [CompletionResultType]::ParameterName, 'Arguments to pass to the first executed command (experimental)')
             [CompletionResult]::new('--header', '--header', [CompletionResultType]::ParameterName, 'header')
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')

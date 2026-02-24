@@ -285,6 +285,13 @@ impl FsPane {
         // 0 -> always sort
         match self {
             FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Launch { .. } => 5,
+            FsPane::Rg { filtering, .. } => {
+                if *filtering {
+                    0
+                } else {
+                    u32::MAX
+                }
+            }
             FsPane::Custom { .. } | FsPane::Stream { .. } => 5, // maybe
             _ => 0,
         }

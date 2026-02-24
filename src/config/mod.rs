@@ -285,6 +285,7 @@ impl Default for RgConfig {
         RgConfig {
             iglobs: Default::default(),
             base_args: vec_![
+                "--trim",
                 "--color=ansi",
                 "--no-context-separator",
                 "--field-context-separator=-",

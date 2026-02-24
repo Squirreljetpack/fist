@@ -78,7 +78,6 @@ transparent advance into compressed files
 - Allow configuring tokens from actions
 - probably a good option is to enable filtering on contents
 
-
 - options for parsing line and column:
   - single lines
   - clumped + heading
@@ -181,3 +180,8 @@ support mm-partial somehow to specify ui styling?
 # Other tables
 
 - version controlled, generic, incremental backups
+
+# Per pane mm/ui configs:
+
+- in particular: reverse/colors
+- enable partial?

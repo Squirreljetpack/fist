@@ -74,8 +74,8 @@ impl STACK {
             if *index > 0 {
                 *index -= 1;
 
-                if *index == 0
-                    && let Some(o) = TEMP::get_original_relative_path()
+                if *index == 0 && TEMP::get_original_relative_path().is_some()
+                // original is backed up
                 {
                     global_ui_mut().path.relative = false;
                 }
@@ -253,7 +253,7 @@ impl STACK {
                 FsPane::Nav { cwd, .. } | FsPane::Custom { cwd, .. } => {
                     WatcherMessage::Switch(cwd.inner(), notify::RecursiveMode::NonRecursive)
                 }
-                FsPane::Fd { cwd, .. } | FsPane::Rg { cwd, .. } => {
+                FsPane::Fd { .. } | FsPane::Rg { .. } => {
                     // reload on small sizes?
                     WatcherMessage::Pause
                     // WatcherMessage::Switch(cwd.inner())

@@ -119,6 +119,7 @@ __fist_rg_widget() {
       LBUFFER="${LBUFFER%% *} '$line' "
     fi
   }
+  zle reset-prompt
 }
 
 zle -N __fist_dir_widget

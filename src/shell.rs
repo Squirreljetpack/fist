@@ -56,7 +56,7 @@ pub fn print_shell(
     }
 
     let tag = shell.clone().unwrap_or_else(current_shell);
-    s = filter_by_tag(&s, "zsh");
+    s = filter_by_tag(&s, &tag);
 
     prints!(s)
 }
