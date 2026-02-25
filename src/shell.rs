@@ -19,6 +19,7 @@ pub fn print_shell(
         file_widget_args,
         rg_widget_args,
         aliases,
+        nav_name,
         shell,
     }: &ShellCommand,
     path: &str,
@@ -52,7 +53,8 @@ pub fn print_shell(
 
     if *aliases {
         s.push_str("\n\n");
-        s.push_str(include_str!("../assets/shell/aliases.shrc"));
+        let a = include_str!("../assets/shell/aliases.shrc").replacen("$${NAV_NAME}", nav_name, 1);
+        s.push_str(&a);
     }
 
     let tag = shell.clone().unwrap_or_else(current_shell);

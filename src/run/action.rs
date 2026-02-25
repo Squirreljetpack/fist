@@ -56,7 +56,7 @@ pub enum FsAction {
     /// The char is emitted instead of jumping if the index is in the prompt.
     Jump(PathBuf, Option<char>),
     /// Enter app launching pane.
-    App(bool), // whether to first push selections
+    App, // if u want to push selections, u can compose clearstack/pushstack before/after
 
     /// Go back
     Undo,
@@ -70,7 +70,7 @@ pub enum FsAction {
     /// Display the current stack.
     Stash,
     /// Clear the stack.
-    ClearStash,
+    ClearStash(Option<bool>), // 1: if false, clear only non_custom, if true, clear only custom
 
     /// Show available actions on the current item(s).
     Menu,
@@ -94,8 +94,6 @@ pub enum FsAction {
     NewDir,
     /// Save a file to the [`STASH`]
     PushStash,
-    /// Save a file to the [`STASH`] under the [`Symlink`](crate::run::stash::StashAction::Symlink) action.
-    Symlink,
     /// Save the file to the backup directory. (todo)
     Backup,
     /// Delete the file using system trash.
@@ -188,7 +186,7 @@ pub fn fsaction_aliaser(
             // -------------------------------------------------
             FsAction::Reload => {
                 state.picker_ui.selector.revalidate();
-                fs_reload(state);
+                fs_reload(state, false);
                 acs![]
             }
             FsAction::SaveInput => {
@@ -409,22 +407,26 @@ pub fn fsaction_aliaser(
                 acs![a]
             }
 
-            // there's a bit of an edge case where this doesn't detect whether to be in prompt correctly for consecutive actions but for expediency we leave this as won't fix
+            // there's a bit of an edge case where this doesn't detect whether to be in prompt correctly for consecutive actions but for expediency we'll leave as is
             Action::Accept => {
-                if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
-                    acs![Action::Custom(FsAction::AcceptPrint), Action::Quit(0)]
-                } else if state.overlay_index().is_none() && in_prompt {
+                if state.overlay_index().is_some() {
+                    acs![a]
+                } else if in_prompt {
                     acs![FsAction::AcceptPrompt]
+                } else if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                    acs![FsAction::AcceptPrint]
                 } else {
                     acs![Action::Accept]
                 }
             }
 
-            Action::Print(s) if s.is_empty() => {
-                if !GLOBAL::with_cfg(|c| c.interface.alt_accept) {
-                    acs![FsAction::AcceptPrint]
-                } else if state.overlay_index().is_none() && in_prompt {
+            Action::Print(ref s) if s.is_empty() => {
+                if state.overlay_index().is_some() {
+                    acs![a]
+                } else if in_prompt {
                     acs![FsAction::AcceptPrompt]
+                } else if !GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                    acs![FsAction::AcceptPrint]
                 } else {
                     acs![Action::Accept]
                 }
@@ -462,13 +464,12 @@ pub fn fsaction_handler(
                 FILTERS::visibility(),
             );
 
-            if STACK::with_current(|p| *p == pane) {
-                return;
+            if !STACK::with_current(|p| *p == pane) {
+                STACK::push(pane);
+                prepare_prompt(state);
             }
-            STACK::push(pane);
 
-            prepare_prompt(state);
-            fs_reload(state);
+            fs_reload(state, true);
         }
 
         FsAction::History => {
@@ -479,7 +480,7 @@ pub fn fsaction_handler(
             let _ = STACK::swap_history();
 
             prepare_prompt(state);
-            fs_reload(state);
+            fs_reload(state, true);
         }
 
         FsAction::Search => {
@@ -524,31 +525,19 @@ pub fn fsaction_handler(
                 prepare_prompt(state);
             }
 
-            fs_reload(state);
+            fs_reload(state, true);
         }
 
-        FsAction::App(get_selections) => {
+        FsAction::App => {
             // save input
             let (content, index) = state.get_content_and_index();
             STACK::save_input(content, index);
 
-            if get_selections {
-                let items = if !in_prompt {
-                    state
-                        .picker_ui
-                        .selector
-                        .map_to_vec(|s| StashItem::app(s.path.clone()))
-                } else {
-                    STACK::cwd().map(StashItem::app).into_iter().collect()
-                };
-                STASH::extend(items);
-            }
-
-            let pane = FsPane::new_launch();
+            let pane = FsPane::new_launch(STASH::cas());
             STACK::push(pane);
 
             prepare_prompt(state);
-            fs_reload(state);
+            fs_reload(state, true);
         }
 
         FsAction::Undo => {
@@ -559,7 +548,7 @@ pub fn fsaction_handler(
             // adjust stack
             if STACK::stack_prev() {
                 prepare_prompt(state);
-                fs_reload(state);
+                fs_reload(state, true);
             };
         }
         FsAction::Redo => {
@@ -570,7 +559,7 @@ pub fn fsaction_handler(
             // adjust stack
             if STACK::stack_next() {
                 prepare_prompt(state);
-                fs_reload(state);
+                fs_reload(state, true);
             };
         }
 
@@ -674,19 +663,30 @@ pub fn fsaction_handler(
                 copy_files(cb_vec, false);
             };
         }
-        FsAction::Symlink => {
+
+        // Note: This is the only stash action which also pushes the cwd
+        FsAction::PushStash => {
             let mut toast_vec = vec![];
-            STASH::extend(state.map_selected_to_vec(|s| {
-                toast_vec.push(short_display(&s.path));
-                StashItem::cp(s.path.clone())
-            }));
+
+            if !in_prompt {
+                state.map_selected_to_vec(|s| {
+                    toast_vec.push(short_display(&s.path));
+                    STASH::push_custom(s.path.clone());
+                });
+            } else if let Some(p) = STACK::cwd() {
+                toast_vec.push(short_display(&p));
+                STASH::push_custom(p);
+            };
+
             if !toast_vec.is_empty() {
                 TOAST::push(ToastStyle::Normal, "Stashed: ", toast_vec);
             };
         }
+
         FsAction::Backup => {
-            todo!();
+            // todo: impl using custom stash + some kind of db-based kv store
         }
+
         FsAction::Trash => {
             let mut items = vec![];
             state.map_selected_to_vec(|s| {
@@ -770,11 +770,11 @@ pub fn fsaction_handler(
             };
             STASH::transfer_all(base, false);
         }
-        FsAction::ClearStash => {
-            STASH::clear_invalid_and_completed();
+        FsAction::ClearStash(x) => {
+            STASH::clear(x);
+
             TOAST::push_notice(ToastStyle::Normal, "Stack cleared");
         }
-
         // filters
         FsAction::FsToggle => {
             if STACK::with_current(|p| matches!(p, FsPane::Files { .. } | FsPane::Folders { .. })) {
@@ -961,20 +961,20 @@ enum_from_str_display! {
     FsAction;
 
     units:
-    Advance, Parent, Find, Search, History,
+    Advance, Parent, Find, Search, History, App,
     Undo, Redo, PushStash,
-    Filters, Stash, ClearStash,
+    Filters, Stash,
     Menu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir,
-    Symlink, Backup, Trash, Delete;
+    Backup, Trash, Delete;
 
     tuples:
     AutoJump;
 
     defaults:
-    (App, false)
     ;
     options:
+    ClearStash
     ;
 
     lossy:

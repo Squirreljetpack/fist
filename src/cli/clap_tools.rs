@@ -53,6 +53,9 @@ pub struct ShellCommand {
 
     #[arg(long, default_value_t)]
     pub aliases: bool,
+    /// Name for the nav function.
+    #[arg(long, default_value_t = String::from("Z"))]
+    pub nav_name: String,
 
     #[arg(long)]
     pub shell: Option<String>,

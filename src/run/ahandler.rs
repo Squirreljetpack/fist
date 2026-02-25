@@ -10,7 +10,7 @@ use crate::{
     aliases::MMState,
     run::{
         FsAction, FsPane,
-        stash::STASH,
+        stash::{CustomStashActionActionState, STASH},
         state::{FILTERS, GLOBAL, STACK, TEMP, TOAST, ui::global_ui},
     },
     utils::string::format_cwd_prompt,
@@ -132,11 +132,14 @@ pub fn enter_dir_pane(
     state.picker_ui.selector.clear();
 
     STACK::push(pane);
-    fs_reload(state);
+    fs_reload(state, true);
 }
 
 // on new pane
-pub fn fs_reload(state: &mut MMState<'_, '_>) {
+pub fn fs_reload(
+    state: &mut MMState<'_, '_>,
+    is_new: bool,
+) {
     state.picker_ui.worker.restart(false);
     state
         .picker_ui
@@ -144,34 +147,8 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
         .set_stability(STACK::with_current(FsPane::stability_threshold));
     let injector = IndexedInjector::new_globally_indexed(state.injector());
 
-    let same = STACK::with_previous(|p, same| {
-        match p {
-            FsPane::Fd { .. } => {
-                if !same && GLOBAL::with_cfg(|c| c.panes.fd.on_leave_unset_dirs_only) {
-                    FILTERS::with_vis_mut(|v| v.dirs = false);
-                }
-            }
-            FsPane::Rg { .. } => {
-                if same {
-                    return same;
-                }
-                GLOBAL::with_cfg(|_c| {
-                    let r = &mut state.picker_ui.results;
-
-                    // todo: save and restore
-                    r.config.horizontal_separator = Default::default();
-                    r.config.stacked_columns = false;
-                    r.set_status_line(None);
-                })
-            }
-            _ => {}
-        };
-        same
-    })
-    .unwrap_or_default();
-
     STACK::with_current_mut(|pane| {
-        if !same {
+        if is_new {
             GLOBAL::with_cfg(|cfg| {
                 if let Some(condition) = cfg.panes.preview_show(pane) {
                     let area = state.ui_size();
@@ -254,6 +231,23 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
                 state.filtering = f;
             }
             _ => {
+                match pane {
+                    FsPane::Launch { .. } => {
+                        TOAST::clear();
+                        STASH::set_cas(CustomStashActionActionState::App)
+                    }
+                    _ => {}
+                }
+
+                // restore non-rg settings
+                {
+                    let r = &mut state.picker_ui.results;
+                    // todo: save and restore
+                    r.config.horizontal_separator = Default::default();
+                    r.config.stacked_columns = false;
+                    r.set_status_line(None);
+                }
+
                 state.filtering = true;
                 GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()))
             }

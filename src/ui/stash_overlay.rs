@@ -1,8 +1,12 @@
 use crate::{
+    cli::paths::__home,
     find::size::{format_size, sort_by_size},
     run::{
         action::FsAction,
-        stash::{STASH, StashAction, StashItem, StashItemState, StashItemStatus},
+        stash::{
+            AlternateStashItem, CustomStashActionActionState, STASH, StashAction, StashItem,
+            StashItemState, StashItemStatus,
+        },
         state::STACK,
     },
     utils::serde::border_result,
@@ -14,7 +18,7 @@ use cli_boilerplate_automation::{
 use matchmaker::{
     action::Action,
     config::{self, BorderSetting, PartialBorderSetting},
-    ui::{Overlay, OverlayEffect},
+    ui::{Overlay, OverlayEffect, SizeHint},
 };
 use ratatui::{
     prelude::*,
@@ -76,7 +80,7 @@ impl StashOverlay {
             headers: [
                 "Action".pad(1, 0),
                 "Source".pad(1, 1),
-                "Dst".pad(1, 1),
+                "To".pad(1, 1),
                 "Size".pad(0, 1),
             ],
             available_path_w: 0,
@@ -143,6 +147,7 @@ impl StashOverlay {
     pub fn make_table(
         &self,
         items: &[StashItem],
+        custom_action: CustomStashActionActionState,
     ) -> Table<'static> {
         let config = &self.config;
         let header =
@@ -152,7 +157,12 @@ impl StashOverlay {
             .iter()
             .enumerate()
             .map(|(i, item)| {
-                let kind = item.kind.to_string().pad(1, 1);
+                let kind = if item.is_custom() {
+                    custom_action.to_string()
+                } else {
+                    item.kind.to_string()
+                }
+                .pad(1, 1);
 
                 let dst = item.dst.to_string_lossy().pad(1, 1);
                 let size = item.status.render(config);
@@ -194,18 +204,16 @@ impl StashOverlay {
             .block(self.border().as_static_block())
     }
 
-    pub fn make_stash_table(
+    pub fn make_alternate_table(
         &self,
-        items: &[StashItem],
+        items: &[AlternateStashItem], // we rely on the actual index, so no iterators
+        header: Row<'static>,
     ) -> Table<'static> {
-        let header = Row::new(vec!["Items"]).style(Style::new().add_modifier(Modifier::BOLD));
-
         let rows: Vec<Row<'static>> = items
             .iter()
             .enumerate()
-            .filter(|(_, item)| matches!(item.kind, StashAction::Stashed))
             .map(|(i, item)| {
-                let content = Span::from(item.display());
+                let content = Span::from(item.display_short(__home()));
 
                 if Some(i) == self.table_state.selected() {
                     let style = Style::default().bg(Color::Black);
@@ -254,17 +262,25 @@ impl Overlay for StashOverlay {
     fn area(
         &mut self,
         ui_area: &Rect,
-    ) -> Result<Rect, [u16; 2]> {
+    ) -> Result<Rect, SizeHint> {
         if STACK::in_app() {
             self.widths = Default::default();
-            self.widths[0] = ui_area.width.saturating_sub(self.border().width());
-            Err([0, 0])
+            let pref_width = STASH::with_alternate(|scratch| {
+                scratch
+                    .iter()
+                    .map(|s| s.to_string_lossy().len() + 2)
+                    .max()
+                    .unwrap_or_default() as u16
+            })
+            .min(ui_area.width * 9 / 10);
+
+            Err((pref_width, self.border().height() + 4, false, true))
         } else {
             STASH::with(|scratch| {
                 self.save_widths(scratch, ui_area.width.saturating_sub(self.border().width()));
             });
             log::debug!("Stash widths: {:?}", self.widths);
-            Err([self.width(), 0])
+            Err((self.width(), self.border().height() + 4, false, true))
         }
     }
 
@@ -373,47 +389,86 @@ impl Overlay for StashOverlay {
         frame: &mut matchmaker::ui::Frame<'_>,
         mut area: matchmaker::ui::Rect,
     ) {
-        STASH::with(|scratch| {
-            if (!STACK::in_app() && scratch.is_empty())
-                || !scratch.iter().any(|x| x.kind == StashAction::Stashed)
-            {
-                self.table_state.select(None);
-                let msg = "Scratch is empty";
-                area.height = 3 + self.border().height();
-                frame.render_widget(Clear, area);
-                frame.render_widget(
-                    Paragraph::new(vec![
-                        Line::raw("".pad(area.width as usize, 0)),
-                        Line::raw(msg).alignment(HorizontalAlignment::Center),
-                        Line::raw("".pad(area.width as usize, 0)),
-                    ])
-                    .block(self.border().as_block()),
-                    area,
-                );
-                return;
-            }
+        let custom_action = STASH::cas();
+        if matches!(STASH::cas(), CustomStashActionActionState::App) {
+            let header =
+                Row::new(vec!["To open:"]).style(Style::new().add_modifier(Modifier::BOLD));
+            STASH::with_alternate(|scratch| {
+                if scratch.is_empty() {
+                    self.table_state.select(None);
+                    let msg = "Scratch is empty";
+                    area.height = 3 + self.border().height();
+                    frame.render_widget(Clear, area);
+                    frame.render_widget(
+                        Paragraph::new(vec![
+                            Line::raw("".pad(area.width as usize, 0)),
+                            Line::raw(msg).alignment(HorizontalAlignment::Center),
+                            Line::raw("".pad(area.width as usize, 0)),
+                        ])
+                        .block(self.border().as_block()),
+                        area,
+                    );
 
-            // 1. ensure state
-            let len = scratch.len();
-            if let Some(selected) = self.table_state.selected() {
-                if selected >= len {
-                    self.table_state.select(Some(len - 1));
+                    return;
                 }
-            } else {
-                self.table_state.select(Some(0));
-            }
 
-            // 2. make table from config
-            let table = if STACK::in_app() {
-                self.make_stash_table(scratch)
-            } else {
-                self.make_table(scratch)
-            };
+                // 1. ensure state
+                let len = scratch.len();
+                if let Some(selected) = self.table_state.selected() {
+                    if selected >= len {
+                        self.table_state.select(Some(len - 1));
+                    }
+                } else {
+                    self.table_state.select(Some(0));
+                }
 
-            // 3. render
-            frame.render_widget(Clear, area);
-            frame.render_stateful_widget(table, area, &mut self.table_state);
-        });
+                // 2. make table
+                let table = self.make_alternate_table(scratch, header);
+
+                // 3. render
+                frame.render_widget(Clear, area);
+                frame.render_stateful_widget(table, area, &mut self.table_state);
+            });
+        } else {
+            STASH::with(|scratch| {
+                if scratch.is_empty() {
+                    self.table_state.select(None);
+                    let msg = "Scratch is empty";
+                    area.height = 3 + self.border().height();
+                    frame.render_widget(Clear, area);
+                    frame.render_widget(
+                        Paragraph::new(vec![
+                            Line::raw("".pad(area.width as usize, 0)),
+                            Line::raw(msg).alignment(HorizontalAlignment::Center),
+                            Line::raw("".pad(area.width as usize, 0)),
+                        ])
+                        .block(self.border().as_block()),
+                        area,
+                    );
+
+                    return;
+                }
+
+                // 1. ensure state
+                let len = scratch.len();
+                if let Some(selected) = self.table_state.selected() {
+                    if selected >= len {
+                        self.table_state.select(Some(len - 1));
+                    }
+                } else {
+                    self.table_state.select(Some(0));
+                }
+
+                // 2. make table
+                let table = self.make_table(scratch, custom_action);
+
+                log::debug!("{scratch:?}");
+
+                // 3. render
+                frame.render_widget(Clear, area);
+                frame.render_stateful_widget(table, area, &mut self.table_state);
+            });
+        }
     }
 }
 

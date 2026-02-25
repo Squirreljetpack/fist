@@ -15,7 +15,7 @@ use fist_types::{When, filters::*};
 use matchmaker::{
     action::Action,
     config::{BorderSetting, PartialBorderSetting},
-    ui::{Overlay, OverlayEffect},
+    ui::{Overlay, OverlayEffect, SizeHint},
 };
 
 use ratatui::{
@@ -581,8 +581,8 @@ impl Overlay for FilterOverlay {
     fn area(
         &mut self,
         _ui_area: &Rect,
-    ) -> Result<Rect, [u16; 2]> {
-        Err([self.width(), self.height()])
+    ) -> Result<Rect, SizeHint> {
+        Err((self.width(), self.height(), false, false))
     }
 
     fn draw(

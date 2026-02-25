@@ -48,7 +48,7 @@ Call as:
 - `ctrl-t`: Open stash.
 - `ctrl-i` : Open filters.
 
-- `ctrl-h`/`ctrl-s`/`alt-h`: Toggle hidden.
+- `ctrl-s`/`alt-h`: Toggle hidden.
 - `ctrl-d`: Toggle contextual visibility.
 
 ---
@@ -85,17 +85,16 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 
 > [!NOTE]
 >
-> In addition, a couple special queries can be used to start an interactive search. Ultimately, the full behavior is as follows:
+> In addition, a couple special queries can be used to start an interactive search. Ultimately, the full behavior[^2] is as follows:
 >
 > the only argument is a valid path: `cd`.
 > no arguments: interactively select from history.
 > last argument is `.` : interactively search subdirectories of the best match.
-> last argument is `./`: interactively navigate the best match [^2].
 > otherwise: cd into the best match[^1] for the search term (if one exists).
 
 [^1]: See: [zoxide](https://github.com/ajeetdsouza/zoxide)
 
-[^2]: If you have [aliases](#aliases) enabled, this is also just `Z`.
+[^2]: There is one final case: if the last argument is `./`: z interactively navigates the best match. If you have [aliases](#aliases) enabled, this is also just `Z`.
 
 The jump+open function (`zz`) is an analogous replacement for [`lessfilter edit`](#lessfilter): if the query head exists, it opens the target(s) in the editor. Otherwise the query is passed to `z`, and the editor opens in the destination.
 
@@ -111,6 +110,7 @@ The `--aliases` flag can be enabled to additionally output a few simple alias de
 - n: edit (lessfilter with edit preset)
 - o: [open](#app)
 - Z: `z`, then navigate
+  - In case your shell doesn't support uppercase function names, the name can be set like so: `fs :tool shell --aliases --shell csh --nav-name x`.
 - `zf`: recent files history
 
 For speed and safety, it is recommended pass your actual shell through to `--shell`.[^4] Another optimization you can make is to cache the generated command: my [zcomet fork](#https://github.com/Squirreljetpack/zcomet) supports this.
@@ -208,7 +208,7 @@ Conversely, fist integrates into [CommandSpace](https://github.com/Squirreljetpa
 
 ### Notes
 
-- The `New` action creates a directory if the target ends with a path seperator[^1].
+- The `New` action creates a directory if the target ends with a path seperator[4].
 
 - The process which runs the command that spawns programs can be relegated to a process manager. For example, using [pueue](https://github.com/Nukesor/pueue):
 
@@ -219,7 +219,7 @@ Conversely, fist integrates into [CommandSpace](https://github.com/Squirreljetpa
 spawn_with = ["pueue", "add", "-g", "apps", "--"]
 ```
 
-[^1]: `/` on unix and `\` on windows
+[^4]: `/` on unix and `\` on windows
 
 # Configuration
 

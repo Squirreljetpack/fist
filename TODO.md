@@ -60,6 +60,8 @@ transparent advance into compressed files
 - Better column sizing, display paths from end
 - Table editing
 
+- better per-pane filters: fd/rg probably wants to toggle --follow (in own pane probably), not sure about anything else
+
 # Disk
 
 - Size tree

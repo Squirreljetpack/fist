@@ -92,9 +92,14 @@ impl FsMatchmaker {
                         command,
                         false,
                     );
-                    STACK::push(pane);
 
-                    fs_reload(state)
+                    if STACK::with_current(|p| *p != pane) {
+                        STACK::push(pane);
+                        fs_reload(state, true)
+                    } else {
+                        STACK::with_current_mut(|p| *p = pane);
+                        fs_reload(state, false)
+                    }
                 }
             }
         });

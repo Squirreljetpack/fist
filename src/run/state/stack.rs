@@ -44,7 +44,7 @@ impl STACK {
         STACK.with(|s| s.borrow().stack.len())
     }
 
-    pub fn push(pane: FsPane) {
+    pub fn push(pane: FsPane) -> bool {
         STACK.with(|cell| {
             let Self { stack, index } = &mut *cell.borrow_mut();
             if *index == 0 {
@@ -53,11 +53,25 @@ impl STACK {
                 }
             }
             stack.truncate(*index + 1);
+
+            let same = discriminant(&stack[*index]) == discriminant(&pane);
+
+            match stack[*index] {
+                FsPane::Fd { .. } => {
+                    if GLOBAL::with_cfg(|c| c.panes.fd.on_leave_unset_dirs_only) {
+                        FILTERS::with_vis_mut(|v| v.dirs = false);
+                    }
+                }
+                _ => {}
+            };
+
             *index += 1;
 
             log::debug!("Pushed: {pane:?}");
             stack.push(pane);
-        });
+
+            same
+        })
     }
 
     pub fn stack_prev() -> bool {
@@ -145,25 +159,25 @@ impl STACK {
         })
     }
 
-    pub fn with_previous<R, F>(f: F) -> Option<R>
-    where
-        F: FnOnce(&FsPane, bool) -> R,
-    {
-        STACK.with(|cell| {
-            let borrowed = cell.borrow();
-            let Self { stack, index, .. } = &*borrowed;
+    // pub fn with_previous<R, F>(f: F) -> Option<R>
+    // where
+    // F: FnOnce(&FsPane, bool) -> R,
+    // {
+    //     STACK.with(|cell| {
+    //         let borrowed = cell.borrow();
+    //         let Self { stack, index, .. } = &*borrowed;
 
-            if *index > 0 {
-                let current = &stack[*index];
-                let prev = &stack[*index - 1];
-                let same_variant = discriminant(prev) == discriminant(current);
+    //         if *index > 0 {
+    //             let current = &stack[*index];
+    //             let prev = &stack[*index - 1];
+    //             let same_variant = discriminant(prev) == discriminant(current);
 
-                Some(f(prev, same_variant))
-            } else {
-                None
-            }
-        })
-    }
+    //             Some(f(prev, same_variant))
+    //         } else {
+    //             None
+    //         }
+    //     })
+    // }
 
     pub fn populate(
         injector: FsInjector,

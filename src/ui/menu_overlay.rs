@@ -5,7 +5,7 @@ use crate::{
     run::{
         action::FsAction,
         item::{PathItem, short_display},
-        stash::{STASH, StashItem},
+        stash::{CustomStashActionActionState, STASH, StashItem},
         state::{APP, GLOBAL, STACK, TASKS, TEMP, TOAST},
     },
     spawn::{menu_action::MenuActions, open_wrapped},
@@ -23,7 +23,7 @@ use cli_boilerplate_automation::{
 use matchmaker::{
     action::Action,
     config::{BorderSetting, PartialBorderSetting},
-    ui::{Overlay, OverlayEffect},
+    ui::{Overlay, OverlayEffect, SizeHint},
 };
 use ratatui::{
     prelude::*,
@@ -176,8 +176,9 @@ impl MenuItem {
                 Err(false)
             }
             MenuItem::OpenWith => {
-                STASH::extend([StashItem::app(path)]);
-                GLOBAL::send_action(FsAction::App(false));
+                STASH::set_cas(CustomStashActionActionState::App);
+                STASH::push_custom(path);
+                GLOBAL::send_action(FsAction::App);
                 Err(false)
             }
             MenuItem::Custom { action, .. } => {
@@ -491,12 +492,14 @@ impl Overlay for MenuOverlay {
     fn area(
         &mut self,
         ui_area: &Rect,
-    ) -> Result<Rect, [u16; 2]> {
+    ) -> Result<Rect, SizeHint> {
         self.prompt.area(ui_area);
-        Err([
+        Err((
             MAX_ITEM_WIDTH + self.border().width(),
             self.items.len() as u16 + self.border().height(),
-        ])
+            false,
+            false,
+        ))
     }
 
     fn draw(

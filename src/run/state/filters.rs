@@ -105,7 +105,9 @@ impl FILTERS {
                     }
                 });
             }
-            FsPane::Files { sort, .. } | FsPane::Folders { sort, .. } | FsPane::Launch { sort } => {
+            FsPane::Files { sort, .. }
+            | FsPane::Folders { sort, .. }
+            | FsPane::Launch { sort, .. } => {
                 FILTERS::with(|gsort, _| {
                     if DbSortOrder::from(*gsort) != *sort {
                         log::debug!("updating filters: {gsort} -> {sort}");

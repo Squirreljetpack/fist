@@ -7,8 +7,11 @@ use std::{
 use matchmaker::preview::AppendOnly;
 
 use crate::{
-    abspath::AbsPath, cli::DefaultCommand, db::DbSortOrder, find::fd::auto_enable_hidden,
-    run::item::PathItem,
+    abspath::AbsPath,
+    cli::DefaultCommand,
+    db::DbSortOrder,
+    find::fd::auto_enable_hidden,
+    run::{item::PathItem, stash::CustomStashActionActionState},
 };
 use fist_types::{
     When,
@@ -78,6 +81,7 @@ pub enum FsPane {
     },
     Launch {
         sort: DbSortOrder,
+        previous_cas: CustomStashActionActionState,
     },
     Nav {
         cwd: AbsPath,
@@ -109,9 +113,10 @@ impl FsPane {
         }
     }
 
-    pub fn new_launch() -> Self {
+    pub fn new_launch(previous_cas: CustomStashActionActionState) -> Self {
         Self::Launch {
             sort: DbSortOrder::frecency,
+            previous_cas,
         }
     }
 

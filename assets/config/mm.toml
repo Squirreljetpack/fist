@@ -19,10 +19,6 @@ max = 25
 
 [preview]
 wrap = true
-border = { type = "Plain" }
 
 [overlay]
-border = { type = "Rounded", , color = "darkGrey", padding = 1 }
-
-[filters]
-border = {  padding = 0 }
+border = { type = "Rounded", color = "darkGrey", padding = 1 }

@@ -5,7 +5,7 @@ use cli_boilerplate_automation::{auto_impl, define_transparent_wrapper};
 use matchmaker::{
     action::Action,
     config::{BorderSetting, InputConfig},
-    ui::{Overlay, OverlayEffect},
+    ui::{Overlay, OverlayEffect, SizeHint},
 };
 use ratatui::{
     layout::{Position, Rect},
@@ -134,7 +134,7 @@ impl Overlay for PromptOverlay {
     fn area(
         &mut self,
         ui_area: &Rect,
-    ) -> Result<Rect, [u16; 2]> {
+    ) -> Result<Rect, SizeHint> {
         self.1 = self.auto_area(ui_area);
         self.0.update_width(self.1.width);
         Ok(Rect::default())

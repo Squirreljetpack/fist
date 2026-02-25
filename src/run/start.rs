@@ -272,7 +272,7 @@ pub async fn start(
     if STACK::in_app() {
         match ret.first().abort() {
             Ok(prog) => {
-                let files = STASH::stashed_paths();
+                let files = STASH::stashed_apps();
                 let conn = GLOBAL::db().get_conn(DbTable::apps).await?;
 
                 let prog = Program::from_scanned_path(prog.path, prog.cmd);

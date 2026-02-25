@@ -49,7 +49,7 @@ use crate::{
         FsPane,
         mm_config::get_mm_cfg,
         start,
-        stash::{STASH, StashItem},
+        stash::{CustomStashActionActionState, STASH},
         state::TEMP,
     },
     shell::print_shell,
@@ -85,13 +85,13 @@ async fn handle_open(
 
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
-        STASH::extend(
-            cmd.files
-                .into_iter()
-                .map(|path| StashItem::app(AbsPath::new_unchecked(path))),
-        );
+        STASH::set_cas(CustomStashActionActionState::App);
+        for path in cmd.files {
+            STASH::push_custom(AbsPath::new_unchecked(path));
+        }
+
         cfg.global.interface.no_multi_accept = true;
-        let pane = FsPane::new_launch();
+        let pane = FsPane::new_launch(Default::default());
 
         let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
 

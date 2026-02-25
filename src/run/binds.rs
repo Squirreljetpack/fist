@@ -29,14 +29,15 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-g) => FsAction::History,
         key!(ctrl-z) => FsAction::Undo,
         key!(alt-z) => FsAction::Redo,
-        key!(alt-a), key!(alt-shift-a) => FsAction::App(true),
+        key!(alt-a), key!(alt-shift-a) => FsAction::App,
         key!(ctrl-shift-'z') => FsAction::Redo,
         key!(ctrl-'/') => FsAction::Jump("".into(), None),
 
         // Display
         // ----------------------------------
         key!(ctrl-t) => FsAction::Stash,
-        key!(alt-shift-s) => FsAction::ClearStash,
+        key!(alt-shift-t) => FsAction::ClearStash(None),
+        key!(alt-shift-s) => FsAction::ClearStash(Some(true)), // clear custom
         key!(ctrl-e) => FsAction::Menu,
         // -- filters --
         key!(ctrl-i) => FsAction::Filters,
@@ -56,6 +57,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-x) => FsAction::Cut,
         key!(ctrl-c) => FsAction::Copy,
         key!(ctrl-n) => FsAction::New,
+        key!(alt-s) => FsAction::PushStash,
 
         // preview
         key!('?') => Action::Preview(Preset::Preview.to_command_string(When::Auto)),
@@ -96,10 +98,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete,
     );
     #[cfg(not(target_os = "macos"))]
-    let ext = bindmap!(
-        key!(ctrl-h) => FsAction::ToggleHidden, // this may not be a good idea if this gets confused with ctrl-backspace, but we provide some alternate binds
-        key!(alt-backspace), key!(ctrl-backspace), key!(cmd-backspace) => Action::DeleteWord,
-    );
+    let ext = bindmap!();
 
     fs.extend(ext);
 
