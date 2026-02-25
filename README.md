@@ -30,12 +30,14 @@ Call as:
 - `Up`/`Down`: Navigate (or `Up` in the initial position to to enter prompt).
 - `Left`/`Right`: Back/Enter.
 - `Enter`: Default (system) open.
-
+  - `Alt-Enter`: Print / Alternate open.
+  - `Ctrl-Enter`: Open in background.
+  - `alt-b`: Edit folder
 ---
 
-- `ctrl-f`/`ctrl-r`: Find files/Search text.
+- `ctrl-f`/`ctrl-r`: Find files / Search text.
 - `ctrl-g`: History view (Folders and files).
-- `ctrl-z`/`ctrl-y`: Undo/Redo.
+- `ctrl-z`/`ctrl-y`: Undo / Redo.
 
 ---
 
@@ -43,22 +45,23 @@ Call as:
 - `delete/shift-delete`: Trash/Delete.
 - `ctrl-e`: Open menu.
 - `ctrl-s`: Open stash.
-- `ctrl-shift-f`: Open filters.
-- `ctrl-h`: Toggle hidden.
+- `ctrl-j`/`ctrl-shift-f` : Open filters.
+
+- `ctrl-h`/`alt-h`: Toggle hidden.
 
 ---
 
 - `Tab`: Toggle select.
 - `alt-enter`: Print.
-- `?`: toggle preview
-- `ctrl-b`: Open background.
+- `?`: toggle preview.
 - `ctrl-l`: Full preview.
+- `alt-l`: Extended preview.
 - `/` and `~`: Jump to home
 
-For a full list of binds within the app, type `ctrl-shift-h`[^3].\
+For a full list of binds within the app, type `ctrl-shift-h`.\
 For more information on bindings, see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
 
-[^3]: in the same order .
+
 
 # Panes
 

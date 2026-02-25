@@ -239,8 +239,6 @@ pub fn infer_editor(path: &Path) -> Vec<OsString> {
 
     let (line, col) = line_column::get();
 
-    let (line, col) = line_column::get();
-
     if let Some(line) = line
         && line >= 0
     {

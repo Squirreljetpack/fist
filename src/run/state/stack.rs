@@ -267,4 +267,11 @@ impl STACK {
             }
         })
     }
+
+    pub fn in_app() -> bool {
+        STACK::with_current(|x| matches!(x, FsPane::Launch { .. }))
+    }
+    pub fn in_rg() -> bool {
+        STACK::with_current(|x| matches!(x, FsPane::Rg { .. }))
+    }
 }

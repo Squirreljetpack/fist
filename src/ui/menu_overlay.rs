@@ -44,7 +44,7 @@ impl Default for MenuConfig {
         let border = PartialBorderSetting {
             title: Some("Menu".into()),
             sides: Some(Borders::ALL),
-            padding: Some(Padding::symmetric(2, 1)),
+            padding: Some(Padding::symmetric(2, 1).into()),
             ..Default::default()
         };
         Self {

@@ -23,7 +23,7 @@ use crate::{
         item::short_display,
         pane::FsPane,
         stash::{STASH, StashItem},
-        state::{APP, FILTERS, GLOBAL, STACK, TASKS, TEMP, TOAST, context::ActionContext},
+        state::{FILTERS, GLOBAL, STACK, TASKS, TEMP, TOAST, context::ActionContext},
     },
     spawn::open_wrapped,
     ui::menu_overlay::PromptKind,
@@ -72,10 +72,10 @@ pub enum FsAction {
 
     /// Show available actions on the current item(s).
     Menu,
-    /// Toggle only showing directories.
+    /// Toggle directory/file visibility.
     /// In [`FsPane::Files`], [`FsPane::Folders`], [`FsPane::Launch`], [`FsPane::Rg`], this toggles their sort order.
-    ToggleDirs,
-    /// Toggle showing hidden files.
+    FsToggle,
+    /// Toggle visibility between default and with hidden.
     ToggleHidden,
 
     // file actions
@@ -238,7 +238,7 @@ pub fn fsaction_aliaser(
             FsAction::Parent => {
                 if raw_input {
                     acs![Action::BackwardChar]
-                } else if APP::in_app_pane() {
+                } else if STACK::in_app() {
                     acs![]
                 } else {
                     acs![Action::Custom(fa)]
@@ -247,8 +247,26 @@ pub fn fsaction_aliaser(
             FsAction::Advance => {
                 if raw_input {
                     acs![Action::ForwardChar]
-                } else if APP::in_app_pane() {
+                } else if STACK::in_app() {
                     // todo!()
+                    acs![]
+                } else {
+                    acs![Action::Custom(fa)]
+                }
+            }
+            FsAction::Delete => {
+                if raw_input {
+                    acs![Action::DeleteWord]
+                } else if STACK::in_app() {
+                    acs![]
+                } else {
+                    acs![Action::Custom(fa)]
+                }
+            }
+            FsAction::Trash => {
+                if raw_input {
+                    acs![Action::DeleteWord]
+                } else if STACK::in_app() {
                     acs![]
                 } else {
                     acs![Action::Custom(fa)]
@@ -298,14 +316,14 @@ pub fn fsaction_aliaser(
             // FsAction::Category => {
             //     acs![Action::Overlay(3)]
             // }
-            FsAction::AutoJump(digit) if state.overlay_index().is_some() =>
-            // in overlay
-            {
-                acs![Action::Pos(digit.saturating_sub(1) as i32)]
-            }
             FsAction::AutoJump(digit) => {
+                if state.overlay_index().is_some()
+                // in overlay
+                {
+                    acs![Action::Pos(digit.saturating_sub(1) as i32)]
+                } else if in_prompt
                 // in prompt
-                if in_prompt {
+                {
                     // jump out
                     if digit > 0 {
                         enter_prompt(state, false);
@@ -725,7 +743,7 @@ pub fn fsaction_handler(
         }
 
         // filters
-        FsAction::ToggleDirs => {
+        FsAction::FsToggle => {
             if STACK::with_current(|p| matches!(p, FsPane::Files { .. } | FsPane::Folders { .. })) {
                 let p_str = FILTERS::with_mut(|sort, _vis| {
                     sort.cycle();
@@ -803,7 +821,7 @@ pub fn fsaction_handler(
             header,
             special,
         } => {
-            if APP::in_app_pane() {
+            if STACK::in_app() {
                 // todo
                 return;
             }
@@ -909,7 +927,7 @@ enum_from_str_display! {
     Advance, Parent, Find, Rg, History,
     Undo, Redo,
     Filters, Stash, ClearStash,
-    Menu, ToggleDirs, ToggleHidden,
+    Menu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir,
     Symlink, Backup, Trash, Delete;
 

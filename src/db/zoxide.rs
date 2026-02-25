@@ -461,6 +461,6 @@ fn is_monotonic_substring(
 
 // Transparent wrappers for type safety
 define_transparent_wrapper!(
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, serde::Serialize, serde::Deserialize)]
     TtlDays: i64 = 90
 );

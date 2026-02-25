@@ -193,7 +193,7 @@ fn execute(
     }
 
     // lowpri: dow we expose fs_preview_command here?
-    if STACK::with_current(|x| matches!(x, FsPane::Rg { .. })) {
+    if STACK::in_rg() {
         if let Some((line, col)) = state.current_raw().and_then(|item| {
             state.picker_ui.worker.format_with(item, "3").map(|t| {
                 let x = t.as_ref().split_delim(':');

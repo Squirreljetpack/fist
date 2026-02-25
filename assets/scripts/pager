@@ -24,12 +24,12 @@ elif ! have bat; then
 fi
 
 opts=()
-
+less_opts=()
 [[ -n $PG_LANG ]] && opts+=(-l $PG_LANG)
 [[ -n $PG_DEFAULT ]] || opts+=(--color=always --style=changes)
 [[ -n $PG_FLAGS ]] && opts+=(${(@Q)${(z)PG_FLAGS}})
 [[ $HIGHLIGHT_LINE =~ ^[0-9]+$ ]] && opts+=(--highlight-line $HIGHLIGHT_LINE)
-# [[ $SCROLL_LINE =~ ^[0-9]+$ ]] && opts+=(--highlight-line $SCROLL_LINE) # Uncomment this to listen for scroll offsets from the previewer
+# [[ $SCROLL_LINE =~ ^[0-9]+$ ]] && less_opts+=(+$SCROLL_LINE) # Uncomment this to listen for scroll offsets from the previewer
 
 
 
@@ -39,7 +39,7 @@ opts+=($@)
 bat -p $opts | {
 	IFS= read -r line
     if [ $? -eq 0 ] || [[ -n "$line" ]]; then
-        { echo $line && cat } | LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p less -R
+        { echo $line && cat } | LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p less -R $less_opts
     fi
 }
 

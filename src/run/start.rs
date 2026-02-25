@@ -1,6 +1,6 @@
 use std::{ffi::OsString, sync::Arc};
 
-use cli_boilerplate_automation::{bog::BogOkExt, prints};
+use cli_boilerplate_automation::{bog::BogOkExt, bring::StrExt, prints, unwrap};
 use matchmaker::{
     MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector, acs,
     action::Action,
@@ -268,7 +268,7 @@ pub async fn start(
     print_handle.map_to_vec(|s| prints!(s));
 
     TASKS::shutdown(1, 3000).await;
-    if APP::in_app_pane() {
+    if STACK::in_app() {
         match ret.first().abort() {
             Ok(prog) => {
                 // no contention, but clippy warning cannot be got rid of
@@ -287,6 +287,8 @@ pub async fn start(
         match ret {
             Ok(lines) if lines.is_empty() => Err(MatchError::NoMatch.into()),
             Ok(lines) => {
+                set_envs(&lines);
+
                 let files: Vec<OsString> = lines
                     .iter()
                     .map(|p| OsString::from(p.path.inner()))
@@ -297,12 +299,38 @@ pub async fn start(
                 if prog.is_some() {
                     crate::spawn::init_spawn_with(Vec::new()); // if opener is set explicitly, ignore spawn_with
                 }
+
                 // the default is the same behavior as fs :open, which also called by fs :tool lessfilter open
                 open_wrapped(conn, prog, &files, false).await?;
                 Ok(())
             }
             Err(MatchError::Abort(i)) => std::process::exit(i),
             Err(e) => Err(e.into()),
+        }
+    }
+}
+
+fn set_envs(lines: &[PathItem]) {
+    let envs = STACK::with_current(|x| match x {
+        FsPane::Rg { .. } => {
+            if lines.len() > 1 {
+                return None;
+            }
+            let s = unwrap!(lines[0].cmd.as_ref());
+            let [line, rest] = s.split_delim(':');
+            let line = unwrap!(line.parse::<usize>().ok());
+            let col = rest.split_delim(':')[0].parse::<usize>().ok();
+            Some((line, col))
+        }
+        _ => None,
+    });
+
+    if let Some((line, maybe_col)) = envs {
+        unsafe {
+            std::env::set_var("HIGHLIGHT_LINE", line.to_string());
+            if let Some(c) = maybe_col {
+                std::env::set_var("HIGHLIGHT_COLUMN", c.to_string());
+            }
         }
     }
 }

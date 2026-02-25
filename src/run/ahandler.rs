@@ -13,25 +13,21 @@ use crate::{
         stash::STASH,
         state::{FILTERS, GLOBAL, STACK, TEMP, TOAST, ui::global_ui},
     },
-    utils::{string::format_cwd_prompt, text::ToastStyle},
+    utils::string::format_cwd_prompt,
 };
 
 pub fn paste_handler(
     content: String,
     state: &MMState<'_, '_>,
 ) -> String {
-    if GLOBAL::with_cfg(|c| c.interface.always_paste) || state.picker_ui.results.cursor_disabled {
-        content
-    } else {
-        // paste action
-        let base = if let Some(c) = STACK::nav_cwd() {
-            c
-        } else {
-            TOAST::push_notice(ToastStyle::Normal, "No current directory.");
-            return String::new();
-        };
-        STASH::transfer_all(base, false);
+    if let Some(c) = STACK::nav_cwd()
+        && !(GLOBAL::with_cfg(|c| c.interface.always_paste)
+            || state.picker_ui.results.cursor_disabled)
+    {
+        STASH::transfer_all(c, false);
         String::new()
+    } else {
+        content
     }
 }
 
@@ -148,40 +144,47 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
         .set_stability(STACK::with_current(FsPane::stability_threshold));
     let injector = IndexedInjector::new_globally_indexed(state.injector());
 
-    STACK::with_previous(|p, same| match p {
-        FsPane::Fd { .. } => {
-            if !same && GLOBAL::with_cfg(|c| c.panes.fd.on_leave_unset_dirs_only) {
-                FILTERS::with_vis_mut(|v| v.dirs = false);
+    let same = STACK::with_previous(|p, same| {
+        match p {
+            FsPane::Fd { .. } => {
+                if !same && GLOBAL::with_cfg(|c| c.panes.fd.on_leave_unset_dirs_only) {
+                    FILTERS::with_vis_mut(|v| v.dirs = false);
+                }
             }
-        }
-        FsPane::Rg { .. } => {
-            if same {
-                return;
-            }
-            GLOBAL::with_cfg(|_c| {
-                let r = &mut state.picker_ui.results;
+            FsPane::Rg { .. } => {
+                if same {
+                    return same;
+                }
+                GLOBAL::with_cfg(|_c| {
+                    let r = &mut state.picker_ui.results;
 
-                // todo: save and restore
-                r.config.horizontal_separator = Default::default();
-                r.config.stacked_columns = false;
-                r.set_status_line(None);
-            })
-        }
-        _ => {}
-    });
+                    // todo: save and restore
+                    r.config.horizontal_separator = Default::default();
+                    r.config.stacked_columns = false;
+                    r.set_status_line(None);
+                })
+            }
+            _ => {}
+        };
+        same
+    })
+    .unwrap_or_default();
 
     STACK::with_current_mut(|pane| {
-        GLOBAL::with_cfg(|cfg| {
-            if let Some(x) = cfg.panes.preview_show(pane) {
-                state.preview_ui.as_mut().map(|p| p.show(x));
-            }
-            if let Some(x) = cfg.panes.prompt(pane) {
-                state.picker_ui.input.config.prompt = x;
+        if !same {
+            GLOBAL::with_cfg(|cfg| {
+                if let Some(x) = cfg.panes.preview_show(pane) {
+                    state.preview_ui.as_mut().map(|p| p.show(x));
+                }
+                if let Some(x) = cfg.panes.prompt(pane) {
+                    state.picker_ui.input.config.prompt = x;
+                }
                 if let Some(p) = state.preview_ui {
                     p.set_layout(cfg.panes.preview_layout_index(pane));
                 };
-            }
-        });
+            });
+        }
+
         state.picker_ui.results.config.right_align_last = true;
 
         match pane {

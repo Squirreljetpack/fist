@@ -18,7 +18,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(shift-right) => Action::ForwardChar,
         key!(shift-left) => Action::BackwardChar,
         key!(enter) => Action::Accept,
-        key!(ctrl-enter), key!(alt-enter) => Action::Print("".into()),
+        key!(alt-enter) => Action::Print("".into()),
         key!(tab) => [Action::Toggle, Action::Down(1)],
         key!(ctrl-a) => Action::CycleAll,
 
@@ -35,21 +35,22 @@ pub fn default_binds() -> BindMap<FsAction> {
 
         // Display
         // ----------------------------------
-        key!(ctrl-s) => FsAction::Stash,
+        key!(ctrl-s), key!(alt-s) => FsAction::Stash,
         key!(alt-shift-s) => FsAction::ClearStash,
         key!(ctrl-e) => FsAction::Menu,
         // -- filters --
-        key!(alt-f), key!(ctrl-shift-f) => FsAction::Filters,
-        key!(ctrl-d) => FsAction::ToggleDirs,
-        key!(ctrl-h), key!(alt-h) => FsAction::ToggleHidden,
+        key!(ctrl-j), key!(alt-j), key!(alt-v), key!(ctrl-shift-f), key!(shift-cmd-f) => FsAction::Filters,
+        key!(ctrl-d) => FsAction::FsToggle,
+        key!(alt-h) => FsAction::ToggleHidden, // with alternates below
 
         // file actions
         // ----------------------------------
         key!(ctrl-y) => FsAction::CopyPath,
         key!(delete) => FsAction::Trash,
         key!(shift-delete) => FsAction::Delete,
+
         key!(ctrl-v) => FsAction::Paste("".into()),
-        key!(alt-b) => FsAction::Backup,
+        key!(alt-b) => FsAction::Backup, // TODO
 
         // these behave the same on the prompt
         key!(ctrl-x) => FsAction::Cut,
@@ -59,12 +60,12 @@ pub fn default_binds() -> BindMap<FsAction> {
         // preview
         key!('?') => Action::Preview(Preset::Preview.to_command_string(When::Auto)),
         key!(alt - '/') => Action::Preview(Preset::Display.to_command_string(When::Always)),
-        key!(ctrl-shift-h), key!(alt-shift-h) => FsAction::help(),
+        key!(ctrl-shift-h), key!(shift-cmd-h) => FsAction::help(),
         // spawning
         key!(alt-s) => Action::Execute("$SHELL".into()),
 
         // lessfilter
-        key!(ctrl-b) => FsAction::new_lessfilter(Preset::Open, false),
+        key!(ctrl-b) , key!(ctrl-enter) => FsAction::new_lessfilter(Preset::Open, false),
         key!(alt-b)  => FsAction::new_lessfilter(Preset::Edit, false),
         key!(ctrl-l) => FsAction::new_lessfilter(Preset::Preview, true),
         key!(alt-l)  => FsAction::new_lessfilter(Preset::Extended, true),
@@ -74,7 +75,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(shift-up) => Action::PreviewUp(1),
         key!(shift-down) => Action::PreviewDown(1),
 
-        key!(ctrl-shift-'/') => Action::CyclePreview,
+        key!(ctrl-shift-'/'), key!(shift-cmd-'/') => Action::CyclePreview,
         key!(alt-r) => Action::Reload("".to_string()),
         key!(ctrl-0), key!(ctrl-'`') => FsAction::AutoJump(0),
         key!(ctrl-1) => FsAction::AutoJump(1),
@@ -87,9 +88,23 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-8) => FsAction::AutoJump(8),
         key!(ctrl-9) => FsAction::AutoJump(9),
     );
+    // cmd+backspace is traditional for trash on mac
+    #[cfg(target_os = "macos")]
+    let ext = bindmap!(
+        key!(ctrl-h) => FsAction::Trash,
+        key!(alt-backspace) => Action::DeleteWord,
+        key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete,
+    );
+    #[cfg(not(target_os = "macos"))]
+    let ext = bindmap!(
+        key!(ctrl-h) => FsAction::ToggleHidden, // i think ctrl-h is standard for delete-word so this may not be a good idea
+        key!(alt-backspace) => Action::DeleteWord,
+    );
+
+    fs.extend(ext);
 
     let mut base = BindMap::default_binds();
-    base.append(&mut fs);
+    base.extend(fs);
 
     base
 }

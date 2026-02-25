@@ -28,23 +28,6 @@ pub mod line_column {
         LINE_COLUMN.with(|lc| *lc.borrow())
     }
 
-    // /// Set the current (line, column)
-    // pub fn set(
-    //     line: Option<isize>,
-    //     column: Option<isize>,
-    // ) {
-    //     LINE_COLUMN.with(|lc| {
-    //         *lc.borrow_mut() = (line, column);
-    //     });
-    // }
-
-    // /// Clear both values
-    // pub fn clear() {
-    //     LINE_COLUMN.with(|lc| {
-    //         *lc.borrow_mut() = (None, None);
-    //     });
-    // }
-
     // /// Parse line/column string like "10:3" or "10,3"
     // fn parse_line_column(s: &str) -> Option<(usize, usize)> {
     //     if let Some((l, c)) = s.split_once(':') {

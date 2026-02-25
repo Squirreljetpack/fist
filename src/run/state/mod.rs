@@ -301,12 +301,7 @@ pub mod APP {
         sync::{Mutex, atomic::AtomicBool},
     };
 
-    use crate::run::{FsPane, state::STACK};
-
     pub static TO_OPEN: Mutex<Vec<OsString>> = const { Mutex::new(Vec::new()) };
-    pub fn in_app_pane() -> bool {
-        STACK::with_current(|x| matches!(x, FsPane::Launch { .. }))
-    }
     /// ensure recache isn't run more than once
     pub static RAN_RECACHE: AtomicBool = const { AtomicBool::new(false) };
 }
@@ -315,7 +310,7 @@ pub mod APP {
 pub mod TASKS {
     use std::{cell::RefCell, time::Duration};
 
-    use cli_boilerplate_automation::{dbog, _ibog, wbog};
+    use cli_boilerplate_automation::{_ibog, dbog, wbog};
     use tokio::{self, task::JoinSet};
 
     thread_local! {
