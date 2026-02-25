@@ -27,7 +27,7 @@ use crate::{
     utils::text::ToastStyle,
 };
 
-pub struct Stack {
+pub struct SimpleStack {
     stack: Vec<StashItem>, // not indexmap because need const
 }
 
@@ -37,6 +37,7 @@ pub enum StashAction {
     Copy,
     Move,
     Symlink,
+    Stashed,
 }
 
 #[derive(Debug, Clone)]
@@ -70,6 +71,24 @@ impl StashItem {
         Self {
             kind: StashAction::Symlink,
             status: StashItemStatus::new(&path),
+            src: path,
+            dst: Default::default(),
+        }
+    }
+
+    // pub fn stash(path: AbsPath) -> Self {
+    //     Self {
+    //         kind: StashAction::Stashed,
+    //         status: StashItemStatus::new(&path),
+    //         src: path,
+    //         dst: Default::default(),
+    //     }
+    // }
+
+    pub fn app(path: AbsPath) -> Self {
+        Self {
+            kind: StashAction::Stashed,
+            status: StashItemStatus::default(),
             src: path,
             dst: Default::default(),
         }
@@ -182,70 +201,15 @@ impl StashItem {
     }
 }
 
-impl Stack {
-    pub const fn new() -> Self {
-        Self { stack: Vec::new() }
-    }
-}
-
-impl std::ops::Deref for Stack {
-    type Target = Vec<StashItem>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.stack
-    }
-}
-
-// helpers
-
-// pub fn toggle_insert<T: PartialEq>(
-//     list: &mut Vec<T>,
-//     item: T,
-// ) {
-//     if let Some(i) = list.iter().position(|x| *x == item) {
-//         list.remove(i);
-//     } else {
-//         list.push(item);
-//     }
-// }
-
-pub fn insert_once<T: PartialEq>(
-    list: &mut Vec<T>,
-    item: T,
-    stable: bool,
-) {
-    if stable {
-        if !list.contains(&item) {
-            list.push(item);
-        }
-    } else {
-        if let Some(i) = list.iter().position(|x| *x == item) {
-            list.remove(i);
-        }
-        list.push(item);
-    }
-}
-
-impl PartialEq for StashItem {
-    fn eq(
-        &self,
-        other: &Self,
-    ) -> bool {
-        self.src == other.src
-    }
-}
-
-impl Eq for StashItem {}
-
 // -------- GLOBAL ---------
 thread_local! {
-    static STASH_: RefCell<Stack> = const { RefCell::new(Stack::new()) };
+    static STASH_: RefCell<SimpleStack> = const { RefCell::new(SimpleStack::new()) };
 }
 
 pub struct STASH;
 
 impl STASH {
-    pub fn insert(items: impl IntoIterator<Item = StashItem>) {
+    pub fn extend(items: impl IntoIterator<Item = StashItem>) {
         for item in items {
             STASH_.with_borrow_mut(|s| insert_once(&mut s.stack, item, false));
         }
@@ -265,14 +229,26 @@ impl STASH {
         STASH_.with_borrow_mut(|s| s.stack.remove(index));
     }
 
-    pub fn with<R>(f: impl FnOnce(&Stack) -> R) -> R {
+    pub fn with<R>(f: impl FnOnce(&SimpleStack) -> R) -> R {
         STASH_.with(|cell| f(&cell.borrow()))
     }
 
-    pub fn with_mut<R>(f: impl FnOnce(&mut Stack) -> R) -> R {
+    pub fn with_mut<R>(f: impl FnOnce(&mut SimpleStack) -> R) -> R {
         STASH_.with_borrow_mut(|cell| f(cell.borrow_mut()))
     }
 
+    pub fn stashed_paths() -> Vec<OsString> {
+        STASH_.with_borrow(|s| {
+            s.stack
+                .iter()
+                .filter_map(|item| {
+                    matches!(item.kind, StashAction::Stashed).then_some(item.src.to_os_string())
+                })
+                .collect()
+        })
+    }
+}
+impl STASH {
     // call on overlay enable
     pub fn check_validity() {
         STASH_.with_borrow(|s| {
@@ -353,3 +329,60 @@ impl STASH {
         });
     }
 }
+
+// --------------------------------------------------------------
+
+impl SimpleStack {
+    pub const fn new() -> Self {
+        Self { stack: Vec::new() }
+    }
+}
+
+impl std::ops::Deref for SimpleStack {
+    type Target = Vec<StashItem>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.stack
+    }
+}
+
+// helpers
+
+// pub fn toggle_insert<T: PartialEq>(
+//     list: &mut Vec<T>,
+//     item: T,
+// ) {
+//     if let Some(i) = list.iter().position(|x| *x == item) {
+//         list.remove(i);
+//     } else {
+//         list.push(item);
+//     }
+// }
+
+pub fn insert_once<T: PartialEq>(
+    list: &mut Vec<T>,
+    item: T,
+    stable: bool,
+) {
+    if stable {
+        if !list.contains(&item) {
+            list.push(item);
+        }
+    } else {
+        if let Some(i) = list.iter().position(|x| *x == item) {
+            list.remove(i);
+        }
+        list.push(item);
+    }
+}
+
+impl PartialEq for StashItem {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
+        self.src == other.src
+    }
+}
+
+impl Eq for StashItem {}

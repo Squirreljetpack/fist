@@ -46,7 +46,7 @@ pub enum FsAction {
     /// Search in the current directory.
     Find,
     /// Full text search in the current directory.
-    Rg,
+    Search,
     /// Search your visited directories/files.
     History,
     /// Jump to a directory.
@@ -55,6 +55,8 @@ pub enum FsAction {
     /// # Note
     /// The char is emitted instead of jumping if the index is in the prompt.
     Jump(PathBuf, Option<char>),
+    /// Enter app launching pane.
+    App(bool), // whether to first push selections
 
     /// Go back
     Undo,
@@ -90,6 +92,8 @@ pub enum FsAction {
     New,
     /// Create a new directory. (todo)
     NewDir,
+    /// Save a file to the [`STASH`]
+    PushStash,
     /// Save a file to the [`STASH`] under the [`Symlink`](crate::run::stash::StashAction::Symlink) action.
     Symlink,
     /// Save the file to the backup directory. (todo)
@@ -255,18 +259,21 @@ pub fn fsaction_aliaser(
                 }
             }
             FsAction::Delete => {
-                if raw_input {
-                    acs![Action::DeleteWord]
-                } else if STACK::in_app() {
+                // probably not a good idea to put a delete action on the same key
+                // if raw_input {
+                //     acs![Action::DeleteWord]
+                // } else
+                if STACK::in_app() {
                     acs![]
                 } else {
                     acs![Action::Custom(fa)]
                 }
             }
             FsAction::Trash => {
-                if raw_input {
-                    acs![Action::DeleteWord]
-                } else if STACK::in_app() {
+                // if raw_input {
+                //     acs![Action::DeleteWord]
+                // } else
+                if STACK::in_app() {
                     acs![]
                 } else {
                     acs![Action::Custom(fa)]
@@ -475,7 +482,7 @@ pub fn fsaction_handler(
             fs_reload(state);
         }
 
-        FsAction::Rg => {
+        FsAction::Search => {
             // save input
             if STACK::with_current_mut(|x| match x {
                 FsPane::Rg {
@@ -517,6 +524,30 @@ pub fn fsaction_handler(
                 prepare_prompt(state);
             }
 
+            fs_reload(state);
+        }
+
+        FsAction::App(get_selections) => {
+            // save input
+            let (content, index) = state.get_content_and_index();
+            STACK::save_input(content, index);
+
+            if get_selections {
+                let items = if !in_prompt {
+                    state
+                        .picker_ui
+                        .selector
+                        .map_to_vec(|s| StashItem::app(s.path.clone()))
+                } else {
+                    STACK::cwd().map(StashItem::app).into_iter().collect()
+                };
+                STASH::extend(items);
+            }
+
+            let pane = FsPane::new_launch();
+            STACK::push(pane);
+
+            prepare_prompt(state);
             fs_reload(state);
         }
 
@@ -620,7 +651,7 @@ pub fn fsaction_handler(
         FsAction::Cut => {
             let mut toast_vec = vec![];
             let mut cb_vec = vec![];
-            STASH::insert(state.map_selected_to_vec(|s| {
+            STASH::extend(state.map_selected_to_vec(|s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
                 StashItem::mv(s.path.clone())
@@ -633,7 +664,7 @@ pub fn fsaction_handler(
         FsAction::Copy => {
             let mut toast_vec = vec![];
             let mut cb_vec = vec![];
-            STASH::insert(state.map_selected_to_vec(|s| {
+            STASH::extend(state.map_selected_to_vec(|s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
                 StashItem::cp(s.path.clone())
@@ -645,7 +676,7 @@ pub fn fsaction_handler(
         }
         FsAction::Symlink => {
             let mut toast_vec = vec![];
-            STASH::insert(state.map_selected_to_vec(|s| {
+            STASH::extend(state.map_selected_to_vec(|s| {
                 toast_vec.push(short_display(&s.path));
                 StashItem::cp(s.path.clone())
             }));
@@ -930,8 +961,8 @@ enum_from_str_display! {
     FsAction;
 
     units:
-    Advance, Parent, Find, Rg, History,
-    Undo, Redo,
+    Advance, Parent, Find, Search, History,
+    Undo, Redo, PushStash,
     Filters, Stash, ClearStash,
     Menu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir,
@@ -941,6 +972,7 @@ enum_from_str_display! {
     AutoJump;
 
     defaults:
+    (App, false)
     ;
     options:
     ;

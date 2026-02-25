@@ -8,21 +8,18 @@ max = 25
     percentage = 40
     min        = 30
     max        = 120
-    border = { type = "LightDoubleDashed", color = "DarkGray" }
+    border = { type = "Plain", color = "DarkGray" }
 
 [[preview.layout]]
     side       = "top"
     percentage = 50
     min        = 5
     max        = 50
-    border = { type = "LightDoubleDashed", color = "DarkGray" }
+    border = { type = "Plain", color = "DarkGray" }
 
 [preview]
 wrap = true
 border = { type = "Plain" }
 
 [overlay]
-border = { type = "Rounded", , color = "darkGrey", padding = 1 }
-
-[filters]
-border = {  padding = 0 }
+border = { type = "Plain", padding = 1 }

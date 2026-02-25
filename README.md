@@ -33,6 +33,7 @@ Call as:
   - `Alt-Enter`: Print / Alternate open.
   - `Ctrl-Enter`: Open in background.
   - `alt-b`: Edit folder
+
 ---
 
 - `ctrl-f`/`ctrl-r`: Find files / Search text.
@@ -44,10 +45,11 @@ Call as:
 - `ctrl-x`/`ctrl-c`/`ctrl-v`: Cut, Copy, Paste.
 - `delete/shift-delete`: Trash/Delete.
 - `ctrl-e`: Open menu.
-- `ctrl-s`: Open stash.
-- `ctrl-j`/`ctrl-shift-f` : Open filters.
+- `ctrl-t`: Open stash.
+- `ctrl-i` : Open filters.
 
-- `ctrl-h`/`alt-h`: Toggle hidden.
+- `ctrl-h`/`ctrl-s`/`alt-h`: Toggle hidden.
+- `ctrl-d`: Toggle contextual visibility.
 
 ---
 
@@ -60,8 +62,6 @@ Call as:
 
 For a full list of binds within the app, type `ctrl-shift-h`.\
 For more information on bindings, see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
-
-
 
 # Panes
 

@@ -119,6 +119,7 @@ Possible Conditions:
 - finer control of bumping from actions (Lessfilter/Execute/Become/PrintAccept)
 - configurable prompt styling
 - fstoggle: reverse
+
 # Stash
 
 - overridden actions should hide the overridden toast as well somehow.

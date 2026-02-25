@@ -303,12 +303,8 @@ impl TOAST {
 // -----------------------------------------
 
 pub mod APP {
-    use std::{
-        ffi::OsString,
-        sync::{Mutex, atomic::AtomicBool},
-    };
+    use std::sync::atomic::AtomicBool;
 
-    pub static TO_OPEN: Mutex<Vec<OsString>> = const { Mutex::new(Vec::new()) };
     /// ensure recache isn't run more than once
     pub static RAN_RECACHE: AtomicBool = const { AtomicBool::new(false) };
 }

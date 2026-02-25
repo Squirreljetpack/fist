@@ -3,6 +3,7 @@ use crate::{
     run::{
         action::FsAction,
         stash::{STASH, StashAction, StashItem, StashItemState, StashItemStatus},
+        state::STACK,
     },
     utils::serde::border_result,
 };
@@ -160,7 +161,7 @@ impl StashOverlay {
                     item.display()
                         .ellipsize(self.widths[1] as usize, Alignment::Right)
                         .pad(
-                            (self.widths[1] + 1 < self.available_path_w) as usize,
+                            ((self.widths[1] + 1) < self.available_path_w) as usize,
                             (self.widths[1] < self.available_path_w) as usize,
                         ),
                 );
@@ -190,6 +191,34 @@ impl StashOverlay {
             .column_spacing(0)
             .header(header)
             // .row_highlight_style(Style::default().bg(Color::Black))
+            .block(self.border().as_static_block())
+    }
+
+    pub fn make_stash_table(
+        &self,
+        items: &[StashItem],
+    ) -> Table<'static> {
+        let header = Row::new(vec!["Items"]).style(Style::new().add_modifier(Modifier::BOLD));
+
+        let rows: Vec<Row<'static>> = items
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| matches!(item.kind, StashAction::Stashed))
+            .map(|(i, item)| {
+                let content = Span::from(item.display());
+
+                if Some(i) == self.table_state.selected() {
+                    let style = Style::default().bg(Color::Black);
+                    Row::new(vec![Cell::from(content).style(style)])
+                } else {
+                    Row::new(vec![Cell::from(content)])
+                }
+            })
+            .collect();
+
+        Table::new(rows, [Constraint::Percentage(100)])
+            .column_spacing(0)
+            .header(header)
             .block(self.border().as_static_block())
     }
 }
@@ -226,11 +255,17 @@ impl Overlay for StashOverlay {
         &mut self,
         ui_area: &Rect,
     ) -> Result<Rect, [u16; 2]> {
-        STASH::with(|scratch| {
-            self.save_widths(scratch, ui_area.width);
-        });
-        log::debug!("Stash widths: {:?}", self.widths);
-        Err([self.width(), 0])
+        if STACK::in_app() {
+            self.widths = Default::default();
+            self.widths[0] = ui_area.width.saturating_sub(self.border().width());
+            Err([0, 0])
+        } else {
+            STASH::with(|scratch| {
+                self.save_widths(scratch, ui_area.width.saturating_sub(self.border().width()));
+            });
+            log::debug!("Stash widths: {:?}", self.widths);
+            Err([self.width(), 0])
+        }
     }
 
     fn handle_action(
@@ -263,10 +298,13 @@ impl Overlay for StashOverlay {
                 }
 
                 Action::Accept | Action::Select => {
-                    if let Some(i) = self.table_state.selected() {
+                    if STACK::in_app() {
+                        // todo: lowpri: spawn currently selected item directly?
+                    } else if let Some(i) = self.table_state.selected() {
                         STASH::accept(i);
                     }
                 }
+
                 Action::DeleteChar => {
                     if let Some(i) = self.table_state.selected() {
                         STASH::remove(i);
@@ -336,7 +374,9 @@ impl Overlay for StashOverlay {
         mut area: matchmaker::ui::Rect,
     ) {
         STASH::with(|scratch| {
-            if scratch.is_empty() {
+            if (!STACK::in_app() && scratch.is_empty())
+                || !scratch.iter().any(|x| x.kind == StashAction::Stashed)
+            {
                 self.table_state.select(None);
                 let msg = "Scratch is empty";
                 area.height = 3 + self.border().height();
@@ -364,7 +404,11 @@ impl Overlay for StashOverlay {
             }
 
             // 2. make table from config
-            let table = self.make_table(scratch);
+            let table = if STACK::in_app() {
+                self.make_stash_table(scratch)
+            } else {
+                self.make_table(scratch)
+            };
 
             // 3. render
             frame.render_widget(Clear, area);

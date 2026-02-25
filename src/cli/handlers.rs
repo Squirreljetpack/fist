@@ -49,7 +49,8 @@ use crate::{
         FsPane,
         mm_config::get_mm_cfg,
         start,
-        state::{APP, TEMP},
+        stash::{STASH, StashItem},
+        state::TEMP,
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
@@ -84,7 +85,11 @@ async fn handle_open(
 
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
-        *APP::TO_OPEN.lock().unwrap() = cmd.files;
+        STASH::extend(
+            cmd.files
+                .into_iter()
+                .map(|path| StashItem::app(AbsPath::new_unchecked(path))),
+        );
         cfg.global.interface.no_multi_accept = true;
         let pane = FsPane::new_launch();
 

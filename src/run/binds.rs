@@ -25,22 +25,23 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(right) => FsAction::Advance,
         key!(left) => FsAction::Parent,
         key!(ctrl-f) => FsAction::Find,
-        key!(ctrl-r) => FsAction::Rg,
+        key!(ctrl-r) => FsAction::Search,
         key!(ctrl-g) => FsAction::History,
         key!(ctrl-z) => FsAction::Undo,
         key!(alt-z) => FsAction::Redo,
+        key!(alt-a), key!(alt-shift-a) => FsAction::App(true),
         key!(ctrl-shift-'z') => FsAction::Redo,
         key!(ctrl-'/') => FsAction::Jump("".into(), None),
 
         // Display
         // ----------------------------------
-        key!(ctrl-s), key!(alt-s) => FsAction::Stash,
+        key!(ctrl-t) => FsAction::Stash,
         key!(alt-shift-s) => FsAction::ClearStash,
         key!(ctrl-e) => FsAction::Menu,
         // -- filters --
-        key!(ctrl-j), key!(alt-j), key!(alt-v), key!(ctrl-shift-f), key!(shift-cmd-f) => FsAction::Filters,
+        key!(ctrl-i) => FsAction::Filters,
         key!(ctrl-d) => FsAction::FsToggle,
-        key!(alt-h) => FsAction::ToggleHidden, // with alternates below
+        key!(alt-h), key!(ctrl-s) => FsAction::ToggleHidden,
 
         // file actions
         // ----------------------------------
@@ -90,14 +91,14 @@ pub fn default_binds() -> BindMap<FsAction> {
     // cmd+backspace is traditional for trash on mac
     #[cfg(target_os = "macos")]
     let ext = bindmap!(
-        key!(ctrl-h) => FsAction::Trash,
+        key!(ctrl-h), key!(cmd-backspace) => FsAction::Trash,
         key!(alt-backspace) => Action::DeleteWord,
         key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete,
     );
     #[cfg(not(target_os = "macos"))]
     let ext = bindmap!(
-        key!(ctrl-h) => FsAction::ToggleHidden, // i think ctrl-h is standard for delete-word so this may not be a good idea
-        key!(alt-backspace) => Action::DeleteWord,
+        key!(ctrl-h) => FsAction::ToggleHidden, // this may not be a good idea if this gets confused with ctrl-backspace, but we provide some alternate binds
+        key!(alt-backspace), key!(ctrl-backspace), key!(cmd-backspace) => Action::DeleteWord,
     );
 
     fs.extend(ext);

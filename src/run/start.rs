@@ -31,7 +31,8 @@ use crate::{
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
         previewer::make_previewer,
-        state::{APP, DB_FILTER, GLOBAL, STACK, TASKS, context::ActionContext, ui::global_ui_init},
+        stash::STASH,
+        state::{DB_FILTER, GLOBAL, STACK, TASKS, context::ActionContext, ui::global_ui_init},
     },
     spawn::{Program, open_wrapped},
     ui::{filters_overlay::FilterOverlay, menu_overlay::MenuOverlay, stash_overlay::StashOverlay},
@@ -271,9 +272,7 @@ pub async fn start(
     if STACK::in_app() {
         match ret.first().abort() {
             Ok(prog) => {
-                // no contention, but clippy warning cannot be got rid of
-                // let files = APP::TO_OPEN.lock().unwrap();
-                let files = APP::TO_OPEN.lock().unwrap().clone();
+                let files = STASH::stashed_paths();
                 let conn = GLOBAL::db().get_conn(DbTable::apps).await?;
 
                 let prog = Program::from_scanned_path(prog.path, prog.cmd);
