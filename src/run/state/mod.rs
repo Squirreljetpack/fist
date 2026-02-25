@@ -8,7 +8,7 @@ use cli_boilerplate_automation::bait::ResultExt;
 use log::debug;
 use matchmaker::{action::Action, event::RenderSender};
 use ratatui::{
-    style::Style,
+    style::{Color, Style},
     text::{Line, Span},
 };
 use tokio;
@@ -290,6 +290,13 @@ impl TOAST {
 
         let toast = make_toast(&state);
         GLOBAL::send_action(FsAction::set_footer(toast));
+    }
+
+    pub fn toast_empty() {
+        TOAST::push_msg(
+            Span::styled("No entries", Style::new().fg(Color::DarkGray).italic()),
+            true,
+        );
     }
 }
 

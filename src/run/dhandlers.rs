@@ -1,6 +1,7 @@
 use std::{ffi::OsString, process::Command};
 
 use cli_boilerplate_automation::{
+    bait::TransformExt,
     bog::BogOkExt,
     bring::StrExt,
     broc::{CommandExt, SHELL, tty_or_inherit},
@@ -188,9 +189,7 @@ fn execute(
 
     let mut vars = state.make_env_vars();
 
-    if let Some(cwd) = STACK::cwd() {
-        std::env::set_current_dir(cwd)._ebog();
-    }
+    let c = STACK::cwd();
 
     // lowpri: dow we expose fs_preview_command here?
     if STACK::in_rg() {
@@ -216,6 +215,7 @@ fn execute(
     if let Some(mut child) = Command::from_script(&cmd)
         .envs(vars)
         .stdin(tty_or_inherit())
+        .transform_if(c.is_some(), move |x| x.current_dir(c.unwrap()))
         ._spawn()
     {
         match child.wait() {

@@ -30,8 +30,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-z) => FsAction::Undo,
         key!(alt-z) => FsAction::Redo,
         key!(ctrl-shift-'z') => FsAction::Redo,
-        key!('~') => FsAction::Jump("".into(), Some('~')),
-        key!('/') => FsAction::Jump("".into(), Some('/')), // doesn't make the most sense but its convenient
+        key!(ctrl-'/') => FsAction::Jump("".into(), None),
 
         // Display
         // ----------------------------------

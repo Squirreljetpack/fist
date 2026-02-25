@@ -336,19 +336,21 @@ pub fn fsaction_aliaser(
                 {
                     enter_prompt(state, true);
                     acs![]
-                } else
+                } else if (digit - 1) as u32 == state.picker_ui.results.index()
                 // not in prompt => accept
                 {
                     acs![
                         Action::Pos((digit - 1) as i32),
-                        if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
-                            FsAction::AcceptPrint.into()
-                        } else if GLOBAL::with_cfg(|c| c.interface.autojump_advance) {
+                        if GLOBAL::with_cfg(|c| c.interface.autojump_advance) {
                             FsAction::Advance.into()
+                        } else if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                            FsAction::AcceptPrint.into()
                         } else {
                             Action::Accept
                         }
                     ]
+                } else {
+                    acs![Action::Pos((digit - 1) as i32),]
                 }
             }
             _ => acs![fa],

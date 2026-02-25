@@ -11,24 +11,10 @@ Platform specific feature flags for dependencies
 
 Nav: - search depth
 Custom: - sorting?
-pane settings need to be applied not just on startup
-When entering non-nav, cursor should enter prompt
 
 # Footer
 
-- warn: invalid lessfilter toml
 - empty directory
-
-# Execute
-
-Enter a terminal (works), and return to fs on ctrl-c (asking a bit much?)
-mini terminal?
-
-lowpri: Preview command also needs to switch cwd if there is an efficient way
-
-# Indexing
-
-- (alt)0-9 to accept? Feature is in but not sure what is a good default/behavior for this.
 
 # Lessfilter (lowpri)
 
@@ -62,7 +48,7 @@ transparent advance into compressed files
 
 # Db
 
-- option to bump on action
+- better bump on action
 
 # Other
 
@@ -70,19 +56,6 @@ transparent advance into compressed files
 - Debounce rerenders to avoid showing 0 items
 
 # Rg
-
-- Header as query stash
-- multiline items
-- parse text blocks split by ---
-  - rhs Text, if multiline, be displayed on seperate lines as opposed to a column
-- Allow configuring tokens from actions
-- probably a good option is to enable filtering on contents
-
-- options for parsing line and column:
-  - single lines
-  - clumped + heading
-  - one clump?
-  - dunno...
 
 # Global Filters
 
@@ -97,14 +70,9 @@ transparent advance into compressed files
 
 # FD
 
-changing the visibility should invalidate find
-maybe when given paths which don't exist on cli, find should treat the query as on absolute paths somehow.
-
 - More filters (mtime or sth)
 - Syncopated sorting?
-- Wrap the default command sort/visibility fields in option with optional struct, add config-powered default values and merge from those.
-
-- nav ignore?
+- Cli structs should be partial to merge into visibility?
 
 # Menu overlay
 
@@ -122,7 +90,13 @@ Custom actions
   - opt: multi
   - opt: preserve_case
 
-Per-pane extensions:
+Possible Conditions:
+
+- Selection #
+- Pane
+- Condition on selected file(s)
+- shell command
+- various other mm state
 
 ## App
 
@@ -133,25 +107,18 @@ Per-pane extensions:
 // linux: editable
 // reveal
 
-# Saved files
+# Saved file pane ideas
 
 - menu bar of files/folders: allow typing out exact path, with underline when valid and completion
 - bookmarks?
+- version controlled, generic, incremental backups
 
 # Low pri
 
-- watcher can potentially lose events due to sleep. (i.e. trash) But we only want a single dispatch for each simultaneous event. Rewrite to be edge triggered.
 - undo redo on file actions (copy/etc.)
-  error on empty?
-
-# UI
-
-...
-
-# CLI
-
-better cli/env var handling: need a proc macro to generate a mirrored with every concrete value wrapped in option, then a fn to merge that config into the main config
-support mm-partial somehow to specify ui styling?
+- Built-in edit under a feature flag? https://github.com/microsoft/edit/tree/main
+- https://github.com/unicode-org/icu4x : for table printing
+- Contained mini terminal would be cool
 
 # Stash
 
@@ -166,23 +133,16 @@ support mm-partial somehow to specify ui styling?
 
 # Shell
 
-- [x] should we include completion generation in cli (verdict: no)
 - currently completions seems to complete flags, why doesn't it complete subcommands?
 - we have some zsh specific scripts, posix/something crossplatform would be better.
 - aging algorithm
 - prepopulate some directories: trash, desktop, home etc.
 - option for second pass on z jump fail: search children and parents
 
-# Refactor
-
-- Built-in edit under a feature flag? https://github.com/microsoft/edit/tree/main
-- https://github.com/unicode-org/icu4x : for table printing
-
-# Other tables
-
-- version controlled, generic, incremental backups
-
 # Per pane mm/ui configs:
 
 - in particular: reverse/colors
 - enable partial?
+- Need figure out how defaults should be specified: in code or in config.
+- PaneSettings: prompt and show_preview are effectively partial, but not sure if we should just generalize that to supporting partial RenderConfig overrides. The size is bounded so it shouldn't be too bad?
+- Also, note that undo/redo won't save state changes caused by pane change overrides

@@ -173,8 +173,12 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
     STACK::with_current_mut(|pane| {
         if !same {
             GLOBAL::with_cfg(|cfg| {
-                if let Some(x) = cfg.panes.preview_show(pane) {
-                    state.preview_ui.as_mut().map(|p| p.show(x));
+                if let Some(condition) = cfg.panes.preview_show(pane) {
+                    let area = state.ui_size();
+                    if let Some(p) = state.preview_ui.as_mut() {
+                        p.config.show = condition;
+                        p.reevaluate_show_condition(area, false);
+                    }
                 }
                 if let Some(x) = cfg.panes.prompt(pane) {
                     state.picker_ui.input.config.prompt = x;

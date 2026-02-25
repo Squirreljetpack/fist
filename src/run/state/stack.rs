@@ -1,6 +1,6 @@
 #![allow(clippy::upper_case_acronyms)]
 
-use std::{cell::RefCell, env::current_dir, mem::discriminant};
+use std::{cell::RefCell, mem::discriminant};
 
 use log::{self};
 use matchmaker::SSS;
@@ -20,16 +20,14 @@ thread_local! {
 }
 
 pub struct STACK {
-    stack: Vec<FsPane>,
+    stack: Vec<FsPane>, // invariants: nonempty
     index: usize,
-    count: usize,
 }
 impl STACK {
     const fn new() -> Self {
         Self {
             stack: Vec::new(),
             index: 0,
-            count: 1,
         }
     }
 
@@ -38,7 +36,6 @@ impl STACK {
             *s.borrow_mut() = Self {
                 stack: vec![pane],
                 index: 0,
-                count: 1,
             }
         });
     }
@@ -49,19 +46,14 @@ impl STACK {
 
     pub fn push(pane: FsPane) {
         STACK.with(|cell| {
-            let Self {
-                stack,
-                index,
-                count,
-            } = &mut *cell.borrow_mut();
-            if *count == 1 {
+            let Self { stack, index } = &mut *cell.borrow_mut();
+            if *index == 0 {
                 if let Some(o) = TEMP::get_original_relative_path() {
                     global_ui_mut().path.relative = o;
                 }
             }
             stack.truncate(*index + 1);
             *index += 1;
-            *count += 1;
 
             log::debug!("Pushed: {pane:?}");
             stack.push(pane);
@@ -207,17 +199,17 @@ impl STACK {
                     FsPane::Files { .. } | FsPane::Folders { .. } => {}
                     FsPane::Nav { cwd, .. }
                     | FsPane::Custom { cwd, .. }
-                    | FsPane::Fd { cwd, .. } => {
+                    | FsPane::Fd { cwd, .. }
+                    | FsPane::Rg { cwd, .. }
+                    | FsPane::Stream { cwd, .. } => {
                         return Some(cwd.clone());
                     }
-                    _ => return None,
+                    FsPane::Launch { .. } => return None,
                 }
             }
-            if matches!(stack[*index], FsPane::Files { .. } | FsPane::Folders { .. }) {
-                current_dir().ok().map(AbsPath::new_unchecked)
-            } else {
-                None
-            }
+
+            // FsPane::Files looks for the last directory, or else the original
+            Some(AbsPath::default())
         })
     }
     pub fn nav_cwd() -> Option<AbsPath> {
@@ -228,6 +220,13 @@ impl STACK {
             } else {
                 None
             }
+        })
+    }
+
+    pub fn is_last() -> bool {
+        STACK.with(|cell| {
+            let Self { stack, index, .. } = &*cell.borrow();
+            *index == stack.len() - 1
         })
     }
 

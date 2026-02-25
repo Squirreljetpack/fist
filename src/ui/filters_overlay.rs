@@ -154,15 +154,22 @@ impl FilterOverlay {
             bold_indices("hidden", [0], self.item_style())
         };
 
-        vec![
+        let dirs_label = if STACK::in_rg() {
+            Default::default()
+        } else {
+            (bold_indices("Dirs", [0], self.item_style()), Some(vis.dirs))
+        };
+        let mut ret = vec![
             (hidden_label, Some(vis.hidden || vis.hidden_only)),
             (
                 bold_indices("Ignore", [0], self.item_style()),
                 Some(vis.ignore),
             ),
-            (bold_indices("Dirs", [0], self.item_style()), Some(vis.dirs)),
+            dirs_label,
             (bold_indices("all", [0], self.item_style()), Some(vis.all())),
-        ]
+        ];
+
+        ret
     }
 
     // Returns Vec<Span> for sort options
@@ -208,12 +215,9 @@ impl FilterOverlay {
                     (single, Some(*no_heading)),
                 ]
             }
-            FsPane::Fd { .. } => {
-                let context = vec![];
-                let case = vec![];
+            // FsPane::Fd { .. } => {
 
-                vec![(context, Some(true)), (case, Some(true))]
-            }
+            // }
             _ => vec![],
         })
     }
@@ -224,6 +228,7 @@ impl FilterOverlay {
 
         match x {
             2 => matches!(y, 0 | 3),
+            1 => STACK::in_rg() && y == 2,
             _ => false,
         }
     }
@@ -390,6 +395,7 @@ impl Overlay for FilterOverlay {
     ) -> OverlayEffect {
         let mut refilter = true;
         let mut reload = false;
+        // let mut found = false;
 
         match c {
             'q' => return OverlayEffect::Disable,
@@ -408,7 +414,11 @@ impl Overlay for FilterOverlay {
                             }
                             (vis.hidden, vis.hidden_only) = (false, !vis.hidden_only)
                         }
-                        'd' | 'D' => vis.dirs = !vis.dirs,
+                        'd' | 'D' => {
+                            if !STACK::in_rg() {
+                                vis.dirs = !vis.dirs
+                            }
+                        }
                         'I' => vis.ignore = !vis.ignore,
                         'a' => vis.toggle_all(),
                         _ => {}
@@ -492,7 +502,11 @@ impl Overlay for FilterOverlay {
             0
         };
 
-        self.pane_lens[1] = if true { self.get_sort_items().len() } else { 0 };
+        self.pane_lens[1] = if STACK::with_current(|x| x.supports_sort()) {
+            self.get_sort_items().len()
+        } else {
+            0
+        };
 
         self.pane_lens[2] = self.get_pane_items().len();
 

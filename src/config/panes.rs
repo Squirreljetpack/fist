@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use crate::run::FsPane;
 use fist_types::filters::*;
+use matchmaker::config::ShowCondition;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -97,7 +98,7 @@ impl PanesConfig {
     pub fn preview_show(
         &self,
         pane: &FsPane,
-    ) -> Option<bool> {
+    ) -> Option<ShowCondition> {
         match pane {
             FsPane::Custom { .. } => self.custom.show_preview,
             FsPane::Stream { .. } => self.stream.show_preview,
@@ -130,7 +131,7 @@ pub struct PaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
-    pub show_preview: Option<bool>,
+    pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
     pub enter_prompt: bool,
 
@@ -154,7 +155,7 @@ pub struct FdPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
-    pub show_preview: Option<bool>,
+    pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
     pub enter_prompt: bool,
     /// Default preview layout index for this pane
@@ -170,7 +171,7 @@ impl Default for FdPaneSettings {
     fn default() -> Self {
         Self {
             prompt: None,
-            show_preview: None,
+            show_preview: Some(ShowCondition::Free(60)),
             enter_prompt: true,
             preview_layout_index: 0,
 
@@ -186,7 +187,7 @@ pub struct RgPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
-    pub show_preview: Option<bool>,
+    pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
     pub enter_prompt: bool,
     /// Default preview layout index for this pane
@@ -212,11 +213,11 @@ impl Default for RgPaneSettings {
 
         Self {
             prompt: None,
-            show_preview: Some(true),
+            show_preview: Some(ShowCondition::Free(20)),
             enter_prompt: true,
             preview_layout_index: 1,
 
-            no_heading: false, // todo: lowpri: false or true?
+            no_heading: true, // todo: lowpri: false or true?
             default_visibility,
             default_sort: Some(SortOrder::none),
 
@@ -232,7 +233,7 @@ pub struct NavPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
-    pub show_preview: Option<bool>,
+    pub show_preview: Option<ShowCondition>,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
@@ -245,7 +246,7 @@ impl Default for NavPaneSettings {
     fn default() -> Self {
         Self {
             prompt: None,
-            show_preview: None,
+            show_preview: Some(ShowCondition::Free(50)),
             preview_layout_index: 0,
 
             default_sort: SortOrder::mtime,
@@ -260,7 +261,7 @@ pub struct HistoryPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
-    pub show_preview: Option<bool>,
+    pub show_preview: Option<ShowCondition>,
     pub enter_prompt: bool,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
@@ -272,7 +273,7 @@ pub struct AppPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
-    pub show_preview: Option<bool>,
+    pub show_preview: Option<ShowCondition>,
     pub enter_prompt: bool,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,

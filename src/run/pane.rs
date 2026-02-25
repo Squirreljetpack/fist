@@ -279,8 +279,20 @@ impl FsPane {
     pub fn supports_vis(&self) -> bool {
         matches!(
             self,
-            FsPane::Nav { .. } | FsPane::Custom { .. } | FsPane::Fd { .. }
+            FsPane::Nav { .. } | FsPane::Custom { .. } | FsPane::Fd { .. } | FsPane::Rg { .. }
         )
+    }
+
+    #[inline]
+    pub fn supports_sort(&self) -> bool {
+        // matches!(self, FsPane::Nav { .. } | FsPane::Rg { .. })
+        //     || matches!(self, |FsPane::Files { .. }| FsPane::Folders { .. }
+        //         | FsPane::Launch { .. })
+        //     || matches!(
+        //         self,
+        //         FsPane::Fd { .. } | FsPane::Custom { .. } | FsPane::Stream { .. }
+        //     )
+        true
     }
 
     #[inline]

@@ -60,33 +60,17 @@ impl FILTERS {
     // -----------------------------------
     /// Reload if pane filter differs from global filter
     pub fn refilter() {
-        match STACK::current() {
-            FsPane::Nav { sort, vis, .. } => {
+        STACK::with_current_mut(|p| match p {
+            FsPane::Nav { sort, vis, .. } | FsPane::Rg { sort, vis, .. } => {
                 FILTERS::with(|gsort, gvis| {
-                    if gsort != &sort || gvis != &vis {
-                        log::debug!("{sort} {vis:?} {gsort} {gvis:?}");
-                        STACK::with_current_mut(|pane| {
-                            if let FsPane::Nav { sort, vis, .. } = pane {
-                                *sort = *gsort;
-                                *vis = *gvis
-                            }
-                        });
+                    if gsort != &*sort || gvis != &*vis {
+                        log::debug!("updating filters: {sort} -> {gsort}, {vis:?} -> {gvis:?}");
+                        *sort = *gsort;
+                        *vis = *gvis;
                         // send the effect to trigger the formatter
                         GLOBAL::send_action(FsAction::Reload);
                     }
                 });
-
-                // The sync event isn't sent when matcher is never sent so this doesn't work
-                // if complete.load(Ordering::Acquire) && state.picker_ui.results.status.item_count == 0 {
-                //     log::debug!("Empty nav");
-                //     if GLOBAL::with_cfg(|c| c.interface.toast_on_empty) {
-                //         TOAST::push_msg(
-                //             Span::styled("No results.", Style::new().dim().italic()),
-                //             true,
-                //         );
-                //     }
-                //     return efx![];
-                // };
             }
             FsPane::Custom {
                 complete,
@@ -102,54 +86,36 @@ impl FILTERS {
             } => {
                 FILTERS::with(|gsort, gvis| {
                     log::debug!("complete: {complete:?}");
-                    if gvis != &vis {
-                        STACK::with_current_mut(|pane| {
-                            if let FsPane::Fd { vis, .. } = pane {
-                                *vis = *gvis;
-                            } else if let FsPane::Custom { vis, .. } = pane {
-                                *vis = *gvis;
-                            }
-                        });
+                    let mut reload = false;
+                    if gvis != &*vis {
+                        *vis = *gvis;
+                        reload = true;
+                    }
+                    if gsort != &*sort {
+                        *sort = *gsort; // todo: on completion, maybe fd can check if its different from initial? dunno
+                        // also need check fd stores all elements properly
+                        if complete.load(Ordering::Acquire) {
+                            reload = true;
+                        }
+                    }
+                    if reload {
+                        log::debug!("updating filters: {sort} -> {gsort}, {vis:?} -> {gvis:?}");
                         // send the effect to trigger the formatter
                         GLOBAL::send_action(FsAction::Reload);
-                    } else if gsort != &sort {
-                        STACK::with_current_mut(|pane| {
-                            if let FsPane::Fd { sort, .. } = pane {
-                                // don't exchange
-                                if complete.load(Ordering::Acquire) {
-                                    *sort = *gsort;
-                                    // todo
-                                    // iterate over current items and repush
-                                    // we can store in a global vec
-                                }
-                            } else if let FsPane::Custom { sort, .. } = pane {
-                                if complete.load(Ordering::Acquire) {
-                                    *sort = *gsort;
-                                    // set items and reload
-                                    GLOBAL::send_action(FsAction::Reload);
-                                }
-                            }
-                        });
                     }
                 });
             }
-            FsPane::Files { sort, .. } | FsPane::Folders { sort, .. } => {
+            FsPane::Files { sort, .. } | FsPane::Folders { sort, .. } | FsPane::Launch { sort } => {
                 FILTERS::with(|gsort, _| {
-                    if DbSortOrder::from(*gsort) != sort {
-                        log::debug!("changing sort: {gsort} -> {sort}");
-                        STACK::with_current_mut(|pane| {
-                            if let FsPane::Files { sort, .. } | FsPane::Folders { sort, .. } = pane
-                            {
-                                *sort = (*gsort).into();
-                            }
-                        });
-                        // send the effect to trigger the formatter
+                    if DbSortOrder::from(*gsort) != *sort {
+                        log::debug!("updating filters: {gsort} -> {sort}");
+                        *sort = (*gsort).into();
                         GLOBAL::send_action(FsAction::Reload);
                     }
                 });
             }
 
             _ => {}
-        }
+        })
     }
 }
