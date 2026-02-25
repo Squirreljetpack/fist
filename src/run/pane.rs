@@ -271,7 +271,10 @@ impl FsPane {
             }
         }
     }
+}
 
+// ------ Utilities
+impl FsPane {
     #[inline]
     pub fn supports_vis(&self) -> bool {
         matches!(
@@ -300,8 +303,7 @@ impl FsPane {
     #[inline]
     pub fn should_cancel_input_entering_dir(&self) -> bool {
         true
-        // todo: allow customizing?
-        // matches!(self, FsPane::Nav { .. } | FsPane::Launch { .. })
+        // todo: lowpri: allow customizing?
     }
 
     pub fn get_input(&self) -> String {

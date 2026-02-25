@@ -173,6 +173,31 @@ impl STACK {
         })
     }
 
+    pub fn populate(
+        injector: FsInjector,
+        callback: impl FnOnce() + SSS,
+    ) {
+        let cfg = GLOBAL::with_cfg(|c| c.clone());
+        Self::with_current(|pane| {
+            let msg = match &pane {
+                FsPane::Nav { cwd, .. } | FsPane::Custom { cwd, .. } => {
+                    WatcherMessage::Switch(cwd.inner(), notify::RecursiveMode::NonRecursive)
+                }
+                FsPane::Fd { .. } | FsPane::Rg { .. } => {
+                    // reload on small sizes?
+                    WatcherMessage::Pause
+                    // WatcherMessage::Switch(cwd.inner())
+                }
+                _ => WatcherMessage::Pause,
+            };
+            GLOBAL::send_watcher(msg);
+            pane.populate(injector, &cfg, callback);
+        });
+    }
+}
+
+// ---------------- utilities
+impl STACK {
     /// Return the cwd for Nav/Custom/Fd
     pub fn cwd() -> Option<AbsPath> {
         STACK.with(|cell| {
@@ -241,27 +266,5 @@ impl STACK {
                 _ => None,
             }
         })
-    }
-
-    pub fn populate(
-        injector: FsInjector,
-        callback: impl FnOnce() + SSS,
-    ) {
-        let cfg = GLOBAL::with_cfg(|c| c.clone());
-        Self::with_current(|pane| {
-            let msg = match &pane {
-                FsPane::Nav { cwd, .. } | FsPane::Custom { cwd, .. } => {
-                    WatcherMessage::Switch(cwd.inner(), notify::RecursiveMode::NonRecursive)
-                }
-                FsPane::Fd { .. } | FsPane::Rg { .. } => {
-                    // reload on small sizes?
-                    WatcherMessage::Pause
-                    // WatcherMessage::Switch(cwd.inner())
-                }
-                _ => WatcherMessage::Pause,
-            };
-            GLOBAL::send_watcher(msg);
-            pane.populate(injector, &cfg, callback);
-        });
     }
 }

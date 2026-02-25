@@ -3,7 +3,7 @@ use log::warn;
 use matchmaker::{config::PreviewerConfig, message::Event, preview::previewer::{PreviewMessage, Previewer}};
 use ratatui::text::Text;
 
-use crate::{aliases::MMState, run::{FsMatchmaker, dhandlers::mm_formatter}};
+use crate::{aliases::MMState, run::{FsMatchmaker, FsPane, dhandlers::mm_formatter, state::STACK}};
 
 /// Causes the program to display a preview of the active result.
 /// The Previewer can be connected to [`Matchmaker`] using [`PickOptions::previewer`]
@@ -23,17 +23,20 @@ pub fn make_previewer(
         !m.is_empty()
         {
             let cmd = mm_formatter(t, m);
-
+            
             // unwrap allowed by visible
             let index = state.preview_ui.as_ref().unwrap().config.scroll.index.as_ref();
-
-            let target = 
+            
+            let target = if STACK::with_current(|x| matches!(x, FsPane::Rg { .. })) {
                 state.current_raw().and_then(|item| {
                     state.picker_ui.worker.format_with(item, "3").and_then(|t| t.as_ref().split_delim(':')[0].parse::<isize>().ok())
-                });
-            state.preview_ui.as_mut().unwrap().set_target(target.unwrap_or(0));
-
-
+                })
+                
+            } else {
+                None
+            };
+            state.preview_ui.as_mut().unwrap().set_target(target);
+            
             let mut envs = state.make_env_vars();
             let extra = env_vars!(
                 "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),

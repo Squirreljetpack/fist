@@ -169,7 +169,7 @@ pub async fn start(
 
     let event_loop = EventLoop::with_binds(binds).with_tick_rate(tick_rate);
     let bind_tx = event_loop.bind_controller();
-    let mut context = ActionContext::new();
+    let mut context = ActionContext::new(print_handle.clone());
 
     // configure mm
     let mut builder = PickOptions::new()

@@ -110,7 +110,7 @@ impl FsMatchmaker {
                 } else {
                     state.current_raw().map(|t| t.inner.path.clone())
                 });
-                execute(template, &path, state);
+                execute(None, &path, state);
             }
         });
     }
@@ -180,11 +180,11 @@ pub fn mm_formatter(
 }
 
 fn execute(
-    template: &str,
+    template: Option<&str>,
     path: &AbsPath,
-    state: &MMState<'_, '_>,
+    state: &mut MMState<'_, '_>,
 ) {
-    let cmd = path_formatter(template, path);
+    let cmd = path_formatter(template.unwrap_or(state.payload()), path);
 
     let mut vars = state.make_env_vars();
 
@@ -193,20 +193,25 @@ fn execute(
     }
 
     // lowpri: dow we expose fs_preview_command here?
-    if let Some((line, col)) = state.current_raw().and_then(|item| {
-        state.picker_ui.worker.format_with(item, "3").map(|t| {
-            let x = t.as_ref().split_delim(':');
-            let line = x[0].parse::<isize>().ok();
-            let col = x[1].split_delim(':')[0].parse::<isize>().ok();
-            (line, col)
-        })
-    }) && let Some(t) = line
-    {
-        vars.push(("HIGHLIGHT_LINE".to_string(), t.to_string()));
-        if let Some(t) = col {
-            vars.push(("HIGHLIGHT_COLUMN".to_string(), t.to_string()));
+    if STACK::with_current(|x| matches!(x, FsPane::Rg { .. })) {
+        if let Some((line, col)) = state.current_raw().and_then(|item| {
+            state.picker_ui.worker.format_with(item, "3").map(|t| {
+                let x = t.as_ref().split_delim(':');
+                let line = x[0].parse::<isize>().ok();
+                let col = x[1].split_delim(':')[0].parse::<isize>().ok();
+                (line, col)
+            })
+        }) && let Some(t) = line
+        {
+            vars.push(("HIGHLIGHT_LINE".to_string(), t.to_string()));
+            if let Some(t) = col {
+                vars.push(("HIGHLIGHT_COLUMN".to_string(), t.to_string()));
+            }
+        };
+        if let Some(p) = state.preview_ui.as_mut() {
+            vars.push(("SCROLL_LINE".to_string(), p.offset().to_string()));
         }
-    };
+    }
 
     if let Some(mut child) = Command::from_script(&cmd)
         .envs(vars)

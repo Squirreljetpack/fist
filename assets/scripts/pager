@@ -29,6 +29,9 @@ opts=()
 [[ -n $PG_DEFAULT ]] || opts+=(--color=always --style=changes)
 [[ -n $PG_FLAGS ]] && opts+=(${(@Q)${(z)PG_FLAGS}})
 [[ $HIGHLIGHT_LINE =~ ^[0-9]+$ ]] && opts+=(--highlight-line $HIGHLIGHT_LINE)
+# [[ $SCROLL_LINE =~ ^[0-9]+$ ]] && opts+=(--highlight-line $SCROLL_LINE) # Uncomment this to listen for scroll offsets from the previewer
+
+
 
 [[ -n $PG_LESS ]] && LESS+=" $PG_LESS"
 opts+=($@)
