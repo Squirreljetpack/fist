@@ -46,10 +46,6 @@ transparent advance into compressed files
 - compress and unzip actions
 - transparent preview into compressed files
 
-# Db
-
-- better bump on action
-
 # Other
 
 - Theme?
@@ -89,6 +85,7 @@ Custom actions
   - opt: regex
   - opt: multi
   - opt: preserve_case
+- git status, lz ui
 
 Possible Conditions:
 
@@ -119,7 +116,9 @@ Possible Conditions:
 - Built-in edit under a feature flag? https://github.com/microsoft/edit/tree/main
 - https://github.com/unicode-org/icu4x : for table printing
 - Contained mini terminal would be cool
-
+- finer control of bumping from actions (Lessfilter/Execute/Become/PrintAccept)
+- configurable prompt styling
+- fstoggle: reverse
 # Stash
 
 - overridden actions should hide the overridden toast as well somehow.

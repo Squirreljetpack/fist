@@ -61,7 +61,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(alt - '/') => Action::Preview(Preset::Display.to_command_string(When::Always)),
         key!(ctrl-shift-h), key!(shift-cmd-h) => FsAction::help(),
         // spawning
-        key!(alt-s) => Action::Execute("$SHELL".into()),
+        key!(ctrl-esc) => Action::Execute("$SHELL".into()),
 
         // lessfilter
         key!(ctrl-b) , key!(ctrl-enter) => FsAction::new_lessfilter(Preset::Open, false),

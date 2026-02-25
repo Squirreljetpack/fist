@@ -9,7 +9,7 @@ pub use display::*;
 pub mod zoxide;
 pub use fist_types::filters::DbSortOrder;
 
-use crate::{abspath::AbsPath, errors::DbError};
+use crate::{abspath::AbsPath, errors::DbError, run::state::TASKS};
 use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt};
 
 pub type Epoch = i64;
@@ -22,7 +22,7 @@ impl Pool {
     ) {
         let pool = self.clone();
 
-        tokio::spawn(async move {
+        TASKS::spawn(async move {
             let table = if folder {
                 DbTable::dirs
             } else {

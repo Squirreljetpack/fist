@@ -771,9 +771,9 @@ pub fn fsaction_handler(
             } else {
                 FILTERS::with_mut(|_sort, vis| {
                     (vis.dirs, vis.files) = match (vis.dirs, vis.files) {
-                        (false, false) => (true, false),
-                        (true, false) => (false, true),
-                        (false, true) => (false, false),
+                        (false, false) => (false, true),
+                        (false, true) => (true, false),
+                        (true, false) => (false, false),
                         (true, true) => {
                             log::error!("Unexpected toggle dirs state");
                             (false, false)
@@ -888,24 +888,28 @@ pub fn fsaction_handler(
         }
 
         FsAction::AcceptPrint => {
+            let pool = GLOBAL::db();
             if in_prompt && let Some(p) = STACK::cwd() {
                 // print cwd
                 let s = p.to_string_lossy().to_string();
-                GLOBAL::db().bump(true, p);
                 print_handle.push(s);
+                // bump
+                GLOBAL::db().bump(true, p);
             } else {
                 // if alt_accept, this was aliased from Accept, in which case we should respect no_multi_accept
                 if GLOBAL::with_cfg(|c| c.interface.alt_accept && c.interface.no_multi_accept) {
                     if let Some(item) = state.current_raw() {
-                        let s = item.display().to_string();
                         GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
+
+                        let s = item.display().to_string();
                         print_handle.push(s);
                     }
                 } else {
                     // print selected
-                    state.map_selected_to_vec(|item| {
-                        let s = item.display().to_string();
+                    let v = state.map_selected_to_vec(|item| {
                         GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
+
+                        let s = item.display().to_string();
                         print_handle.push(s);
                     });
                 }

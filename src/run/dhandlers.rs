@@ -23,7 +23,7 @@ use crate::{
         ahandler::fs_reload,
         item::PathItem,
         pane::FsPane,
-        state::{FILTERS, STACK, TEMP},
+        state::{FILTERS, GLOBAL, STACK, TEMP},
     },
     utils::string::path_formatter,
 };
@@ -111,7 +111,9 @@ impl FsMatchmaker {
                 } else {
                     state.current_raw().map(|t| t.inner.path.clone())
                 });
-                execute(None, &path, state);
+                if execute(None, &path, state) {
+                    GLOBAL::db().bump(path.is_dir(), path);
+                }
             }
         });
     }
@@ -120,12 +122,15 @@ impl FsMatchmaker {
         self.register_interrupt_handler(Interrupt::Become, move |state| {
             let template = state.payload();
             if !template.is_empty()
-                && let Some(t) = state.current_raw()
+                && let Some(p) = state.current_raw()
             {
-                let cmd = mm_formatter(t, template);
+                let cmd = mm_formatter(p, template);
+                let path = p.inner.path.clone();
+                // lowpri: can't reliably do this as we immediately exec, tho i wonder if db can get corrupted this way;
+                // GLOBAL::db().bump(path.is_dir(), path);
 
                 let mut vars = state.make_env_vars();
-                let preview_cmd = mm_formatter(t, state.preview_payload());
+                let preview_cmd = mm_formatter(p, state.preview_payload());
                 let extra = env_vars!(
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
@@ -184,7 +189,7 @@ fn execute(
     template: Option<&str>,
     path: &AbsPath,
     state: &mut MMState<'_, '_>,
-) {
+) -> bool {
     let cmd = path_formatter(template.unwrap_or(state.payload()), path);
 
     let mut vars = state.make_env_vars();
@@ -220,11 +225,15 @@ fn execute(
     {
         match child.wait() {
             Ok(i) => {
-                info!("Command [{cmd}] exited with {i}")
+                info!("Command [{cmd}] exited with {i}");
+                i.success()
             }
             Err(e) => {
-                info!("Failed to wait on command [{cmd}]: {e}")
+                info!("Failed to wait on command [{cmd}]: {e}");
+                false
             }
         }
+    } else {
+        false
     }
 }
