@@ -60,7 +60,7 @@ impl PathItem {
     }
 
     pub fn new_app(entry: Entry) -> Self {
-        let rendered = Text::from(entry.name);
+        let rendered = Text::from_iter([entry.name]);
         Self {
             path: entry.path,
             cmd: if entry.cmd.is_empty() {
@@ -69,7 +69,7 @@ impl PathItem {
                 Some(entry.cmd.to_string_lossy().to_string())
             },
             rendered,
-            tail: Text::from(entry.alias),
+            tail: Text::from_iter([entry.alias]),
         }
     }
 

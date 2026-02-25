@@ -152,7 +152,7 @@ impl MimeString {
         &self,
         r#type: &str,
     ) -> bool {
-        let (type_, subtype) = self.0.split_once('/').unwrap();
+        let (type_, _subtype) = self.0.split_once('/').unwrap();
         type_.is_empty() || type_ == "*" || r#type == type_
     }
 
@@ -160,7 +160,7 @@ impl MimeString {
         &self,
         subtype: &str,
     ) -> bool {
-        let (type_, subtype_) = self.0.split_once('/').unwrap();
+        let (_type_, subtype_) = self.0.split_once('/').unwrap();
         subtype_.is_empty() || subtype_ == "*" || subtype == subtype_
     }
 

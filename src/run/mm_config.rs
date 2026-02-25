@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use cli_boilerplate_automation::bo::load_type_or_default;
 use matchmaker::{
     binds::BindMap,
@@ -9,6 +7,8 @@ use matchmaker::{
     },
     nucleo::nucleo,
 };
+use matchmaker_partial::Apply;
+use std::path::Path;
 
 use super::{FsAction, binds::default_binds};
 use crate::{
@@ -34,7 +34,7 @@ pub struct MMConfig {
 
     // overlays
     #[serde(default)]
-    pub scratch: StashConfig,
+    pub stash: StashConfig,
     #[serde(default)]
     pub filters: FiltersConfig,
     #[serde(default)]
@@ -69,16 +69,24 @@ pub fn get_mm_cfg(
 
     // Render display
     let RenderConfig {
-        ui,
-        input,
+        ui: _,
+        input: _,
         results,
+        status: _,
         preview,
         footer,
-        header,
+        header: _,
     } = &mut mm_cfg.render;
 
+    // disable some configuration settings for consistency
     results.multi_prefix = results.multi_prefix.chars().next().unwrap_or('▌').into(); // single width
     results.right_align_last = true;
+    results.stacked_columns = false;
+    results.horizontal_separator = Default::default();
+    results.min_wrap_width = results.min_wrap_width.max(10);
+    if cfg.global.mm.reverse {
+        results.reverse = Some(true)
+    }
 
     *footer = DisplayConfig {
         modifier: Default::default(),
@@ -89,32 +97,52 @@ pub fn get_mm_cfg(
     };
 
     // Preview display
-    let default_command = Preset::Preview.to_command_string(When::Auto);
-    if preview.layout.len() <= 1 {
-        let (layout, command) = if let Some(p) = preview.layout.pop() {
-            (
-                p.layout,
-                if p.command.is_empty() {
-                    default_command
-                } else {
-                    p.command
-                },
-            )
-        } else {
-            (Default::default(), default_command)
-        };
 
-        preview.layout = vec![PreviewSetting { layout, command }]
+    preview.scroll.index = None;
+    preview.scroll.percentage = Percentage::new(70);
+
+    let command = Preset::Preview.to_command_string(When::Auto);
+    if preview.layout.is_empty() {
+        preview.layout = vec![PreviewSetting {
+            command,
+            ..Default::default()
+        }]
+    } else if preview.layout[0].command.is_empty() {
+        preview.layout[0].command = command
     }
 
+    let tui = &mut mm_cfg.tui;
     // non-fullscreen by default
-    if mm_cfg.tui.layout.is_none() {
-        mm_cfg.tui.layout = Some(TerminalLayoutSettings {
+    if cfg.global.mm.fullscreen {
+        tui.layout = None
+    } else if tui.layout.is_none() {
+        tui.layout = Some(TerminalLayoutSettings {
             percentage: Percentage::new(60),
             ..Default::default()
         })
     }
+    #[cfg(debug_assertions)]
+    {
+        tui.clear_on_exit = false;
+    }
+
+    if let Err(p) = mm_cfg.filters.base.border {
+        let mut full = mm_cfg.overlay.border.clone();
+        full.apply(p);
+        mm_cfg.filters.base.border = Ok(full)
+    }
+    if let Err(p) = mm_cfg.menu.border {
+        let mut full = mm_cfg.overlay.border.clone();
+        full.apply(p);
+        mm_cfg.menu.border = Ok(full)
+    }
+    if let Err(p) = mm_cfg.stash.border {
+        let mut full = mm_cfg.overlay.border.clone();
+        full.apply(p);
+        mm_cfg.stash.border = Ok(full)
+    }
 
     log::debug!("{mm_cfg:?}");
+
     mm_cfg
 }

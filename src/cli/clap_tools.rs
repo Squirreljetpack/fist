@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{ffi::OsString, path::PathBuf};
 
 use clap::{ArgGroup, Parser};
 
@@ -48,7 +48,7 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("-f -- .."))]
     pub file_widget_args: String,
     /// Arguments passed to `fs :` when rg widget is invoked
-    #[arg(long, default_value_t = String::from(""))]
+    #[arg(long, default_value_t = String::from("-1 --fullscreen --style=none"))]
     pub rg_widget_args: String,
 
     #[arg(long, default_value_t)]
@@ -62,6 +62,10 @@ pub struct ShellCommand {
 pub struct LessfilterCommand {
     #[arg(value_name = "PRESET")]
     pub preset: Preset,
+
+    /// Arguments to pass to the first executed command (experimental).
+    #[arg(short = 'a', long = "arg")]
+    pub args: Vec<OsString>,
 
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub paths: Vec<PathBuf>,

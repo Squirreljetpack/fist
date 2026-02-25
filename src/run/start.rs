@@ -1,19 +1,21 @@
 use std::{ffi::OsString, sync::Arc};
 
-use cli_boilerplate_automation::{bait::ResultExt, bog::BogOkExt, prints};
+use cli_boilerplate_automation::{bog::BogOkExt, bring::StrExt, prints, unwrap};
 use matchmaker::{
-    MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector,
+    MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector, acs,
     action::Action,
     binds::display_binds,
     config::{PreviewerConfig, RenderConfig, TerminalConfig},
-    make_previewer,
+    event::EventLoop,
     message::{Event, RenderCommand},
     nucleo::{
         Column, Indexed, Render, Worker,
         injector::{IndexedInjector, WorkerInjector},
     },
     preview::AppendOnly,
+    ui::StatusUI,
 };
+use ratatui::text::Text;
 
 use crate::{
     clipboard,
@@ -21,13 +23,15 @@ use crate::{
     db::{DbTable, Pool, zoxide::DbFilter},
     errors::CliError,
     run::{
+        FsAction,
         action::{fsaction_aliaser, fsaction_handler},
         ahandler::paste_handler,
-        dhandlers::{MMExt, mm_formatter, sync_handler},
+        dhandlers::{MMExt, query_handler, sync_handler},
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
-        state::{APP, DB_FILTER, GLOBAL, STACK, TASKS, ui::global_ui_init},
+        previewer::make_previewer,
+        state::{APP, DB_FILTER, GLOBAL, STACK, TASKS, context::ActionContext, ui::global_ui_init},
     },
     spawn::{Program, open_wrapped},
     ui::{filters_overlay::FilterOverlay, menu_overlay::MenuOverlay, stash_overlay::StashOverlay},
@@ -35,7 +39,7 @@ use crate::{
 };
 
 pub type FsInjector = IndexedInjector<PathItem, WorkerInjector<Indexed<PathItem>>>;
-
+pub type FsMatchmaker = Matchmaker<Indexed<PathItem>, PathItem>;
 fn exist_validator(s: &PathItem) -> bool {
     s.path.exists()
 }
@@ -46,18 +50,24 @@ pub type FormatterFn = Arc<RenderFn<Indexed<PathItem>>>;
 fn make_mm(
     render: RenderConfig,
     tui: TerminalConfig,
-    cfg: &Config,
+    _cfg: &Config,
     print_handle: AppendOnly<String>,
     stability: u32,
-) -> (
-    Matchmaker<Indexed<PathItem>, PathItem>,
-    FsInjector,
-    FormatterFn,
-) {
+) -> (Matchmaker<Indexed<PathItem>, PathItem>, FsInjector) {
     let mut worker = Worker::new(
         [
             Column::new("_", |item: &Indexed<PathItem>| item.inner.as_text()),
             Column::new("", |item: &Indexed<PathItem>| item.inner.tail.clone()),
+            Column::new("3", |item: &Indexed<PathItem>| {
+                Text::from(
+                    item.inner
+                        .cmd
+                        .as_deref()
+                        .and_then(|s| s.split_once(':').map(|x| x.0))
+                        .unwrap_or_default(),
+                )
+            })
+            .without_filtering(),
         ],
         0,
     );
@@ -71,10 +81,6 @@ fn make_mm(
     //     selector = selector.disabled()
     // }
 
-    #[allow(clippy::type_complexity)]
-    let formatter: Arc<Box<dyn Fn(&Indexed<PathItem>, &str) -> String + Send + Sync>> =
-        Arc::new(Box::new(mm_formatter));
-
     let mut mm = Matchmaker::new(worker, selector);
 
     mm.config_render(render);
@@ -85,9 +91,11 @@ fn make_mm(
     mm.register_become_handler_();
     mm.register_execute_handler_();
     mm.register_reload_handler_();
-    mm.register_event_handler(Event::Synced, sync_handler);
 
-    (mm, injector, formatter)
+    mm.register_event_handler(Event::Synced, sync_handler);
+    mm.register_event_handler(Event::QueryChange, query_handler);
+
+    (mm, injector)
 }
 
 // "entrypoint", called ONCE
@@ -100,8 +108,8 @@ pub async fn start(
     // init configs
     let MMConfig {
         mut render,
-        binds,
-        scratch,
+        mut binds,
+        stash,
         filters,
         prompt,
         menu,
@@ -114,11 +122,39 @@ pub async fn start(
         render.preview.show = x
     }
     if let Some(x) = cfg.global.panes.prompt(&pane) {
-        render.input.prompt = x
+        render.input.prompt = x;
     }
+    let preview_layout_index = cfg.global.panes.preview_layout_index(&pane);
+
+    if let FsPane::Rg {
+        filtering,
+        no_heading,
+        ..
+    } = pane
+    {
+        render.preview.scroll.index = Some("3".into());
+        let r = &mut render.results;
+        let s = &mut render.status;
+        let mm = &cfg.styles.matchmaker;
+
+        r.right_align_last = false;
+
+        if !no_heading {
+            r.horizontal_separator = mm.horizontal_separator;
+            r.stacked_columns = true;
+        }
+        s.show = true;
+
+        if !filtering {
+            binds.insert(Event::QueryChange.into(), acs![FsAction::Reload]);
+        }
+    }
+
     let print_handle = AppendOnly::new();
+    let tick_rate = render.tick_rate();
+
     // init MM
-    let (mut mm, injector, formatter) = make_mm(
+    let (mut mm, injector) = make_mm(
         render,
         tui,
         &cfg,
@@ -129,16 +165,23 @@ pub async fn start(
     // init previewer
     let previewer_config = PreviewerConfig::default();
     let help_str = display_binds(&binds, Some(&previewer_config.help_colors));
-    let previewer = make_previewer(&mut mm, previewer_config, formatter, help_str);
+    let previewer = make_previewer(&mut mm, previewer_config);
+
+    let event_loop = EventLoop::with_binds(binds).with_tick_rate(tick_rate);
+    let bind_tx = event_loop.bind_controller();
+    let mut context = ActionContext::new(print_handle.clone());
 
     // configure mm
-    let mut builder = PickOptions::with_binds(binds)
+    let mut builder = PickOptions::new()
         .previewer(previewer)
-        .ext_handler(fsaction_handler)
+        .event_loop(event_loop)
+        .ext_handler(move |x, y| fsaction_handler(x, y, &mut context))
         .ext_aliaser(fsaction_aliaser)
         .paste_handler(paste_handler)
+        .hidden_columns(vec![false, false, true])
         .matcher(MATCHER_CONFIG)
-        .overlay(StashOverlay::new(scratch))
+        .overlay_config(overlay)
+        .overlay(StashOverlay::new(stash))
         .overlay(FilterOverlay::new(filters))
         .overlay(MenuOverlay::new(menu, prompt, cfg.actions));
 
@@ -148,6 +191,11 @@ pub async fn start(
     let (watcher, watcher_tx) = FsWatcher::new(cfg.notify, render_tx.clone());
 
     // set input
+    render_tx
+        .send(RenderCommand::Action(Action::SetPreview(Some(
+            preview_layout_index,
+        ))))
+        .ok();
     match &pane {
         FsPane::Custom { input, .. }
         | FsPane::Nav { input, .. }
@@ -155,9 +203,44 @@ pub async fn start(
         | FsPane::Files { input, .. } => {
             if !input.0.is_empty() {
                 render_tx
-                    .send(RenderCommand::Action(Action::SetInput(input.0.clone())))
-                    ._elog();
+                    .send(RenderCommand::Action(Action::SetQuery(input.0.clone())))
+                    .ok();
             }
+        }
+        FsPane::Rg {
+            patterns,
+            input,
+            filtering,
+            ..
+        } => {
+            let f = *filtering;
+            // set status line
+            let base = if f {
+                render_tx
+                    .send(RenderCommand::Action(Action::SetQuery(input.0.clone())))
+                    .ok();
+
+                &cfg.global.panes.rg.fs_status_template
+            } else {
+                // enable auto-reload
+                render_tx
+                    .send(RenderCommand::Action(
+                        FsAction::Filtering(Some(false)).into(),
+                    ))
+                    .ok();
+                &cfg.global.panes.rg.rg_status_template
+            };
+            let mut t = StatusUI::parse_template_to_status_line(base);
+
+            // perform other_query replacement
+            let replacement = if f { &patterns.join(" / ") } else { &input.0 }; // todo: lowpri: styling
+            for s in t.spans.iter_mut() {
+                s.content = s.content.replace("{}", replacement).into();
+            }
+
+            render_tx
+                .send(RenderCommand::Action(FsAction::SetStatus(Some(t)).into()))
+                .ok();
         }
         _ => {}
     }
@@ -169,7 +252,7 @@ pub async fn start(
     }
 
     // init global
-    GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane);
+    GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane, bind_tx);
     clipboard::init(cfg.misc.clipboard_delay_ms);
     crate::spawn::init_spawn_with(cfg.misc.spawn_with);
     global_ui_init(cfg.styles);
@@ -185,7 +268,7 @@ pub async fn start(
     print_handle.map_to_vec(|s| prints!(s));
 
     TASKS::shutdown(1, 3000).await;
-    if APP::in_app_pane() {
+    if STACK::in_app() {
         match ret.first().abort() {
             Ok(prog) => {
                 // no contention, but clippy warning cannot be got rid of
@@ -204,6 +287,8 @@ pub async fn start(
         match ret {
             Ok(lines) if lines.is_empty() => Err(MatchError::NoMatch.into()),
             Ok(lines) => {
+                set_envs(&lines);
+
                 let files: Vec<OsString> = lines
                     .iter()
                     .map(|p| OsString::from(p.path.inner()))
@@ -214,12 +299,38 @@ pub async fn start(
                 if prog.is_some() {
                     crate::spawn::init_spawn_with(Vec::new()); // if opener is set explicitly, ignore spawn_with
                 }
+
                 // the default is the same behavior as fs :open, which also called by fs :tool lessfilter open
                 open_wrapped(conn, prog, &files, false).await?;
                 Ok(())
             }
             Err(MatchError::Abort(i)) => std::process::exit(i),
             Err(e) => Err(e.into()),
+        }
+    }
+}
+
+fn set_envs(lines: &[PathItem]) {
+    let envs = STACK::with_current(|x| match x {
+        FsPane::Rg { .. } => {
+            if lines.len() > 1 {
+                return None;
+            }
+            let s = unwrap!(lines[0].cmd.as_ref());
+            let [line, rest] = s.split_delim(':');
+            let line = unwrap!(line.parse::<usize>().ok());
+            let col = rest.split_delim(':')[0].parse::<usize>().ok();
+            Some((line, col))
+        }
+        _ => None,
+    });
+
+    if let Some((line, maybe_col)) = envs {
+        unsafe {
+            std::env::set_var("HIGHLIGHT_LINE", line.to_string());
+            if let Some(c) = maybe_col {
+                std::env::set_var("HIGHLIGHT_COLUMN", c.to_string());
+            }
         }
     }
 }

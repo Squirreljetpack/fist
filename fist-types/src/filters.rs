@@ -106,9 +106,9 @@ impl Visibility {
             push = path.is_file()
         }
 
-        if !self.all {
-            push = path.exists()
-        }
+        // if !self.all {
+        //     push = path.exists()
+        // }
         push
     }
 
@@ -128,9 +128,9 @@ impl Visibility {
             }
         };
 
-        if !self.all {
-            push = path.exists()
-        }
+        // if !self.all {
+        //     push = path.exists()
+        // }
         push
     }
 

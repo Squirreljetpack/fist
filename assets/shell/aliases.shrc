@@ -19,10 +19,13 @@ n()  {
 }
 
 # open
-o()  { fs :o "${@:-.}" 2>/dev/null; }
+o()  { FS_VERBOSITY=1 fs :o "${@:-.}"; }
 
 # navigate
-Z() { z "$@" ./; }
+Z() {
+  FS_VERBOSITY=1 z "$@" ./;
+  [ $? -eq 22 ] && FS_INITIAL_INPUT="$*" z
+}
 
 # recent files
 alias zf="fs :file --sort atime"

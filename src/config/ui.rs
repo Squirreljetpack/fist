@@ -9,12 +9,14 @@ define_const_default!(
     pub struct StyleConfig {
         pub path: PathDisplayConfig,
         pub matchmaker: MatchmakerExtraConfig,
+
     }
 );
 
 // --------- Path Display -----------
 
 define_const_default!(
+    // #[partial(path)]
     #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
     #[serde(default, deny_unknown_fields)]
     pub struct PathDisplayConfig {
@@ -48,3 +50,5 @@ define_const_default!(
         pub horizontal_separator: HorizontalSeparator = HorizontalSeparator::Light,
     }
 );
+
+

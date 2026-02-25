@@ -3,14 +3,14 @@
 
 use std::path::PathBuf;
 
-use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt, prints, unwrap, wbog};
+use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt, unwrap, wbog};
 use matchmaker::{
     acs,
     action::{Action, Actions},
     message::Interrupt,
     nucleo::{Color, Modifier, Span, Style},
 };
-use ratatui::text::Text;
+use ratatui::text::{Line, Text};
 
 use crate::{
     abspath::AbsPath,
@@ -23,7 +23,7 @@ use crate::{
         item::short_display,
         pane::FsPane,
         stash::{STASH, StashItem},
-        state::{APP, FILTERS, GLOBAL, STACK, TASKS, TEMP, TOAST},
+        state::{FILTERS, GLOBAL, STACK, TASKS, TEMP, TOAST, context::ActionContext},
     },
     spawn::open_wrapped,
     ui::menu_overlay::PromptKind,
@@ -72,10 +72,10 @@ pub enum FsAction {
 
     /// Show available actions on the current item(s).
     Menu,
-    /// Toggle only showing directories.
-    /// In [`FsPane::Files`], [`FsPane::Folders`], [`FsPane::Launch`], this toggles their sort order.
-    ToggleDirs,
-    /// Toggle showing hidden files.
+    /// Toggle directory/file visibility.
+    /// In [`FsPane::Files`], [`FsPane::Folders`], [`FsPane::Launch`], [`FsPane::Rg`], this toggles their sort order.
+    FsToggle,
+    /// Toggle visibility between default and with hidden.
     ToggleHidden,
 
     // file actions
@@ -105,6 +105,7 @@ pub enum FsAction {
         preset: Preset,
         paging: bool, // whether to feed the output to a pager
         header: When,
+        special: u8,
     },
 
     // Nonbindable
@@ -115,6 +116,8 @@ pub enum FsAction {
     Reload,
     AcceptPrompt,
     AcceptPrint,
+    Filtering(Option<bool>),
+    SetStatus(Option<Line<'static>>),
 
     // Other
     // ----------------------------------
@@ -137,6 +140,27 @@ impl FsAction {
     pub fn set_header(p: impl Into<Option<Text<'static>>>) -> Self {
         Self::SetHeader(p.into())
     }
+
+    pub fn new_lessfilter(
+        preset: Preset,
+        paging: bool,
+    ) -> Self {
+        Self::Lessfilter {
+            preset,
+            paging,
+            header: When::Auto,
+            special: Default::default(),
+        }
+    }
+
+    pub fn help() -> Self {
+        Self::Lessfilter {
+            preset: Preset::Preview,
+            paging: true,
+            header: When::Auto,
+            special: 1,
+        }
+    }
 }
 
 // --------- HELPERS ------------
@@ -151,7 +175,8 @@ pub fn fsaction_aliaser(
     a: Action<FsAction>,
     state: &mut MMState<'_, '_>,
 ) -> Actions<FsAction> {
-    let raw_input = state.picker_ui.results.cursor_disabled || state.overlay_index().is_some();
+    let in_prompt = state.picker_ui.results.cursor_disabled;
+    let raw_input = in_prompt || state.overlay_index().is_some();
 
     match a {
         Action::Custom(fa) => match fa {
@@ -188,12 +213,24 @@ pub fn fsaction_aliaser(
                 }
                 acs![]
             }
+            FsAction::Filtering(s) => {
+                if let Some(s) = s {
+                    state.filtering = s
+                } else {
+                    state.filtering = !state.filtering
+                };
+                acs![]
+            }
+            FsAction::SetStatus(s) => {
+                state.picker_ui.results.set_status_line(s);
+                acs![]
+            }
 
             // Actions which only trigger when not in the prompt:
             // -------------------------------------------------
             FsAction::Jump(_, c) => {
                 if raw_input && let Some(c) = c {
-                    acs![Action::Input(c)]
+                    acs![Action::Char(c)]
                 } else {
                     acs![Action::Custom(fa)]
                 }
@@ -201,7 +238,7 @@ pub fn fsaction_aliaser(
             FsAction::Parent => {
                 if raw_input {
                     acs![Action::BackwardChar]
-                } else if APP::in_app_pane() {
+                } else if STACK::in_app() {
                     acs![]
                 } else {
                     acs![Action::Custom(fa)]
@@ -210,8 +247,26 @@ pub fn fsaction_aliaser(
             FsAction::Advance => {
                 if raw_input {
                     acs![Action::ForwardChar]
-                } else if APP::in_app_pane() {
+                } else if STACK::in_app() {
                     // todo!()
+                    acs![]
+                } else {
+                    acs![Action::Custom(fa)]
+                }
+            }
+            FsAction::Delete => {
+                if raw_input {
+                    acs![Action::DeleteWord]
+                } else if STACK::in_app() {
+                    acs![]
+                } else {
+                    acs![Action::Custom(fa)]
+                }
+            }
+            FsAction::Trash => {
+                if raw_input {
+                    acs![Action::DeleteWord]
+                } else if STACK::in_app() {
                     acs![]
                 } else {
                     acs![Action::Custom(fa)]
@@ -266,44 +321,24 @@ pub fn fsaction_aliaser(
                 // in overlay
                 {
                     acs![Action::Pos(digit.saturating_sub(1) as i32)]
-                } else
+                } else if in_prompt
                 // in prompt
-                if state.picker_ui.results.cursor_disabled {
+                {
                     // jump out
                     if digit > 0 {
                         enter_prompt(state, false);
                         acs![Action::Pos(digit as i32 - 1)]
                     } else {
-                        // accept the prompt
-                        if let Some(cwd) = STACK::cwd() {
-                            // same as Accept on ::Nav
-                            if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
-                                // print cwd
-                                let s = cwd.to_string_lossy().to_string();
-                                GLOBAL::db().bump(true, cwd);
-                                prints!(s);
-                                acs![Action::Quit(0)]
-                            } else {
-                                let path = cwd.inner().into();
-                                let pool = GLOBAL::db();
-
-                                TASKS::spawn(async move {
-                                    let conn = unwrap!(
-                                        pool.get_conn(crate::db::DbTable::dirs).await._elog()
-                                    );
-                                    open_wrapped(conn, None, &[path], true).await._elog();
-                                });
-
-                                acs![Action::Quit(0)]
-                            }
-                        } else {
-                            acs![]
-                        }
+                        acs![FsAction::AcceptPrompt]
                     }
+                } else if digit == 0
+                // 0 when not in prompt -> enter prompt
+                {
+                    enter_prompt(state, true);
+                    acs![]
                 } else
-                // not in prompt
-                if digit > 0 {
-                    // accept
+                // not in prompt => accept
+                {
                     acs![
                         Action::Pos((digit - 1) as i32),
                         if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
@@ -314,45 +349,53 @@ pub fn fsaction_aliaser(
                             Action::Accept
                         }
                     ]
-                } else
-                // 0 when not in prompt -> enter prompt
-                {
-                    enter_prompt(state, true);
-                    acs![]
                 }
             }
             _ => acs![fa],
         },
         _ => match a {
+            // these can technically be more
             Action::Up(i) => {
                 TOAST::clear();
 
                 if state.overlay_index().is_some() {
                     acs![a]
-                } else if state.picker_ui.results.cursor_disabled {
+                } else if in_prompt {
                     enter_prompt(state, false);
-                    acs![Action::Up(i)]
-                } else if i as u32 <= state.picker_ui.results.index() {
-                    acs![a]
-                } else {
+                    if !state.picker_ui.reverse() {
+                        acs![a]
+                    } else {
+                        acs![Action::Up(i.saturating_sub(1))]
+                    }
+                } else if i as u32 > state.picker_ui.results.index() && !state.picker_ui.reverse() {
                     // entering the prompt
                     enter_prompt(state, true);
                     acs![]
+                } else {
+                    acs![a]
                 }
             }
             Action::Down(i) => {
                 TOAST::clear();
 
-                if state.overlay_index().is_none() && state.picker_ui.results.cursor_disabled {
+                if state.overlay_index().is_some() {
+                    acs![a]
+                } else if in_prompt {
                     enter_prompt(state, false);
-                    acs![Action::Down(i.saturating_sub(1))]
+                    if state.picker_ui.reverse() {
+                        acs![a]
+                    } else {
+                        acs![Action::Down(i.saturating_sub(1))]
+                    }
+                } else if i as u32 > state.picker_ui.results.index() && state.picker_ui.reverse() {
+                    // entering the prompt
+                    enter_prompt(state, true);
+                    acs![]
                 } else {
                     acs![a]
                 }
             }
-            Action::Pos(_)
-                if state.overlay_index().is_none() && state.picker_ui.results.cursor_disabled =>
-            {
+            Action::Pos(_) if state.overlay_index().is_none() && in_prompt => {
                 enter_prompt(state, false);
                 acs![a]
             }
@@ -361,8 +404,7 @@ pub fn fsaction_aliaser(
             Action::Accept => {
                 if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
                     acs![Action::Custom(FsAction::AcceptPrint), Action::Quit(0)]
-                } else if state.overlay_index().is_none() && state.picker_ui.results.cursor_disabled
-                {
+                } else if state.overlay_index().is_none() && in_prompt {
                     acs![FsAction::AcceptPrompt]
                 } else {
                     acs![Action::Accept]
@@ -372,8 +414,7 @@ pub fn fsaction_aliaser(
             Action::Print(s) if s.is_empty() => {
                 if !GLOBAL::with_cfg(|c| c.interface.alt_accept) {
                     acs![FsAction::AcceptPrint]
-                } else if state.overlay_index().is_none() && state.picker_ui.results.cursor_disabled
-                {
+                } else if state.overlay_index().is_none() && in_prompt {
                     acs![FsAction::AcceptPrompt]
                 } else {
                     acs![Action::Accept]
@@ -394,7 +435,11 @@ pub fn fsaction_aliaser(
 pub fn fsaction_handler(
     a: FsAction,
     state: &mut MMState<'_, '_>,
+    context: &mut ActionContext,
 ) {
+    let print_handle = &context.print_handle;
+    let in_prompt = state.picker_ui.results.cursor_disabled;
+
     match a {
         FsAction::Find => {
             // save input
@@ -407,6 +452,10 @@ pub fn fsaction_handler(
                 FILTERS::sort(),
                 FILTERS::visibility(),
             );
+
+            if STACK::with_current(|p| *p == pane) {
+                return;
+            }
             STACK::push(pane);
 
             prepare_prompt(state);
@@ -426,18 +475,46 @@ pub fn fsaction_handler(
 
         FsAction::Rg => {
             // save input
-            let (content, index) = state.get_content_and_index();
-            STACK::save_input(content, index);
+            if STACK::with_current_mut(|x| match x {
+                FsPane::Rg {
+                    input,
+                    filtering,
+                    patterns,
+                    pattern_index,
+                    ..
+                } => {
+                    if patterns.is_empty() {
+                        patterns.push(String::new());
+                    }
+                    if *filtering {
+                        // load picker_ui.input from patterns, reload will start reading last pattern from picker_ui.input
+                        std::mem::swap(
+                            &mut patterns[*pattern_index],
+                            &mut state.picker_ui.input.input,
+                        );
+                    } else {
+                        std::mem::swap(&mut input.0, &mut state.picker_ui.input.input);
+                    }
+                    state.picker_ui.input.recompute_graphemes();
+                    state.picker_ui.input.set(None, u16::MAX);
+                    *filtering = !*filtering;
+                    false
+                }
+                _ => true,
+            }) {
+                // let mut vis = FILTERS::visibility(); // todo: merge instead of overwrite
+                let vis = GLOBAL::with_cfg(|cfg| cfg.panes.rg.default_visibility);
 
-            // let pane = FsPane::new_fd(
-            //     STACK::cwd().unwrap_or_default(),
-            //     FILTERS::sort(),
-            //     FILTERS::visibility(),
-            // );
-            // STACK::push(pane);
-            // todo!();
+                let pane = FsPane::new_rg(
+                    STACK::cwd().unwrap_or_default(),
+                    FILTERS::sort(),
+                    vis,
+                    GLOBAL::with_cfg(|c| c.panes.rg.no_heading),
+                );
+                STACK::push(pane);
+                prepare_prompt(state);
+            }
 
-            prepare_prompt(state);
             fs_reload(state);
         }
 
@@ -632,7 +709,7 @@ pub fn fsaction_handler(
             });
         }
         FsAction::CopyPath => {
-            let paths = if !state.picker_ui.results.cursor_disabled {
+            let paths = if !in_prompt {
                 state.map_selected_to_vec(|s| s.path.inner())
             } else {
                 STACK::cwd().map(PathBuf::from).into_iter().collect()
@@ -666,7 +743,7 @@ pub fn fsaction_handler(
         }
 
         // filters
-        FsAction::ToggleDirs => {
+        FsAction::FsToggle => {
             if STACK::with_current(|p| matches!(p, FsPane::Files { .. } | FsPane::Folders { .. })) {
                 let p_str = FILTERS::with_mut(|sort, _vis| {
                     sort.cycle();
@@ -700,7 +777,7 @@ pub fn fsaction_handler(
                             (false, false)
                         }
                     };
-                    if !state.picker_ui.results.cursor_disabled {
+                    if !in_prompt {
                         if vis.dirs {
                             state.picker_ui.input.prompt = Span::styled(
                                 "d: ",
@@ -742,13 +819,14 @@ pub fn fsaction_handler(
             preset,
             paging,
             header,
+            special,
         } => {
-            if APP::in_app_pane() {
+            if STACK::in_app() {
                 // todo
                 return;
             }
 
-            if state.current_raw().is_none() && !state.picker_ui.results.cursor_disabled {
+            if state.current_raw().is_none() && !in_prompt {
                 return;
             };
 
@@ -760,11 +838,7 @@ pub fn fsaction_handler(
                 TEMP::set_that_execute_handler_should_process_cwd();
             }
 
-            let mut template = if state
-                .preview_set_payload
-                .as_ref()
-                .is_some_and(|s| s.is_empty())
-            {
+            let mut template = if special == 1 {
                 format!(
                     "'{}' :tool show-binds",
                     crate::cli::paths::current_exe()
@@ -794,7 +868,7 @@ pub fn fsaction_handler(
 
         FsAction::AcceptPrompt => {
             // accepting on nav pane prompt opens the displayed directory
-            if let FsPane::Nav { cwd, .. } = STACK::current() {
+            if let Some(cwd) = STACK::nav_cwd() {
                 let path = cwd.inner().into();
                 let pool = GLOBAL::db();
 
@@ -803,37 +877,38 @@ pub fn fsaction_handler(
                     open_wrapped(conn, None, &[path], true).await._elog();
                 });
 
-                state.should_quit = true;
+                if state.selections().is_empty() {
+                    state.should_quit = true;
+                }
             } else if let Some(cwd) = STACK::cwd() {
                 enter_dir_pane(state, cwd);
             }
         }
 
         FsAction::AcceptPrint => {
-            if state.picker_ui.results.cursor_disabled
-                && let Some(p) = STACK::cwd()
-            {
+            if in_prompt && let Some(p) = STACK::cwd() {
                 // print cwd
                 let s = p.to_string_lossy().to_string();
                 GLOBAL::db().bump(true, p);
-                prints!(s);
+                print_handle.push(s);
             } else {
                 // if alt_accept, this was aliased from Accept, in which case we should respect no_multi_accept
                 if GLOBAL::with_cfg(|c| c.interface.alt_accept && c.interface.no_multi_accept) {
                     if let Some(item) = state.current_raw() {
                         let s = item.display().to_string();
                         GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
-                        prints!(s);
+                        print_handle.push(s);
                     }
                 } else {
                     // print selected
                     state.map_selected_to_vec(|item| {
                         let s = item.display().to_string();
                         GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
-                        prints!(s);
+                        print_handle.push(s);
                     });
                 }
             }
+            state.picker_ui.selector.clear();
             state.should_quit = true;
         }
 
@@ -852,7 +927,7 @@ enum_from_str_display! {
     Advance, Parent, Find, Rg, History,
     Undo, Redo,
     Filters, Stash, ClearStash,
-    Menu, ToggleDirs, ToggleHidden,
+    Menu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir,
     Symlink, Backup, Trash, Delete;
 
@@ -917,14 +992,15 @@ macro_rules! enum_from_str_display {
                             write!(f, "Jump({})", path.display())
                         }
                     }
-                    SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint => Ok(()), // internal
-                    Lessfilter { preset, paging, header } => {
+                    SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) => Ok(()), // internal
+                    Lessfilter { preset, paging, header: _, .. } => {
                         let mut preset = preset.to_string();
                         if *paging {
                             preset.push('|')
                         };
                         write!(f, "Lessfilter({preset})")
                     }
+                    /* ------------------------------------- */
                 }
             }
         }
@@ -1002,9 +1078,9 @@ macro_rules! enum_from_str_display {
                             paging = true;
                         }
 
-                        let preset = preset_str.to_lowercase().parse().map_err(|e| format!("Invalid preset for lessfilter: {preset_str}"))?;
+                        let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for lessfilter: {preset_str}"))?;
                         let header = When::default();
-                        Ok(Self::Lessfilter { preset, paging, header })
+                        Ok(Self::Lessfilter { preset, paging, header, special: Default::default() })
                     }
                     /* ------------------------------------- */
 

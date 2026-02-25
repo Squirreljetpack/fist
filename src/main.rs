@@ -1,10 +1,11 @@
-use std::{fs::OpenOptions, io::Write, path::PathBuf, process};
+use std::{fs::OpenOptions, io::Write, path::PathBuf, process::exit};
 
 use cli_boilerplate_automation::{
+    _ibog,
     bait::ResultExt,
     bo::{load_type_or_default, write_str},
     bog::{self, BogOkExt},
-    ebog, ibog,
+    ebog,
 };
 use fist::{
     cli::{
@@ -15,10 +16,12 @@ use fist::{
     config::Config,
     errors::CliError,
 };
+use matchmaker::MatchError;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
     let cli = Cli::parse_custom();
+    let verbosity = cli.opts.verbosity();
 
     bog::init_bogger(true, false);
     if matches!(
@@ -46,6 +49,7 @@ async fn main() {
     }
 
     // load config
+
     let mut cfg: Config = load_type_or_default(config_path(), |s| toml::from_str(s));
     cfg.override_from(&cli.opts);
 
@@ -66,17 +70,27 @@ async fn main() {
     {
         // skip
     } else {
-        init_logger(
-            cli.opts.verbosity(),
-            cfg.log_path(),
-            cfg.misc.append_mode_logging,
-        );
+        init_logger(verbosity, cfg.log_path(), cfg.misc.append_mode_logging);
     }
 
     match handle_subcommand(cli, cfg).await {
         Ok(()) => (),
-        Err(CliError::Handled) => process::exit(1),
-        Err(e) => ebog!("{e}"),
+        Err(CliError::Handled) => exit(1),
+        Err(e) => {
+            let code = match e {
+                CliError::MatchError(MatchError::EventLoopClosed) => 127,
+                CliError::MatchError(MatchError::NoMatch) => {
+                    if verbosity >= 1 {
+                        ebog!("{e}")
+                    }
+                    exit(22)
+                }
+
+                _ => 1,
+            };
+            ebog!("{e}");
+            exit(code);
+        }
     }
 }
 
@@ -85,42 +99,48 @@ fn init_logger(
     log_path: PathBuf,
     append: bool,
 ) {
-    use log::LevelFilter;
+    // init bogger
+    use log::LevelFilter::*;
     bog::init_bogger(true, true);
     bog::init_filter(verbosity);
 
-    let rust_log = std::env::var("RUST_LOG").ok().map(|val| val.to_lowercase());
-
+    // init levels from `RUST_LOG`
     let mut builder = env_logger::Builder::from_default_env();
 
+    // override levels
+    let rust_log = std::env::var("RUST_LOG").ok().map(|val| val.to_lowercase());
     if rust_log.is_none() {
         #[cfg(debug_assertions)]
         {
             builder
-                .filter(None, LevelFilter::Info)
-                .filter(Some("nucleo"), LevelFilter::Debug)
-                .filter(Some("matchmaker"), LevelFilter::Debug)
-                .filter(Some(BINARY_FULL), LevelFilter::Trace);
+                .filter(None, Info)
+                .filter(Some("nucleo"), Debug)
+                .filter(Some("matchmaker"), Debug)
+                .filter(Some(BINARY_FULL), Trace);
         }
         #[cfg(not(debug_assertions))]
         {
+            use cli_boilerplate_automation::bait::TransformExt;
+
+            // set style
             builder
                 .format_module_path(false)
                 .format_target(false)
                 .format_timestamp(None);
 
-            let level = cli_boilerplate_automation::bother::level_filter::from_env();
-
+            let level = cli_boilerplate_automation::bother::level_filter::from_verbosity(
+                verbosity.transform_if(verbosity > 4, |v| v - 1),
+            );
             builder
-                .filter(Some("sqlx"), LevelFilter::Trace)
-                .filter(Some("nucleo"), LevelFilter::Trace)
+                .filter(Some("sqlx"), level)
+                .filter(Some("cli_boilerplate_automation"), level)
                 .filter(Some("matchmaker"), level)
                 .filter(Some(BINARY_FULL), level);
         }
     }
 
+    // open log file in open/append
     let mut opts = OpenOptions::new();
-
     opts.create(true);
     if append {
         opts.append(true);
@@ -128,6 +148,7 @@ fn init_logger(
         opts.truncate(true).write(true);
     }
 
+    // target log file
     if let Some(log_file) = opts
         .open(log_path)
         .prefix("Failed to open log file")
@@ -152,7 +173,7 @@ fn dump_config(
             ._ebog()
             .is_some()
         {
-            ibog!("Wrote config to {}", &opts.config.to_string_lossy());
+            _ibog!("Wrote config to {}", &opts.config.to_string_lossy());
             // overwrite helper files
             Config::default().check_scripts(true);
         } else {
@@ -164,7 +185,7 @@ fn dump_config(
                 ._ebog()
                 .is_some()
         {
-            ibog!("Wrote config to {}", opts.mm_config.to_string_lossy())
+            _ibog!("Wrote config to {}", opts.mm_config.to_string_lossy())
         }
         if !lessfilter_cfg_path.exists()
             && write_str(
@@ -174,7 +195,7 @@ fn dump_config(
             ._ebog()
             .is_some()
         {
-            ibog!("Wrote config to {}", lessfilter_cfg_path.to_string_lossy())
+            _ibog!("Wrote config to {}", lessfilter_cfg_path.to_string_lossy())
         }
     } else {
         // if piped: dump the current cfg
@@ -194,7 +215,7 @@ fn dump_config(
         }
     }
 
-    std::process::exit(0);
+    exit(0);
 }
 
 fn check(cfg: &Config) {

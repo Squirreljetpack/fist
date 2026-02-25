@@ -71,7 +71,7 @@ impl PromptOverlay {
             Action::DeleteLineStart => self.delete_line_start(),
             Action::DeleteLineEnd => self.delete_line_end(),
             Action::Cancel => self.cancel(),
-            Action::InputPos(delta) => {
+            Action::QueryPos(delta) => {
                 todo!()
             }
             Action::Accept => return Some(true),

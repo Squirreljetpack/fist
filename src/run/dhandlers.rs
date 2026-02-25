@@ -2,13 +2,13 @@ use std::{ffi::OsString, process::Command};
 
 use cli_boilerplate_automation::{
     bog::BogOkExt,
+    bring::StrExt,
     broc::{CommandExt, SHELL, tty_or_inherit},
-    unwrap, env_vars, prints,
+    env_vars, prints, unwrap,
 };
 use easy_ext::ext;
 use log::{debug, info};
 use matchmaker::{
-    Matchmaker,
     message::{Event, Interrupt},
     nucleo::Indexed,
     preview::AppendOnly,
@@ -18,11 +18,13 @@ use crate::{
     abspath::AbsPath,
     aliases::MMState,
     run::{
+        FsMatchmaker,
         ahandler::fs_reload,
         item::PathItem,
         pane::FsPane,
         state::{FILTERS, STACK, TEMP},
     },
+    utils::string::path_formatter,
 };
 
 // before reload, store a recovery method
@@ -60,9 +62,16 @@ pub fn sync_handler(
     };
 }
 
+pub fn query_handler(
+    _state: &mut MMState<'_, '_>,
+    _: &Event,
+) {
+    // rg query change is handled by rebinds
+}
+
 #[ext(MMExt)]
 // overrides to support static formatter
-impl Matchmaker<Indexed<PathItem>, PathItem> {
+impl FsMatchmaker {
     pub fn register_reload_handler_(&mut self) {
         self.register_interrupt_handler(Interrupt::Reload, move |state| {
             let template = state.payload();
@@ -80,6 +89,7 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
                         STACK::cwd().unwrap_or_default(),
                         FILTERS::visibility(),
                         command,
+                        false,
                     );
                     STACK::push(pane);
 
@@ -100,7 +110,7 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
                 } else {
                     state.current_raw().map(|t| t.inner.path.clone())
                 });
-                execute(template, &path, state);
+                execute(None, &path, state);
             }
         });
     }
@@ -119,6 +129,20 @@ impl Matchmaker<Indexed<PathItem>, PathItem> {
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
                 vars.extend(extra);
+                if let Some((line, col)) = state.current_raw().and_then(|item| {
+                    state.picker_ui.worker.format_with(item, "3").map(|t| {
+                        let x = t.as_ref().split_delim(':');
+                        let line = x[0].parse::<isize>().ok();
+                        let col = x[1].split_delim(':')[0].parse::<isize>().ok();
+                        (line, col)
+                    })
+                }) && let Some(t) = line
+                {
+                    vars.push(("HIGHLIGHT_LINE".to_string(), t.to_string()));
+                    if let Some(t) = col {
+                        vars.push(("HIGHLIGHT_COLUMN".to_string(), t.to_string()));
+                    }
+                };
 
                 if let Some(cwd) = STACK::cwd() {
                     std::env::set_current_dir(cwd)._ebog();
@@ -152,20 +176,41 @@ pub fn mm_formatter(
     item: &Indexed<PathItem>,
     template: &str,
 ) -> String {
-    crate::utils::text::path_formatter(template, &item.inner.path)
+    path_formatter(template, &item.inner.path)
 }
 
 fn execute(
-    template: &str,
+    template: Option<&str>,
     path: &AbsPath,
-    state: &MMState<'_, '_>,
+    state: &mut MMState<'_, '_>,
 ) {
-    let cmd = crate::utils::text::path_formatter(template, path);
+    let cmd = path_formatter(template.unwrap_or(state.payload()), path);
 
-    let vars = state.make_env_vars();
+    let mut vars = state.make_env_vars();
 
     if let Some(cwd) = STACK::cwd() {
         std::env::set_current_dir(cwd)._ebog();
+    }
+
+    // lowpri: dow we expose fs_preview_command here?
+    if STACK::in_rg() {
+        if let Some((line, col)) = state.current_raw().and_then(|item| {
+            state.picker_ui.worker.format_with(item, "3").map(|t| {
+                let x = t.as_ref().split_delim(':');
+                let line = x[0].parse::<isize>().ok();
+                let col = x[1].split_delim(':')[0].parse::<isize>().ok();
+                (line, col)
+            })
+        }) && let Some(t) = line
+        {
+            vars.push(("HIGHLIGHT_LINE".to_string(), t.to_string()));
+            if let Some(t) = col {
+                vars.push(("HIGHLIGHT_COLUMN".to_string(), t.to_string()));
+            }
+        };
+        if let Some(p) = state.preview_ui.as_mut() {
+            vars.push(("SCROLL_LINE".to_string(), p.offset().to_string()));
+        }
     }
 
     if let Some(mut child) = Command::from_script(&cmd)

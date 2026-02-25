@@ -32,3 +32,31 @@ where
         None => Ok(None),
     }
 }
+
+pub mod border_result {
+    use matchmaker::config::{BorderSetting, PartialBorderSetting};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(
+        value: &Result<BorderSetting, PartialBorderSetting>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match value {
+            Ok(full) => full.serialize(serializer),
+            Err(partial) => partial.serialize(serializer),
+        }
+    }
+
+    pub fn deserialize<'de, D>(
+        deserializer: D
+    ) -> Result<Result<BorderSetting, PartialBorderSetting>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let partial = PartialBorderSetting::deserialize(deserializer)?;
+        Ok(Err(partial))
+    }
+}

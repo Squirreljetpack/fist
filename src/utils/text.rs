@@ -1,15 +1,7 @@
-use std::path::{MAIN_SEPARATOR, Path, PathBuf};
-
-use cli_boilerplate_automation::bring::consume_escaped;
 use matchmaker::nucleo::{Line, Span, Style};
 use ratatui::{
     style::{Color, Modifier},
     text::Text,
-};
-
-use crate::{
-    abspath::AbsPath,
-    cli::paths::{__cwd, __home},
 };
 
 // strum::IntoStaticStr,
@@ -75,102 +67,10 @@ pub fn make_toast(toasts: &[(Span<'static>, ToastContent)]) -> Text<'static> {
     Text::from(lines.collect::<Vec<_>>())
 }
 
-fn split_path_ends(
-    path: &Path,
-    start_count: usize,
-    end_count: usize,
-) -> (String, String) {
-    let comps: Vec<_> = path.components().collect();
-
-    let len = comps.len();
-
-    if start_count + end_count >= len {
-        return (path.to_string_lossy().into_owned(), String::new());
-    }
-
-    let first = comps[..start_count]
-        .iter()
-        .collect::<PathBuf>()
-        .to_string_lossy()
-        .into_owned();
-
-    let last = comps[len - end_count..]
-        .iter()
-        .collect::<PathBuf>()
-        .to_string_lossy()
-        .into_owned();
-
-    (first, last)
-}
-
-pub fn format_cwd_prompt(
-    template: &str,
-    cwd: &Path,
-) -> String {
-    let mut out = String::with_capacity(template.len());
-    let mut chars = template.chars().peekable();
-    // collapse home
-    let cwd = if let Ok(stripped) = cwd.strip_prefix(__home()) {
-        &PathBuf::from("~").join(stripped)
-    } else {
-        cwd
-    };
-
-    while let Some(ch) = chars.next() {
-        if ch != '{' {
-            out.push(ch);
-            continue;
-        }
-
-        let mut spec = String::new();
-        for c in chars.by_ref() {
-            if c == '}' {
-                break;
-            }
-            spec.push(c);
-        }
-
-        match spec.as_str() {
-            "" => {
-                out.push_str(&cwd.to_string_lossy());
-            }
-            _ => {
-                match spec.split_once(':').map(|(x, y)| {
-                    (
-                        x.is_empty()
-                            .then_some(0)
-                            .or_else(|| x.parse::<usize>().ok()),
-                        y.is_empty()
-                            .then_some(0)
-                            .or_else(|| y.parse::<usize>().ok()),
-                    )
-                }) {
-                    Some((Some(s), Some(e))) => {
-                        let (first, last) = split_path_ends(cwd, s, e);
-                        if last.is_empty() {
-                            // first is full path
-                            out.push_str(&first);
-                        } else {
-                            out.push_str(&first);
-                            out.push('…');
-                            out.push(MAIN_SEPARATOR);
-                            out.push_str(&last);
-                        }
-                    }
-                    _ => {
-                        out.push_str(&spec);
-                    }
-                }
-            }
-        }
-    }
-
-    out
-}
-
 pub fn bold_indices(
     s: &str,
     indices: impl IntoIterator<Item = usize>,
+    normal_style: Style,
 ) -> Vec<Span<'_>> {
     let mut spans = Vec::new();
     let mut indices_iter = indices.into_iter();
@@ -181,7 +81,7 @@ pub fn bold_indices(
     for (char_idx, c) in s.chars().enumerate() {
         if char_idx == next_bold {
             if !buffer.is_empty() {
-                spans.push(Span::raw(std::mem::take(&mut buffer)));
+                spans.push(Span::styled(std::mem::take(&mut buffer), normal_style));
             }
             spans.push(Span::styled(
                 c.to_string(),
@@ -194,187 +94,242 @@ pub fn bold_indices(
     }
 
     if !buffer.is_empty() {
-        spans.push(Span::raw(buffer));
+        spans.push(Span::styled(buffer, normal_style));
+    }
+
+    spans
+}
+pub fn bold_segments<'a, I, J>(
+    segments: I,
+    indices: J,
+    normal_style: Style,
+) -> Vec<Span<'a>>
+where
+    I: IntoIterator<Item = &'a str>,
+    J: IntoIterator<Item = usize>,
+{
+    let mut spans = Vec::new();
+    let mut indices = indices.into_iter().peekable();
+    let mut offset = 0;
+
+    for s in segments {
+        let len = s.chars().count();
+
+        // collect indices that fall within this segment
+        let mut local = Vec::new();
+        while let Some(&idx) = indices.peek() {
+            if idx < offset + len {
+                local.push(idx - offset);
+                indices.next();
+            } else {
+                break;
+            }
+        }
+
+        spans.extend(bold_indices(s, local, normal_style));
+        offset += len;
     }
 
     spans
 }
 
-/// - Split on whitespace
-/// - maintain within '.
-/// - \ escapes ' only.
-pub fn split_whitespace_keep_single_quotes(s: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut cur = String::new();
-    let mut chars = s.chars().peekable();
-
-    let mut in_single = false;
-
-    while let Some(c) = chars.next() {
-        match c {
-            '\'' => {
-                in_single = !in_single;
-            }
-            '\\' => {
-                if let Some(next) = chars.next() {
-                    if next != '\'' {
-                        cur.push('\\');
-                    }
-                    cur.push(next);
-                }
-            }
-            c if c.is_whitespace() && !in_single => {
-                if !cur.is_empty() {
-                    out.push(std::mem::take(&mut cur));
-                }
-            }
-            _ => cur.push(c),
-        }
-    }
-
-    if !cur.is_empty() {
-        out.push(cur);
-    }
-
-    out
-}
-
-pub fn slice_path(
-    path: &Path,
-    start: i32,
-    end: i32,
-) -> PathBuf {
-    let comps: Vec<_> = path.components().collect();
-    let len = comps.len() as i32;
-
-    let norm = |i: i32| {
-        if i < 0 {
-            (len + i).clamp(0, len)
-        } else {
-            i.clamp(0, len)
-        }
-    };
-
-    let s = norm(start);
-    let e = if end == 0 { len } else { norm(end) };
-
-    comps[s as usize..e as usize]
-        .iter()
-        .fold(PathBuf::new(), |mut p, c| {
-            p.push(c.as_os_str());
-            p
+/// Convert `Text` into lines of plain `String`s
+pub fn text_to_lines(text: &Text) -> Vec<String> {
+    text.iter()
+        .map(|spans| {
+            spans
+                .iter()
+                .map(|span| span.content.as_ref())
+                .collect::<String>()
         })
+        .collect()
 }
 
-pub fn path_formatter(
-    template: &str,
-    path: &AbsPath,
-) -> String {
-    let mut out = String::with_capacity(template.len());
-    let mut chars = template.chars().peekable();
+/// Convert `Text` into a single `String` with newlines
+pub fn text_to_string(text: &Text) -> String {
+    text_to_lines(text).join("\n")
+}
 
-    while let Some(ch) = chars.next() {
-        if ch == '\\' {
-            consume_escaped(&mut chars, &mut out);
-            continue;
-        }
-
-        if ch != '{' {
-            out.push(ch);
-            continue;
-        }
-
-        // parse spec inside {}
-        let mut spec = String::new();
-        while let Some(&c) = chars.peek() {
-            if c == '}' {
-                chars.next(); // consume
-                break;
+/// Cleans a Text object by removing explicit 'Reset' colors and 'Not' modifiers.
+/// This allows the Text to properly inherit styles from its parent container.
+pub fn scrub_text_styles(text: &mut Text<'_>) {
+    for line in &mut text.lines {
+        for span in &mut line.spans {
+            // 1. Handle Colors: If it's explicitly Reset, make it None (transparent/inherit)
+            if span.style.fg == Some(Color::Reset) {
+                span.style.fg = None;
             }
-            spec.push(c);
-            chars.next();
+            if span.style.bg == Some(Color::Reset) {
+                span.style.bg = None;
+            }
+            if span.style.underline_color == Some(Color::Reset) {
+                span.style.underline_color = None;
+            }
+
+            span.style.sub_modifier = Modifier::default();
+        }
+    }
+}
+
+pub fn spans_to_owned(spans: Vec<Span<'_>>) -> Vec<Span<'static>> {
+    spans
+        .into_iter()
+        .map(|span| Span {
+            content: span.content.to_string().into(),
+            style: span.style,
+        })
+        .collect()
+}
+
+pub fn parse_rg_line(
+    line: Line,
+    field_match_seperator: char,
+) -> Option<(String, String, Text)> {
+    let mut state: usize = 0;
+    let mut path = String::new();
+    let mut line_num = String::new();
+    let mut col_num = String::new();
+    let mut content_spans: Vec<Span> = Vec::new();
+
+    for span in line.spans {
+        let content = span.content.as_ref();
+
+        // If we're already in the Content state, just preserve the span
+        if state == 3 {
+            content_spans.push(span);
+            continue;
         }
 
-        if spec.is_empty() {
-            // {}
-            out.push('\'');
-            out.push_str(&path.to_string_lossy().replace('\'', "'\\''"));
-            out.push('\'');
-        } else if let Some((a, d, b)) = split_on_first_delim(&spec, [':', '=', '.']) {
-            // check if both a and b are integers
-            let start = if a.is_empty() {
-                Some(0)
-            } else {
-                a.parse::<i32>().ok()
-            };
-            let end = if b.is_empty() {
-                Some(0)
-            } else {
-                b.parse::<i32>().ok()
-            };
-            if let (Some(start), Some(end)) = (start, end) {
-                match d {
-                    ':' => {
-                        out.push('\'');
-                        out.push_str(
-                            &slice_path(path, start, end)
-                                .to_string_lossy()
-                                .replace('\'', "'\\''"),
-                        );
-                        out.push('\'');
+        let mut current_pos = 0;
+        let chars: Vec<char> = content.chars().collect();
+
+        while current_pos < chars.len() {
+            let c = chars[current_pos];
+
+            match state {
+                0 => {
+                    // Path State
+                    if c == field_match_seperator {
+                        state = 1;
+                    } else {
+                        path.push(c);
                     }
-                    '=' => {
-                        out.push_str(&slice_path(path, start, end).to_string_lossy());
-                    }
-                    '.' => {
-                        out.push_str(&slice_path(__cwd(), start, end).to_string_lossy());
-                    }
-                    _ => unreachable!(),
                 }
-            } else {
-                out.push('{');
-                out.push_str(&spec);
-                out.push('}');
+                1 => {
+                    // Line Num State
+                    if c == field_match_seperator {
+                        state = 2;
+                    } else if c.is_ascii_digit() {
+                        line_num.push(c);
+                    } else {
+                        // Not a digit? This wasn't a line number.
+                        // Treat the previous field_match_seperator as part of the path and reset.
+                        path.push(field_match_seperator);
+                        path.push_str(&line_num);
+                        path.push(c);
+                        line_num.clear();
+                        state = 0;
+                    }
+                }
+                2 => {
+                    // Col Num State
+                    if c == field_match_seperator {
+                        state = 3;
+                        // Grab everything left in this specific span
+                        let remaining: String = chars[current_pos + 1..].iter().collect();
+                        if !remaining.is_empty() {
+                            content_spans.push(Span::styled(remaining, span.style));
+                        }
+                        break; // Move to next span or exit loop
+                    } else if c.is_ascii_digit() {
+                        col_num.push(c);
+                    } else {
+                        // Not a digit? Reset to path state
+                        path.push(field_match_seperator);
+                        path.push_str(&line_num);
+                        path.push(field_match_seperator);
+                        path.push_str(&col_num);
+                        path.push(c);
+                        line_num.clear();
+                        col_num.clear();
+                        state = 0;
+                    }
+                }
+                _ => unreachable!(),
             }
-        } else {
-            // unrecognized spec, leave literal
-            out.push('{');
-            out.push_str(&spec);
-            out.push('}');
+            current_pos += 1;
         }
     }
 
-    out
-}
-
-fn split_on_first_delim<const N: usize>(
-    s: &str,
-    delims: [char; N],
-) -> Option<(&str, char, &str)> {
-    let mut first: Option<(usize, char)> = None;
-
-    for d in delims {
-        if let Some(i) = s.find(d) {
-            if first.is_none_or(|(j, _)| i < j) {
-                first = Some((i, d));
-            }
-        }
-    }
-
-    let (i, d) = first?;
-    Some((&s[..i], d, &s[i + d.len_utf8()..]))
-}
-
-pub fn split_delim(
-    s: &str,
-    delim: Option<char>,
-) -> [&str; 2] {
-    if let Some(c) = delim {
-        match s.split_once(c) {
-            Some((head, rest)) => [head, rest],
-            None => [s, ""],
-        }
+    if state == 3 {
+        let middle = format!("{}:{}", line_num, col_num);
+        Some((path, middle, Text::from(Line::from(content_spans))))
     } else {
-        [s, ""]
+        None
     }
+}
+
+pub fn extract_rg_line_no_path(
+    line: &Line,
+    out: &mut String,
+) -> bool {
+    #[derive(Clone, Copy)]
+    enum State {
+        FirstDigits,
+        AfterFirstColon,
+        SecondDigits,
+    }
+
+    let mut state = State::FirstDigits;
+    let mut len = 0usize;
+
+    for span in &line.spans {
+        for ch in span.content.chars() {
+            match state {
+                State::FirstDigits => {
+                    if ch.is_ascii_digit() {
+                        len += ch.len_utf8();
+                    } else if ch == ':' && len > 0 {
+                        len += 1;
+                        state = State::AfterFirstColon;
+                    } else {
+                        return false;
+                    }
+                }
+                State::AfterFirstColon => {
+                    if ch.is_ascii_digit() {
+                        len += ch.len_utf8();
+                        state = State::SecondDigits;
+                    } else {
+                        return false;
+                    }
+                }
+                State::SecondDigits => {
+                    if ch.is_ascii_digit() {
+                        len += ch.len_utf8();
+                    } else if ch == ':' {
+                        len += 1;
+
+                        // success: push exactly the matched prefix
+                        let mut remaining = len;
+                        for span in &line.spans {
+                            if remaining == 0 {
+                                break;
+                            }
+                            let s = span.content.as_ref();
+                            let take = remaining.min(s.len());
+                            out.push_str(&s[..take]);
+                            remaining -= take;
+                        }
+
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
+    false
 }

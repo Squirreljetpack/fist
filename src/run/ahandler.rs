@@ -1,32 +1,33 @@
-use matchmaker::nucleo::{Color, Modifier, Span, Style, injector::IndexedInjector};
+use matchmaker::{
+    acs,
+    message::{BindDirective, Event},
+    nucleo::{Color, Modifier, Span, Style, injector::IndexedInjector},
+    ui::StatusUI,
+};
 
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
     run::{
-        FsPane,
+        FsAction, FsPane,
         stash::STASH,
         state::{FILTERS, GLOBAL, STACK, TEMP, TOAST, ui::global_ui},
     },
-    utils::text::{ToastStyle, format_cwd_prompt},
+    utils::string::format_cwd_prompt,
 };
 
 pub fn paste_handler(
     content: String,
     state: &MMState<'_, '_>,
 ) -> String {
-    if GLOBAL::with_cfg(|c| c.interface.always_paste) || state.picker_ui.results.cursor_disabled {
-        content
-    } else {
-        // paste action
-        let base = if let Some(c) = STACK::nav_cwd() {
-            c
-        } else {
-            TOAST::push_notice(ToastStyle::Normal, "No current directory.");
-            return String::new();
-        };
-        STASH::transfer_all(base, false);
+    if let Some(c) = STACK::nav_cwd()
+        && !(GLOBAL::with_cfg(|c| c.interface.always_paste)
+            || state.picker_ui.results.cursor_disabled)
+    {
+        STASH::transfer_all(c, false);
         String::new()
+    } else {
+        content
     }
 }
 
@@ -68,6 +69,7 @@ pub fn enter_prompt(
 // read the current pane's enter_prompt and default prompt values
 // call after creating new pane
 pub fn prepare_prompt(state: &mut MMState<'_, '_>) {
+    // set default prompt/enter prompt
     STACK::with_current(|pane| {
         if let Some(p) = GLOBAL::with_cfg(|c| c.panes.prompt(pane)) {
             state.picker_ui.input.config.prompt = p
@@ -91,6 +93,12 @@ pub fn prepare_prompt(state: &mut MMState<'_, '_>) {
 
     if !state.picker_ui.results.cursor_disabled {
         state.picker_ui.input.reset_prompt();
+    }
+
+    // currently only rg supports scroll index
+    // lowpri: maybe wider support
+    if let Some(p) = state.preview_ui {
+        p.config.scroll.index = None
     }
 }
 
@@ -136,34 +144,116 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
         .set_stability(STACK::with_current(FsPane::stability_threshold));
     let injector = IndexedInjector::new_globally_indexed(state.injector());
 
-    STACK::with_previous(|p| match p {
-        FsPane::Fd { .. } => {
-            if GLOBAL::with_cfg(|c| c.panes.fd.on_leave_unset_dirs_only) {
-                FILTERS::with_vis_mut(|v| v.dirs = false);
+    let same = STACK::with_previous(|p, same| {
+        match p {
+            FsPane::Fd { .. } => {
+                if !same && GLOBAL::with_cfg(|c| c.panes.fd.on_leave_unset_dirs_only) {
+                    FILTERS::with_vis_mut(|v| v.dirs = false);
+                }
+            }
+            FsPane::Rg { .. } => {
+                if same {
+                    return same;
+                }
+                GLOBAL::with_cfg(|_c| {
+                    let r = &mut state.picker_ui.results;
+
+                    // todo: save and restore
+                    r.config.horizontal_separator = Default::default();
+                    r.config.stacked_columns = false;
+                    r.set_status_line(None);
+                })
+            }
+            _ => {}
+        };
+        same
+    })
+    .unwrap_or_default();
+
+    STACK::with_current_mut(|pane| {
+        if !same {
+            GLOBAL::with_cfg(|cfg| {
+                if let Some(x) = cfg.panes.preview_show(pane) {
+                    state.preview_ui.as_mut().map(|p| p.show(x));
+                }
+                if let Some(x) = cfg.panes.prompt(pane) {
+                    state.picker_ui.input.config.prompt = x;
+                }
+                if let Some(p) = state.preview_ui {
+                    p.set_layout(cfg.panes.preview_layout_index(pane));
+                };
+            });
+        }
+
+        state.picker_ui.results.config.right_align_last = true;
+
+        match pane {
+            FsPane::Rg {
+                filtering,
+                patterns,
+                input,
+                pattern_index,
+                no_heading,
+                ..
+            } => {
+                let f = *filtering;
+                if let Some(p) = state.preview_ui {
+                    p.config.scroll.index = Some("3".into())
+                }
+                let r = &mut state.picker_ui.results;
+                let mm = &global_ui().matchmaker;
+                r.config.right_align_last = false;
+
+                if !*no_heading {
+                    // todo: where to add a place to configure this? pane/ui/other?
+                    r.config.horizontal_separator = mm.horizontal_separator;
+                    r.config.stacked_columns = true;
+                    r.status_config.show = true;
+                } else {
+                    r.config.horizontal_separator = Default::default();
+                    r.config.stacked_columns = false;
+                    r.set_status_line(None);
+                }
+
+                // set status
+                // todo: more style flexibility in status
+                let status = GLOBAL::with_cfg(|c| {
+                    let base = if f {
+                        &c.panes.rg.fs_status_template
+                    } else {
+                        &c.panes.rg.rg_status_template
+                    };
+                    let mut t = StatusUI::parse_template_to_status_line(base);
+                    let replacement = if f { &patterns.join(" / ") } else { &input.0 }; // todo: lowpri: styling
+                    for s in t.spans.iter_mut() {
+                        s.content = s.content.replace("{}", replacement).into();
+                    }
+                    t
+                });
+                r.set_status_line(Some(status));
+
+                if f {
+                    GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()));
+                } else {
+                    GLOBAL::send_bind(BindDirective::Bind(
+                        Event::QueryChange.into(),
+                        acs![FsAction::Reload],
+                    ));
+                }
+
+                if f {
+                    input.0 = state.picker_ui.input.input.clone()
+                } else {
+                    patterns[*pattern_index] = state.picker_ui.input.input.clone()
+                }
+
+                state.filtering = f;
+            }
+            _ => {
+                state.filtering = true;
+                GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()))
             }
         }
-        FsPane::Rg { .. } => {
-            if let Some(o) = TEMP::take_pre_rg_options() {
-                todo!()
-            }
-        }
-        _ => {}
-    });
-
-    STACK::with_current(|p| match p {
-        FsPane::Fd { .. } => {
-            // set default visibility?
-        }
-        FsPane::Rg { .. } => {
-            state.picker_ui.header.set("fs:");
-            let c = &mut state.picker_ui.results.config;
-            let mmc = &global_ui().matchmaker;
-
-            c.horizontal_separator = mmc.horizontal_separator;
-
-            // set default visibility?
-        }
-        _ => {}
     });
 
     STACK::populate(injector, || {});

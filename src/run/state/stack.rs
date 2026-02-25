@@ -1,6 +1,6 @@
 #![allow(clippy::upper_case_acronyms)]
 
-use std::{cell::RefCell, env::current_dir};
+use std::{cell::RefCell, env::current_dir, mem::discriminant};
 
 use log::{self};
 use matchmaker::SSS;
@@ -74,8 +74,8 @@ impl STACK {
             if *index > 0 {
                 *index -= 1;
 
-                if *index == 0
-                    && let Some(o) = TEMP::get_original_relative_path()
+                if *index == 0 && TEMP::get_original_relative_path().is_some()
+                // original is backed up
                 {
                     global_ui_mut().path.relative = false;
                 }
@@ -153,17 +153,51 @@ impl STACK {
         })
     }
 
-    pub fn with_previous<R, F: FnOnce(&FsPane) -> R>(f: F) -> Option<R> {
+    pub fn with_previous<R, F>(f: F) -> Option<R>
+    where
+        F: FnOnce(&FsPane, bool) -> R,
+    {
         STACK.with(|cell| {
-            let Self { stack, index, .. } = &*cell.borrow();
+            let borrowed = cell.borrow();
+            let Self { stack, index, .. } = &*borrowed;
+
             if *index > 0 {
-                Some(f(&stack[*index - 1]))
+                let current = &stack[*index];
+                let prev = &stack[*index - 1];
+                let same_variant = discriminant(prev) == discriminant(current);
+
+                Some(f(prev, same_variant))
             } else {
                 None
             }
         })
     }
 
+    pub fn populate(
+        injector: FsInjector,
+        callback: impl FnOnce() + SSS,
+    ) {
+        let cfg = GLOBAL::with_cfg(|c| c.clone());
+        Self::with_current(|pane| {
+            let msg = match &pane {
+                FsPane::Nav { cwd, .. } | FsPane::Custom { cwd, .. } => {
+                    WatcherMessage::Switch(cwd.inner(), notify::RecursiveMode::NonRecursive)
+                }
+                FsPane::Fd { .. } | FsPane::Rg { .. } => {
+                    // reload on small sizes?
+                    WatcherMessage::Pause
+                    // WatcherMessage::Switch(cwd.inner())
+                }
+                _ => WatcherMessage::Pause,
+            };
+            GLOBAL::send_watcher(msg);
+            pane.populate(injector, &cfg, callback);
+        });
+    }
+}
+
+// ---------------- utilities
+impl STACK {
     /// Return the cwd for Nav/Custom/Fd
     pub fn cwd() -> Option<AbsPath> {
         STACK.with(|cell| {
@@ -212,34 +246,8 @@ impl STACK {
         });
     }
 
-    // pub fn has_saved_input() -> bool {
-    //     STACK.with(|cell| {
-    //         let Self { stack, index, .. } = &*cell.borrow();
-    //         match &stack[*index] {
-    //             FsPane::Custom { input, .. }
-    //             | FsPane::Nav { input, .. }
-    //             | FsPane::Fd { input, .. }
-    //             | FsPane::Stream { input, .. }
-    //             | FsPane::Rg { input, .. }
-    //             | FsPane::Files { input, .. }
-    //             | FsPane::Folders { input, .. } => !(input.0.is_empty() && input.1 == 0),
-    //             _ => false,
-    //         }
-    //     })
-    // }
-
-    // returns the input if Nav or Custom pane
-    // pub fn get_maybe_input() -> Option<(String, u32)> {
-    //     STACK.with(|cell| {
-    //         let Self { stack, index, .. } = &*cell.borrow();
-    //         match &stack[*index] {
-    //             FsPane::Custom { input, .. } | FsPane::Nav { input, .. } => Some(input.clone()),
-    //             _ => None,
-    //         }
-    //     })
-    // }
-
     // only restore index of nav and custom panes (is this what we want?)
+    // see also [FsPane::get_input]
     pub fn take_maybe_index() -> Option<u32> {
         STACK.with(|cell| {
             let Self { stack, index, .. } = &mut *cell.borrow_mut();
@@ -260,25 +268,10 @@ impl STACK {
         })
     }
 
-    pub fn populate(
-        injector: FsInjector,
-        callback: impl FnOnce() + SSS,
-    ) {
-        let cfg = GLOBAL::with_cfg(|c| c.clone());
-        Self::with_current(|pane| {
-            let msg = match &pane {
-                FsPane::Nav { cwd, .. } | FsPane::Custom { cwd, .. } => {
-                    WatcherMessage::Switch(cwd.inner(), notify::RecursiveMode::NonRecursive)
-                }
-                FsPane::Fd { cwd, .. } | FsPane::Rg { cwd, .. } => {
-                    // reload on small sizes?
-                    WatcherMessage::Pause
-                    // WatcherMessage::Switch(cwd.inner())
-                }
-                _ => WatcherMessage::Pause,
-            };
-            GLOBAL::send_watcher(msg);
-            pane.populate(injector, &cfg, callback);
-        });
+    pub fn in_app() -> bool {
+        STACK::with_current(|x| matches!(x, FsPane::Launch { .. }))
+    }
+    pub fn in_rg() -> bool {
+        STACK::with_current(|x| matches!(x, FsPane::Rg { .. }))
     }
 }

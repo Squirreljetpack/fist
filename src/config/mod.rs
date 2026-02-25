@@ -4,7 +4,7 @@ use cli_boilerplate_automation::{
     bo::write_str,
     bog::BogOkExt,
     bs::{create_dir, set_executable},
-    ibog,
+    _ibog, vec_,
 };
 use std::{collections::HashMap, path::PathBuf};
 
@@ -15,7 +15,7 @@ use crate::{
 };
 use crate::{
     cli::{
-        clap_helpers::ClapStyleSetting,
+        clap_helpers::ClapStyleOverride,
         paths::{liza_path, text_renderer_path},
     },
     db::zoxide::HistoryConfig,
@@ -24,8 +24,10 @@ use crate::{
 use fist_types::When;
 
 mod panes;
+mod partial;
 mod styles;
 pub use panes::*;
+pub use partial::*;
 pub mod ui;
 use ui::StyleConfig;
 // ------ CONFIG ------
@@ -45,7 +47,7 @@ pub struct Config {
     #[serde(flatten, default)]
     pub global: GlobalConfig,
 
-    /// All styling options not governed by match-maker
+    /// All styling options not governed by the match-maker cfg
     #[serde(default)]
     pub styles: StyleConfig,
 
@@ -81,11 +83,18 @@ pub struct GlobalConfig {
     pub fs: FsConfig,
 
     /// Configure behavior of the fd tool.
-    /// This affects [FsAction::Find](`crate::run::fsaction::FsAction::Find`) and the default subcommand.
+    /// This affects [FsAction::Find](`crate::run::FsAction::Find`) and the default subcommand.
     pub fd: FdConfig,
 
-    /// Configure behavior of filesystem actions.
+    /// Configure behavior of the rg tool.
+    /// This affects [FsAction::Rg](`crate::run::FsAction::Rg`) and the rg subcommand.
+    pub rg: RgConfig,
+
+    /// Configure various pane related settings.
     pub panes: PanesConfig,
+
+    /// Matchmaker styling overrides for panes.
+    pub mm: MatchmakerOverrides, // not sure about the role, eventually we want some pane-specific matchmaker overrides, should be stored
 }
 
 impl Config {
@@ -126,7 +135,7 @@ impl Config {
                 if !force
                 // less noise for debug
                 {
-                    ibog!("{} saved to: {}", path.filename(), path.to_string_lossy());
+                    _ibog!("{} saved to: {}", path.filename(), path.to_string_lossy());
                 }
             }
         }
@@ -138,36 +147,38 @@ impl Config {
     ) {
         let style = &mut self.styles.path;
         match cli.style {
-            ClapStyleSetting::Auto => {
+            ClapStyleOverride::Auto => {
                 // leave config unchanged
             }
-            ClapStyleSetting::None => {
+            ClapStyleOverride::None => {
                 style.file_icons = false;
                 style.file_colors = false;
                 style.dir_icons = false;
                 style.dir_colors = false;
             }
-            ClapStyleSetting::Icons => {
+            ClapStyleOverride::Icons => {
                 style.file_icons = true;
                 style.dir_icons = true;
 
                 style.file_colors = false;
                 style.dir_colors = false;
             }
-            ClapStyleSetting::Colors => {
+            ClapStyleOverride::Colors => {
                 style.file_icons = false;
                 style.dir_icons = false;
 
                 style.file_colors = true;
                 style.dir_colors = true;
             }
-            ClapStyleSetting::All => {
+            ClapStyleOverride::All => {
                 style.file_icons = true;
                 style.file_colors = true;
                 style.dir_icons = true;
                 style.dir_colors = true;
             }
         }
+
+        self.global.mm.fullscreen |= cli.fullscreen
     }
 }
 
@@ -177,8 +188,6 @@ impl Config {
 pub struct MiscConfig {
     /// How long to wait between consecutive clipboard actions
     pub clipboard_delay_ms: u64,
-    /// When --cd is specified, whether to error or begin search when no match is found.
-    pub cd_fallback_search: bool,
     /// Overwrite or append logs on application start.
     pub append_mode_logging: bool,
     /// Pass the spawning command to this instead of invoking it directly.
@@ -189,7 +198,6 @@ impl Default for MiscConfig {
     fn default() -> Self {
         Self {
             clipboard_delay_ms: 20,
-            cd_fallback_search: false,
             append_mode_logging: false,
             spawn_with: Vec::new(),
         }
@@ -204,7 +212,7 @@ impl Default for MiscConfig {
 /// It is recommended not to change these.
 pub struct InterfaceConfig {
     // actions
-    /// The command template to execute when [FsAction::Advance](`crate::run::fsaction::FsAction::Advance`) is invoked on a file.
+    /// The command template to execute when [FsAction::Advance](`crate::run::FsAction::Advance`) is invoked on a file.
     pub advance_command: String,
     /// If true, the functions of the Accept and Print actions will be swapped.
     pub alt_accept: bool,
@@ -216,8 +224,9 @@ pub struct InterfaceConfig {
     // display
     /// The prefix to display when the cursor is in the prompt.
     pub cwd_prompt: String,
-    /// Display a toast when current directory has no entries.
-    pub toast_on_empty: bool, // todo
+    /// Display a toast when current directory has no entries. (TODO)
+    pub toast_on_empty: bool,
+    /// If [AutoJump](`crate::run::FsAction::AutoJump`) should accept or advance
     pub autojump_advance: bool,
 }
 
@@ -259,7 +268,7 @@ pub struct FdConfig {
     pub default_args: Vec<String>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RgConfig {
     /// A map of folders => globs which should be applied when in them.
@@ -274,6 +283,21 @@ pub struct RgConfig {
     //  ---------------- Experimental/Nonstandard ---------------
     /// The set of arguments applied to the end of `fs :` when no `rg_args` were given.
     pub default_args: Vec<String>,
+}
+
+impl Default for RgConfig {
+    fn default() -> Self {
+        RgConfig {
+            iglobs: Default::default(),
+            base_args: vec_![
+                "--trim",
+                "--color=ansi",
+                "--no-context-separator",
+                "--field-context-separator=-",
+            ],
+            default_args: Default::default(),
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

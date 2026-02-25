@@ -20,7 +20,8 @@ _fs() {
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
-'--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this WILL OVERWRITE your main config.]' \
+'--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.]' \
+'--fullscreen[]' \
 '--help[]' \
 '-V[Print version]' \
 '--version[Print version]' \
@@ -44,6 +45,7 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons colors none all auto)' \
 '--list[]' \
 '--help[initial query]' \
+'--fullscreen[]' \
 '*::files -- files to open:_default' \
 && ret=0
 ;;
@@ -58,6 +60,7 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons colors none all auto)' \
 '--list[]' \
 '--help[initial query]' \
+'--fullscreen[]' \
 '*::files -- files to open:_default' \
 && ret=0
 ;;
@@ -77,6 +80,7 @@ none\:""))' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
 '--help[]' \
+'--fullscreen[]' \
 && ret=0
 ;;
 (:dir)
@@ -88,6 +92,7 @@ count\:""
 none\:""))' \
 '-l+[]::LIST:(_ all)' \
 '--list=[]::LIST:(_ all)' \
+'--initial-input=[]:INITIAL_INPUT:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -95,6 +100,7 @@ none\:""))' \
 '--style=[]:STYLE:(icons colors none all auto)' \
 '--cd[print the first match]' \
 '--help[]' \
+'--fullscreen[]' \
 '*::query -- initial query:_default' \
 && ret=0
 ;;
@@ -122,6 +128,7 @@ size\:"Not always supported"))' \
 '--no-read[Never stream input from stdin]' \
 '--list[]' \
 '--help[]' \
+'--fullscreen[]' \
 '*::paths -- Paths to search in. Searches the current directory if none specified (and not otherwise configured):_default' \
 && ret=0
 ;;
@@ -149,21 +156,28 @@ size\:"Not always supported"))' \
 '--no-read[Never stream input from stdin]' \
 '--list[]' \
 '--help[]' \
+'--fullscreen[]' \
 '*::paths -- Paths to search in. Searches the current directory if none specified (and not otherwise configured):_default' \
 && ret=0
 ;;
 (:rg)
 _arguments "${_arguments_options[@]}" : \
-'*-p+[Files or directories to search in]:PATH:_default' \
-'*--path=[Files or directories to search in]:PATH:_default' \
+'--sort=[]:SORT:((name\:""
+mtime\:""
+none\:""
+size\:"Not always supported"))' \
+'*-p+[Files or directories to search in]:PATHS:_files' \
+'*--path=[Files or directories to search in]:PATHS:_files' \
 '-A+[Show NUM lines after each match]:NUM:_default' \
 '--after-context=[Show NUM lines after each match]:NUM:_default' \
 '-B+[Show NUM lines before each match]:NUM:_default' \
 '--before-context=[Show NUM lines before each match]:NUM:_default' \
 '-C+[Show NUM lines before and after each match]:NUM:_default' \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
+'--no-heading=[Display each match on a separate line. Alias\: \`-1\`]:NO_HEADING:(true false)' \
 '-o+[Format the output as this template]:OUTPUT:_default' \
 '--output=[Format the output as this template]:OUTPUT:_default' \
+'--query=[initial query]:QUERY:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -180,27 +194,31 @@ _arguments "${_arguments_options[@]}" : \
 '--case-sensitive[]' \
 '-S[]' \
 '--smart-case[]' \
+'-1[]' \
 '--list[]' \
 '--help[]' \
-':sort:((name\:""
-mtime\:""
-none\:""
-size\:"Not always supported"))' \
+'--fullscreen[]' \
 '*::patterns -- Patterns to search (`rg -e`):_default' \
 && ret=0
 ;;
 (:)
 _arguments "${_arguments_options[@]}" : \
-'*-p+[Files or directories to search in]:PATH:_default' \
-'*--path=[Files or directories to search in]:PATH:_default' \
+'--sort=[]:SORT:((name\:""
+mtime\:""
+none\:""
+size\:"Not always supported"))' \
+'*-p+[Files or directories to search in]:PATHS:_files' \
+'*--path=[Files or directories to search in]:PATHS:_files' \
 '-A+[Show NUM lines after each match]:NUM:_default' \
 '--after-context=[Show NUM lines after each match]:NUM:_default' \
 '-B+[Show NUM lines before each match]:NUM:_default' \
 '--before-context=[Show NUM lines before each match]:NUM:_default' \
 '-C+[Show NUM lines before and after each match]:NUM:_default' \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
+'--no-heading=[Display each match on a separate line. Alias\: \`-1\`]:NO_HEADING:(true false)' \
 '-o+[Format the output as this template]:OUTPUT:_default' \
 '--output=[Format the output as this template]:OUTPUT:_default' \
+'--query=[initial query]:QUERY:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -217,12 +235,10 @@ _arguments "${_arguments_options[@]}" : \
 '--case-sensitive[]' \
 '-S[]' \
 '--smart-case[]' \
+'-1[]' \
 '--list[]' \
 '--help[]' \
-':sort:((name\:""
-mtime\:""
-none\:""
-size\:"Not always supported"))' \
+'--fullscreen[]' \
 '*::patterns -- Patterns to search (`rg -e`):_default' \
 && ret=0
 ;;
@@ -234,6 +250,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
 '--help[]' \
+'--fullscreen[]' \
 '::args:_default' \
 ":: :_fs__:tool_commands" \
 "*::: :->:tool" \
@@ -252,6 +269,7 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
+'--fullscreen[]' \
 && ret=0
 ;;
 (liza)
@@ -261,6 +279,7 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
+'--fullscreen[]' \
 '*::args:_default' \
 && ret=0
 ;;
@@ -291,16 +310,20 @@ none\:""))' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
 '--aliases[]' \
+'--fullscreen[]' \
 && ret=0
 ;;
 (lessfilter)
 _arguments "${_arguments_options[@]}" : \
+'*-a+[Arguments to pass to the first executed command (experimental)]:ARGS:_default' \
+'*--arg=[Arguments to pass to the first executed command (experimental)]:ARGS:_default' \
 '--header=[]:HEADER:(true false)' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
+'--fullscreen[]' \
 ':preset:((preview\:"For the f\:ist preview pane"
 display\:"For terminal display"
 extended\:"For terminal interaction/verbose display"
@@ -323,6 +346,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
 '--reset[reset the database]' \
+'--fullscreen[]' \
 '*::paths -- path to bump:_files' \
 && ret=0
 ;;
@@ -333,6 +357,7 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
+'--fullscreen[]' \
 && ret=0
 ;;
         esac
@@ -347,6 +372,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
 '--help[]' \
+'--fullscreen[]' \
 '::args:_default' \
 ":: :_fs__:tool_commands" \
 "*::: :->:tool" \
@@ -365,6 +391,7 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
+'--fullscreen[]' \
 && ret=0
 ;;
 (liza)
@@ -374,6 +401,7 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
+'--fullscreen[]' \
 '*::args:_default' \
 && ret=0
 ;;
@@ -404,16 +432,20 @@ none\:""))' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
 '--aliases[]' \
+'--fullscreen[]' \
 && ret=0
 ;;
 (lessfilter)
 _arguments "${_arguments_options[@]}" : \
+'*-a+[Arguments to pass to the first executed command (experimental)]:ARGS:_default' \
+'*--arg=[Arguments to pass to the first executed command (experimental)]:ARGS:_default' \
 '--header=[]:HEADER:(true false)' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
+'--fullscreen[]' \
 ':preset:((preview\:"For the f\:ist preview pane"
 display\:"For terminal display"
 extended\:"For terminal interaction/verbose display"
@@ -436,6 +468,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
 '--reset[reset the database]' \
+'--fullscreen[]' \
 '*::paths -- path to bump:_files' \
 && ret=0
 ;;
@@ -446,6 +479,7 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
+'--fullscreen[]' \
 && ret=0
 ;;
         esac
@@ -469,6 +503,7 @@ none\:""))' \
 '-m[Don'\''t print decorations]' \
 '--minimal[Don'\''t print decorations]' \
 '--help[]' \
+'--fullscreen[]' \
 '::table -- history table to display:(apps files dirs)' \
 && ret=0
 ;;

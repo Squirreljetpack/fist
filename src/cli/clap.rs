@@ -1,6 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use clap::{ArgAction, Parser, Subcommand, error::ErrorKind};
+use clap::{ArgAction, Args, Parser, Subcommand, error::ErrorKind};
 
 use crate::{
     cli::{
@@ -84,10 +84,10 @@ impl From<NavCli> for Cli {
     }
 }
 
-#[derive(Debug, Parser, Default, Clone)]
+#[derive(Debug, Args, Default, Clone)]
 pub struct CliOpts {
-    #[arg(long, global = true, default_value_t = 2)]
-    pub verbosity: u8,
+    #[arg(long, global = true, default_value = "4")]
+    pub verbosity: Option<u8>,
 
     /// config override
     #[arg(long = "override", global = true, value_name = "PATH")]
@@ -114,18 +114,27 @@ pub struct CliOpts {
         help = r#"Dump the main config and any other missing configuration
 files to default locations:
 If the output was detected to have been redirected, this prints the main configuration.
-Otherwise, this WILL OVERWRITE your main config."#
+Otherwise, this will OVERWRITE your main config."#
     )]
     pub dump_config: bool,
 
     #[arg(long, global = true, default_value_t)]
-    pub style: ClapStyleSetting,
+    pub style: ClapStyleOverride,
+
+    #[arg(long, global = true, default_value_t)]
+    pub fullscreen: bool,
 }
 
 impl CliOpts {
     pub fn verbosity(&self) -> u8 {
-        // (2 + self.verbose).saturating_sub(self.quiet)
-        self.verbosity
+        if let Some(v) = self.verbosity {
+            v
+        } else {
+            std::env::var("FS_VERBOSITY")
+                .ok()
+                .and_then(|env| env.parse::<u8>().ok())
+                .unwrap_or(4)
+        }
     }
 }
 
@@ -205,6 +214,10 @@ pub struct DirsCmd {
     /// print the first match.
     #[arg(long)]
     pub cd: bool,
+
+    #[arg(long, hide = true, default_value_t)]
+    pub initial_input: String,
+
     /// initial query.
     #[arg(trailing_var_arg = true)]
     pub query: Vec<String>,
@@ -238,11 +251,12 @@ pub struct FilesCmd {
 pub struct RgCommand {
     #[command(flatten)]
     pub vis: Visibility,
-    pub sort: SortOrder,
+    #[arg(long)]
+    pub sort: Option<SortOrder>,
 
     /// Files or directories to search in.
-    #[arg(short = 'p', long = "path", value_name = "PATH")]
-    pub paths: Vec<OsString>,
+    #[arg(short = 'p', long = "path")]
+    pub paths: Vec<PathBuf>,
 
     /// Patterns to search (`rg -e`).
     #[arg(value_name = "PATTERNS")]
@@ -250,13 +264,20 @@ pub struct RgCommand {
 
     /// Args passed on verbatim to rg.
     #[arg(last = true, value_name = "RG_ARGS")]
-    pub rg_args: Vec<OsString>,
+    pub rg: Vec<OsString>,
 
     // top level rg args reexposed for convenience
     #[command(flatten)]
     pub case: CaseArgs,
     #[command(flatten)]
     pub context: ContextArgs,
+    /// Display each match on a separate line.
+    /// Alias: `-1`
+    #[arg(long = "no-heading")]
+    pub no_heading: Option<bool>,
+
+    #[arg(short = '1', hide = true)]
+    pub _no_heading_alias: bool,
 
     // /// initial query.
     // #[arg(long, default_value_t)]
@@ -268,6 +289,9 @@ pub struct RgCommand {
     pub output: Option<String>,
     #[arg(long)]
     pub list: bool,
+    /// initial query.
+    #[arg(long, default_value_t)]
+    pub query: String,
     #[arg(long, action = ArgAction::Help)]
     pub help: (),
 }
