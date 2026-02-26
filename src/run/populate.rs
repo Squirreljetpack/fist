@@ -1,5 +1,4 @@
 use std::{
-    ffi::OsStr,
     fmt::Display,
     io::{self, Read},
     path::PathBuf,
@@ -21,11 +20,12 @@ use cli_boilerplate_automation::{
     bs::sort_by_mtime,
     unwrap,
 };
-use matchmaker::{SSS, message::RenderCommand, nucleo::injector::Injector};
+use matchmaker::{SSS, message::RenderCommand, nucleo::injector::Injector, preview::AppendOnly};
 use ratatui::text::Text;
 use tokio::task::spawn_blocking;
 
 use crate::{
+    abspath::AbsPath,
     cli::env::EnvOpts,
     config::GlobalConfig,
     find::rg::build_rg_args,
@@ -42,9 +42,7 @@ use crate::{
         state::{APP, GLOBAL, STACK},
     },
 };
-use fist_types::filters::SortOrder;
-
-pub static STOP: AtomicBool = AtomicBool::new(false);
+use fist_types::filters::{SortOrder, Visibility};
 
 // todo: when do we need be able to restart after STOP
 // todo: lowpri: this is like 1.2 slower than pure fd? Accept input is a bit sluggish? Cache to reduce disk reads?
@@ -69,7 +67,7 @@ impl FsPane {
                 complete,
                 ..
             } => {
-                STOP.store(false, Ordering::SeqCst);
+                complete.store(false, Ordering::SeqCst);
                 if let Some(stored) = stored {
                     stored.map_to_vec(|item| injector.push(item.clone()));
                     if complete.load(Ordering::SeqCst) {
@@ -79,8 +77,11 @@ impl FsPane {
 
                 let delim = EnvOpts::with_env(|c| c.delim);
                 let display_script = EnvOpts::with_env(|c| c.display.clone());
+                let vis = *vis;
                 let cwd = cwd.clone();
                 let stored = stored.clone();
+                let complete = complete.clone();
+                let _complete = complete.clone();
 
                 log::info!("spawning: {}", display_sh_prog_and_args(prog, args));
 
@@ -90,15 +91,9 @@ impl FsPane {
                     .spawn_piped()
                     ._ebog()?;
 
-                let vis = *vis;
-
                 let sem = Arc::new(tokio::sync::Semaphore::new(GLOBAL::with_cfg(|c| {
                     c.panes.settings.display_script_simultaneous_count
                 })));
-
-                let batch_collect_size =
-                    2 * GLOBAL::with_cfg(|c| c.panes.settings.display_script_batch_size);
-                let mut batch_collect = Vec::with_capacity(batch_collect_size);
 
                 match display_script {
                     None => map_reader(
@@ -121,7 +116,7 @@ impl FsPane {
                         map_reader(
                             stdout,
                             move |line| {
-                                if STOP.load(Ordering::SeqCst) {
+                                if complete.load(Ordering::SeqCst) {
                                     bail!("Canceled");
                                 }
                                 let injector = injector.clone();
@@ -129,6 +124,7 @@ impl FsPane {
                                 let cwd = cwd.clone();
                                 let script = script.clone();
                                 let stored = stored.clone();
+                                let _complete = complete.clone();
 
                                 tokio::spawn(async move {
                                     let _permit = sem.acquire_owned().await.unwrap();
@@ -151,94 +147,31 @@ impl FsPane {
                                             stored.push(item.clone());
                                         };
                                         if injector.push(item).is_err() {
-                                            STOP.store(true, Ordering::SeqCst);
+                                            _complete.store(true, Ordering::SeqCst);
                                         }
                                     }
                                 });
                                 Ok(())
                             },
-                            complete.clone(),
+                            _complete.clone(),
                             || GLOBAL::send_mm(RenderCommand::QuitEmpty),
                         )
                     }
-                    Some(Err(script)) => map_reader(
+                    Some(Err(script)) => map_reader_batch(
                         stdout,
-                        move |line| {
-                            if STOP.load(Ordering::SeqCst) {
-                                bail!("Canceled");
-                            }
-                            let [p1, p2] = line.split_delim(delim);
-                            batch_collect.push([p1.to_string(), p2.to_string()]);
-
-                            if batch_collect.len() >= batch_collect_size {
-                                let batch = std::mem::take(&mut batch_collect);
-                                let batch_count = batch.len();
-                                let injector = injector.clone();
-                                let cwd = cwd.clone();
-                                let script = script.clone();
-                                let stored = stored.clone();
-
-                                // the maybe better would be to use tokio::spawn + spawn_piped_tokio, but then we need an async read version of map_reader_lines
-                                tokio::task::spawn_blocking(move || {
-                                    if let Some(stdout) = Command::from_script(&script)
-                                        .args(batch.iter().flatten())
-                                        .current_dir(&cwd)
-                                        .spawn_piped()
-                                        ._ebog()
-                                    {
-                                        let mut batch_iter = batch.into_iter();
-
-                                        match map_reader_lines::<true, ()>(stdout, move |line| {
-                                            let [p1, p2] = unwrap!(batch_iter.next(), ());
-                                            {
-                                                let mut item =
-                                                    PathItem::new_from_split([&p1, &p2], &cwd);
-
-                                                if let Ok(rendered) =
-                                                    ansi_to_tui::IntoText::into_text(&line)
-                                                {
-                                                    item.override_rendered(rendered);
-                                                };
-
-                                                if let Some(stored) = &stored {
-                                                    stored.push(item.clone());
-                                                };
-                                                injector
-                                                    .push(item)
-                                                    .map_err(|_| STOP.store(true, Ordering::SeqCst))
-                                            }
-                                        }) {
-                                            Ok(n) if n < batch_count => {
-                                                log::warn!(
-                                                    "stored dropped while processing display-batch: Insufficient lines"
-                                                )
-                                            }
-                                            Err(MapReaderError::ChunkError(x, y)) => {
-                                                log::error!(
-                                                    "Error while processing display-batch: Failed to read chunk {x}: {y}"
-                                                )
-                                            }
-                                            _ => {}
-                                        }
-                                    } else if injector
-                                        .extend(batch.into_iter().map(|[p1, p2]| {
-                                            PathItem::new_from_split([&p1, &p2], &cwd)
-                                        }))
-                                        .is_err()
-                                    {
-                                        STOP.store(true, Ordering::SeqCst);
-                                    }
-                                });
-                            }
-
-                            Ok(())
-                        },
                         complete.clone(),
                         || GLOBAL::send_mm(RenderCommand::QuitEmpty),
+                        script.clone(),
+                        cwd,
+                        stored.clone(),
+                        vis,
+                        delim,
+                        injector,
                     ),
                 }
             }
 
+            // exactly the same as custom
             Self::Stream {
                 stored,
                 cwd,
@@ -247,81 +180,101 @@ impl FsPane {
                 complete,
                 ..
             } => {
+                complete.store(false, Ordering::SeqCst);
                 if let Some(stored) = stored {
                     stored.map_to_vec(|item| injector.push(item.clone()));
                     if complete.load(Ordering::SeqCst) {
-                        // todo: more airtight
                         return None;
                     }
-                    // stdin reads resume
                 }
 
                 let delim = EnvOpts::with_env(|c| c.delim);
                 let display_script = EnvOpts::with_env(|c| c.display.clone());
-                // store current sort/vis in global, then reset self
-
                 let cwd = cwd.clone();
                 let vis = *vis;
+                let stored = stored.clone();
+                let complete = complete.clone();
+                let _complete = complete.clone();
+
+                let stdout = io::stdin();
                 let sem = Arc::new(tokio::sync::Semaphore::new(GLOBAL::with_cfg(|c| {
                     c.panes.settings.display_script_simultaneous_count
                 })));
-                let stored = stored.clone();
 
-                map_reader(
-                    io::stdin(),
-                    move |line| {
-                        let mut item = PathItem::new_from_split(line.split_delim(delim), &cwd);
-
-                        if !vis.filter(&item.path) {
-                            return Ok(());
-                        }
-                        // apply render override
-                        if let Some(Ok(script)) = display_script.clone() {
-                            let injector = injector.clone();
-                            let sem = sem.clone();
-                            let stored = stored.clone();
-
-                            tokio::spawn(async move {
-                                let _permit = sem.acquire_owned().await.unwrap();
-                                if let Ok(out) =
-                                    crate::spawn::utils::tokio_command_from_script(&script)
-                                        .arg(&item.path)
-                                        .arg(OsStr::new(
-                                            item.tail.lines[0].spans[0].content.as_ref(),
-                                        ))
-                                        // .stderr(Stdio::null())
-                                        .output()
-                                        .await
-                                {
-                                    if out.status.success()
-                                        && let Ok(rendered) =
-                                            ansi_to_tui::IntoText::into_text(&out.stdout)
-                                    {
-                                        item.override_rendered(rendered);
-                                    }
-                                    if let Some(stored) = &stored {
-                                        stored.push(item.clone());
-                                    };
-                                    injector.push(item)
-                                } else {
-                                    Ok(())
+                match display_script {
+                    None => map_reader(
+                        stdout,
+                        move |line| {
+                            let item = PathItem::new_from_split(line.split_delim(delim), &cwd);
+                            if vis.filter(&item.path) {
+                                if let Some(stored) = &stored {
+                                    stored.push(item.clone());
+                                };
+                                injector.push(item)?;
+                            }
+                            anyhow::Ok(())
+                        },
+                        complete.clone(),
+                        || GLOBAL::send_mm(RenderCommand::QuitEmpty),
+                    ),
+                    Some(Ok(script)) => {
+                        // Script runs per item asynchronously
+                        map_reader(
+                            stdout,
+                            move |line| {
+                                if complete.load(Ordering::SeqCst) {
+                                    bail!("Canceled");
                                 }
-                            });
-                            Ok(())
-                        } else {
-                            if let Some(stored) = &stored {
-                                stored.push(item.clone());
-                            };
-                            injector.push(item)
-                        }
-                    },
-                    complete.clone(),
-                    move || {
-                        if toast_on_empty {
-                            TOAST::toast_empty();
-                        }
-                    },
-                )
+                                let injector = injector.clone();
+                                let sem = sem.clone();
+                                let cwd = cwd.clone();
+                                let script = script.clone();
+                                let stored = stored.clone();
+                                let _complete = complete.clone();
+
+                                tokio::spawn(async move {
+                                    let _permit = sem.acquire_owned().await.unwrap();
+                                    if let Ok(out) =
+                                        crate::spawn::utils::tokio_command_from_script(&script)
+                                            .args(line.split_delim(delim))
+                                            .output()
+                                            .await
+                                    {
+                                        let mut item =
+                                            PathItem::new_from_split(line.split_delim(delim), &cwd);
+                                        if out.status.success() {
+                                            if let Ok(rendered) =
+                                                ansi_to_tui::IntoText::into_text(&out.stdout)
+                                            {
+                                                item.override_rendered(rendered);
+                                            }
+                                        }
+                                        if let Some(stored) = &stored {
+                                            stored.push(item.clone());
+                                        };
+                                        if injector.push(item).is_err() {
+                                            _complete.store(true, Ordering::SeqCst);
+                                        }
+                                    }
+                                });
+                                Ok(())
+                            },
+                            _complete.clone(),
+                            || GLOBAL::send_mm(RenderCommand::QuitEmpty),
+                        )
+                    }
+                    Some(Err(script)) => map_reader_batch(
+                        stdout,
+                        complete.clone(),
+                        || GLOBAL::send_mm(RenderCommand::QuitEmpty),
+                        script.clone(),
+                        cwd,
+                        stored.clone(),
+                        vis,
+                        delim,
+                        injector,
+                    ),
+                }
             }
 
             Self::Find {
@@ -685,6 +638,158 @@ pub fn map_reader<E: matchmaker::SSS + Display>(
 ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
     spawn_blocking(move || {
         let count = map_reader_lines::<true, E>(reader, f)._elog();
+        match count {
+            Some(0) => on_empty(),
+            _ => {}
+        }
+        complete.store(true, Ordering::SeqCst);
+        log::info!("Command completed");
+        anyhow::Ok(())
+    })
+}
+
+pub fn map_reader_batch(
+    reader: impl Read + matchmaker::SSS,
+    complete: Arc<AtomicBool>,
+    on_empty: impl FnOnce() + SSS,
+    script: String,
+    cwd: AbsPath,
+    stored: Option<AppendOnly<PathItem>>,
+    vis: Visibility,
+    delim: Option<char>,
+    injector: FsInjector,
+) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+    let batch_collect_size = GLOBAL::with_cfg(|c| c.panes.settings.display_script_batch_size);
+    let mut batch_collect = Vec::with_capacity(batch_collect_size);
+    let _complete = complete.clone();
+
+    spawn_blocking(move || {
+        let count = map_reader_lines::<true, _>(reader, |line| {
+            if complete.load(Ordering::SeqCst) {
+                bail!("Canceled");
+            }
+            let [p1, p2] = line.split_delim(delim);
+            batch_collect.push([p1.to_string(), p2.to_string()]);
+
+            if batch_collect.len() >= batch_collect_size {
+                let batch = std::mem::take(&mut batch_collect);
+                let batch_count = batch.len();
+                let injector = injector.clone();
+                let cwd = cwd.clone();
+                let script = script.clone();
+                let stored = stored.clone();
+                let _complete = complete.clone();
+
+                // the maybe better would be to use tokio::spawn + spawn_piped_tokio, but then we need an async read version of map_reader_lines
+                tokio::task::spawn_blocking(move || {
+                    if let Some(stdout) = Command::from_script(&script)
+                    .args(batch.iter().flatten())
+                    .current_dir(&cwd)
+                    .spawn_piped()
+                    ._ebog()
+                    {
+                        let mut batch_iter = batch.into_iter();
+
+                        match map_reader_lines::<true, ()>(stdout, move |line| {
+                            let [p1, p2] = unwrap!(batch_iter.next(), ());
+                            {
+                                let mut item =
+                                PathItem::new_from_split([&p1, &p2], &cwd);
+
+                                if let Ok(rendered) =
+                                ansi_to_tui::IntoText::into_text(&line)
+                                {
+                                    item.override_rendered(rendered);
+                                };
+
+                                if let Some(stored) = &stored {
+                                    stored.push(item.clone());
+                                };
+                                injector
+                                .push(item)
+                                .map_err(|_| _complete.store(true, Ordering::SeqCst))
+                            }
+                        }) {
+                            Ok(n) if n < batch_count => {
+                                log::warn!(
+                                    "{} items missing after processing display-batch", batch_count - n
+                                )
+                            }
+                            Err(MapReaderError::ChunkError(x, y)) => {
+                                log::error!(
+                                    "Error while processing display-batch: Failed to read chunk {x}: {y}"
+                                )
+                            }
+                            _ => {}
+                        }
+                    } else if injector
+                    .extend(batch.into_iter().map(|[p1, p2]| {
+                        PathItem::new_from_split([&p1, &p2], &cwd)
+                    }))
+                    .is_err()
+                    {
+                        _complete.store(true, Ordering::SeqCst);
+                    }
+                });
+            }
+
+            Ok(())
+        })._elog();
+        if !batch_collect.is_empty() && !complete.load(Ordering::SeqCst) {
+            let batch = batch_collect;
+            let batch_count = batch.len();
+            let _complete = complete.clone();
+
+            if let Some(stdout) = Command::from_script(&script)
+                .args(batch.iter().flatten())
+                .current_dir(&cwd)
+                .spawn_piped()
+                ._ebog()
+            {
+                let mut batch_iter = batch.into_iter();
+
+                match map_reader_lines::<true, ()>(stdout, move |line| {
+                    let [p1, p2] = unwrap!(batch_iter.next(), ());
+                    {
+                        let mut item = PathItem::new_from_split([&p1, &p2], &cwd);
+
+                        if let Ok(rendered) = ansi_to_tui::IntoText::into_text(&line) {
+                            item.override_rendered(rendered);
+                        };
+
+                        if let Some(stored) = &stored {
+                            stored.push(item.clone());
+                        };
+                        injector
+                            .push(item)
+                            .map_err(|_| _complete.store(true, Ordering::SeqCst))
+                    }
+                }) {
+                    Ok(n) if n < batch_count => {
+                        log::warn!(
+                            "{} items missing after processing display-batch",
+                            batch_count - n
+                        )
+                    }
+                    Err(MapReaderError::ChunkError(x, y)) => {
+                        log::error!(
+                            "Error while processing display-batch: Failed to read chunk {x}: {y}"
+                        )
+                    }
+                    _ => {}
+                }
+            } else if injector
+                .extend(
+                    batch
+                        .into_iter()
+                        .map(|[p1, p2]| PathItem::new_from_split([&p1, &p2], &cwd)),
+                )
+                .is_err()
+            {
+                complete.store(true, Ordering::SeqCst);
+            }
+        }
+
         match count {
             Some(0) => on_empty(),
             _ => {}

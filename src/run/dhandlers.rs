@@ -25,7 +25,7 @@ use crate::{
         pane::FsPane,
         state::{ExecuteHandlerShouldProcessCwd, FILTERS, GLOBAL, STACK, TlsStore},
     },
-    utils::string::path_formatter,
+    utils::formatter::format_path,
 };
 
 // before reload, store a recovery method
@@ -70,6 +70,8 @@ pub fn query_handler(
     // rg query change is handled by rebinds
 }
 
+// ------------------------------------------------------------------------
+
 #[ext(MMExt)]
 // overrides to support static formatter
 impl FsMatchmaker {
@@ -79,7 +81,7 @@ impl FsMatchmaker {
             if !template.is_empty() {
                 // User reload event: create a custom pane
                 if let Some(t) = state.current_raw() {
-                    let script = mm_formatter(t, template);
+                    let script = path_formatter(t, template);
                     log::debug!("Reloading: {script}");
                     let (shell, arg) = &*SHELL;
                     let command = (
@@ -129,13 +131,13 @@ impl FsMatchmaker {
             if !template.is_empty()
                 && let Some(p) = state.current_raw()
             {
-                let cmd = mm_formatter(p, template);
+                let cmd = path_formatter(p, template);
                 let path = p.inner.path.clone();
                 // lowpri: can't reliably do this as we immediately exec, tho i wonder if db can get corrupted this way;
                 // GLOBAL::db().bump(path.is_dir(), path);
 
                 let mut vars = state.make_env_vars();
-                let preview_cmd = mm_formatter(p, state.preview_payload());
+                let preview_cmd = path_formatter(p, state.preview_payload());
                 let extra = env_vars!(
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
@@ -181,7 +183,7 @@ impl FsMatchmaker {
                 };
 
                 let mut display = if let Some(template) = template {
-                    mm_formatter(t, template)
+                    path_formatter(t, template)
                 } else {
                     t.path.to_string_lossy().into()
                 };
@@ -197,11 +199,13 @@ impl FsMatchmaker {
     }
 }
 
-pub fn mm_formatter(
+// ------------------------------------------------------------------------
+
+pub fn path_formatter(
     item: &Indexed<PathItem>,
     template: &str,
 ) -> String {
-    path_formatter(template, &item.inner.path)
+    format_path(template, &item.inner.path)
 }
 
 fn execute(
@@ -209,7 +213,7 @@ fn execute(
     path: &AbsPath,
     state: &mut MMState<'_, '_>,
 ) -> bool {
-    let cmd = path_formatter(template.unwrap_or(state.payload()), path);
+    let cmd = format_path(template.unwrap_or(state.payload()), path);
 
     let mut vars = state.make_env_vars();
 

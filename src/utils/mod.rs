@@ -1,4 +1,5 @@
 pub mod colors;
+pub mod formatter;
 pub mod path;
 pub mod serde;
 pub mod string;

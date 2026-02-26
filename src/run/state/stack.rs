@@ -261,6 +261,7 @@ impl STACK {
         content: String,
         cursor: u32,
     ) {
+        log::debug!("saving: {content}");
         STACK.with(|cell| {
             let Self { stack, index, .. } = &mut *cell.borrow_mut();
             match &mut stack[*index] {

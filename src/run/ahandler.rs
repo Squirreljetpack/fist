@@ -14,7 +14,7 @@ use crate::{
         stash::{CustomStashActionActionState, STASH},
         state::{FILTERS, GLOBAL, STACK, TOAST, TlsStore, ui::global_ui},
     },
-    utils::string::format_cwd_prompt,
+    utils::formatter::format_prompt,
 };
 
 pub fn paste_handler(
@@ -41,7 +41,7 @@ pub fn enter_prompt(
     if enter {
         let prompt = if let Some(cwd) = STACK::cwd() {
             let content =
-                format_cwd_prompt(&GLOBAL::with_cfg(|c| c.interface.cwd_prompt.clone()), &cwd);
+                format_prompt(&GLOBAL::with_cfg(|c| c.interface.cwd_prompt.clone()), &cwd);
             Span::styled(
                 content,
                 Style::default()
@@ -198,6 +198,7 @@ pub fn fs_reload(
         state.picker_ui.results.config.right_align_last = true;
 
         match pane {
+            // we set styles in reload, not on push, because of undo/redo
             FsPane::Search {
                 filtering,
                 patterns,
@@ -234,7 +235,7 @@ pub fn fs_reload(
                         &c.panes.search.rg_status_template
                     };
                     let mut t = StatusUI::parse_template_to_status_line(base);
-                    let replacement = if f { &patterns.join(" / ") } else { &input.0 }; // todo: lowpri: styling
+                    let replacement = if f { &patterns.join(" / ") } else { &input.0 };
                     for s in t.spans.iter_mut() {
                         s.content = s.content.replace("{}", replacement).into();
                     }
@@ -252,10 +253,10 @@ pub fn fs_reload(
                 }
 
                 if f {
-                    input.0 = state.picker_ui.input.input.clone()
+                    input.0 = state.picker_ui.input.input.clone();
                 } else {
-                    patterns[*pattern_index] = state.picker_ui.input.input.clone()
-                }
+                    patterns[*pattern_index] = state.picker_ui.input.input.clone();
+                };
 
                 state.filtering = f;
             }

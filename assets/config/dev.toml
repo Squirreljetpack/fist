@@ -1,7 +1,7 @@
 [panes.nav]
     show_preview = true
 
-[panes.fd]
+[panes.find]
     on_leave_unset_dirs_only = true
 
 [history]

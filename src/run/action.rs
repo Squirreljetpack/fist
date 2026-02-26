@@ -467,6 +467,7 @@ pub fn fsaction_handler(
                 FILTERS::visibility(),
             );
 
+            // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
             if STACK::set_or_push(pane) {
                 prepare_prompt(state);
                 fs_reload(state, true);
@@ -487,11 +488,6 @@ pub fn fsaction_handler(
         }
 
         FsAction::Search => {
-            // save input
-            let (content, index) = state.get_content_and_index();
-            STACK::save_input(content, index);
-
-            // save input
             if STACK::with_current_mut(|x| match x {
                 FsPane::Search {
                     input,
@@ -503,28 +499,39 @@ pub fn fsaction_handler(
                     if patterns.is_empty() {
                         patterns.push(String::new());
                     }
-                    if *filtering {
-                        // load picker_ui.input from patterns, reload will start reading last pattern from picker_ui.input
-                        std::mem::swap(
-                            &mut patterns[*pattern_index],
-                            &mut state.picker_ui.input.input,
-                        );
-                    } else {
-                        std::mem::swap(&mut input.0, &mut state.picker_ui.input.input);
-                    }
-                    state.picker_ui.input.recompute_graphemes();
-                    state.picker_ui.input.set(None, u16::MAX);
+
                     *filtering = !*filtering;
+
+                    let new_input = if *filtering {
+                        // restore from input
+                        &input.0
+                    } else {
+                        // when u stop filtering (enter rg)
+
+                        // save input
+                        *input = state.get_content_and_index();
+
+                        // set input to previous
+                        &patterns[*pattern_index]
+                    };
+
+                    state.picker_ui.input.set(new_input.clone(), u16::MAX);
+
                     true
                 }
                 _ => false,
             }) {
                 fs_reload(state, false);
             } else {
+                // save input
+                let (content, index) = state.get_content_and_index();
+                STACK::save_input(content, index);
+
                 // let mut vis = FILTERS::visibility(); // todo: merge instead of overwrite
                 let vis = GLOBAL::with_cfg(|cfg| cfg.panes.search.default_visibility);
 
-                let opts = GLOBAL::with_cfg(|c| [c.panes.search.no_heading, c.panes.search.fixed_strings]);
+                let opts =
+                    GLOBAL::with_cfg(|c| [c.panes.search.no_heading, c.panes.search.fixed_strings]);
                 let pane =
                     FsPane::new_rg(STACK::cwd().unwrap_or_default(), FILTERS::sort(), vis, opts);
                 STACK::push(pane);

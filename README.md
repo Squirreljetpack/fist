@@ -67,41 +67,96 @@ For more information on bindings, see [matchmaker](https://github.com/Squirrelje
 
 ## Nav
 
-Started by calling `fs` without any positional arguments.
+Start by calling `fs` without any positional arguments.
 
 <img src=".README.assets/image-20260226020033515.png" alt="image-20260226020033515" style="width:360px;" />
 
 ## Find
 
-`fs :: [OPTIONS] [PATHS]... [PATTERN]`. Searches all sub-files and directories. Filtering and sort order can be configured on the command line.
+Start by calling `fs` with arguments, or by using the subcommand: `fs :: [OPTIONS] [PATHS]... [PATTERN]`.
+
+Searches all sub-files and directories. Filtering and sort order can be configured on the command line.
 
 <img src=".README.assets/image-20260226020201947.png" alt="image-20260226020201947" style="width:360px" />
 
 ## Search
 
-fs has two columns: the main filepath column, and sometimes a secondary context column displayed after it. In the `rg` pane, the context column contains the query matches and their context. To search them, type `%`, which switches the active filtering column.
+Start by calling `fs` with the subcommand: `fs : [OPTIONS] [PATHS]... [PATTERN]`.
+
+The results are displayed in two columns: the main filepath column, and a secondary context column displayed after it. In this pane, the context column contains the query matches (and any requested context lines around them).
+
+This pane operates in two modes which can be switched between with `ctrl-r`[^1], a query and a filter mode.
+
+- In query mode, the results are populated with all text matches of a given query (your input).
+- In filter mode, the results are filtered to lines matching your input.
+- By default, the filter applies to the main (first) column. To switch to filtering the second column, type `%` (i.e. `path_filter % context_filter`)
+- The currently active query/filter of the inactive mode is displayed above your input[^2].
+
+For more information, see `fs : --help`.
 
 <img src=".README.assets/image-20260226021241522.png" alt="image-20260226021241522" style="width:360px" />
 
+[^1]: The same key used to enter this pane
+[^2]: the mistake in the image has been fixed
+
 ## Stream/Custom
 
-```
-obsidian_vaults() {
-  local line
-  # fs wraps fd with a slightly more convenient syntax for interactive use.
-  # This example demonstrates the use of `list` and `--`:
-  # the first (available for all panes) can be helpful
-  # for using fs syntax in non-interactive situations,
-  # and arguments after the second are passed through to `fd`.
-  fs -t d --list $OBSIDIAN_HOME . -- --max-depth 1 |
-  while read -r line; do
-    FS_OUTPUT="{=}\t{-1.}" fs -t .md --list --no-read $line .
-  done |
-  FS_OPTS="opener=ob._open display='print \${\${1#*/\$2/}%.md}' delim=\t" fs
-}
+f:ist can also accept arbitrary lists of files from a command or input stream, where all the usual operations are available:
 
+- directory traversal
+- file create/edit/delete/custom actions relative to the current item/directory.
+- enriched display
+- full text search
+- reversible actions
+- preview
+- filtering and sorting
+- and so on.
 
+The following is an example script for managing directories of markdown notes:
+
+```zsh
 ### --- ob._open -- ###
+
+#!/bin/zsh
+
+# This first command demonstrates the use of fs as a wrapper for fd,
+# by use of the `--list` and `--` parameters:
+# `--list` (available for all panes), starts fs non-interactively,
+# while arguments after `--` passed through to `fd`.
+# The effect however, is simply to list all folders in a given folder.
+fs -t d --list $OBSIDIAN_HOME . -- --max-depth 1 |
+while read -r line; do
+  # This command finds all markdown files, and prints them in a custom format:
+  # {a:b} is a slicing syntax for path components
+  # {-1:} means take the last component
+  # 3 different delimiters are supported for slicing: , `=`, `.`
+  # `:` target the single-quoted current item
+  # `=` target the current item without single quotes
+  # `=` target the current working directory without single quotes
+  #
+  # --no-read is needed because fs tries to read from stdin if it detects incoming input
+  FS_OUTPUT="{=}\t{-1.}" fs -t .md --list --no-read $line .
+done |
+# opener: use this program to open the selected file
+# delim: use this delimiter to split the input into a Path and a Context
+# display: run this script to determine how the input item is rendered given its Path and Context.
+FS_OPTS="opener=ob._open display='echo \${\${1#*/\$2/}%.md}' delim=\t" fs
+
+# Note:
+# For better performance, you should use in the last command instead of display=:
+# display-batch='while ((\$#)); do echo \${\${1#*/\$2/}%.md}; shift 2; done'
+# which should be a script that consumes a batch of PathItems,
+# each of which correspond to 2 input arguments: the Path and the Context,
+# and outputs the desired display representation in order.
+
+```
+
+```shell
+### --- ob._open -- ###
+
+# This script takes a filepath, and opens it with Obsidian.
+# We pass the uri to fs :o so that it records it in our history, which we can later access using `fs :file`.
+
 uri() {
   print -nl $@ | sed 's/ /%20/g; s/\//%2F/g'
   # or more reliably, print -nl $@ | jq -sRr @uri
@@ -109,11 +164,15 @@ uri() {
 fs :o "obsidian://open?path=$(uri $1)"
 ```
 
-<img src=".README.assets/image-20260226145550650.png" alt="image-20260226145550650" style="width: 400px;" />
+<img src=".README.assets/image-20260226164920746.png" alt="instantly search through up to hundreds of thousands of files" style="width:561px;" />
 
 ## History/App
 
-F:ist records the files, directories and applications that you've visited in a local database, using it to sort the results in the `Files`, `Folders` and `Apps` panes by relevance.
+f:ist records the files, directories and applications that you've visited in a local database, where they are displayed in the `Files`, `Folders` and `Apps` panes, sorted by relevance[^3].
+
+<img src=".README.assets/image-20260226171122403.png" alt="image-20260226171122403" style="width:550px;" />
+
+[^3]: frequency, recency, and similarity to query.
 
 # Tools
 
@@ -195,6 +254,8 @@ The patterns are:
 Though the syntax has many parts, configuration should be fairly straightforward. F:ist comes with a sane set of defaults with wide coverage for a variety of filetypes, and declaring overrides is as simple as declaring the desired action together with the conditions which it requires. For example:
 
 ```toml
+### --- lessfilter.toml -- ###
+
 preview = [
   # ...
   # On an file with mime-type sqlite-3 and a system with sqlite3, this rule gets a score of 20.
@@ -241,10 +302,12 @@ code = 'code --add {}'
 ### Dependencies
 
 - fd-find
-- eza
 - ripgrep
 - bat (preview)
-- chafa (preview)
+- eza (optional: preview)
+- chafa (optional: preview)
+- kreuzberg (optional: preview)
+- mediainfo (optional: preview)
 
 Conversely, fist integrates into [CommandSpace](https://github.com/Squirreljetpack/command-space), which you may also enjoy checking out.
 

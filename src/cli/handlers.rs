@@ -54,7 +54,7 @@ use crate::{
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
-    utils::{colors::display_ratatui_styles, path::paths_base, string::path_formatter},
+    utils::{colors::display_ratatui_styles, formatter::format_path, path::paths_base},
 };
 use fist_types::filetypes::{FileType, FileTypeArg};
 use fist_types::filters::{SortOrder, Visibility};
@@ -175,9 +175,13 @@ async fn handle_rg(
     if cmd.vis.is_default() {
         cmd.vis = cfg.global.panes.search.default_visibility
     }
-    let sort = cmd
-        .sort
-        .unwrap_or(cfg.global.panes.search.default_sort.unwrap_or(SortOrder::none));
+    let sort = cmd.sort.unwrap_or(
+        cfg.global
+            .panes
+            .search
+            .default_sort
+            .unwrap_or(SortOrder::none),
+    );
 
     if cmd._no_heading_alias {
         cmd.no_heading = Some(true);
@@ -804,7 +808,7 @@ pub fn print(
     output_separator: &str,
 ) {
     let mut display = if let Some(template) = &template {
-        path_formatter(template, &AbsPath::new(path))
+        format_path(template, &AbsPath::new(path))
     } else {
         path.to_string_lossy().into()
     };

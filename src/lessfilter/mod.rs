@@ -20,7 +20,7 @@ use std::process::{Command, Stdio};
 use crate::cli::clap_tools::LessfilterCommand;
 use crate::lessfilter::env::line_column;
 use crate::lessfilter::helpers::{extract, is_header, is_metadata, show_header, show_metadata};
-use crate::utils::string::path_formatter;
+use crate::utils::formatter::format_path;
 use crate::{
     abspath::AbsPath,
     lessfilter::{
@@ -88,7 +88,7 @@ pub fn handle(
                     ebog!("The custom action '{s}' is not defined!");
                     continue;
                 };
-                let script = path_formatter(template, &AbsPath::new(path.clone()));
+                let script = format_path(template, &AbsPath::new(path.clone()));
                 let mut cmd = Command::from_script(&script);
                 cmd.stdout(maybe_tty()).stdin(maybe_tty());
 
