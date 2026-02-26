@@ -112,8 +112,6 @@ none\:""
 size\:"Not always supported"))' \
 '*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
-'-o+[Format the output as this template]:OUTPUT:_default' \
-'--output=[Format the output as this template]:OUTPUT:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -140,8 +138,6 @@ none\:""
 size\:"Not always supported"))' \
 '*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
-'-o+[Format the output as this template]:OUTPUT:_default' \
-'--output=[Format the output as this template]:OUTPUT:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -175,8 +171,6 @@ size\:"Not always supported"))' \
 '-C+[Show NUM lines before and after each match]:NUM:_default' \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
 '--no-heading=[Display each match on a separate line. Alias\: \`-1\`]:NO_HEADING:(true false)' \
-'-o+[Format the output as this template]:OUTPUT:_default' \
-'--output=[Format the output as this template]:OUTPUT:_default' \
 '--query=[initial query]:QUERY:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
@@ -194,6 +188,7 @@ size\:"Not always supported"))' \
 '--case-sensitive[]' \
 '-S[]' \
 '--smart-case[]' \
+'--no-fixed-strings[Enable fixed string matching Disable fixed string matching]' \
 '-1[]' \
 '--list[]' \
 '--help[]' \
@@ -216,8 +211,6 @@ size\:"Not always supported"))' \
 '-C+[Show NUM lines before and after each match]:NUM:_default' \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
 '--no-heading=[Display each match on a separate line. Alias\: \`-1\`]:NO_HEADING:(true false)' \
-'-o+[Format the output as this template]:OUTPUT:_default' \
-'--output=[Format the output as this template]:OUTPUT:_default' \
 '--query=[initial query]:QUERY:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
@@ -235,6 +228,7 @@ size\:"Not always supported"))' \
 '--case-sensitive[]' \
 '-S[]' \
 '--smart-case[]' \
+'--no-fixed-strings[Enable fixed string matching Disable fixed string matching]' \
 '-1[]' \
 '--list[]' \
 '--help[]' \

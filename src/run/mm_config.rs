@@ -12,6 +12,7 @@ use std::path::Path;
 
 use super::{FsAction, binds::default_binds};
 use crate::{
+    cli::env::EnvOpts,
     config::Config,
     lessfilter::Preset,
     ui::{
@@ -62,6 +63,9 @@ pub fn get_mm_cfg(
     cfg: &Config,
 ) -> MMConfig {
     let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
+    if let Some(partial) = EnvOpts::get_mm_partial() {
+        mm_cfg.render.apply(partial);
+    }
 
     let binds = default_binds();
     default_binds().append(&mut mm_cfg.binds);

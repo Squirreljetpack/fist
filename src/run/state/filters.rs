@@ -61,7 +61,7 @@ impl FILTERS {
     /// Reload if pane filter differs from global filter
     pub fn refilter() {
         STACK::with_current_mut(|p| match p {
-            FsPane::Nav { sort, vis, .. } | FsPane::Rg { sort, vis, .. } => {
+            FsPane::Nav { sort, vis, .. } | FsPane::Search { sort, vis, .. } => {
                 FILTERS::with(|gsort, gvis| {
                     if gsort != &*sort || gvis != &*vis {
                         log::debug!("updating filters: {sort} -> {gsort}, {vis:?} -> {gvis:?}");
@@ -78,7 +78,7 @@ impl FILTERS {
                 vis,
                 ..
             }
-            | FsPane::Fd {
+            | FsPane::Find {
                 complete,
                 sort,
                 vis,
@@ -107,7 +107,7 @@ impl FILTERS {
             }
             FsPane::Files { sort, .. }
             | FsPane::Folders { sort, .. }
-            | FsPane::Launch { sort, .. } => {
+            | FsPane::Apps { sort, .. } => {
                 FILTERS::with(|gsort, _| {
                     if DbSortOrder::from(*gsort) != *sort {
                         log::debug!("updating filters: {gsort} -> {sort}");

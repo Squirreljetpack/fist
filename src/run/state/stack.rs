@@ -56,8 +56,8 @@ impl STACK {
             let same = discriminant(&stack[*index]) == discriminant(&pane);
 
             match stack[*index] {
-                FsPane::Fd { .. } => {
-                    if GLOBAL::with_cfg(|c| c.panes.fd.on_leave_unset_dirs_only) {
+                FsPane::Find { .. } => {
+                    if GLOBAL::with_cfg(|c| c.panes.find.on_leave_unset_dirs_only) {
                         FILTERS::with_vis_mut(|v| v.dirs = false);
                     }
                 }
@@ -202,7 +202,7 @@ impl STACK {
                 FsPane::Nav { cwd, .. } | FsPane::Custom { cwd, .. } => {
                     WatcherMessage::Switch(cwd.inner(), notify::RecursiveMode::NonRecursive)
                 }
-                FsPane::Fd { .. } | FsPane::Rg { .. } => {
+                FsPane::Find { .. } | FsPane::Search { .. } => {
                     // reload on small sizes?
                     WatcherMessage::Pause
                     // WatcherMessage::Switch(cwd.inner())
@@ -226,12 +226,12 @@ impl STACK {
                     FsPane::Files { .. } | FsPane::Folders { .. } => {}
                     FsPane::Nav { cwd, .. }
                     | FsPane::Custom { cwd, .. }
-                    | FsPane::Fd { cwd, .. }
-                    | FsPane::Rg { cwd, .. }
+                    | FsPane::Find { cwd, .. }
+                    | FsPane::Search { cwd, .. }
                     | FsPane::Stream { cwd, .. } => {
                         return Some(cwd.clone());
                     }
-                    FsPane::Launch { .. } => return None,
+                    FsPane::Apps { .. } => return None,
                 }
             }
 
@@ -280,8 +280,8 @@ impl STACK {
             match &mut stack[*index] {
                 FsPane::Custom { input, .. }
                 | FsPane::Stream { input, .. }
-                | FsPane::Fd { input, .. }
-                | FsPane::Rg { input, .. }
+                | FsPane::Find { input, .. }
+                | FsPane::Search { input, .. }
                 | FsPane::Nav { input, .. }
                 | FsPane::Files { input, .. }
                 | FsPane::Folders { input, .. } => {
@@ -295,9 +295,9 @@ impl STACK {
     }
 
     pub fn in_app() -> bool {
-        STACK::with_current(|x| matches!(x, FsPane::Launch { .. }))
+        STACK::with_current(|x| matches!(x, FsPane::Apps { .. }))
     }
     pub fn in_rg() -> bool {
-        STACK::with_current(|x| matches!(x, FsPane::Rg { .. }))
+        STACK::with_current(|x| matches!(x, FsPane::Search { .. }))
     }
 }

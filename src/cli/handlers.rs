@@ -32,7 +32,7 @@ use super::{
 };
 use crate::{
     abspath::AbsPath,
-    cli::{SubTool, clap_helpers::ListMode},
+    cli::{SubTool, clap_helpers::ListMode, env::EnvOpts},
     config::Config,
     db::{
         DbSortOrder, DbTable, Pool, display_entries,
@@ -135,9 +135,12 @@ async fn handle_info(
             entries.truncate(limit);
         }
 
+        let template = EnvOpts::with_env(|s| s.output_template.clone());
+        let output_separator =
+            EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
         if cmd.minimal {
             for entry in entries {
-                prints!(entry.path.to_string_lossy());
+                print(&entry.path, &template, &output_separator);
             }
         } else {
             display_entries(&entries);
@@ -170,17 +173,17 @@ async fn handle_rg(
     mut cfg: Config,
 ) -> Result<(), CliError> {
     if cmd.vis.is_default() {
-        cmd.vis = cfg.global.panes.rg.default_visibility
+        cmd.vis = cfg.global.panes.search.default_visibility
     }
     let sort = cmd
         .sort
-        .unwrap_or(cfg.global.panes.rg.default_sort.unwrap_or(SortOrder::none));
+        .unwrap_or(cfg.global.panes.search.default_sort.unwrap_or(SortOrder::none));
 
     if cmd._no_heading_alias {
         cmd.no_heading = Some(true);
     };
-    cfg.global.panes.rg.no_heading._take(cmd.no_heading);
-    let no_heading = cfg.global.panes.rg.no_heading;
+    cfg.global.panes.search.no_heading._take(cmd.no_heading);
+    let no_heading = cfg.global.panes.search.no_heading;
 
     if cmd.list {
         let (prog, args) = (
@@ -191,6 +194,7 @@ async fn handle_rg(
                 cmd.context.resolve(),
                 cmd.case.resolve(),
                 no_heading,
+                cmd.fixed_strings,
                 &cmd.patterns,
                 &cmd.paths,
                 &cmd.rg,
@@ -203,8 +207,17 @@ async fn handle_rg(
             None => return Err(CliError::Handled),
         };
 
+        let template = EnvOpts::with_env(|s| s.output_template.clone());
+        let output_separator =
+            EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
+
         let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
-            prints!(line);
+            let path = PathBuf::from(line);
+            let push = cmd.vis.post_fd_filter(&path);
+
+            if push {
+                print(&path, &template, &output_separator)
+            }
             Ok(())
         });
         return Ok(());
@@ -221,6 +234,7 @@ async fn handle_rg(
         cmd.context.resolve(),
         cmd.case.resolve(),
         no_heading,
+        cmd.fixed_strings,
         cmd.patterns,
         cmd.rg,
     );
@@ -361,7 +375,7 @@ async fn handle_default(
             cmd.vis = if nav_pane {
                 cfg.global.panes.nav.default_visibility
             } else {
-                cfg.global.panes.fd.default_visibility
+                cfg.global.panes.find.default_visibility
             }
         }
 
@@ -455,7 +469,7 @@ async fn handle_default(
         || !cmd.fd.is_empty()
     {
         if cmd.vis.is_default() {
-            cmd.vis = cfg.global.panes.fd.default_visibility
+            cmd.vis = cfg.global.panes.find.default_visibility
         }
 
         // pattern specified
@@ -528,17 +542,16 @@ async fn handle_default(
                 None => return Err(CliError::Handled),
             };
 
+            let template = EnvOpts::with_env(|s| s.output_template.clone());
+            let output_separator =
+                EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
+
             let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
                 let path = PathBuf::from(line);
                 let push = cmd.vis.post_fd_filter(&path);
 
                 if push {
-                    if let Some(template) = &cmd.output {
-                        let s = path_formatter(template, &AbsPath::new(path));
-                        prints!(s)
-                    } else {
-                        prints!(path.to_string_lossy())
-                    }
+                    print(&path, &template, &output_separator)
                 }
                 Ok(())
             });
@@ -555,11 +568,14 @@ async fn handle_default(
         if cmd.list {
             let iter = list_dir(__cwd(), cmd.vis, 1); // cwd is abs so we can add results as unchecked
             let sort = sort.unwrap_or_default();
+            let template = EnvOpts::with_env(|s| s.output_template.clone());
+            let output_separator =
+                EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
 
             match sort {
                 SortOrder::none => {
                     for path in iter {
-                        prints!(path.to_string_lossy())
+                        print(&path, &template, &output_separator)
                     }
                 }
                 _ => {
@@ -572,7 +588,7 @@ async fn handle_default(
                     }
 
                     for path in files.into_iter() {
-                        prints!(path.to_string_lossy())
+                        print(&path, &template, &output_separator)
                     }
                 }
             }
@@ -780,4 +796,18 @@ async fn handle_tools(
             todo!()
         }
     }
+}
+
+pub fn print(
+    path: &std::path::Path,
+    template: &Option<String>,
+    output_separator: &str,
+) {
+    let mut display = if let Some(template) = &template {
+        path_formatter(template, &AbsPath::new(path))
+    } else {
+        path.to_string_lossy().into()
+    };
+    display.push_str(output_separator);
+    print!("{display}")
 }

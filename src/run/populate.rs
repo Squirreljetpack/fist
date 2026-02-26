@@ -26,6 +26,7 @@ use ratatui::text::Text;
 use tokio::task::spawn_blocking;
 
 use crate::{
+    cli::env::EnvOpts,
     config::GlobalConfig,
     find::rg::build_rg_args,
     run::{FsPane, state::TOAST},
@@ -76,8 +77,8 @@ impl FsPane {
                     }
                 }
 
-                let delim = GLOBAL::with_env(|c| c.delim);
-                let display_script = GLOBAL::with_env(|c| c.display.clone());
+                let delim = EnvOpts::with_env(|c| c.delim);
+                let display_script = EnvOpts::with_env(|c| c.display.clone());
                 let cwd = cwd.clone();
                 let stored = stored.clone();
 
@@ -255,8 +256,8 @@ impl FsPane {
                     // stdin reads resume
                 }
 
-                let delim = GLOBAL::with_env(|c| c.delim);
-                let display_script = GLOBAL::with_env(|c| c.display.clone());
+                let delim = EnvOpts::with_env(|c| c.delim);
+                let display_script = EnvOpts::with_env(|c| c.display.clone());
                 // store current sort/vis in global, then reset self
 
                 let cwd = cwd.clone();
@@ -323,7 +324,7 @@ impl FsPane {
                 )
             }
 
-            Self::Fd {
+            Self::Find {
                 cwd,
                 complete,
                 // input,
@@ -366,7 +367,7 @@ impl FsPane {
                     },
                 )
             }
-            Self::Rg {
+            Self::Search {
                 cwd,
                 //
                 vis,
@@ -380,6 +381,7 @@ impl FsPane {
                 paths,
                 rg,
                 complete,
+                fixed_strings,
                 //
                 filtering,
                 input,
@@ -394,6 +396,7 @@ impl FsPane {
                         *context,
                         *case,
                         *no_heading,
+                        *fixed_strings,
                         patterns,
                         paths,
                         rg,
@@ -592,7 +595,7 @@ impl FsPane {
                     Ok(())
                 })
             }
-            Self::Launch { sort, .. } => {
+            Self::Apps { sort, .. } => {
                 let sort = *sort;
                 let pool = GLOBAL::db();
                 let pool_clone = pool.clone();

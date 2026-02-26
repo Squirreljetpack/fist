@@ -5,7 +5,7 @@ use cli_boilerplate_automation::{
     bog::BogOkExt,
     bring::StrExt,
     broc::{CommandExt, SHELL, tty_or_inherit},
-    env_vars, prints, unwrap,
+    env_vars, unwrap,
 };
 use easy_ext::ext;
 use log::{debug, info};
@@ -169,14 +169,28 @@ impl FsMatchmaker {
     pub fn register_print_handler_(
         &mut self,
         print_handle: AppendOnly<String>,
+        default_template: Option<String>,
+        output_separator: String,
     ) {
         self.register_interrupt_handler(Interrupt::Print, move |state| {
             if let Some(t) = state.current_raw() {
-                let s = mm_formatter(t, state.payload());
-                if atty::is(atty::Stream::Stdout) {
-                    print_handle.push(s);
+                let template = if state.payload().is_empty() {
+                    default_template.as_ref()
                 } else {
-                    prints!(s);
+                    Some(state.payload())
+                };
+
+                let mut display = if let Some(template) = template {
+                    mm_formatter(t, template)
+                } else {
+                    t.path.to_string_lossy().into()
+                };
+
+                if atty::is(atty::Stream::Stdout) {
+                    display.push_str(&output_separator);
+                    print_handle.push(display);
+                } else {
+                    print!("{}{}", display, output_separator);
                 }
             };
         });

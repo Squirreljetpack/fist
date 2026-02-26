@@ -176,10 +176,11 @@ impl FilterOverlay {
     // Returns items as Vec<(Vec<Span>, bool)> so make_widgets can add checkboxes
     fn get_pane_items(&self) -> Vec<(Vec<Span<'static>>, Option<bool>)> {
         STACK::with_current(|p| match p {
-            FsPane::Rg {
+            FsPane::Search {
                 context: [before, after],
                 case,
                 no_heading,
+                fixed_strings,
                 ..
             } => {
                 // build context info line
@@ -202,6 +203,7 @@ impl FilterOverlay {
                     When::Never => "case",
                 };
                 let single = bold_indices("1-line", [0], self.item_style());
+                let regex = bold_indices("regex", [0], self.item_style());
 
                 vec![
                     (context, None),
@@ -213,6 +215,7 @@ impl FilterOverlay {
                         (*case).into(),
                     ),
                     (single, Some(*no_heading)),
+                    (regex, Some(!*fixed_strings)),
                 ]
             }
             // FsPane::Fd { .. } => {
@@ -351,10 +354,11 @@ impl FilterOverlay {
                 }
 
                 2 => STACK::with_current_mut(|p| match p {
-                    FsPane::Rg {
+                    FsPane::Search {
                         context,
                         case,
                         no_heading,
+                        fixed_strings,
                         ..
                     } => match y {
                         1 => {
@@ -368,6 +372,7 @@ impl FilterOverlay {
                         }
                         4 => case.cycle(),
                         5 => *no_heading = !(*no_heading),
+                        6 => *fixed_strings = !(*fixed_strings),
                         _ => {}
                     },
 
@@ -450,10 +455,11 @@ impl Overlay for FilterOverlay {
                 reload = true;
 
                 STACK::with_current_mut(|p| match p {
-                    FsPane::Rg {
+                    FsPane::Search {
                         context,
                         case,
                         no_heading,
+                        fixed_strings,
                         ..
                     } => match c {
                         'a' => reload = context[1].ssub(1),
@@ -472,6 +478,7 @@ impl Overlay for FilterOverlay {
 
                         'e' => case.cycle(),
                         '1' => *no_heading = !(*no_heading),
+                        'r' => *fixed_strings = !(*fixed_strings),
 
                         _ => reload = false,
                     },

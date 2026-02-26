@@ -10,9 +10,9 @@ use matchmaker::nucleo::{Color, Render, Span, Style, Text};
 
 use crate::{
     abspath::AbsPath,
-    cli::paths::__home,
+    cli::{env::EnvOpts, paths::__home},
     db::Entry,
-    run::state::{GLOBAL, ui::global_ui},
+    run::state::ui::global_ui,
 };
 use fist_types::{
     FileCategory,
@@ -20,6 +20,8 @@ use fist_types::{
 };
 
 /// The basic item underyling a line in the matchmaker
+///
+/// Only created in [`crate::run::FsPane::populate`].
 #[derive(Debug, Clone)]
 pub struct PathItem {
     pub path: AbsPath,
@@ -39,13 +41,14 @@ fn up_to_nth_ancestor(
 }
 
 impl PathItem {
-    /// only use in fspane: applies env.ancestor
+    /// # Notes
+    /// applies env.ancestor
     pub fn new(
         path: impl Into<PathBuf>,
         cwd: &Path,
     ) -> Self {
         let mut path_ = path.into().abs(cwd);
-        if let Some(u) = GLOBAL::with_env(|s| s.ancestor) {
+        if let Some(u) = EnvOpts::with_env(|s| s.ancestor) {
             path_ = up_to_nth_ancestor(path_, u)
         }
 

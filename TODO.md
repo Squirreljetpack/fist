@@ -11,6 +11,7 @@ Platform specific feature flags for dependencies
 
 Nav: - search depth
 Custom: - sorting?
+implement --list for open/files/dirs panes
 
 # Footer
 

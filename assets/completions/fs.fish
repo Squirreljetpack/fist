@@ -118,7 +118,6 @@ mtime\t''
 none\t''
 size\t'Not always supported'"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s o -l output -d 'Format the output as this template' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l config -d 'config path' -r -F
@@ -143,7 +142,6 @@ mtime\t''
 none\t''
 size\t'Not always supported'"
 complete -c fs -n "__fish_fs_using_subcommand ::" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
-complete -c fs -n "__fish_fs_using_subcommand ::" -s o -l output -d 'Format the output as this template' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l config -d 'config path' -r -F
@@ -173,7 +171,6 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s B -l before-context -d 'Sh
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s C -l context -d 'Show NUM lines before and after each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l no-heading -d 'Display each match on a separate line. Alias: `-1`' -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s o -l output -d 'Format the output as this template' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l query -d 'initial query' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l override -d 'config override' -r
@@ -192,6 +189,7 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s f -d 'show only files'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s i -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s S -l smart-case
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l no-fixed-strings -d 'Enable fixed string matching Disable fixed string matching'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s 1
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l list
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l help
@@ -206,7 +204,6 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s B -l before-context -d 'Show
 complete -c fs -n "__fish_fs_using_subcommand :" -s C -l context -d 'Show NUM lines before and after each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l no-heading -d 'Display each match on a separate line. Alias: `-1`' -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :" -s o -l output -d 'Format the output as this template' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l query -d 'initial query' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l override -d 'config override' -r
@@ -225,6 +222,7 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s f -d 'show only files'
 complete -c fs -n "__fish_fs_using_subcommand :" -s i -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :" -s S -l smart-case
+complete -c fs -n "__fish_fs_using_subcommand :" -l no-fixed-strings -d 'Enable fixed string matching Disable fixed string matching'
 complete -c fs -n "__fish_fs_using_subcommand :" -s 1
 complete -c fs -n "__fish_fs_using_subcommand :" -l list
 complete -c fs -n "__fish_fs_using_subcommand :" -l help

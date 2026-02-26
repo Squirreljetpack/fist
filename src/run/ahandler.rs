@@ -4,6 +4,7 @@ use matchmaker::{
     nucleo::{Color, Modifier, Span, Style, injector::IndexedInjector},
     ui::StatusUI,
 };
+use matchmaker_partial::Apply;
 
 use crate::{
     abspath::AbsPath,
@@ -146,6 +147,11 @@ pub fn fs_reload(
     state.restart_worker();
 
     let injector = IndexedInjector::new_globally_indexed(state.injector());
+    STACK::populate(injector, || {});
+
+    // stash the saved index to restore it once synced
+    // This is invoked only through FsAction::Undo/Redo/Restart
+    TlsStore::maybe_set(STACK::take_maybe_index());
 
     STACK::with_current_mut(|pane| {
         // apply settings when pane type changes
@@ -164,13 +170,35 @@ pub fn fs_reload(
                 if let Some(p) = state.preview_ui {
                     p.set_layout(cfg.panes.preview_layout_index(pane));
                 };
+
+                let partial = cfg.mm.get(pane);
+                {
+                    state.ui.config.apply(partial.ui.clone());
+                    state.picker_ui.input.config.apply(partial.input.clone());
+                    state
+                        .picker_ui
+                        .results
+                        .config
+                        .apply(partial.results.clone());
+                    state
+                        .picker_ui
+                        .results
+                        .status_config
+                        .apply(partial.status.clone());
+                    state
+                        .preview_ui
+                        .as_mut()
+                        .unwrap()
+                        .config
+                        .apply(partial.preview.clone());
+                }
             });
         }
 
         state.picker_ui.results.config.right_align_last = true;
 
         match pane {
-            FsPane::Rg {
+            FsPane::Search {
                 filtering,
                 patterns,
                 input,
@@ -201,9 +229,9 @@ pub fn fs_reload(
                 // todo: more style flexibility in status
                 let status = GLOBAL::with_cfg(|c| {
                     let base = if f {
-                        &c.panes.rg.fs_status_template
+                        &c.panes.search.fs_status_template
                     } else {
-                        &c.panes.rg.rg_status_template
+                        &c.panes.search.rg_status_template
                     };
                     let mut t = StatusUI::parse_template_to_status_line(base);
                     let replacement = if f { &patterns.join(" / ") } else { &input.0 }; // todo: lowpri: styling
@@ -233,7 +261,7 @@ pub fn fs_reload(
             }
             _ => {
                 match pane {
-                    FsPane::Launch { .. } => {
+                    FsPane::Apps { .. } => {
                         TOAST::clear();
                         STASH::set_cas(CustomStashActionActionState::App)
                     }
@@ -256,11 +284,6 @@ pub fn fs_reload(
         log::trace!("{pane:?}, is_new: {is_new}");
     });
 
-    STACK::populate(injector, || {});
-
-    // stash the saved index to restore it once synced
-    // This is invoked only through FsAction::Undo/Redo/Restart
-    TlsStore::maybe_set(STACK::take_maybe_index());
     // in the meantime, set to 0
     state.picker_ui.results.cursor_jump(0);
 }

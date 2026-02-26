@@ -493,7 +493,7 @@ pub fn fsaction_handler(
 
             // save input
             if STACK::with_current_mut(|x| match x {
-                FsPane::Rg {
+                FsPane::Search {
                     input,
                     filtering,
                     patterns,
@@ -522,14 +522,11 @@ pub fn fsaction_handler(
                 fs_reload(state, false);
             } else {
                 // let mut vis = FILTERS::visibility(); // todo: merge instead of overwrite
-                let vis = GLOBAL::with_cfg(|cfg| cfg.panes.rg.default_visibility);
+                let vis = GLOBAL::with_cfg(|cfg| cfg.panes.search.default_visibility);
 
-                let pane = FsPane::new_rg(
-                    STACK::cwd().unwrap_or_default(),
-                    FILTERS::sort(),
-                    vis,
-                    GLOBAL::with_cfg(|c| c.panes.rg.no_heading),
-                );
+                let opts = GLOBAL::with_cfg(|c| [c.panes.search.no_heading, c.panes.search.fixed_strings]);
+                let pane =
+                    FsPane::new_rg(STACK::cwd().unwrap_or_default(), FILTERS::sort(), vis, opts);
                 STACK::push(pane);
                 prepare_prompt(state);
                 fs_reload(state, false);

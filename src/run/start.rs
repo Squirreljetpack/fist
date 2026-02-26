@@ -18,6 +18,7 @@ use matchmaker::{
 use ratatui::text::Text;
 
 use crate::{
+    cli::env::EnvOpts,
     clipboard,
     config::Config,
     db::{DbTable, Pool, zoxide::DbFilter},
@@ -51,7 +52,7 @@ pub type FormatterFn = Arc<RenderFn<Indexed<PathItem>>>;
 fn make_mm(
     render: RenderConfig,
     tui: TerminalConfig,
-    _cfg: &Config,
+    cfg: &Config,
     print_handle: AppendOnly<String>,
     stability: u32,
 ) -> (Matchmaker<Indexed<PathItem>, PathItem>, FsInjector) {
@@ -87,7 +88,11 @@ fn make_mm(
     mm.config_render(render);
     mm.config_tui(tui);
 
-    mm.register_print_handler_(print_handle);
+    mm.register_print_handler_(
+        print_handle,
+        cfg.misc.output_template.clone(),
+        cfg.misc.output_separator.clone(),
+    );
     // attach previewer handling alt-h: help display, display file/fn
     mm.register_become_handler_();
     mm.register_execute_handler_();
@@ -102,7 +107,7 @@ fn make_mm(
 // "entrypoint", called ONCE
 pub async fn start(
     pane: FsPane,
-    cfg: Config,
+    mut cfg: Config,
     mm_cfg: MMConfig,
     db_pool: Pool,
 ) -> Result<(), CliError> {
@@ -127,7 +132,7 @@ pub async fn start(
     }
     let preview_layout_index = cfg.global.panes.preview_layout_index(&pane);
 
-    if let FsPane::Rg {
+    if let FsPane::Search {
         filtering,
         no_heading,
         ..
@@ -153,6 +158,16 @@ pub async fn start(
 
     let print_handle = AppendOnly::new();
     let tick_rate = render.tick_rate();
+
+    EnvOpts::with_env(|e| {
+        if let Some(v) = e.output_template.clone() {
+            cfg.misc.output_template = Some(v);
+        }
+        if let Some(v) = e.output_separator.clone() {
+            cfg.misc.output_separator = v;
+        }
+        Some(())
+    });
 
     // init MM
     let (mut mm, injector) = make_mm(
@@ -208,7 +223,7 @@ pub async fn start(
                     .ok();
             }
         }
-        FsPane::Rg {
+        FsPane::Search {
             patterns,
             input,
             filtering,
@@ -221,7 +236,7 @@ pub async fn start(
                     .send(RenderCommand::Action(Action::SetQuery(input.0.clone())))
                     .ok();
 
-                &cfg.global.panes.rg.fs_status_template
+                &cfg.global.panes.search.fs_status_template
             } else {
                 // enable auto-reload
                 render_tx
@@ -229,7 +244,7 @@ pub async fn start(
                         FsAction::Filtering(Some(false)).into(),
                     ))
                     .ok();
-                &cfg.global.panes.rg.rg_status_template
+                &cfg.global.panes.search.rg_status_template
             };
             let mut t = StatusUI::parse_template_to_status_line(base);
 
@@ -294,7 +309,7 @@ pub async fn start(
                     .collect();
                 let conn = GLOBAL::db().get_conn(DbTable::apps).await?;
                 let prog =
-                    GLOBAL::with_env(|s| s.opener.as_ref().and_then(Program::from_os_string));
+                    EnvOpts::with_env(|s| s.opener.as_ref().and_then(Program::from_os_string));
                 if prog.is_some() {
                     crate::spawn::init_spawn_with(Vec::new()); // if opener is set explicitly, ignore spawn_with
                 }
@@ -311,7 +326,7 @@ pub async fn start(
 
 fn set_envs(lines: &[PathItem]) {
     let envs = STACK::with_current(|x| match x {
-        FsPane::Rg { .. } => {
+        FsPane::Search { .. } => {
             if lines.len() > 1 {
                 return None;
             }
