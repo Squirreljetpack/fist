@@ -16,6 +16,7 @@ pub fn build_rg_args(
     context: [usize; 2],
     case: When,
     no_heading: bool,
+    fixed_strings: bool,
     patterns: &[String],
     paths: &[PathBuf],
     rg_args: &[OsString],
@@ -104,7 +105,12 @@ pub fn build_rg_args(
         When::Auto => "--smart-case",
         When::Always => "--case-sensitive",
     };
-    ret.push(case.into());
+    let fixed = if fixed_strings {
+        "--fixed-strings"
+    } else {
+        "--no-fixed-strings"
+    };
+    ret.push(fixed.into());
 
     ret.append(&mut vec_![: "--before-context", context[0].to_string(), "--after-context", context[1].to_string()]);
 

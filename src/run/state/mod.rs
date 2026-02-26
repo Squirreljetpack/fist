@@ -1,21 +1,17 @@
 #![allow(non_snake_case)]
-use std::{
-    cell::RefCell,
-    sync::{LazyLock, Mutex},
-};
+use std::{cell::RefCell, sync::Mutex};
 
 use cli_boilerplate_automation::bait::ResultExt;
 use log::debug;
 use matchmaker::{action::Action, event::RenderSender};
 use ratatui::{
-    style::Style,
+    style::{Color, Style},
     text::{Line, Span},
 };
 use tokio;
 
 use crate::config::GlobalConfig;
 use crate::{
-    cli::env::EnvOpts,
     db::{Connection, DbSortOrder, Pool, zoxide::DbFilter},
     errors::DbError,
     run::{FsPane, action::FsAction},
@@ -37,7 +33,6 @@ pub use temp::*;
 // just try different kinds of locks :p
 pub static DB_FILTER: tokio::sync::Mutex<Option<DbFilter>> =
     const { tokio::sync::Mutex::const_new(None) };
-static ENV_OPTS: LazyLock<Option<EnvOpts>> = LazyLock::new(EnvOpts::init);
 // ------------- READ_ONLY ------------------------
 pub mod GLOBAL {
     use matchmaker::{event::BindSender, message::BindDirective};
@@ -65,7 +60,7 @@ pub mod GLOBAL {
         let sort = match &pane {
             FsPane::Nav { sort, .. }
             | FsPane::Custom { sort, .. }
-            | FsPane::Fd { sort, .. }
+            | FsPane::Find { sort, .. }
             | FsPane::Stream { sort, .. } => *sort,
             FsPane::Folders { sort, .. } | FsPane::Files { sort, .. } => (*sort).into(),
             _ => Default::default(),
@@ -73,9 +68,9 @@ pub mod GLOBAL {
         let visibility = match &pane {
             FsPane::Nav { vis, .. }
             | FsPane::Custom { vis, .. }
-            | FsPane::Fd { vis, .. }
+            | FsPane::Find { vis, .. }
             | FsPane::Stream { vis, .. }
-            | FsPane::Rg { vis, .. } => *vis,
+            | FsPane::Search { vis, .. } => *vis,
             _ => Default::default(),
         };
         debug!("Initial filters: {sort}, {visibility:?}");
@@ -95,13 +90,6 @@ pub mod GLOBAL {
         F: FnOnce(&GlobalConfig) -> R,
     {
         CONFIG.with(|c| f(c.borrow().as_ref().unwrap()))
-    }
-
-    pub fn with_env<F, R>(f: F) -> Option<R>
-    where
-        F: FnOnce(&EnvOpts) -> Option<R>,
-    {
-        ENV_OPTS.as_ref().and_then(f)
     }
 
     // ------------ SENDERS --------------
@@ -291,17 +279,20 @@ impl TOAST {
         let toast = make_toast(&state);
         GLOBAL::send_action(FsAction::set_footer(toast));
     }
+
+    pub fn toast_empty() {
+        TOAST::push_msg(
+            Span::styled("No entries", Style::new().fg(Color::DarkGray).italic()),
+            true,
+        );
+    }
 }
 
 // -----------------------------------------
 
 pub mod APP {
-    use std::{
-        ffi::OsString,
-        sync::{Mutex, atomic::AtomicBool},
-    };
+    use std::sync::atomic::AtomicBool;
 
-    pub static TO_OPEN: Mutex<Vec<OsString>> = const { Mutex::new(Vec::new()) };
     /// ensure recache isn't run more than once
     pub static RAN_RECACHE: AtomicBool = const { AtomicBool::new(false) };
 }

@@ -21,14 +21,15 @@ use cli_boilerplate_automation::{
     bs::sort_by_mtime,
     unwrap,
 };
-use matchmaker::{message::RenderCommand, nucleo::injector::Injector};
+use matchmaker::{SSS, message::RenderCommand, nucleo::injector::Injector};
 use ratatui::text::Text;
 use tokio::task::spawn_blocking;
 
 use crate::{
+    cli::env::EnvOpts,
     config::GlobalConfig,
     find::rg::build_rg_args,
-    run::FsPane,
+    run::{FsPane, state::TOAST},
     utils::text::{extract_rg_line_no_path, parse_rg_line, scrub_text_styles, text_to_lines},
 };
 use crate::{
@@ -56,6 +57,8 @@ impl FsPane {
         _callback: impl FnOnce() + 'static + Send + Sync,
     ) -> Option<tokio::task::JoinHandle<anyhow::Result<()>>> {
         log::debug!("Populating: {self:?}");
+        let toast_on_empty = GLOBAL::with_cfg(|c| c.interface.toast_on_empty);
+
         let ret = match self {
             Self::Custom {
                 cmd: (prog, args),
@@ -74,8 +77,8 @@ impl FsPane {
                     }
                 }
 
-                let delim = GLOBAL::with_env(|c| c.delim);
-                let display_script = GLOBAL::with_env(|c| c.display.clone());
+                let delim = EnvOpts::with_env(|c| c.delim);
+                let display_script = EnvOpts::with_env(|c| c.display.clone());
                 let cwd = cwd.clone();
                 let stored = stored.clone();
 
@@ -111,7 +114,7 @@ impl FsPane {
                             anyhow::Ok(())
                         },
                         complete.clone(),
-                        true,
+                        || GLOBAL::send_mm(RenderCommand::QuitEmpty),
                     ),
                     Some(Ok(script)) => {
                         // Script runs per item asynchronously
@@ -155,7 +158,7 @@ impl FsPane {
                                 Ok(())
                             },
                             complete.clone(),
-                            true,
+                            || GLOBAL::send_mm(RenderCommand::QuitEmpty),
                         )
                     }
                     Some(Err(script)) => map_reader(
@@ -231,7 +234,7 @@ impl FsPane {
                             Ok(())
                         },
                         complete.clone(),
-                        true,
+                        || GLOBAL::send_mm(RenderCommand::QuitEmpty),
                     ),
                 }
             }
@@ -253,8 +256,8 @@ impl FsPane {
                     // stdin reads resume
                 }
 
-                let delim = GLOBAL::with_env(|c| c.delim);
-                let display_script = GLOBAL::with_env(|c| c.display.clone());
+                let delim = EnvOpts::with_env(|c| c.delim);
+                let display_script = EnvOpts::with_env(|c| c.display.clone());
                 // store current sort/vis in global, then reset self
 
                 let cwd = cwd.clone();
@@ -313,11 +316,15 @@ impl FsPane {
                         }
                     },
                     complete.clone(),
-                    false,
+                    move || {
+                        if toast_on_empty {
+                            TOAST::toast_empty();
+                        }
+                    },
                 )
             }
 
-            Self::Fd {
+            Self::Find {
                 cwd,
                 complete,
                 // input,
@@ -340,6 +347,8 @@ impl FsPane {
                     .spawn_piped()
                     ._ebog()?;
 
+                let abort_empty = STACK::len() == 1;
+
                 map_reader(
                     stdout,
                     move |line| {
@@ -349,10 +358,16 @@ impl FsPane {
                         if push { injector.push(item) } else { Ok(()) }
                     },
                     complete.clone(),
-                    STACK::len() == 1,
+                    move || {
+                        if abort_empty {
+                            GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                        } else if toast_on_empty {
+                            TOAST::toast_empty();
+                        }
+                    },
                 )
             }
-            Self::Rg {
+            Self::Search {
                 cwd,
                 //
                 vis,
@@ -362,10 +377,14 @@ impl FsPane {
                 case,
                 no_heading,
                 patterns,
+                pattern_index,
                 paths,
                 rg,
                 complete,
-                ..
+                fixed_strings,
+                //
+                filtering,
+                input,
             } => {
                 let vis = *vis;
                 let cwd = cwd.clone();
@@ -377,6 +396,7 @@ impl FsPane {
                         *context,
                         *case,
                         *no_heading,
+                        *fixed_strings,
                         patterns,
                         paths,
                         rg,
@@ -459,7 +479,11 @@ impl FsPane {
                             injector.push(item).cast()
                         },
                         complete.clone(),
-                        false,
+                        move || {
+                            if toast_on_empty {
+                                TOAST::toast_empty();
+                            }
+                        },
                     )
                 } else {
                     let mut current_path = String::new();
@@ -511,7 +535,11 @@ impl FsPane {
                             }
                         },
                         complete.clone(),
-                        false,
+                        move || {
+                            if toast_on_empty {
+                                TOAST::toast_empty();
+                            }
+                        },
                     )
                 }
             }
@@ -522,7 +550,10 @@ impl FsPane {
 
                 tokio::spawn(async move {
                     let mut conn = pool.get_conn(DbTable::files).await.elog()?;
-                    let entries = GLOBAL::get_db_entries(&mut conn, sort).await?.into_iter();
+                    let entries = GLOBAL::get_db_entries(&mut conn, sort).await?;
+                    if entries.is_empty() && toast_on_empty {
+                        TOAST::toast_empty();
+                    }
 
                     for e in entries {
                         let item = PathItem::new_unchecked(e.path.into(), &cwd);
@@ -539,7 +570,12 @@ impl FsPane {
 
                 tokio::spawn(async move {
                     let mut conn = pool.get_conn(DbTable::dirs).await.elog()?;
-                    let mut entries = GLOBAL::get_db_entries(&mut conn, sort).await?.into_iter();
+                    let entries = GLOBAL::get_db_entries(&mut conn, sort).await?;
+                    if entries.is_empty() && toast_on_empty {
+                        TOAST::toast_empty();
+                    }
+
+                    let mut entries = entries.into_iter();
 
                     // skip the first cwd item
                     if matches!(sort, DbSortOrder::atime) {
@@ -559,7 +595,7 @@ impl FsPane {
                     Ok(())
                 })
             }
-            Self::Launch { sort, .. } => {
+            Self::Apps { sort, .. } => {
                 let sort = *sort;
                 let pool = GLOBAL::db();
                 let pool_clone = pool.clone();
@@ -567,6 +603,10 @@ impl FsPane {
                 let ret = tokio::spawn(async move {
                     let mut conn = pool.get_conn(DbTable::apps).await.elog()?;
                     let entries = GLOBAL::get_db_entries(&mut conn, sort).await?;
+
+                    if toast_on_empty && entries.is_empty() {
+                        TOAST::toast_empty();
+                    }
 
                     for e in entries {
                         let item = PathItem::new_app(e);
@@ -619,6 +659,10 @@ impl FsPane {
                         SortOrder::none => {}
                     }
 
+                    if files.is_empty() && toast_on_empty {
+                        TOAST::toast_empty();
+                    }
+
                     for path in files.into_iter() {
                         let item = PathItem::new_unchecked(path, &cwd);
                         injector.push(item)?
@@ -635,16 +679,14 @@ impl FsPane {
 
 pub fn map_reader<E: matchmaker::SSS + Display>(
     reader: impl Read + matchmaker::SSS,
-    f: impl FnMut(String) -> Result<(), E> + matchmaker::SSS,
+    f: impl FnMut(String) -> Result<(), E> + SSS,
     complete: Arc<AtomicBool>,
-    abort_empty: bool,
+    on_empty: impl FnOnce() + SSS,
 ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
     spawn_blocking(move || {
         let count = map_reader_lines::<true, E>(reader, f)._elog();
         match count {
-            Some(0) if abort_empty => {
-                GLOBAL::send_mm(RenderCommand::QuitEmpty);
-            }
+            Some(0) => on_empty(),
             _ => {}
         }
         complete.store(true, Ordering::SeqCst);

@@ -33,6 +33,7 @@ Call as:
   - `Alt-Enter`: Print / Alternate open.
   - `Ctrl-Enter`: Open in background.
   - `alt-b`: Edit folder
+
 ---
 
 - `ctrl-f`/`ctrl-r`: Find files / Search text.
@@ -44,10 +45,11 @@ Call as:
 - `ctrl-x`/`ctrl-c`/`ctrl-v`: Cut, Copy, Paste.
 - `delete/shift-delete`: Trash/Delete.
 - `ctrl-e`: Open menu.
-- `ctrl-s`: Open stash.
-- `ctrl-j`/`ctrl-shift-f` : Open filters.
+- `ctrl-t`: Open stash.
+- `ctrl-i` : Open filters.
 
-- `ctrl-h`/`alt-h`: Toggle hidden.
+- `ctrl-s`/`alt-h`: Toggle hidden.
+- `ctrl-d`: Toggle contextual visibility.
 
 ---
 
@@ -61,17 +63,57 @@ Call as:
 For a full list of binds within the app, type `ctrl-shift-h`.\
 For more information on bindings, see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
 
-
-
 # Panes
 
-F:ist records the files, directories and applications that you've visited in a local database, using it to sort the results in the `App` and `History` panes by relevance.
+## Nav
 
-## Fd
+Started by calling `fs` without any positional arguments.
 
-## Rg
+<img src=".README.assets/image-20260226020033515.png" alt="image-20260226020033515" style="width:360px;" />
+
+## Find
+
+`fs :: [OPTIONS] [PATHS]... [PATTERN]`. Searches all sub-files and directories. Filtering and sort order can be configured on the command line.
+
+<img src=".README.assets/image-20260226020201947.png" alt="image-20260226020201947" style="width:360px" />
+
+## Search
 
 fs has two columns: the main filepath column, and sometimes a secondary context column displayed after it. In the `rg` pane, the context column contains the query matches and their context. To search them, type `%`, which switches the active filtering column.
+
+<img src=".README.assets/image-20260226021241522.png" alt="image-20260226021241522" style="width:360px" />
+
+## Stream/Custom
+
+```
+obsidian_vaults() {
+  local line
+  # fs wraps fd with a slightly more convenient syntax for interactive use.
+  # This example demonstrates the use of `list` and `--`:
+  # the first (available for all panes) can be helpful
+  # for using fs syntax in non-interactive situations,
+  # and arguments after the second are passed through to `fd`.
+  fs -t d --list $OBSIDIAN_HOME . -- --max-depth 1 |
+  while read -r line; do
+    FS_OUTPUT="{=}\t{-1.}" fs -t .md --list --no-read $line .
+  done |
+  FS_OPTS="opener=ob._open display='print \${\${1#*/\$2/}%.md}' delim=\t" fs
+}
+
+
+### --- ob._open -- ###
+uri() {
+  print -nl $@ | sed 's/ /%20/g; s/\//%2F/g'
+  # or more reliably, print -nl $@ | jq -sRr @uri
+}
+fs :o "obsidian://open?path=$(uri $1)"
+```
+
+<img src=".README.assets/image-20260226145550650.png" alt="image-20260226145550650" style="width: 400px;" />
+
+## History/App
+
+F:ist records the files, directories and applications that you've visited in a local database, using it to sort the results in the `Files`, `Folders` and `Apps` panes by relevance.
 
 # Tools
 
@@ -85,17 +127,16 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 
 > [!NOTE]
 >
-> In addition, a couple special queries can be used to start an interactive search. Ultimately, the full behavior is as follows:
+> In addition, a couple special queries can be used to start an interactive search. Ultimately, the full behavior[^2] is as follows:
 >
 > the only argument is a valid path: `cd`.
 > no arguments: interactively select from history.
 > last argument is `.` : interactively search subdirectories of the best match.
-> last argument is `./`: interactively navigate the best match [^2].
 > otherwise: cd into the best match[^1] for the search term (if one exists).
 
 [^1]: See: [zoxide](https://github.com/ajeetdsouza/zoxide)
 
-[^2]: If you have [aliases](#aliases) enabled, this is also just `Z`.
+[^2]: There is one final case: if the last argument is `./`: z interactively navigates the best match. If you have [aliases](#aliases) enabled, this is also just `Z`.
 
 The jump+open function (`zz`) is an analogous replacement for [`lessfilter edit`](#lessfilter): if the query head exists, it opens the target(s) in the editor. Otherwise the query is passed to `z`, and the editor opens in the destination.
 
@@ -111,6 +152,7 @@ The `--aliases` flag can be enabled to additionally output a few simple alias de
 - n: edit (lessfilter with edit preset)
 - o: [open](#app)
 - Z: `z`, then navigate
+  - In case your shell doesn't support uppercase function names, the name can be set like so: `fs :tool shell --aliases --shell csh --nav-name x`.
 - `zf`: recent files history
 
 For speed and safety, it is recommended pass your actual shell through to `--shell`.[^4] Another optimization you can make is to cache the generated command: my [zcomet fork](#https://github.com/Squirreljetpack/zcomet) supports this.
@@ -208,7 +250,7 @@ Conversely, fist integrates into [CommandSpace](https://github.com/Squirreljetpa
 
 ### Notes
 
-- The `New` action creates a directory if the target ends with a path seperator[^1].
+- The `New` action creates a directory if the target ends with a path seperator[4].
 
 - The process which runs the command that spawns programs can be relegated to a process manager. For example, using [pueue](https://github.com/Nukesor/pueue):
 
@@ -219,7 +261,7 @@ Conversely, fist integrates into [CommandSpace](https://github.com/Squirreljetpa
 spawn_with = ["pueue", "add", "-g", "apps", "--"]
 ```
 
-[^1]: `/` on unix and `\` on windows
+[^4]: `/` on unix and `\` on windows
 
 # Configuration
 

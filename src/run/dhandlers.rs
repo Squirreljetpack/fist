@@ -1,10 +1,11 @@
 use std::{ffi::OsString, process::Command};
 
 use cli_boilerplate_automation::{
+    bait::TransformExt,
     bog::BogOkExt,
     bring::StrExt,
     broc::{CommandExt, SHELL, tty_or_inherit},
-    env_vars, prints, unwrap,
+    env_vars, unwrap,
 };
 use easy_ext::ext;
 use log::{debug, info};
@@ -22,7 +23,7 @@ use crate::{
         ahandler::fs_reload,
         item::PathItem,
         pane::FsPane,
-        state::{FILTERS, STACK, TEMP},
+        state::{ExecuteHandlerShouldProcessCwd, FILTERS, GLOBAL, STACK, TlsStore},
     },
     utils::string::path_formatter,
 };
@@ -44,7 +45,7 @@ pub fn sync_handler(
     // TODO: support more pane variants
     FILTERS::refilter();
 
-    let seek = TEMP::take_prev_dir();
+    let seek = TlsStore::take();
 
     // reload saved state
     if let Some(seek) = seek
@@ -57,7 +58,7 @@ pub fn sync_handler(
         state.picker_ui.results.cursor_jump(i as u32);
     } else
     // this part is exclusive to [`FsAction::Undo`], Forward and watcher reload.
-    if let Some(index) = TEMP::take_stashed_index() {
+    if let Some(index) = TlsStore::take() {
         state.picker_ui.results.cursor_jump(index);
     };
 }
@@ -91,9 +92,14 @@ impl FsMatchmaker {
                         command,
                         false,
                     );
-                    STACK::push(pane);
 
-                    fs_reload(state)
+                    if STACK::with_current(|p| *p != pane) {
+                        STACK::push(pane);
+                        fs_reload(state, true)
+                    } else {
+                        STACK::with_current_mut(|p| *p = pane);
+                        fs_reload(state, false)
+                    }
                 }
             }
         });
@@ -104,13 +110,15 @@ impl FsMatchmaker {
             let template = state.payload();
             if !template.is_empty() {
                 let path = unwrap!(if state.picker_ui.results.cursor_disabled
-                    || TEMP::take_whether_execute_handler_should_process_cwd()
+                    || TlsStore::take::<ExecuteHandlerShouldProcessCwd>().is_some()
                 {
                     STACK::cwd()
                 } else {
                     state.current_raw().map(|t| t.inner.path.clone())
                 });
-                execute(None, &path, state);
+                if execute(None, &path, state) {
+                    GLOBAL::db().bump(path.is_dir(), path);
+                }
             }
         });
     }
@@ -119,12 +127,15 @@ impl FsMatchmaker {
         self.register_interrupt_handler(Interrupt::Become, move |state| {
             let template = state.payload();
             if !template.is_empty()
-                && let Some(t) = state.current_raw()
+                && let Some(p) = state.current_raw()
             {
-                let cmd = mm_formatter(t, template);
+                let cmd = mm_formatter(p, template);
+                let path = p.inner.path.clone();
+                // lowpri: can't reliably do this as we immediately exec, tho i wonder if db can get corrupted this way;
+                // GLOBAL::db().bump(path.is_dir(), path);
 
                 let mut vars = state.make_env_vars();
-                let preview_cmd = mm_formatter(t, state.preview_payload());
+                let preview_cmd = mm_formatter(p, state.preview_payload());
                 let extra = env_vars!(
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
@@ -158,14 +169,28 @@ impl FsMatchmaker {
     pub fn register_print_handler_(
         &mut self,
         print_handle: AppendOnly<String>,
+        default_template: Option<String>,
+        output_separator: String,
     ) {
         self.register_interrupt_handler(Interrupt::Print, move |state| {
             if let Some(t) = state.current_raw() {
-                let s = mm_formatter(t, state.payload());
-                if atty::is(atty::Stream::Stdout) {
-                    print_handle.push(s);
+                let template = if state.payload().is_empty() {
+                    default_template.as_ref()
                 } else {
-                    prints!(s);
+                    Some(state.payload())
+                };
+
+                let mut display = if let Some(template) = template {
+                    mm_formatter(t, template)
+                } else {
+                    t.path.to_string_lossy().into()
+                };
+
+                if atty::is(atty::Stream::Stdout) {
+                    display.push_str(&output_separator);
+                    print_handle.push(display);
+                } else {
+                    print!("{}{}", display, output_separator);
                 }
             };
         });
@@ -183,14 +208,12 @@ fn execute(
     template: Option<&str>,
     path: &AbsPath,
     state: &mut MMState<'_, '_>,
-) {
+) -> bool {
     let cmd = path_formatter(template.unwrap_or(state.payload()), path);
 
     let mut vars = state.make_env_vars();
 
-    if let Some(cwd) = STACK::cwd() {
-        std::env::set_current_dir(cwd)._ebog();
-    }
+    let c = STACK::cwd();
 
     // lowpri: dow we expose fs_preview_command here?
     if STACK::in_rg() {
@@ -216,15 +239,20 @@ fn execute(
     if let Some(mut child) = Command::from_script(&cmd)
         .envs(vars)
         .stdin(tty_or_inherit())
+        .transform_if(c.is_some(), move |x| x.current_dir(c.unwrap()))
         ._spawn()
     {
         match child.wait() {
             Ok(i) => {
-                info!("Command [{cmd}] exited with {i}")
+                info!("Command [{cmd}] exited with {i}");
+                i.success()
             }
             Err(e) => {
-                info!("Failed to wait on command [{cmd}]: {e}")
+                info!("Failed to wait on command [{cmd}]: {e}");
+                false
             }
         }
+    } else {
+        false
     }
 }

@@ -48,11 +48,14 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("-f -- .."))]
     pub file_widget_args: String,
     /// Arguments passed to `fs :` when rg widget is invoked
-    #[arg(long, default_value_t = String::from("-1 --fullscreen --style=none"))]
+    #[arg(long, default_value_t = String::from("-1 --fullscreen --style=colors"))]
     pub rg_widget_args: String,
 
     #[arg(long, default_value_t)]
     pub aliases: bool,
+    /// Name for the nav function.
+    #[arg(long, default_value_t = String::from("Z"))]
+    pub nav_name: String,
 
     #[arg(long)]
     pub shell: Option<String>,

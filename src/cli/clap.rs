@@ -1,6 +1,7 @@
 use std::{ffi::OsString, path::PathBuf};
 
 use clap::{ArgAction, Args, Parser, Subcommand, error::ErrorKind};
+use cli_boilerplate_automation::_dbg;
 
 use crate::{
     cli::{
@@ -57,7 +58,7 @@ impl Cli {
         match NavCli::try_parse() {
             Ok(cli) => cli.into(),
             Err(err) => {
-                dbg!(err);
+                _dbg!(err);
                 Cli::try_parse().unwrap_or_else(|e| e.exit())
             }
         }
@@ -275,6 +276,11 @@ pub struct RgCommand {
     /// Alias: `-1`
     #[arg(long = "no-heading")]
     pub no_heading: Option<bool>,
+    /// Enable fixed string matching
+    #[arg(long = "fixed-strings", action = ArgAction::SetTrue)]
+    /// Disable fixed string matching
+    #[arg(long = "no-fixed-strings", action = ArgAction::SetFalse)]
+    pub fixed_strings: bool,
 
     #[arg(short = '1', hide = true)]
     pub _no_heading_alias: bool,
@@ -282,11 +288,6 @@ pub struct RgCommand {
     // /// initial query.
     // #[arg(long, default_value_t)]
     // pub query: String,
-
-    // todo: wider support (override default print handler)
-    /// Format the output as this template.
-    #[arg(short, long)]
-    pub output: Option<String>,
     #[arg(long)]
     pub list: bool,
     /// initial query.
@@ -329,10 +330,6 @@ pub struct DefaultCommand {
     #[arg(long, default_value_t)]
     pub no_read: bool,
 
-    // todo: wider support (override default print handler)
-    /// Format the output as this template.
-    #[arg(short, long)]
-    pub output: Option<String>,
     #[arg(long)]
     pub list: bool,
     #[arg(long, action = ArgAction::Help)]

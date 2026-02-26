@@ -84,17 +84,15 @@ __fist_dir_widget() {
 
   $${BINARY_PATH} :: $${DIRW_ARGS} --no-read --cd -- .. | {
     read -r line
-    [ -n "$line" ] || { zle reset-prompt; return; }
+    [ -n "$line" ] || { zle push-line && zle accept-line; return 1; }
     if [ -d "$line" ]; then
-      cd "$line" || { zle reset-prompt; return; }
-      zle push-line
-      zle accept-line
+      cd "$line"
     else
       dir="$(dirname "$line")" && [ -d "$dir" ] && cd "$dir" &&
       LBUFFER="${LBUFFER%% *} '$(basename "$line")' " ||
-      { zle reset-prompt; return; }
-      zle reset-prompt
+      { zle push-line && zle accept-line; return 1; }
     fi
+    { zle push-line && zle accept-line; return; }
   }
 }
 __fist_file_widget() {
@@ -102,7 +100,7 @@ __fist_file_widget() {
   setopt localoptions pipefail
   local line results
 
-  results="$(FS_OPTS="opener='$${FILEW_CMD}' $FS_OPTS" $${BINARY_PATH} :: --no-read $${FILEW_ARGS})" || return
+  results="$(FS_OPTS="opener='$${FILEW_CMD}' $FS_OPTS" $${BINARY_PATH} :: --no-read $${FILEW_ARGS})" || { zle push-line && zle accept-line; return 1; }
 
   while IFS= read -r line; do
     if [ -n "$line" ]; then
@@ -110,13 +108,13 @@ __fist_file_widget() {
     fi
   done <<< "$results"
 
-  zle reset-prompt
+  { zle push-line && zle accept-line; return 1; }
 }
 __fist_rg_widget() {
   emulate -L zsh
   setopt localoptions pipefail
 
-  results="$(FS_OPTS="opener='$${RGW_CMD}' $FS_OPTS" $${BINARY_PATH} :rg $${RGW_ARGS})" || return
+  results="$(FS_OPTS="opener='$${RGW_CMD}' $FS_OPTS" $${BINARY_PATH} :rg $${RGW_ARGS})" || { zle push-line && zle accept-line; return 1; }
 
   while IFS= read -r line; do
     if [ -n "$line" ]; then
@@ -124,7 +122,7 @@ __fist_rg_widget() {
     fi
   done <<< "$results"
 
-  zle reset-prompt
+  { zle push-line && zle accept-line; return 1; }
 }
 
 zle -N __fist_dir_widget

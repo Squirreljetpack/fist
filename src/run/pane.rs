@@ -7,8 +7,11 @@ use std::{
 use matchmaker::preview::AppendOnly;
 
 use crate::{
-    abspath::AbsPath, cli::DefaultCommand, db::DbSortOrder, find::fd::auto_enable_hidden,
-    run::item::PathItem,
+    abspath::AbsPath,
+    cli::DefaultCommand,
+    db::DbSortOrder,
+    find::fd::auto_enable_hidden,
+    run::{item::PathItem, stash::CustomStashActionActionState},
 };
 use fist_types::{
     When,
@@ -39,7 +42,7 @@ pub enum FsPane {
         sort: SortOrder,
         vis: Visibility,
     },
-    Fd {
+    Find {
         cwd: AbsPath,
         complete: Arc<AtomicBool>,
         input: (String, u32), // input, INDEX
@@ -50,7 +53,7 @@ pub enum FsPane {
         paths: Vec<OsString>,
         fd_args: Vec<OsString>,
     },
-    Rg {
+    Search {
         cwd: AbsPath,
         input: (String, u32), // input, INDEX
         filtering: bool,
@@ -63,6 +66,7 @@ pub enum FsPane {
         case: When,
         patterns: Vec<String>,
         pattern_index: usize,
+        fixed_strings: bool,
         no_heading: bool,
 
         rg: Vec<OsString>,
@@ -76,8 +80,9 @@ pub enum FsPane {
         sort: DbSortOrder,
         input: (String, u32), // input, INDEX
     },
-    Launch {
+    Apps {
         sort: DbSortOrder,
+        previous_cas: CustomStashActionActionState,
     },
     Nav {
         cwd: AbsPath,
@@ -109,9 +114,10 @@ impl FsPane {
         }
     }
 
-    pub fn new_launch() -> Self {
-        Self::Launch {
+    pub fn new_launch(previous_cas: CustomStashActionActionState) -> Self {
+        Self::Apps {
             sort: DbSortOrder::frecency,
+            previous_cas,
         }
     }
 
@@ -147,7 +153,7 @@ impl FsPane {
             ..
         } = cmd;
 
-        Self::Fd {
+        Self::Find {
             cwd,
             complete: Default::default(),
             input: Default::default(),
@@ -165,7 +171,7 @@ impl FsPane {
         sort: SortOrder,
         vis: Visibility,
     ) -> Self {
-        Self::Fd {
+        Self::Find {
             paths: vec![cwd.inner().into(), ".".into()], // last is pattern
             cwd,
             complete: Default::default(),
@@ -181,7 +187,7 @@ impl FsPane {
         cwd: AbsPath,
         sort: SortOrder,
         vis: Visibility,
-        no_heading: bool,
+        [no_heading, fixed_strings]: [bool; 2],
     ) -> Self {
         let context = Default::default();
         let case = Default::default();
@@ -196,6 +202,7 @@ impl FsPane {
             context,
             case,
             no_heading,
+            fixed_strings,
             vec![],
             vec![],
         )
@@ -211,6 +218,7 @@ impl FsPane {
         context: [usize; 2],
         case: When,
         no_heading: bool,
+        fixed_strings: bool,
         mut patterns: Vec<String>, // enforce nonempty
         //
         rg: Vec<OsString>,
@@ -220,7 +228,7 @@ impl FsPane {
         }
         let pattern_index = patterns.len() - 1;
 
-        Self::Rg {
+        Self::Search {
             cwd,
             input: (query, 0),
             pattern_index,
@@ -234,6 +242,7 @@ impl FsPane {
             case,
             patterns,
             no_heading,
+            fixed_strings,
 
             rg,
             complete: Default::default(),
@@ -279,16 +288,28 @@ impl FsPane {
     pub fn supports_vis(&self) -> bool {
         matches!(
             self,
-            FsPane::Nav { .. } | FsPane::Custom { .. } | FsPane::Fd { .. }
+            FsPane::Nav { .. } | FsPane::Custom { .. } | FsPane::Find { .. } | FsPane::Search { .. }
         )
+    }
+
+    #[inline]
+    pub fn supports_sort(&self) -> bool {
+        // matches!(self, FsPane::Nav { .. } | FsPane::Rg { .. })
+        //     || matches!(self, |FsPane::Files { .. }| FsPane::Folders { .. }
+        //         | FsPane::Launch { .. })
+        //     || matches!(
+        //         self,
+        //         FsPane::Fd { .. } | FsPane::Custom { .. } | FsPane::Stream { .. }
+        //     )
+        true
     }
 
     #[inline]
     pub fn stability_threshold(&self) -> u32 {
         // 0 -> always sort
         match self {
-            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Launch { .. } => 5,
-            FsPane::Rg { filtering, .. } => {
+            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. } => 5,
+            FsPane::Search { filtering, .. } => {
                 if *filtering {
                     0
                 } else {
@@ -310,8 +331,8 @@ impl FsPane {
         match self {
             FsPane::Custom { input, .. }
             | FsPane::Stream { input, .. }
-            | FsPane::Fd { input, .. }
-            | FsPane::Rg { input, .. }
+            | FsPane::Find { input, .. }
+            | FsPane::Search { input, .. }
             | FsPane::Nav { input, .. }
             | FsPane::Files { input, .. }
             | FsPane::Folders { input, .. } => input.0.clone(),

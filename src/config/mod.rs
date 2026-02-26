@@ -1,10 +1,11 @@
 use cli_boilerplate_automation::{
+    _ibog,
     bait::ResultExt,
     bath::{PathExt, RenamePolicy},
     bo::write_str,
     bog::BogOkExt,
     bs::{create_dir, set_executable},
-    _ibog, vec_,
+    vec_,
 };
 use std::{collections::HashMap, path::PathBuf};
 
@@ -94,6 +95,7 @@ pub struct GlobalConfig {
     pub panes: PanesConfig,
 
     /// Matchmaker styling overrides for panes.
+    /// [Warning!]: Highly unstable and untested.
     pub mm: MatchmakerOverrides, // not sure about the role, eventually we want some pane-specific matchmaker overrides, should be stored
 }
 
@@ -178,7 +180,7 @@ impl Config {
             }
         }
 
-        self.global.mm.fullscreen |= cli.fullscreen
+        self.global.mm.fullscreen |= cli.fullscreen;
     }
 }
 
@@ -192,6 +194,10 @@ pub struct MiscConfig {
     pub append_mode_logging: bool,
     /// Pass the spawning command to this instead of invoking it directly.
     pub spawn_with: Vec<String>,
+    /// The default output fromat when calling [FsAction::Print]
+    pub output_template: Option<String>,
+    /// The seperator used between calls to [FsAction::Print]
+    pub output_separator: String,
 }
 
 impl Default for MiscConfig {
@@ -200,6 +206,8 @@ impl Default for MiscConfig {
             clipboard_delay_ms: 20,
             append_mode_logging: false,
             spawn_with: Vec::new(),
+            output_template: None,
+            output_separator: "\n".into(),
         }
     }
 }

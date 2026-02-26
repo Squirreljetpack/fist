@@ -15,7 +15,7 @@ use fist_types::{When, filters::*};
 use matchmaker::{
     action::Action,
     config::{BorderSetting, PartialBorderSetting},
-    ui::{Overlay, OverlayEffect},
+    ui::{Overlay, OverlayEffect, SizeHint},
 };
 
 use ratatui::{
@@ -154,25 +154,33 @@ impl FilterOverlay {
             bold_indices("hidden", [0], self.item_style())
         };
 
-        vec![
+        let dirs_label = if STACK::in_rg() {
+            Default::default()
+        } else {
+            (bold_indices("Dirs", [0], self.item_style()), Some(vis.dirs))
+        };
+        let mut ret = vec![
             (hidden_label, Some(vis.hidden || vis.hidden_only)),
             (
                 bold_indices("Ignore", [0], self.item_style()),
                 Some(vis.ignore),
             ),
-            (bold_indices("Dirs", [0], self.item_style()), Some(vis.dirs)),
+            dirs_label,
             (bold_indices("all", [0], self.item_style()), Some(vis.all())),
-        ]
+        ];
+
+        ret
     }
 
     // Returns Vec<Span> for sort options
     // Returns items as Vec<(Vec<Span>, bool)> so make_widgets can add checkboxes
     fn get_pane_items(&self) -> Vec<(Vec<Span<'static>>, Option<bool>)> {
         STACK::with_current(|p| match p {
-            FsPane::Rg {
+            FsPane::Search {
                 context: [before, after],
                 case,
                 no_heading,
+                fixed_strings,
                 ..
             } => {
                 // build context info line
@@ -195,6 +203,7 @@ impl FilterOverlay {
                     When::Never => "case",
                 };
                 let single = bold_indices("1-line", [0], self.item_style());
+                let regex = bold_indices("regex", [0], self.item_style());
 
                 vec![
                     (context, None),
@@ -206,14 +215,12 @@ impl FilterOverlay {
                         (*case).into(),
                     ),
                     (single, Some(*no_heading)),
+                    (regex, Some(!*fixed_strings)),
                 ]
             }
-            FsPane::Fd { .. } => {
-                let context = vec![];
-                let case = vec![];
+            // FsPane::Fd { .. } => {
 
-                vec![(context, Some(true)), (case, Some(true))]
-            }
+            // }
             _ => vec![],
         })
     }
@@ -224,6 +231,7 @@ impl FilterOverlay {
 
         match x {
             2 => matches!(y, 0 | 3),
+            1 => STACK::in_rg() && y == 2,
             _ => false,
         }
     }
@@ -346,10 +354,11 @@ impl FilterOverlay {
                 }
 
                 2 => STACK::with_current_mut(|p| match p {
-                    FsPane::Rg {
+                    FsPane::Search {
                         context,
                         case,
                         no_heading,
+                        fixed_strings,
                         ..
                     } => match y {
                         1 => {
@@ -363,6 +372,7 @@ impl FilterOverlay {
                         }
                         4 => case.cycle(),
                         5 => *no_heading = !(*no_heading),
+                        6 => *fixed_strings = !(*fixed_strings),
                         _ => {}
                     },
 
@@ -390,6 +400,7 @@ impl Overlay for FilterOverlay {
     ) -> OverlayEffect {
         let mut refilter = true;
         let mut reload = false;
+        // let mut found = false;
 
         match c {
             'q' => return OverlayEffect::Disable,
@@ -408,7 +419,11 @@ impl Overlay for FilterOverlay {
                             }
                             (vis.hidden, vis.hidden_only) = (false, !vis.hidden_only)
                         }
-                        'd' | 'D' => vis.dirs = !vis.dirs,
+                        'd' | 'D' => {
+                            if !STACK::in_rg() {
+                                vis.dirs = !vis.dirs
+                            }
+                        }
                         'I' => vis.ignore = !vis.ignore,
                         'a' => vis.toggle_all(),
                         _ => {}
@@ -440,10 +455,11 @@ impl Overlay for FilterOverlay {
                 reload = true;
 
                 STACK::with_current_mut(|p| match p {
-                    FsPane::Rg {
+                    FsPane::Search {
                         context,
                         case,
                         no_heading,
+                        fixed_strings,
                         ..
                     } => match c {
                         'a' => reload = context[1].ssub(1),
@@ -462,6 +478,7 @@ impl Overlay for FilterOverlay {
 
                         'e' => case.cycle(),
                         '1' => *no_heading = !(*no_heading),
+                        'r' => *fixed_strings = !(*fixed_strings),
 
                         _ => reload = false,
                     },
@@ -492,7 +509,11 @@ impl Overlay for FilterOverlay {
             0
         };
 
-        self.pane_lens[1] = if true { self.get_sort_items().len() } else { 0 };
+        self.pane_lens[1] = if STACK::with_current(|x| x.supports_sort()) {
+            self.get_sort_items().len()
+        } else {
+            0
+        };
 
         self.pane_lens[2] = self.get_pane_items().len();
 
@@ -567,8 +588,8 @@ impl Overlay for FilterOverlay {
     fn area(
         &mut self,
         _ui_area: &Rect,
-    ) -> Result<Rect, [u16; 2]> {
-        Err([self.width(), self.height()])
+    ) -> Result<Rect, [SizeHint; 2]> {
+        Err([self.width().into(), self.height().into()])
     }
 
     fn draw(

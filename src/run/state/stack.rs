@@ -1,16 +1,15 @@
 #![allow(clippy::upper_case_acronyms)]
 
-use std::{cell::RefCell, env::current_dir, mem::discriminant};
+use std::{cell::RefCell, mem::discriminant};
 
 use log::{self};
 use matchmaker::SSS;
 
 use crate::{
     abspath::AbsPath,
-    run::state::ui::global_ui_mut,
     run::{
         FsInjector, FsPane,
-        state::{FILTERS, GLOBAL, TEMP},
+        state::{FILTERS, GLOBAL, InitialRelativePathSetting, TlsStore, ui::global_ui_mut},
     },
     watcher::WatcherMessage,
 };
@@ -20,16 +19,14 @@ thread_local! {
 }
 
 pub struct STACK {
-    stack: Vec<FsPane>,
+    stack: Vec<FsPane>, // invariants: nonempty
     index: usize,
-    count: usize,
 }
 impl STACK {
     const fn new() -> Self {
         Self {
             stack: Vec::new(),
             index: 0,
-            count: 1,
         }
     }
 
@@ -38,7 +35,6 @@ impl STACK {
             *s.borrow_mut() = Self {
                 stack: vec![pane],
                 index: 0,
-                count: 1,
             }
         });
     }
@@ -47,25 +43,34 @@ impl STACK {
         STACK.with(|s| s.borrow().stack.len())
     }
 
-    pub fn push(pane: FsPane) {
+    pub fn push(pane: FsPane) -> bool {
         STACK.with(|cell| {
-            let Self {
-                stack,
-                index,
-                count,
-            } = &mut *cell.borrow_mut();
-            if *count == 1 {
-                if let Some(o) = TEMP::get_original_relative_path() {
-                    global_ui_mut().path.relative = o;
+            let Self { stack, index } = &mut *cell.borrow_mut();
+            if *index == 0 {
+                if let Some(o) = TlsStore::get::<InitialRelativePathSetting>() {
+                    global_ui_mut().path.relative = o.0;
                 }
             }
             stack.truncate(*index + 1);
+
+            let same = discriminant(&stack[*index]) == discriminant(&pane);
+
+            match stack[*index] {
+                FsPane::Find { .. } => {
+                    if GLOBAL::with_cfg(|c| c.panes.find.on_leave_unset_dirs_only) {
+                        FILTERS::with_vis_mut(|v| v.dirs = false);
+                    }
+                }
+                _ => {}
+            };
+
             *index += 1;
-            *count += 1;
 
             log::debug!("Pushed: {pane:?}");
             stack.push(pane);
-        });
+
+            same
+        })
     }
 
     pub fn stack_prev() -> bool {
@@ -74,7 +79,7 @@ impl STACK {
             if *index > 0 {
                 *index -= 1;
 
-                if *index == 0 && TEMP::get_original_relative_path().is_some()
+                if *index == 0 && TlsStore::get::<InitialRelativePathSetting>().is_some()
                 // original is backed up
                 {
                     global_ui_mut().path.relative = false;
@@ -153,25 +158,39 @@ impl STACK {
         })
     }
 
-    pub fn with_previous<R, F>(f: F) -> Option<R>
-    where
-        F: FnOnce(&FsPane, bool) -> R,
-    {
-        STACK.with(|cell| {
-            let borrowed = cell.borrow();
-            let Self { stack, index, .. } = &*borrowed;
+    /// Returns whether it pushed (pane type is different)
+    pub fn set_or_push(pane: FsPane) -> bool {
+        let different_type = Self::with_current(|current| current != &pane);
 
-            if *index > 0 {
-                let current = &stack[*index];
-                let prev = &stack[*index - 1];
-                let same_variant = discriminant(prev) == discriminant(current);
+        if !different_type {
+            // update current in place
+            Self::with_current_mut(|p| *p = pane);
+        } else {
+            STACK::push(pane);
+        }
 
-                Some(f(prev, same_variant))
-            } else {
-                None
-            }
-        })
+        different_type
     }
+
+    // pub fn with_previous<R, F>(f: F) -> Option<R>
+    // where
+    // F: FnOnce(&FsPane, bool) -> R,
+    // {
+    //     STACK.with(|cell| {
+    //         let borrowed = cell.borrow();
+    //         let Self { stack, index, .. } = &*borrowed;
+
+    //         if *index > 0 {
+    //             let current = &stack[*index];
+    //             let prev = &stack[*index - 1];
+    //             let same_variant = discriminant(prev) == discriminant(current);
+
+    //             Some(f(prev, same_variant))
+    //         } else {
+    //             None
+    //         }
+    //     })
+    // }
 
     pub fn populate(
         injector: FsInjector,
@@ -183,7 +202,7 @@ impl STACK {
                 FsPane::Nav { cwd, .. } | FsPane::Custom { cwd, .. } => {
                     WatcherMessage::Switch(cwd.inner(), notify::RecursiveMode::NonRecursive)
                 }
-                FsPane::Fd { .. } | FsPane::Rg { .. } => {
+                FsPane::Find { .. } | FsPane::Search { .. } => {
                     // reload on small sizes?
                     WatcherMessage::Pause
                     // WatcherMessage::Switch(cwd.inner())
@@ -207,17 +226,17 @@ impl STACK {
                     FsPane::Files { .. } | FsPane::Folders { .. } => {}
                     FsPane::Nav { cwd, .. }
                     | FsPane::Custom { cwd, .. }
-                    | FsPane::Fd { cwd, .. } => {
+                    | FsPane::Find { cwd, .. }
+                    | FsPane::Search { cwd, .. }
+                    | FsPane::Stream { cwd, .. } => {
                         return Some(cwd.clone());
                     }
-                    _ => return None,
+                    FsPane::Apps { .. } => return None,
                 }
             }
-            if matches!(stack[*index], FsPane::Files { .. } | FsPane::Folders { .. }) {
-                current_dir().ok().map(AbsPath::new_unchecked)
-            } else {
-                None
-            }
+
+            // FsPane::Files looks for the last directory, or else the original
+            Some(AbsPath::default())
         })
     }
     pub fn nav_cwd() -> Option<AbsPath> {
@@ -228,6 +247,13 @@ impl STACK {
             } else {
                 None
             }
+        })
+    }
+
+    pub fn is_last() -> bool {
+        STACK.with(|cell| {
+            let Self { stack, index, .. } = &*cell.borrow();
+            *index == stack.len() - 1
         })
     }
 
@@ -254,8 +280,8 @@ impl STACK {
             match &mut stack[*index] {
                 FsPane::Custom { input, .. }
                 | FsPane::Stream { input, .. }
-                | FsPane::Fd { input, .. }
-                | FsPane::Rg { input, .. }
+                | FsPane::Find { input, .. }
+                | FsPane::Search { input, .. }
                 | FsPane::Nav { input, .. }
                 | FsPane::Files { input, .. }
                 | FsPane::Folders { input, .. } => {
@@ -269,9 +295,9 @@ impl STACK {
     }
 
     pub fn in_app() -> bool {
-        STACK::with_current(|x| matches!(x, FsPane::Launch { .. }))
+        STACK::with_current(|x| matches!(x, FsPane::Apps { .. }))
     }
     pub fn in_rg() -> bool {
-        STACK::with_current(|x| matches!(x, FsPane::Rg { .. }))
+        STACK::with_current(|x| matches!(x, FsPane::Search { .. }))
     }
 }

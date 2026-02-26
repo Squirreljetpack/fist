@@ -86,6 +86,7 @@ infer                 = { version = "0.19.0", optional = true }
 file-format           = { workspace = true, optional = true }
 mime_guess            = "2.0.5"
 charset-normalizer-rs = { version = "1.1.0" }
+anymap = "0.12.1"
 
 [dev-dependencies]
 tempfile = "3.25.0"

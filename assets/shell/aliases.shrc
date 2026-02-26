@@ -22,7 +22,7 @@ n()  {
 o()  { FS_VERBOSITY=1 fs :o "${@:-.}"; }
 
 # navigate
-Z() {
+$${NAV_NAME}() {
   FS_VERBOSITY=1 z "$@" ./;
   [ $? -eq 22 ] && FS_INITIAL_INPUT="$*" z
 }

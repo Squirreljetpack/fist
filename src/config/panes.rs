@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use crate::run::FsPane;
 use fist_types::filters::*;
+use matchmaker::config::ShowCondition;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -27,8 +28,8 @@ pub struct PanesConfig {
     pub history: HistoryPaneSettings,
     pub nav: NavPaneSettings,
     pub stream: PaneSettings,
-    pub fd: FdPaneSettings,
-    pub rg: RgPaneSettings,
+    pub find: FdPaneSettings,
+    pub search: RgPaneSettings,
     pub custom: PaneSettings,
 
     pub settings: PanesSettings,
@@ -45,10 +46,10 @@ impl Default for PanesConfig {
                 ..Default::default()
             },
             nav: NavPaneSettings::default(),
-            fd: FdPaneSettings {
+            find: FdPaneSettings {
                 ..Default::default()
             },
-            rg: RgPaneSettings {
+            search: RgPaneSettings {
                 ..Default::default()
             },
             custom: PaneSettings {
@@ -71,11 +72,11 @@ impl PanesConfig {
         match pane {
             FsPane::Custom { .. } => self.custom.prompt.clone(),
             FsPane::Stream { .. } => self.stream.prompt.clone(),
-            FsPane::Fd { .. } => self.fd.prompt.clone(),
+            FsPane::Find { .. } => self.find.prompt.clone(),
             FsPane::Files { .. } | FsPane::Folders { .. } => self.history.prompt.clone(),
-            FsPane::Launch { .. } => self.app.prompt.clone(),
+            FsPane::Apps { .. } => self.app.prompt.clone(),
             FsPane::Nav { .. } => self.nav.prompt.clone(),
-            FsPane::Rg { .. } => self.rg.prompt.clone(),
+            FsPane::Search { .. } => self.search.prompt.clone(),
         }
     }
 
@@ -86,26 +87,26 @@ impl PanesConfig {
         match pane {
             FsPane::Custom { .. } => self.custom.enter_prompt,
             FsPane::Stream { .. } => self.stream.enter_prompt,
-            FsPane::Fd { .. } => self.fd.enter_prompt,
+            FsPane::Find { .. } => self.find.enter_prompt,
             FsPane::Files { .. } | FsPane::Folders { .. } => self.history.enter_prompt,
-            FsPane::Launch { .. } => self.app.enter_prompt,
+            FsPane::Apps { .. } => self.app.enter_prompt,
             FsPane::Nav { .. } => false,
-            FsPane::Rg { .. } => self.rg.enter_prompt,
+            FsPane::Search { .. } => self.search.enter_prompt,
         }
     }
 
     pub fn preview_show(
         &self,
         pane: &FsPane,
-    ) -> Option<bool> {
+    ) -> Option<ShowCondition> {
         match pane {
             FsPane::Custom { .. } => self.custom.show_preview,
             FsPane::Stream { .. } => self.stream.show_preview,
-            FsPane::Fd { .. } => self.fd.show_preview,
+            FsPane::Find { .. } => self.find.show_preview,
             FsPane::Files { .. } | FsPane::Folders { .. } => self.history.show_preview,
-            FsPane::Launch { .. } => self.app.show_preview,
+            FsPane::Apps { .. } => self.app.show_preview,
             FsPane::Nav { .. } => self.nav.show_preview,
-            FsPane::Rg { .. } => self.rg.show_preview,
+            FsPane::Search { .. } => self.search.show_preview,
         }
     }
 
@@ -116,11 +117,11 @@ impl PanesConfig {
         match pane {
             FsPane::Custom { .. } => self.custom.preview_layout_index,
             FsPane::Stream { .. } => self.stream.preview_layout_index,
-            FsPane::Fd { .. } => self.fd.preview_layout_index,
+            FsPane::Find { .. } => self.find.preview_layout_index,
             FsPane::Files { .. } | FsPane::Folders { .. } => self.history.preview_layout_index,
-            FsPane::Launch { .. } => self.app.preview_layout_index,
+            FsPane::Apps { .. } => self.app.preview_layout_index,
             FsPane::Nav { .. } => self.nav.preview_layout_index,
-            FsPane::Rg { .. } => self.rg.preview_layout_index,
+            FsPane::Search { .. } => self.search.preview_layout_index,
         }
     }
 }
@@ -130,7 +131,7 @@ pub struct PaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
-    pub show_preview: Option<bool>,
+    pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
     pub enter_prompt: bool,
 
@@ -154,7 +155,7 @@ pub struct FdPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
-    pub show_preview: Option<bool>,
+    pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
     pub enter_prompt: bool,
     /// Default preview layout index for this pane
@@ -170,7 +171,7 @@ impl Default for FdPaneSettings {
     fn default() -> Self {
         Self {
             prompt: None,
-            show_preview: None,
+            show_preview: Some(ShowCondition::Free(60)),
             enter_prompt: true,
             preview_layout_index: 0,
 
@@ -186,7 +187,7 @@ pub struct RgPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
-    pub show_preview: Option<bool>,
+    pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
     pub enter_prompt: bool,
     /// Default preview layout index for this pane
@@ -198,6 +199,8 @@ pub struct RgPaneSettings {
     pub default_sort: Option<SortOrder>,
     /// Whether to display each match on a seperate line. This can be overridden with the --no-heading command line option.
     pub no_heading: bool,
+    /// Whether to search fixed strings by default. This can be overridden on the command line.
+    pub fixed_strings: bool,
 
     /// Template to display when searching with ripgrep
     pub rg_status_template: String,
@@ -212,11 +215,12 @@ impl Default for RgPaneSettings {
 
         Self {
             prompt: None,
-            show_preview: Some(true),
+            show_preview: Some(ShowCondition::Free(20)),
             enter_prompt: true,
             preview_layout_index: 1,
 
-            no_heading: false, // todo: lowpri: false or true?
+            no_heading: true,
+            fixed_strings: false,
             default_visibility,
             default_sort: Some(SortOrder::none),
 
@@ -232,7 +236,7 @@ pub struct NavPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
-    pub show_preview: Option<bool>,
+    pub show_preview: Option<ShowCondition>,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
@@ -245,7 +249,7 @@ impl Default for NavPaneSettings {
     fn default() -> Self {
         Self {
             prompt: None,
-            show_preview: None,
+            show_preview: Some(ShowCondition::Free(50)),
             preview_layout_index: 0,
 
             default_sort: SortOrder::mtime,
@@ -260,7 +264,7 @@ pub struct HistoryPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
-    pub show_preview: Option<bool>,
+    pub show_preview: Option<ShowCondition>,
     pub enter_prompt: bool,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
@@ -272,7 +276,7 @@ pub struct AppPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
-    pub show_preview: Option<bool>,
+    pub show_preview: Option<ShowCondition>,
     pub enter_prompt: bool,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,

@@ -4,14 +4,15 @@ use matchmaker::{
     nucleo::{Color, Modifier, Span, Style, injector::IndexedInjector},
     ui::StatusUI,
 };
+use matchmaker_partial::Apply;
 
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
     run::{
         FsAction, FsPane,
-        stash::STASH,
-        state::{FILTERS, GLOBAL, STACK, TEMP, TOAST, ui::global_ui},
+        stash::{CustomStashActionActionState, STASH},
+        state::{FILTERS, GLOBAL, STACK, TOAST, TlsStore, ui::global_ui},
     },
     utils::string::format_cwd_prompt,
 };
@@ -66,8 +67,8 @@ pub fn enter_prompt(
     state.picker_ui.results.cursor_disabled = enter;
 }
 
-// read the current pane's enter_prompt and default prompt values
-// call after creating new pane
+/// Reads the current pane's enter_prompt and default prompt values to appropriately invoke [`enter_prompt`].
+/// Call when the pane type changes.
 pub fn prepare_prompt(state: &mut MMState<'_, '_>) {
     // set default prompt/enter prompt
     STACK::with_current(|pane| {
@@ -109,18 +110,14 @@ pub fn enter_dir_pane(
     // save input
     let (content, index) = state.get_content_and_index();
     STACK::save_input(content, index);
-
-    if STACK::with_current(FsPane::should_cancel_input_entering_dir) {
-        state.picker_ui.input.cancel();
-    }
-
-    TOAST::clear_msgs();
     // record
     GLOBAL::db().bump(true, path.clone());
 
-    // pane
     let pane = FsPane::new_nav(path, FILTERS::visibility(), FILTERS::sort());
-
+    // apply settings
+    if STACK::with_current(FsPane::should_cancel_input_entering_dir) {
+        state.picker_ui.input.cancel();
+    }
     // set the prompt marker
     if let Some(p) = GLOBAL::with_cfg(|c| c.panes.prompt(&pane)) {
         state.picker_ui.input.config.prompt = p
@@ -130,51 +127,42 @@ pub fn enter_dir_pane(
     enter_prompt(state, false);
     // always clear selections
     state.picker_ui.selector.clear();
+    TOAST::clear_msgs();
 
+    // start pane
+    let is_new = STACK::nav_cwd().is_none();
     STACK::push(pane);
-    fs_reload(state);
+    fs_reload(state, is_new);
 }
 
-// on new pane
-pub fn fs_reload(state: &mut MMState<'_, '_>) {
-    state.picker_ui.worker.restart(false);
+pub fn fs_reload(
+    state: &mut MMState<'_, '_>,
+    is_new: bool,
+) {
+    // clear worker entries
     state
         .picker_ui
         .worker
         .set_stability(STACK::with_current(FsPane::stability_threshold));
+    state.restart_worker();
+
     let injector = IndexedInjector::new_globally_indexed(state.injector());
+    STACK::populate(injector, || {});
 
-    let same = STACK::with_previous(|p, same| {
-        match p {
-            FsPane::Fd { .. } => {
-                if !same && GLOBAL::with_cfg(|c| c.panes.fd.on_leave_unset_dirs_only) {
-                    FILTERS::with_vis_mut(|v| v.dirs = false);
-                }
-            }
-            FsPane::Rg { .. } => {
-                if same {
-                    return same;
-                }
-                GLOBAL::with_cfg(|_c| {
-                    let r = &mut state.picker_ui.results;
-
-                    // todo: save and restore
-                    r.config.horizontal_separator = Default::default();
-                    r.config.stacked_columns = false;
-                    r.set_status_line(None);
-                })
-            }
-            _ => {}
-        };
-        same
-    })
-    .unwrap_or_default();
+    // stash the saved index to restore it once synced
+    // This is invoked only through FsAction::Undo/Redo/Restart
+    TlsStore::maybe_set(STACK::take_maybe_index());
 
     STACK::with_current_mut(|pane| {
-        if !same {
+        // apply settings when pane type changes
+        if is_new {
             GLOBAL::with_cfg(|cfg| {
-                if let Some(x) = cfg.panes.preview_show(pane) {
-                    state.preview_ui.as_mut().map(|p| p.show(x));
+                if let Some(condition) = cfg.panes.preview_show(pane) {
+                    let area = state.ui_size();
+                    if let Some(p) = state.preview_ui.as_mut() {
+                        p.config.show = condition;
+                        p.reevaluate_show_condition(area, false);
+                    }
                 }
                 if let Some(x) = cfg.panes.prompt(pane) {
                     state.picker_ui.input.config.prompt = x;
@@ -182,13 +170,35 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
                 if let Some(p) = state.preview_ui {
                     p.set_layout(cfg.panes.preview_layout_index(pane));
                 };
+
+                let partial = cfg.mm.get(pane);
+                {
+                    state.ui.config.apply(partial.ui.clone());
+                    state.picker_ui.input.config.apply(partial.input.clone());
+                    state
+                        .picker_ui
+                        .results
+                        .config
+                        .apply(partial.results.clone());
+                    state
+                        .picker_ui
+                        .results
+                        .status_config
+                        .apply(partial.status.clone());
+                    state
+                        .preview_ui
+                        .as_mut()
+                        .unwrap()
+                        .config
+                        .apply(partial.preview.clone());
+                }
             });
         }
 
         state.picker_ui.results.config.right_align_last = true;
 
         match pane {
-            FsPane::Rg {
+            FsPane::Search {
                 filtering,
                 patterns,
                 input,
@@ -219,9 +229,9 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
                 // todo: more style flexibility in status
                 let status = GLOBAL::with_cfg(|c| {
                     let base = if f {
-                        &c.panes.rg.fs_status_template
+                        &c.panes.search.fs_status_template
                     } else {
-                        &c.panes.rg.rg_status_template
+                        &c.panes.search.rg_status_template
                     };
                     let mut t = StatusUI::parse_template_to_status_line(base);
                     let replacement = if f { &patterns.join(" / ") } else { &input.0 }; // todo: lowpri: styling
@@ -250,18 +260,30 @@ pub fn fs_reload(state: &mut MMState<'_, '_>) {
                 state.filtering = f;
             }
             _ => {
+                match pane {
+                    FsPane::Apps { .. } => {
+                        TOAST::clear();
+                        STASH::set_cas(CustomStashActionActionState::App)
+                    }
+                    _ => {}
+                }
+
+                // restore non-rg settings
+                {
+                    let r = &mut state.picker_ui.results;
+                    // todo: save and restore
+                    r.config.horizontal_separator = Default::default();
+                    r.config.stacked_columns = false;
+                    r.set_status_line(None);
+                }
+
                 state.filtering = true;
                 GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()))
             }
         }
+        log::trace!("{pane:?}, is_new: {is_new}");
     });
 
-    STACK::populate(injector, || {});
-
+    // in the meantime, set to 0
     state.picker_ui.results.cursor_jump(0);
-    // stash the saved index to restore it once synced
-    // This is invoked only through FsAction::Undo/Redo/Restart
-    if let Some(index) = STACK::take_maybe_index() {
-        TEMP::set_stashed_index(index);
-    }
 }

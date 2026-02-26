@@ -158,7 +158,7 @@ _fs() {
             return 0
             ;;
         fs__:fd)
-            opts="-h -I -a -F -f -t -o --sort --cd --types --no-read --output --list --help --verbosity --override --config --mm-config --style --fullscreen [PATHS]... [FD_ARGS]..."
+            opts="-h -I -a -F -f -t --sort --cd --types --no-read --list --help --verbosity --override --config --mm-config --style --fullscreen [PATHS]... [FD_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -173,14 +173,6 @@ _fs() {
                     return 0
                     ;;
                 -t)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --output)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -350,7 +342,7 @@ _fs() {
             return 0
             ;;
         fs__:rg)
-            opts="-h -I -a -F -f -p -i -s -S -A -B -C -1 -o --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --no-heading --output --list --query --help --verbosity --override --config --mm-config --style --fullscreen [PATTERNS]... [RG_ARGS]..."
+            opts="-h -I -a -F -f -p -i -s -S -A -B -C -1 --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --no-heading --no-fixed-strings --list --query --help --verbosity --override --config --mm-config --style --fullscreen [PATTERNS]... [RG_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -394,14 +386,6 @@ _fs() {
                     ;;
                 --no-heading)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                --output)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -o)
-                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --query)
@@ -634,7 +618,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__shell)
-            opts="--z-name --z-dot-args --z-slash-args --z-sort --open-name --open-cmd --dir-widget-bind --file-widget-bind --rg-widget-bind --file-open-cmd --rg-open-cmd --dir-widget-args --file-widget-args --rg-widget-args --aliases --shell --verbosity --override --config --mm-config --style --fullscreen"
+            opts="--z-name --z-dot-args --z-slash-args --z-sort --open-name --open-cmd --dir-widget-bind --file-widget-bind --rg-widget-bind --file-open-cmd --rg-open-cmd --dir-widget-args --file-widget-args --rg-widget-args --aliases --nav-name --shell --verbosity --override --config --mm-config --style --fullscreen"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -693,6 +677,10 @@ _fs() {
                     return 0
                     ;;
                 --rg-widget-args)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --nav-name)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

@@ -5,8 +5,8 @@ use crate::{
     run::{
         action::FsAction,
         item::{PathItem, short_display},
-        stash::{STASH, StashItem},
-        state::{GLOBAL, TASKS, TEMP, TOAST},
+        stash::{CustomStashActionActionState, STASH, StashItem},
+        state::{APP, GLOBAL, STACK, TASKS, TOAST, TlsStore},
     },
     spawn::{menu_action::MenuActions, open_wrapped},
     ui::prompt_overlay::{PromptConfig, PromptOverlay},
@@ -23,7 +23,7 @@ use cli_boilerplate_automation::{
 use matchmaker::{
     action::Action,
     config::{BorderSetting, PartialBorderSetting},
-    ui::{Overlay, OverlayEffect},
+    ui::{Overlay, OverlayEffect, SizeHint},
 };
 use ratatui::{
     prelude::*,
@@ -37,6 +37,8 @@ const MAX_ITEM_WIDTH: u16 = 9;
 pub struct MenuConfig {
     #[serde(with = "border_result")]
     pub border: Result<BorderSetting, PartialBorderSetting>,
+    pub item_fg: Color,
+    pub item_modifier: Modifier,
 }
 
 impl Default for MenuConfig {
@@ -49,6 +51,8 @@ impl Default for MenuConfig {
         };
         Self {
             border: Err(border),
+            item_fg: Default::default(),
+            item_modifier: Default::default(),
         }
     }
 }
@@ -60,6 +64,27 @@ pub enum PromptKind {
     NewDir,
     Rename,
 }
+
+#[derive(Debug)]
+pub enum MenuTarget {
+    Item(PathItem),
+    Cwd(AbsPath),
+}
+impl Default for MenuTarget {
+    fn default() -> Self {
+        Self::Cwd(AbsPath::empty())
+    }
+}
+impl MenuTarget {
+    pub fn title(&self) -> Option<String> {
+        match self {
+            Item(s) => Some(s.path.basename()),
+            _ => None,
+        }
+    }
+}
+
+use MenuTarget::*;
 
 /// MenuItem enum with stateless action
 #[derive(Clone)]
@@ -90,33 +115,40 @@ impl MenuItem {
         }
     }
 
-    pub fn line(&self) -> Line<'static> {
+    pub fn line(
+        &self,
+        menu_config: &MenuConfig,
+    ) -> Line<'static> {
+        let style = Style::new()
+            .add_modifier(menu_config.item_modifier)
+            .fg(menu_config.item_fg);
+
         match self {
-            MenuItem::New => Line::from(bold_indices("new", [0], Style::new())),
-            MenuItem::Rename => Line::from(bold_indices("rename", [0], Style::new())),
-            MenuItem::Cut => Line::from(bold_indices("cut (x)", [6], Style::new())),
-            MenuItem::Copy => Line::from(bold_indices("copy", [0], Style::new())),
-            MenuItem::Trash => Line::from(bold_indices("trash", [0], Style::new())),
-            MenuItem::Delete => Line::from(bold_indices("deleTe", [5], Style::new())),
-            MenuItem::Open => Line::from(bold_indices("open", [0], Style::new())),
-            MenuItem::OpenWith => Line::from(bold_indices("open with", [6], Style::new())),
-            MenuItem::Custom { name, .. } => Line::from(name.clone()),
+            MenuItem::New => Line::from(bold_indices("new", [0], style)),
+            MenuItem::Rename => Line::from(bold_indices("rename", [0], style)),
+            MenuItem::Cut => Line::from(bold_indices("cut (x)", [6], style)),
+            MenuItem::Copy => Line::from(bold_indices("copy", [0], style)),
+            MenuItem::Trash => Line::from(bold_indices("trash", [0], style)),
+            MenuItem::Delete => Line::from(bold_indices("deleTe", [5], style)),
+            MenuItem::Open => Line::from(bold_indices("open", [0], style)),
+            MenuItem::OpenWith => Line::from(bold_indices("open with", [5], style)),
+            MenuItem::Custom { name, .. } => Line::from(name.clone()).style(style),
         }
     }
 
     /// Execute an action.
-    /// Returns an optional input to [`TEMP::set_prompt`]
+    /// Returns an optional input to [`TEMP::set_prompt`], or whether to keep menu open.
     pub fn action(
         &self,
         path: AbsPath,
-    ) -> Option<(PromptKind, Option<String>)> {
+    ) -> Result<(PromptKind, Option<String>), bool> {
         match self {
-            MenuItem::New => Some((PromptKind::New, None)),
-            MenuItem::Rename => Some((PromptKind::Rename, Some(path.to_string_lossy().into()))),
+            MenuItem::New => Ok((PromptKind::New, None)),
+            MenuItem::Rename => Ok((PromptKind::Rename, Some(path.to_string_lossy().into()))),
             MenuItem::Cut | MenuItem::Copy => {
                 TOAST::push(ToastStyle::Normal, "Cut: ", [short_display(&path)]);
-                STASH::insert(vec![StashItem::mv(path)]);
-                None
+                STASH::extend(vec![StashItem::mv(path)]);
+                Err(false)
             }
             MenuItem::Trash => {
                 match trash::delete(&path) {
@@ -130,7 +162,7 @@ impl MenuItem {
                         )
                     }
                 }
-                None
+                Err(false)
             }
             MenuItem::Delete => {
                 TASKS::spawn(async move {
@@ -152,7 +184,7 @@ impl MenuItem {
                         }
                     }
                 });
-                None
+                Err(false)
             }
             MenuItem::Open => {
                 let path_clone = path;
@@ -162,10 +194,13 @@ impl MenuItem {
                     open_wrapped(conn, None, &[path_clone.inner().into()], true).await?;
                     anyhow::Ok(())
                 });
-                None
+                Err(false)
             }
             MenuItem::OpenWith => {
-                todo!()
+                STASH::set_cas(CustomStashActionActionState::App);
+                STASH::push_custom(path);
+                GLOBAL::send_action(FsAction::App);
+                Err(false)
             }
             MenuItem::Custom { action, .. } => {
                 todo!()
@@ -180,7 +215,8 @@ pub struct MenuOverlay {
     config: MenuConfig,
     prompt_kind: Option<PromptKind>,
     prompt: PromptOverlay,
-    target: Result<PathItem, AbsPath>,
+    /// See [TEMP::set_input_bar]
+    target: MenuTarget,
     items: Vec<MenuItem>,
 }
 
@@ -206,7 +242,7 @@ impl MenuOverlay {
             config,
             prompt_kind: None,
             prompt: PromptOverlay::new(prompt_config),
-            target: Ok(PathItem::_uninit()),
+            target: Default::default(),
             items: MENU_ITEMS.to_vec(),
         }
     }
@@ -220,8 +256,12 @@ impl MenuOverlay {
             .items
             .iter()
             .enumerate()
-            .map(|(idx, item)| {
-                let mut line = item.line();
+            .filter_map(|(idx, item)| {
+                if STACK::in_app() && !matches!(item, MenuItem::Custom { .. }) {
+                    return None;
+                }
+                let mut line = item.line(&self.config);
+
                 if idx == self.cursor {
                     line = line.patch_style(
                         Style::default()
@@ -229,7 +269,7 @@ impl MenuOverlay {
                             .add_modifier(Modifier::BOLD),
                     )
                 }
-                line
+                Some(line)
             })
             .collect();
         Paragraph::new(lines).block(self.border().as_block())
@@ -237,14 +277,14 @@ impl MenuOverlay {
 
     fn target_path(&self) -> AbsPath {
         match &self.target {
-            Ok(p) => p.path.clone(),
-            Err(p) => p.clone(),
+            Item(p) => p.path.clone(),
+            Cwd(p) => p.clone(),
         }
     }
     fn target_parent(&self) -> AbsPath {
         match &self.target {
-            Ok(p) => p.path._parent(),
-            Err(p) => p.clone(),
+            Item(p) => p.path._parent(),
+            Cwd(p) => p.clone(),
         }
     }
 
@@ -266,16 +306,20 @@ impl MenuOverlay {
         c: char,
     ) -> OverlayEffect {
         if let Some(item) = MenuItem::from_key(c) {
-            if let Some((prompt, extra)) = match &self.target {
-                Ok(target) => item.action(target.path.clone()),
-                Err(_) => {
+            let action_result = match &self.target {
+                Item(target) => item.action(target.path.clone()),
+                Cwd(_) => {
                     todo!()
                 }
-            } {
-                self.set_prompt(prompt, extra);
+            };
+            match action_result {
+                Ok((prompt, extra)) => {
+                    self.set_prompt(prompt, extra);
+                    OverlayEffect::None
+                }
+                Err(true) => OverlayEffect::None,
+                Err(false) => OverlayEffect::Disable,
             }
-
-            OverlayEffect::None
         } else if c == 'q' {
             OverlayEffect::Disable
         } else {
@@ -378,14 +422,22 @@ impl MenuOverlay {
     }
 
     pub fn accept(&mut self) -> OverlayEffect {
-        if let Some((prompt, extra)) = match &self.target {
-            Ok(target) => self.items[self.cursor].action(target.path.clone()),
-            Err(_) => todo!(),
-        } {
-            self.set_prompt(prompt, extra);
-        }
+        let item = &self.items[self.cursor];
 
-        OverlayEffect::None
+        let action_result = match &self.target {
+            Item(target) => item.action(target.path.clone()),
+            Cwd(_) => {
+                todo!()
+            }
+        };
+        match action_result {
+            Ok((prompt, extra)) => {
+                self.set_prompt(prompt, extra);
+                OverlayEffect::None
+            }
+            Err(true) => OverlayEffect::None,
+            Err(false) => OverlayEffect::Disable,
+        }
     }
 
     pub fn move_cursor_up(&mut self) {
@@ -410,11 +462,13 @@ impl Overlay for MenuOverlay {
     ) {
         self.cursor = 0;
         self.prompt_kind = None;
-        let (p, s) = TEMP::take_input_bar();
+        let p = TlsStore::take();
+        let target: MenuTarget = TlsStore::take().unwrap_or_default();
+
         if let Some(p) = p {
-            self.set_prompt(p, s.as_ref().ok().map(|s| s.path.basename()));
+            self.set_prompt(p, target.title());
         }
-        self.target = s;
+        self.target = target;
     }
 
     fn on_disable(&mut self) {
@@ -461,11 +515,11 @@ impl Overlay for MenuOverlay {
     fn area(
         &mut self,
         ui_area: &Rect,
-    ) -> Result<Rect, [u16; 2]> {
+    ) -> Result<Rect, [SizeHint; 2]> {
         self.prompt.area(ui_area);
         Err([
-            MAX_ITEM_WIDTH + self.border().width(),
-            self.items.len() as u16 + self.border().height(),
+            (MAX_ITEM_WIDTH + self.border().width()).into(),
+            (self.items.len() as u16 + self.border().height()).into(),
         ])
     }
 
