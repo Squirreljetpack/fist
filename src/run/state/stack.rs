@@ -158,6 +158,20 @@ impl STACK {
         })
     }
 
+    /// Returns whether it pushed (pane type is different)
+    pub fn set_or_push(pane: FsPane) -> bool {
+        let different_type = Self::with_current(|current| current != &pane);
+
+        if !different_type {
+            // update current in place
+            Self::with_current_mut(|p| *p = pane);
+        } else {
+            STACK::push(pane);
+        }
+
+        different_type
+    }
+
     // pub fn with_previous<R, F>(f: F) -> Option<R>
     // where
     // F: FnOnce(&FsPane, bool) -> R,

@@ -467,12 +467,12 @@ pub fn fsaction_handler(
                 FILTERS::visibility(),
             );
 
-            if !STACK::with_current(|p| *p == pane) {
-                STACK::push(pane);
+            if STACK::set_or_push(pane) {
                 prepare_prompt(state);
+                fs_reload(state, true);
+            } else {
+                fs_reload(state, false);
             }
-
-            fs_reload(state, true);
         }
 
         FsAction::History => {
@@ -487,6 +487,10 @@ pub fn fsaction_handler(
         }
 
         FsAction::Search => {
+            // save input
+            let (content, index) = state.get_content_and_index();
+            STACK::save_input(content, index);
+
             // save input
             if STACK::with_current_mut(|x| match x {
                 FsPane::Rg {
@@ -511,10 +515,12 @@ pub fn fsaction_handler(
                     state.picker_ui.input.recompute_graphemes();
                     state.picker_ui.input.set(None, u16::MAX);
                     *filtering = !*filtering;
-                    false
+                    true
                 }
-                _ => true,
+                _ => false,
             }) {
+                fs_reload(state, false);
+            } else {
                 // let mut vis = FILTERS::visibility(); // todo: merge instead of overwrite
                 let vis = GLOBAL::with_cfg(|cfg| cfg.panes.rg.default_visibility);
 
@@ -526,9 +532,8 @@ pub fn fsaction_handler(
                 );
                 STACK::push(pane);
                 prepare_prompt(state);
+                fs_reload(state, false);
             }
-
-            fs_reload(state, true);
         }
 
         FsAction::App => {
@@ -537,10 +542,12 @@ pub fn fsaction_handler(
             STACK::save_input(content, index);
 
             let pane = FsPane::new_launch(STASH::cas());
-            STACK::push(pane);
-
-            prepare_prompt(state);
-            fs_reload(state, true);
+            if STACK::set_or_push(pane) {
+                prepare_prompt(state);
+                fs_reload(state, true);
+            } else {
+                fs_reload(state, false);
+            }
         }
 
         FsAction::Undo => {

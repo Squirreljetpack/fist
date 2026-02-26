@@ -80,7 +80,7 @@ impl Pool {
             table_name: table.to_string(),
         };
 
-        log::debug!("db connected");
+        log::trace!("db connected");
         Ok(ret)
     }
 }

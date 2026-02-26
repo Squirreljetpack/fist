@@ -1,8 +1,9 @@
 #![allow(clippy::upper_case_acronyms)]
 #![allow(non_snake_case)]
-use std::cell::RefCell;
+use std::{cell::RefCell, fmt::Debug};
 
 use anymap::AnyMap;
+use cli_boilerplate_automation::_dbg;
 
 use crate::ui::menu_overlay::{MenuTarget, PromptKind};
 
@@ -10,9 +11,10 @@ thread_local! {
     static TLS_MAP: RefCell<AnyMap> = RefCell::new(AnyMap::new());
 }
 
+#[derive(Debug)]
 pub struct ExecuteHandlerShouldProcessCwd;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct InitialRelativePathSetting(pub bool);
 
 /// Option<AbsPath>: Previous Directory
@@ -20,12 +22,12 @@ pub struct InitialRelativePathSetting(pub bool);
 pub struct TlsStore;
 
 impl TlsStore {
-    pub fn set<T: 'static>(value: T) {
+    pub fn set<T: 'static + Debug>(value: T) {
         TLS_MAP.with(|map| {
-            map.borrow_mut().insert::<T>(value);
+            map.borrow_mut().insert::<T>(_dbg!("TlsSet", value));
         });
     }
-    pub fn maybe_set<T: 'static>(value: Option<T>) {
+    pub fn maybe_set<T: 'static + Debug>(value: Option<T>) {
         if let Some(v) = value {
             TlsStore::set(v);
         }
@@ -35,8 +37,11 @@ impl TlsStore {
         TLS_MAP.with(|map| map.borrow().get::<T>().cloned())
     }
 
-    pub fn take<T: 'static>() -> Option<T> {
-        TLS_MAP.with(|map| map.borrow_mut().remove::<T>())
+    pub fn take<T: 'static + Debug>() -> Option<T> {
+        _dbg!(
+            "TlsTake",
+            TLS_MAP.with(|map| map.borrow_mut().remove::<T>())
+        )
     }
 
     pub fn with<T: 'static, R>(f: impl FnOnce(&T) -> R) -> Option<R> {
@@ -72,6 +77,12 @@ impl TlsStore {
                 map.insert(menu_prompt);
             }
             map.insert(menu_target);
+        });
+    }
+
+    pub fn debug() {
+        TLS_MAP.with(|map| {
+            log::info!("TLS: {:#?}", map.borrow());
         });
     }
 }

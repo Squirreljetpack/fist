@@ -66,8 +66,8 @@ pub fn enter_prompt(
     state.picker_ui.results.cursor_disabled = enter;
 }
 
-// read the current pane's enter_prompt and default prompt values
-// call after creating new pane
+/// Reads the current pane's enter_prompt and default prompt values to appropriately invoke [`enter_prompt`].
+/// Call when the pane type changes.
 pub fn prepare_prompt(state: &mut MMState<'_, '_>) {
     // set default prompt/enter prompt
     STACK::with_current(|pane| {
@@ -109,18 +109,14 @@ pub fn enter_dir_pane(
     // save input
     let (content, index) = state.get_content_and_index();
     STACK::save_input(content, index);
-
-    if STACK::with_current(FsPane::should_cancel_input_entering_dir) {
-        state.picker_ui.input.cancel();
-    }
-
-    TOAST::clear_msgs();
     // record
     GLOBAL::db().bump(true, path.clone());
 
-    // pane
     let pane = FsPane::new_nav(path, FILTERS::visibility(), FILTERS::sort());
-
+    // apply settings
+    if STACK::with_current(FsPane::should_cancel_input_entering_dir) {
+        state.picker_ui.input.cancel();
+    }
     // set the prompt marker
     if let Some(p) = GLOBAL::with_cfg(|c| c.panes.prompt(&pane)) {
         state.picker_ui.input.config.prompt = p
@@ -130,24 +126,29 @@ pub fn enter_dir_pane(
     enter_prompt(state, false);
     // always clear selections
     state.picker_ui.selector.clear();
+    TOAST::clear_msgs();
 
+    // start pane
+    let is_new = STACK::nav_cwd().is_none();
     STACK::push(pane);
-    fs_reload(state, true);
+    fs_reload(state, is_new);
 }
 
-// on new pane
 pub fn fs_reload(
     state: &mut MMState<'_, '_>,
     is_new: bool,
 ) {
-    state.picker_ui.worker.restart(false);
+    // clear worker entries
     state
         .picker_ui
         .worker
         .set_stability(STACK::with_current(FsPane::stability_threshold));
+    state.restart_worker();
+
     let injector = IndexedInjector::new_globally_indexed(state.injector());
 
     STACK::with_current_mut(|pane| {
+        // apply settings when pane type changes
         if is_new {
             GLOBAL::with_cfg(|cfg| {
                 if let Some(condition) = cfg.panes.preview_show(pane) {
@@ -252,12 +253,14 @@ pub fn fs_reload(
                 GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()))
             }
         }
+        log::trace!("{pane:?}, is_new: {is_new}");
     });
 
     STACK::populate(injector, || {});
 
-    state.picker_ui.results.cursor_jump(0);
     // stash the saved index to restore it once synced
     // This is invoked only through FsAction::Undo/Redo/Restart
     TlsStore::maybe_set(STACK::take_maybe_index());
+    // in the meantime, set to 0
+    state.picker_ui.results.cursor_jump(0);
 }
