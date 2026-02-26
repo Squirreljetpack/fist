@@ -7,10 +7,9 @@ use matchmaker::SSS;
 
 use crate::{
     abspath::AbsPath,
-    run::state::ui::global_ui_mut,
     run::{
         FsInjector, FsPane,
-        state::{FILTERS, GLOBAL, TEMP},
+        state::{FILTERS, GLOBAL, InitialRelativePathSetting, TlsStore, ui::global_ui_mut},
     },
     watcher::WatcherMessage,
 };
@@ -48,8 +47,8 @@ impl STACK {
         STACK.with(|cell| {
             let Self { stack, index } = &mut *cell.borrow_mut();
             if *index == 0 {
-                if let Some(o) = TEMP::get_original_relative_path() {
-                    global_ui_mut().path.relative = o;
+                if let Some(o) = TlsStore::get::<InitialRelativePathSetting>() {
+                    global_ui_mut().path.relative = o.0;
                 }
             }
             stack.truncate(*index + 1);
@@ -80,7 +79,7 @@ impl STACK {
             if *index > 0 {
                 *index -= 1;
 
-                if *index == 0 && TEMP::get_original_relative_path().is_some()
+                if *index == 0 && TlsStore::get::<InitialRelativePathSetting>().is_some()
                 // original is backed up
                 {
                     global_ui_mut().path.relative = false;

@@ -50,7 +50,7 @@ use crate::{
         mm_config::get_mm_cfg,
         start,
         stash::{CustomStashActionActionState, STASH},
-        state::TEMP,
+        state::{InitialRelativePathSetting, TlsStore},
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
@@ -264,7 +264,7 @@ async fn handle_dirs(
         // fallback to interactive if no match
         cfg.global.interface.alt_accept = true;
         cfg.global.interface.no_multi_accept = true;
-        TEMP::set_initial_relative_path(cfg.styles.path.relative);
+        TlsStore::set(InitialRelativePathSetting(cfg.styles.path.relative));
         cfg.styles.path.relative = false;
     } else if let Some(all) = cmd.list {
         let mut conn = pool.get_conn(DbTable::dirs).await?;
@@ -336,7 +336,7 @@ async fn handle_default(
             cfg.history.show_missing = false;
 
             // stream can only occur as the first pane, this ensures paths are not modified in display
-            TEMP::set_initial_relative_path(cfg.styles.path.relative);
+            TlsStore::set(cfg.styles.path.relative);
             cfg.styles.path.relative = false;
         };
         FsPane::new_stream(AbsPath::new_unchecked(__cwd()), cmd.vis, true)

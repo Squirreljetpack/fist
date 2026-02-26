@@ -11,7 +11,7 @@ use crate::{
     run::{
         FsAction, FsPane,
         stash::{CustomStashActionActionState, STASH},
-        state::{FILTERS, GLOBAL, STACK, TEMP, TOAST, ui::global_ui},
+        state::{FILTERS, GLOBAL, STACK, TOAST, TlsStore, ui::global_ui},
     },
     utils::string::format_cwd_prompt,
 };
@@ -259,7 +259,5 @@ pub fn fs_reload(
     state.picker_ui.results.cursor_jump(0);
     // stash the saved index to restore it once synced
     // This is invoked only through FsAction::Undo/Redo/Restart
-    if let Some(index) = STACK::take_maybe_index() {
-        TEMP::set_stashed_index(index);
-    }
+    TlsStore::maybe_set(STACK::take_maybe_index());
 }

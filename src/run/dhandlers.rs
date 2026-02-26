@@ -23,7 +23,7 @@ use crate::{
         ahandler::fs_reload,
         item::PathItem,
         pane::FsPane,
-        state::{FILTERS, GLOBAL, STACK, TEMP},
+        state::{ExecuteHandlerShouldProcessCwd, FILTERS, GLOBAL, STACK, TlsStore},
     },
     utils::string::path_formatter,
 };
@@ -45,7 +45,7 @@ pub fn sync_handler(
     // TODO: support more pane variants
     FILTERS::refilter();
 
-    let seek = TEMP::take_prev_dir();
+    let seek = TlsStore::take();
 
     // reload saved state
     if let Some(seek) = seek
@@ -58,7 +58,7 @@ pub fn sync_handler(
         state.picker_ui.results.cursor_jump(i as u32);
     } else
     // this part is exclusive to [`FsAction::Undo`], Forward and watcher reload.
-    if let Some(index) = TEMP::take_stashed_index() {
+    if let Some(index) = TlsStore::take() {
         state.picker_ui.results.cursor_jump(index);
     };
 }
@@ -110,7 +110,7 @@ impl FsMatchmaker {
             let template = state.payload();
             if !template.is_empty() {
                 let path = unwrap!(if state.picker_ui.results.cursor_disabled
-                    || TEMP::take_whether_execute_handler_should_process_cwd()
+                    || TlsStore::take::<ExecuteHandlerShouldProcessCwd>().is_some()
                 {
                     STACK::cwd()
                 } else {

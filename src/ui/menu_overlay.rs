@@ -6,7 +6,7 @@ use crate::{
         action::FsAction,
         item::{PathItem, short_display},
         stash::{CustomStashActionActionState, STASH, StashItem},
-        state::{APP, GLOBAL, STACK, TASKS, TEMP, TOAST},
+        state::{APP, GLOBAL, STACK, TASKS, TOAST, TlsStore},
     },
     spawn::{menu_action::MenuActions, open_wrapped},
     ui::prompt_overlay::{PromptConfig, PromptOverlay},
@@ -64,6 +64,27 @@ pub enum PromptKind {
     NewDir,
     Rename,
 }
+
+#[derive(Debug)]
+pub enum MenuTarget {
+    Item(PathItem),
+    Cwd(AbsPath),
+}
+impl Default for MenuTarget {
+    fn default() -> Self {
+        Self::Cwd(AbsPath::empty())
+    }
+}
+impl MenuTarget {
+    pub fn title(&self) -> Option<String> {
+        match self {
+            Item(s) => Some(s.path.basename()),
+            _ => None,
+        }
+    }
+}
+
+use MenuTarget::*;
 
 /// MenuItem enum with stateless action
 #[derive(Clone)]
@@ -195,7 +216,7 @@ pub struct MenuOverlay {
     prompt_kind: Option<PromptKind>,
     prompt: PromptOverlay,
     /// See [TEMP::set_input_bar]
-    target: Result<PathItem, AbsPath>,
+    target: MenuTarget,
     items: Vec<MenuItem>,
 }
 
@@ -221,7 +242,7 @@ impl MenuOverlay {
             config,
             prompt_kind: None,
             prompt: PromptOverlay::new(prompt_config),
-            target: Ok(PathItem::_uninit()),
+            target: Default::default(),
             items: MENU_ITEMS.to_vec(),
         }
     }
@@ -256,14 +277,14 @@ impl MenuOverlay {
 
     fn target_path(&self) -> AbsPath {
         match &self.target {
-            Ok(p) => p.path.clone(),
-            Err(p) => p.clone(),
+            Item(p) => p.path.clone(),
+            Cwd(p) => p.clone(),
         }
     }
     fn target_parent(&self) -> AbsPath {
         match &self.target {
-            Ok(p) => p.path._parent(),
-            Err(p) => p.clone(),
+            Item(p) => p.path._parent(),
+            Cwd(p) => p.clone(),
         }
     }
 
@@ -286,8 +307,8 @@ impl MenuOverlay {
     ) -> OverlayEffect {
         if let Some(item) = MenuItem::from_key(c) {
             let action_result = match &self.target {
-                Ok(target) => item.action(target.path.clone()),
-                Err(_) => {
+                Item(target) => item.action(target.path.clone()),
+                Cwd(_) => {
                     todo!()
                 }
             };
@@ -404,8 +425,8 @@ impl MenuOverlay {
         let item = &self.items[self.cursor];
 
         let action_result = match &self.target {
-            Ok(target) => item.action(target.path.clone()),
-            Err(_) => {
+            Item(target) => item.action(target.path.clone()),
+            Cwd(_) => {
                 todo!()
             }
         };
@@ -441,9 +462,11 @@ impl Overlay for MenuOverlay {
     ) {
         self.cursor = 0;
         self.prompt_kind = None;
-        let (p, target) = TEMP::take_input_bar();
+        let p = TlsStore::take();
+        let target: MenuTarget = TlsStore::take().unwrap_or_default();
+
         if let Some(p) = p {
-            self.set_prompt(p, target.as_ref().ok().map(|s| s.path.basename()));
+            self.set_prompt(p, target.title());
         }
         self.target = target;
     }
@@ -492,14 +515,12 @@ impl Overlay for MenuOverlay {
     fn area(
         &mut self,
         ui_area: &Rect,
-    ) -> Result<Rect, SizeHint> {
+    ) -> Result<Rect, [SizeHint; 2]> {
         self.prompt.area(ui_area);
-        Err((
-            MAX_ITEM_WIDTH + self.border().width(),
-            self.items.len() as u16 + self.border().height(),
-            false,
-            false,
-        ))
+        Err([
+            (MAX_ITEM_WIDTH + self.border().width()).into(),
+            (self.items.len() as u16 + self.border().height()).into(),
+        ])
     }
 
     fn draw(

@@ -581,8 +581,8 @@ impl Overlay for FilterOverlay {
     fn area(
         &mut self,
         _ui_area: &Rect,
-    ) -> Result<Rect, SizeHint> {
-        Err((self.width(), self.height(), false, false))
+    ) -> Result<Rect, [SizeHint; 2]> {
+        Err([self.width().into(), self.height().into()])
     }
 
     fn draw(

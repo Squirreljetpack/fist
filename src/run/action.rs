@@ -23,10 +23,13 @@ use crate::{
         item::short_display,
         pane::FsPane,
         stash::{STASH, StashItem},
-        state::{FILTERS, GLOBAL, STACK, TASKS, TEMP, TOAST, context::ActionContext},
+        state::{
+            ExecuteHandlerShouldProcessCwd, FILTERS, GLOBAL, STACK, TASKS, TOAST, TlsStore,
+            context::ActionContext,
+        },
     },
     spawn::open_wrapped,
-    ui::menu_overlay::PromptKind,
+    ui::menu_overlay::{MenuTarget, PromptKind},
     utils::text::ToastStyle,
 };
 use fist_types::When;
@@ -291,10 +294,10 @@ pub fn fsaction_aliaser(
             // todo: matchmaker needs to support activating the overlay ourselves so that the activated item is aligned
             FsAction::Menu => {
                 if let Some(p) = state.current_item() {
-                    TEMP::set_input_bar(None, Ok(p.clone()));
+                    TlsStore::set_input_bar(None, MenuTarget::Item(p.clone()));
                     acs![Action::Overlay(2)]
                 } else if let Some(cwd) = STACK::cwd() {
-                    TEMP::set_input_bar(None, Err(cwd));
+                    TlsStore::set_input_bar(None, MenuTarget::Cwd(cwd));
                     acs![Action::Overlay(2)]
                 } else {
                     acs![]
@@ -306,7 +309,7 @@ pub fn fsaction_aliaser(
                 if let Some(cwd) = STACK::nav_cwd()
                     && state.overlay_index().is_none()
                 {
-                    TEMP::set_input_bar(Some(PromptKind::NewDir), Err(cwd));
+                    TlsStore::set_input_bar(Some(PromptKind::NewDir), MenuTarget::Cwd(cwd));
                     acs![Action::Overlay(2)]
                 }
                 // no support for creating outside of nav
@@ -609,7 +612,7 @@ pub fn fsaction_handler(
             };
 
             // save current for lookup
-            TEMP::set_prev_dir(cwd);
+            TlsStore::maybe_set(cwd);
             // pane
             enter_dir_pane(state, path);
         }
@@ -868,7 +871,7 @@ pub fn fsaction_handler(
                 && STACK::nav_cwd().is_some()
                 && state.current_raw().is_some_and(|x| x.path.is_file())
             {
-                TEMP::set_that_execute_handler_should_process_cwd();
+                TlsStore::set(ExecuteHandlerShouldProcessCwd {});
             }
 
             let mut template = if special == 1 {
