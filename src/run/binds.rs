@@ -67,7 +67,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-esc) => Action::Execute("$SHELL".into()),
 
         // lessfilter
-        key!(ctrl-q)  => FsAction::new_lessfilter(Preset::Edit, false), // This one acts on the parent directory if a file is selected. The edit preset acting on a directory uses $VISUAL.
+        key!(ctrl-q), key!(ctrl-'.')  => FsAction::new_lessfilter(Preset::Edit, false), // This one acts on the parent directory if a file is selected. The edit preset acting on a directory uses $VISUAL.
         key!(ctrl-b) , key!(ctrl-enter) => FsAction::new_lessfilter(Preset::Open, false),
         key!(ctrl-l) => FsAction::new_lessfilter(Preset::Preview, true),
         key!(alt-l)  => FsAction::new_lessfilter(Preset::Extended, true),

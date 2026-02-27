@@ -469,12 +469,21 @@ pub fn fsaction_handler(
             );
 
             // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
-            if STACK::set_or_push(pane) {
-                prepare_prompt(state);
-                fs_reload(state, true);
-            } else {
+            // todo: there is a problem
+            if STACK::with_current(|p| *p == pane) {
                 fs_reload(state, false);
+            } else {
+                STACK::push(pane);
+                fs_reload(state, true);
             }
+
+            // not this because this erases current settings when the intutive behavior is to just reload
+            // if STACK::set_or_push(pane) {
+            //     prepare_prompt(state);
+            //     fs_reload(state, true);
+            // } else {
+            //     fs_reload(state, false);
+            // }
         }
 
         FsAction::History => {

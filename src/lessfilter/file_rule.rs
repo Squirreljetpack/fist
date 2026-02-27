@@ -121,7 +121,12 @@ impl<'a> FileData<'a> {
     fn children_names(&self) -> &[OsString] {
         self.children
             .get_or_init(|| {
-                std::fs::read_dir(&self.path)
+                let dir = if self.path.is_dir() {
+                    self.path.as_path()
+                } else {
+                    self.path.parent().unwrap_or(&self.path)
+                };
+                std::fs::read_dir(dir)
                     .ok()
                     .map(|rd| rd.filter_map(|e| e.ok()).map(|e| e.file_name()).collect())
                     .unwrap_or_default()

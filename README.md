@@ -32,12 +32,13 @@ Call as:
 - `Enter`: Default (system) open.
   - `Alt-Enter`: Print / Alternate open.
   - `Ctrl-Enter`: Open in background.
-  - `ctrl-q`: Open folder in editor.
+  - `ctrl-.`/`ctrl-q`: Open folder in editor.
 
 ---
 
 - `ctrl-f`/`ctrl-r`: Find files / Search text.
 - `ctrl-g`: History view (Folders and files).
+- `alt-shift-a`: App view[^2]
 - `ctrl-z`/`ctrl-y`: Undo / Redo.
 
 ---
@@ -62,7 +63,9 @@ Call as:
 
 For a full list of binds, press `ctrl-shift-h` within the app. [^1]
 
-[^1]: For more information on bindings, see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
+[^1]: For more information on bindings (how they are defined, key testing, and default generic binds), see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
+
+[^2]: Since a single key can be bound to multiple actions, you may consider replacing this bind with the chain: [`CAS(App)`, `ClearStack`, `Push`, `App`], which will open all currently selected items with the selected app.
 
 # Panes
 
@@ -90,7 +93,7 @@ The results will be available for filtering, navigating, editing, previewing and
 >
 > - The last positional argument is treated as the query instead of the first
 > - queries beginning with `.` auto-enables the inclusion of hidden files
-> - Default parameters, directory-specific ignores,
+> - Default parameters, directory-specific ignores, and other parameters can be set in the [config](./src/config/mod.rs#L257).
 > - The `-t` (type) flag has be overloaded to support more conditions. In addition to file types (`directory/d, symlink/l, ..etc.` ), it now supports extensions (`-t .ext`), pre-set categories (`image/i, video/v`), and custom categories as well.
 
 <img src=".README.assets/image-20260226020201947.png" alt="image-20260226020201947" style="width:360px" />
@@ -178,7 +181,6 @@ FS_OPTS="opener=ob.open display='echo \${\${1#*/\$2/}%.md}' delim=\t" fs
 # which should be a script that consumes a batch of PathItems,
 # each of which correspond to 2 input arguments: the Path and the Context,
 # and outputs the desired display representation in order.
-
 ```
 
 ```shell
@@ -262,6 +264,8 @@ Custom actions can be added in the `[menu]` section of the config. They consist 
 
 # Tools
 
+f:ist comes with several secondary subcommands for reference and utilitary purposes. They can listed with `fs :tool`.
+
 ### Shell integration
 
 Only zsh is supported for now.
@@ -306,15 +310,15 @@ For speed and safety, it is recommended pass your actual shell through to `--she
 
 The previewer is controlled by the lessfilter tool.
 
-The lessfilter tool dispatches to 10 presets:
+The lessfilter tool dispatches to 8 presets:
 
 - preview: For the preview pane
 - display: For terminal display
 - extended: For terminal interaction/verbose display
 - info: Metadata/raw info
-- extract: extract document contents with [kreuzberg](#https://github.com/kreuzberg-dev)
+- extract: Extract document contents with [kreuzberg](#https://github.com/kreuzberg-dev)
 - open: System open
-- alternate: Alternate (custom) open
+- alternate: An extra preset for any use
 - edit: For editing
 
 Each preset is configured by a rules table; each rule is a pair (Actions, Patterns); and for a given file, the rule whose patterns score the highest is selected -- its actions are invoked on the target file.
@@ -379,6 +383,19 @@ code = 'code --add {}'
 ```
 
 Note that certain default previews will not display without the required [dependencies](#dependencies).
+
+### Types
+
+>[!NOTE]
+> 
+> Incomplete
+
+A list of all supported types, used by the `-t` parameter of the [find subcommand](#find) and the `cat` condition of the [lessfilter](#lessfilter).
+
+### Liza
+Liza is an eza wrapper used internally by the lessfilter/previewer to display directories. It can accessed directly through the [`lz` alias](#aliases).
+
+### Dependencies
 
 # Actions
 

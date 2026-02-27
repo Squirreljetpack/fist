@@ -25,6 +25,16 @@
 # mime: Max(20),
 # ext: Max(10)
 
+# ------------------
+#   File Rules
+# ------------------
+# glob: test the full path against a glob pattern.
+# child: whether the name of any child of the path matches this glob. When the path is a file, this is matched against siblings.
+# ext: i.e. txt, rs, html, png
+# mime: i.e. text/plain, image/*
+# cat: test whether the file belongs to a built-in FileCategory (when this is the name of one), or if the file's mime belongs is contained in the [categories] table of this file under this key
+# have: check whether this program exists.
+# filetype: file, directory, symlink, blockdevice, chardevice, executable, empty, socket, pipe, text
 
 # ------------------------------------------------------------ #
 
