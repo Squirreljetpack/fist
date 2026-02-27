@@ -1,19 +1,21 @@
 use std::{ffi::OsString, sync::Arc};
 
-use cli_boilerplate_automation::{bog::BogOkExt, bring::StrExt, prints, unwrap};
+use cli_boilerplate_automation::{
+    bog::BogOkExt,
+    bring::{StrExt, split::join_with_single_quotes},
+    prints, unwrap,
+};
 use matchmaker::{
-    MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector, acs,
-    action::Action,
+    MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector,
     binds::display_binds,
     config::{PreviewerConfig, RenderConfig, TerminalConfig},
     event::EventLoop,
-    message::{Event, RenderCommand},
+    message::Event,
     nucleo::{
         Column, Indexed, Render, Worker,
         injector::{IndexedInjector, WorkerInjector},
     },
     preview::AppendOnly,
-    ui::StatusUI,
 };
 use ratatui::text::Text;
 
@@ -24,9 +26,8 @@ use crate::{
     db::{DbTable, Pool, zoxide::DbFilter},
     errors::CliError,
     run::{
-        FsAction,
         action::{fsaction_aliaser, fsaction_handler},
-        ahandler::paste_handler,
+        ahandler::{fs_post_reload_new, paste_handler},
         dhandlers::{MMExt, query_handler, sync_handler},
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
@@ -114,7 +115,7 @@ pub async fn start(
     // init configs
     let MMConfig {
         mut render,
-        mut binds,
+        binds,
         stash,
         filters,
         prompt,
@@ -123,38 +124,6 @@ pub async fn start(
         overlay,
     } = mm_cfg;
     log::debug!("cfg: {cfg:?}");
-    let preview_layout_index = cfg.global.panes.preview_layout_index(&pane);
-
-    if let Some(x) = cfg.global.panes.preview_show(&pane) {
-        render.preview.show = x
-    }
-    if let Some(x) = cfg.global.panes.prompt(&pane) {
-        render.input.prompt = x;
-    }
-
-    if let FsPane::Search {
-        filtering,
-        no_heading,
-        ..
-    } = pane
-    {
-        render.preview.scroll.index = Some("3".into());
-        let r = &mut render.results;
-        let s = &mut render.status;
-        let mm = &cfg.styles.matchmaker;
-
-        r.right_align_last = false;
-
-        if !no_heading {
-            r.horizontal_separator = mm.horizontal_separator;
-            r.stacked_columns = true;
-        }
-        s.show = true;
-
-        if !filtering {
-            binds.insert(Event::QueryChange.into(), acs![FsAction::Reload]);
-        }
-    }
 
     let print_handle = AppendOnly::new();
     let tick_rate = render.tick_rate();
@@ -168,6 +137,20 @@ pub async fn start(
         }
         Some(())
     });
+
+    match &pane {
+        FsPane::Search {
+            patterns,
+            filtering,
+            ..
+        } => {
+            if !filtering {
+                render.input.initial = join_with_single_quotes(patterns);
+            }
+        }
+        FsPane::Find { .. } => {}
+        _ => {}
+    }
 
     // init MM
     let (mut mm, injector) = make_mm(
@@ -193,6 +176,7 @@ pub async fn start(
         .event_loop(event_loop)
         .ext_handler(move |x, y| fsaction_handler(x, y, &mut context))
         .ext_aliaser(fsaction_aliaser)
+        .initializer(fs_post_reload_new)
         .paste_handler(paste_handler)
         .hidden_columns(vec![false, false, true])
         .matcher(MATCHER_CONFIG)
@@ -205,67 +189,6 @@ pub async fn start(
 
     // start fs-watcher
     let (watcher, watcher_tx) = FsWatcher::new(cfg.notify, render_tx.clone());
-
-    // set input
-    render_tx
-        .send(RenderCommand::Action(Action::SetPreview(Some(
-            preview_layout_index,
-        ))))
-        .ok();
-    // manually mirror some of the fs_reload setup
-    match &pane {
-        FsPane::Custom { input, .. }
-        | FsPane::Nav { input, .. }
-        | FsPane::Folders { input, .. }
-        | FsPane::Files { input, .. } => {
-            if !input.0.is_empty() {
-                render_tx
-                    .send(RenderCommand::Action(Action::SetQuery(input.0.clone())))
-                    .ok();
-            }
-        }
-        FsPane::Search {
-            patterns,
-            input,
-            filtering,
-            ..
-        } => {
-            let f = *filtering;
-            // set status line
-            let base = if f {
-                render_tx
-                    .send(RenderCommand::Action(Action::SetQuery(input.0.clone())))
-                    .ok();
-
-                &cfg.global.panes.search.fs_status_template
-            } else {
-                // enable auto-reload
-                render_tx
-                    .send(RenderCommand::Action(
-                        FsAction::Filtering(Some(false)).into(),
-                    ))
-                    .ok();
-                &cfg.global.panes.search.rg_status_template
-            };
-            let mut t = StatusUI::parse_template_to_status_line(base);
-
-            // perform other_query replacement
-            let replacement = if f { &patterns.join(" / ") } else { &input.0 }; // todo: lowpri: styling
-            for s in t.spans.iter_mut() {
-                s.content = s.content.replace("{}", replacement).into();
-            }
-
-            render_tx
-                .send(RenderCommand::Action(FsAction::SetStatus(Some(t)).into()))
-                .ok();
-        }
-        _ => {}
-    }
-    if cfg.global.panes.enter_prompt(&pane) {
-        render_tx
-            .send(RenderCommand::Action(FsAction::EnterPrompt(true).into()))
-            .ok();
-    }
 
     // init history capabilities
     {

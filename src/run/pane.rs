@@ -4,6 +4,7 @@ use std::{
     sync::{Arc, atomic::AtomicBool},
 };
 
+use cli_boilerplate_automation::bring::split::join_with_single_quotes;
 use matchmaker::preview::AppendOnly;
 
 use crate::{
@@ -65,7 +66,6 @@ pub enum FsPane {
         context: [usize; 2],
         case: When,
         patterns: Vec<String>,
-        pattern_index: usize,
         fixed_strings: bool,
         no_heading: bool,
 
@@ -226,13 +226,14 @@ impl FsPane {
         if patterns.is_empty() {
             patterns.push(String::new());
         }
-        let pattern_index = patterns.len() - 1;
+
+        // let filtering = !(patterns.is_empty() || patterns[0].is_empty());
+        let filtering = true;
 
         Self::Search {
             cwd,
             input: (query, 0),
-            pattern_index,
-            filtering: !patterns[pattern_index].is_empty(),
+            filtering,
 
             sort,
             vis: vis.validated(),
@@ -288,7 +289,10 @@ impl FsPane {
     pub fn supports_vis(&self) -> bool {
         matches!(
             self,
-            FsPane::Nav { .. } | FsPane::Custom { .. } | FsPane::Find { .. } | FsPane::Search { .. }
+            FsPane::Nav { .. }
+                | FsPane::Custom { .. }
+                | FsPane::Find { .. }
+                | FsPane::Search { .. }
         )
     }
 
@@ -327,15 +331,28 @@ impl FsPane {
         // todo: lowpri: allow customizing?
     }
 
+    /// initialize input on new pane
     pub fn get_input(&self) -> String {
         match self {
             FsPane::Custom { input, .. }
             | FsPane::Stream { input, .. }
             | FsPane::Find { input, .. }
-            | FsPane::Search { input, .. }
             | FsPane::Nav { input, .. }
             | FsPane::Files { input, .. }
             | FsPane::Folders { input, .. } => input.0.clone(),
+
+            FsPane::Search {
+                input,
+                patterns,
+                filtering,
+                ..
+            } => {
+                if *filtering {
+                    input.0.clone()
+                } else {
+                    join_with_single_quotes(patterns)
+                }
+            }
             _ => String::new(),
         }
     }

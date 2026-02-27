@@ -65,7 +65,7 @@ For a full list of binds, press `ctrl-shift-h` within the app. [^1]
 
 [^1]: For more information on bindings (how they are defined, key testing, and default generic binds), see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
 
-[^2]: Since a single key can be bound to multiple actions, you may consider replacing this bind with the chain: [`CAS(App)`, `ClearStack`, `Push`, `App`], which will open all currently selected items with the selected app.
+[^2]: Since a single key can be bound to multiple actions, you may consider replacing this bind with the chain: [`CAS(App)`, `ClearStash`, `Push`, `App`], which will open all currently selected items with the selected app.
 
 # Panes
 
@@ -219,8 +219,6 @@ The apps pane comes prepopulated from the existing applications on your system, 
 
 It can be used to select a launch method for a given set of files (provided through the command line, or saved to the [stash](#stash)).
 
-
-
 [^6]: frequency, recency, and similarity to query.
 
 ### Additional notes
@@ -245,11 +243,11 @@ The **Stash** (`ctrl-t`) is a place where actions on items are queued. Within th
 
 [^7]: Although safeguards exist to keep these alive and prevent data loss during normal application execution and shutdown, if reliability is absolutely crucial you may consider defining custom actions to perform, manage and monitor these actions externally.
 
-##### CAS
+##### _CAS_
 
-All custom-type actions display their action as the current _`Custom Action State`_, which can be toggled when in the Stash overlay using [`Undo/Redo`](#Actions). The default state is `Symlink`.
+All custom-type actions display their action in the stash as the current Custom Action State (_CAS_), which can be toggled when in the Stash overlay using [`Undo/Redo`](#Actions). The default state is `Symlink`.
 
-The `Custom` action state can be shared or exclusive. The `App` CAS is exclusive: when in this state, stash actions (such as `ClearStash`) only affect the `App` stash, and only `App` items are shown in the overlay. The symlink action is inclusive: it is shared with other actions, and shown with them together.
+The CAS can be shared or exclusive. The `App` CAS is exclusive: when in this state, stash actions (such as [`ClearStash`](#Actions)) only affect the `App` stash, and only `App` items are shown in the overlay. The symlink action is inclusive: it is shared with other actions, and shown with them together.
 
 Custom stack types can be declared in the `[stash]` section of the config, and executed through the same channels as the built-in actions -- the overlay, the [Menu](#Menu), or through the [`FlushStash`](#Actions) action.
 
@@ -285,17 +283,17 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 
 > [!NOTE]
 >
-> In addition, a couple special queries can be used to start an interactive search. Ultimately, the full behavior[^8] is as follows:
+> In addition, a couple special queries can be used to start an interactive search:
 >
-> the only argument is a valid path: `cd`.
-> no arguments: interactively select from history.
-> last argument is `.` : interactively search subdirectories of the best match.
-> otherwise: cd into the best match[^9] for the search term (if one exists).
-> 
+> - the only argument is a valid path: `cd`.
+> - no arguments: interactively select from history.
+> - last argument is `.` : interactively search subdirectories of the best match.[^8]
+> - otherwise: cd into the best match for the search term (if one exists).[^9]
+>
 > One final change from zoxide is the introduction of the `history.refind` setting in the [config](#configuration).
 > When no match is found, or when the top result is the current directory, this setting causes the the interactive interface to be started.
 
-[^8]: See: [zoxide](https://github.com/ajeetdsouza/zoxide)
+[^8]: This mirrors the behavior of [zoxide](https://github.com/ajeetdsouza/zoxide)
 
 [^9]: There is one final case: if the last argument is `./`: z interactively navigates the best match. If you have [aliases](#aliases) enabled, this is also just `Z`.
 
@@ -303,7 +301,7 @@ The jump+open function (`zz`) is an analogous replacement for [`lessfilter edit`
 
 ##### Additional
 
-Including the `--aliases` will output a few simple alias definitions:
+Including the `--aliases` flag will add a few simple alias definitions into the initialization:
 
 - [lessfilter](#lessfilter)
 - lz: directory display
@@ -313,10 +311,12 @@ Including the `--aliases` will output a few simple alias definitions:
 - n: edit (lessfilter with edit preset)
 - o: [open](#app)
 - Z: `z`, then navigate
-  - In case your shell doesn't support uppercase function names, the name can be set like so: `fs :tool shell --aliases --shell csh --nav-name x`.
+  - In case your shell doesn't support uppercase function names, this one can be renamed like so: `fs :tool shell --aliases --shell csh --nav-name x`.
 - `zf`: recent files history
 
-For speed and safety, it is recommended pass your actual shell through to `--shell`.[^10] Another optimization you can make is to cache the generated command: my [zcomet fork](#https://github.com/Squirreljetpack/zcomet) supports this.
+For speed and safety, it is recommended pass your actual shell through to `--shell`.[^10]
+
+[^10]: Another optimization you can make is to cache the generated command: my [zcomet fork](#https://github.com/Squirreljetpack/zcomet) supports this.
 
 ### Lessfilter
 
@@ -398,13 +398,14 @@ Note that certain default previews will not display without the required [depend
 
 ### Types
 
->[!NOTE]
-> 
+> [!NOTE]
+>
 > Incomplete
 
 A list of all supported types, used by the `-t` parameter of the [find subcommand](#find) and the `cat` condition of the [lessfilter](#lessfilter).
 
 ### Liza
+
 Liza is an eza wrapper used internally by the lessfilter/previewer to display directories. It can accessed directly through the [`lz` alias](#aliases).
 
 ### Dependencies

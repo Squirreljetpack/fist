@@ -11,8 +11,11 @@ use matchmaker_partial::Apply;
 use std::path::Path;
 
 use super::{FsAction, binds::default_binds};
+
+#[cfg(feature = "mm_override")]
+use crate::cli::env::EnvOpts;
+
 use crate::{
-    cli::env::EnvOpts,
     config::Config,
     lessfilter::Preset,
     ui::{
@@ -63,6 +66,7 @@ pub fn get_mm_cfg(
     cfg: &Config,
 ) -> MMConfig {
     let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
+    #[cfg(feature = "mm_override")]
     if let Some(partial) = EnvOpts::get_mm_partial() {
         mm_cfg.render.apply(partial);
     }

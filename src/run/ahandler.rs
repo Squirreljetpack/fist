@@ -5,7 +5,6 @@ use matchmaker::{
     nucleo::{Color, Modifier, Span, Style, injector::IndexedInjector},
     ui::StatusUI,
 };
-use matchmaker_partial::Apply;
 
 use crate::{
     abspath::AbsPath,
@@ -33,7 +32,7 @@ pub fn paste_handler(
     }
 }
 
-/// read
+/// sets in state: cursor (jump/disable), stashes preview, sets prompt
 pub fn enter_prompt(
     state: &mut MMState<'_, '_>,
     enter: bool,
@@ -81,42 +80,8 @@ pub fn enter_prompt(
         state.picker_ui.input.reset_prompt();
     }
     state.picker_ui.results.cursor_disabled = enter;
-}
 
-/// Reads the current pane's enter_prompt and default prompt values to appropriately invoke [`enter_prompt`].
-/// Call when the pane type changes.
-pub fn prepare_prompt(state: &mut MMState<'_, '_>) {
-    // set default prompt/enter prompt
-    STACK::with_current(|pane| {
-        if let Some(p) = GLOBAL::with_cfg(|c| c.panes.prompt(pane)) {
-            state.picker_ui.input.config.prompt = p
-        };
-
-        if GLOBAL::with_cfg(|c| c.panes.enter_prompt(pane)) {
-            enter_prompt(state, true);
-        } else {
-            // do nothing
-        }
-    });
-
-    // input is nonempty only when called in [`FsAction::Undo`] and [`FsAction::Forward`].
-    state
-        .picker_ui
-        .input
-        .set(STACK::with_current(FsPane::get_input), u16::MAX);
-
-    // always clear selections
-    state.picker_ui.selector.clear();
-
-    if !state.picker_ui.results.cursor_disabled {
-        state.picker_ui.input.reset_prompt();
-    }
-
-    // currently only rg supports scroll index
-    // lowpri: maybe wider support
-    if let Some(p) = state.preview_ui {
-        p.config.scroll.index = None
-    }
+    log::debug!("entered prompt: {enter}");
 }
 
 pub fn enter_dir_pane(
@@ -129,24 +94,18 @@ pub fn enter_dir_pane(
     // record
     GLOBAL::db().bump(true, path.clone());
 
-    let pane = FsPane::new_nav(path, FILTERS::visibility(), FILTERS::sort());
-    // apply settings
+    // apply specific settings
     if STACK::with_current(FsPane::should_cancel_input_entering_dir) {
         state.picker_ui.input.cancel();
     }
-    // set the prompt marker
-    if let Some(p) = GLOBAL::with_cfg(|c| c.panes.prompt(&pane)) {
-        state.picker_ui.input.config.prompt = p
-    };
 
-    // exit prompt
-    enter_prompt(state, false);
     // always clear selections
     state.picker_ui.selector.clear();
     TOAST::clear_msgs();
 
     // start pane
     let is_new = STACK::nav_cwd().is_none();
+    let pane = FsPane::new_nav(path, FILTERS::visibility(), FILTERS::sort());
     STACK::push(pane);
     fs_reload(state, is_new);
 }
@@ -187,55 +146,103 @@ pub fn fs_reload(
     });
 
     STACK::populate(injector, || {});
-
     // stash the saved index to restore it once synced
     // This is invoked only through FsAction::Undo/Redo/Restart
     TlsStore::maybe_set(STACK::take_maybe_index());
 
+    if is_new {
+        fs_post_reload_new(state);
+    } else {
+        state.picker_ui.results.cursor_jump(0);
+        fs_post_reload(state);
+    }
+}
+
+/// Call iff the pane type changes.
+///
+/// 1. Set pane specific config overrides:
+/// - Read the current pane's enter_prompt and default prompt values to appropriately invoke [`enter_prompt`].
+///
+///
+/// 2. Reset transient state settings without any configuration knob
+///
+/// 3. Set input from pane, clear selections
+pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
+    // apply pane-specific config overrides
     STACK::with_current(|pane| {
-        // apply settings when pane type changes
-        if is_new {
-            GLOBAL::with_cfg(|cfg| {
-                if let Some(p) = state.preview_ui {
-                    p.set_layout(cfg.panes.preview_layout_index(pane));
-                };
-                if let Some(condition) = cfg.panes.preview_show(pane) {
-                    let area = state.ui_size();
-                    if let Some(p) = state.preview_ui.as_mut() {
-                        p.config.show = condition;
-                        p.reevaluate_show_condition(area, false);
-                    }
-                }
-                if let Some(x) = cfg.panes.prompt(pane) {
-                    state.picker_ui.input.config.prompt = x;
-                }
+        GLOBAL::with_cfg(|c| {
+            if let Some(p) = c.panes.prompt(pane) {
+                state.picker_ui.input.config.prompt = p
+            };
 
-                let partial = cfg.mm.get(pane);
-                {
-                    state.ui.config.apply(partial.ui.clone());
-                    state.picker_ui.input.config.apply(partial.input.clone());
-                    state
-                        .picker_ui
-                        .results
-                        .config
-                        .apply(partial.results.clone());
-                    state
-                        .picker_ui
-                        .results
-                        .status_config
-                        .apply(partial.status.clone());
-                    state
-                        .preview_ui
-                        .as_mut()
-                        .unwrap()
-                        .config
-                        .apply(partial.preview.clone());
+            if let Some(enter) = c.panes.enter_prompt(pane) {
+                enter_prompt(state, enter);
+            } else if !state.picker_ui.results.cursor_disabled {
+                state.picker_ui.input.reset_prompt();
+            }
+
+            if let Some(p) = state.preview_ui {
+                p.set_layout(c.panes.preview_layout_index(pane));
+            };
+            if let Some(condition) = c.panes.show_preview(pane) {
+                let area = state.ui_size();
+                if let Some(p) = state.preview_ui.as_mut() {
+                    p.config.show = condition;
+                    p.reevaluate_show_condition(area, false);
                 }
-            });
-        }
+            }
 
-        state.picker_ui.results.config.right_align_last = true;
+            #[cfg(feature = "mm_override")]
+            {
+                use matchmaker_partial::Apply;
+                let partial = c.mm.get(pane);
 
+                state.ui.config.apply(partial.ui.clone());
+                state.picker_ui.input.config.apply(partial.input.clone());
+                state
+                    .picker_ui
+                    .results
+                    .config
+                    .apply(partial.results.clone());
+                state
+                    .picker_ui
+                    .results
+                    .status_config
+                    .apply(partial.status.clone());
+                state
+                    .preview_ui
+                    .as_mut()
+                    .unwrap()
+                    .config
+                    .apply(partial.preview.clone());
+            }
+        });
+    });
+
+    // Reset transient state settings without any configuration knob
+    // ----
+    // currently only rg supports scroll index
+    // lowpri: maybe wider support
+    if let Some(p) = state.preview_ui {
+        p.config.scroll.index = None
+    }
+    state.picker_ui.results.config.right_align_last = true;
+
+    // Set input from pane, clear selections
+    // ----
+    // input is nonempty only when called in [`FsAction::Undo`] and [`FsAction::Forward`].
+    state
+        .picker_ui
+        .input
+        .set(STACK::with_current(FsPane::get_input), u16::MAX);
+    state.picker_ui.selector.clear();
+    TOAST::clear_msgs();
+
+    fs_post_reload(state);
+}
+
+pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
+    STACK::with_current(|pane| {
         match pane {
             // we set styles in reload, not on push, because of undo/redo
             FsPane::Search {
@@ -314,9 +321,6 @@ pub fn fs_reload(
                 GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()))
             }
         }
-        log::trace!("{pane:?}, is_new: {is_new}");
+        log::trace!("{pane:?}");
     });
-
-    // in the meantime, set to 0
-    state.picker_ui.results.cursor_jump(0);
 }

@@ -1,16 +1,20 @@
 use std::sync::LazyLock;
 
-use anyhow::bail;
 use cli_boilerplate_automation::{
     bait::ResultExt,
     bog::BogOkExt,
     bring::{consume_escaped, parse_next_escape, split::split_whitespace_preserving_nesting},
     ebog, wbog,
 };
-use matchmaker::config::PartialRenderConfig;
-use matchmaker_partial::Set;
 
-use crate::cli::mm_partial_parse::{get_pairs, try_split_kv};
+#[cfg(feature = "mm_override")]
+use {
+    crate::cli::mm_partial_parse::{get_pairs, try_split_kv},
+    anyhow::bail,
+    matchmaker::config::PartialRenderConfig,
+    matchmaker_partial::Set,
+};
+
 #[derive(Debug, Default)]
 pub struct EnvOpts {
     pub ancestor: Option<usize>,
@@ -101,6 +105,7 @@ impl EnvOpts {
         Some(ret)
     }
 
+    #[cfg(feature = "mm_override")]
     /// Gets a PartialRenderConfig by reading from environment variables MM_OPTS0, MM_OPTS1...
     /// Warns and stops reading on encountering improper top-level nesting.
     /// Returns None upon encountering parse errors after (the top-level split).
@@ -136,6 +141,7 @@ impl EnvOpts {
         Self::parse_mm_override(args)._wbog()
     }
 
+    #[cfg(feature = "mm_override")]
     fn parse_mm_override(args: Vec<String>) -> anyhow::Result<PartialRenderConfig> {
         let split = get_pairs(args)?;
         log::trace!("{split:?}");

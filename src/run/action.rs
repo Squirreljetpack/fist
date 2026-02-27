@@ -21,7 +21,7 @@ use crate::{
     clipboard::{copy_files, copy_paths_as_text},
     lessfilter::Preset,
     run::{
-        ahandler::{enter_dir_pane, enter_prompt, fs_reload, prepare_prompt},
+        ahandler::{enter_dir_pane, enter_prompt, fs_reload},
         item::short_display,
         pane::FsPane,
         stash::{STASH, StashItem},
@@ -481,6 +481,7 @@ pub fn fsaction_handler(
                 fs_reload(state, false);
             } else {
                 STACK::push(pane);
+
                 fs_reload(state, true);
             }
 
@@ -500,7 +501,6 @@ pub fn fsaction_handler(
 
             let _ = STACK::swap_history();
 
-            prepare_prompt(state);
             fs_reload(state, true);
         }
 
@@ -551,8 +551,7 @@ pub fn fsaction_handler(
                 let pane =
                     FsPane::new_rg(STACK::cwd().unwrap_or_default(), FILTERS::sort(), vis, opts);
                 STACK::push(pane);
-                prepare_prompt(state);
-                fs_reload(state, false);
+                fs_reload(state, true);
             }
         }
 
@@ -563,7 +562,6 @@ pub fn fsaction_handler(
 
             let pane = FsPane::new_launch(STASH::cas());
             if STACK::set_or_push(pane) {
-                prepare_prompt(state);
                 fs_reload(state, true);
             } else {
                 fs_reload(state, false);
@@ -577,7 +575,6 @@ pub fn fsaction_handler(
 
             // adjust stack
             if STACK::stack_prev() {
-                prepare_prompt(state);
                 fs_reload(state, true);
             };
         }
@@ -588,7 +585,6 @@ pub fn fsaction_handler(
 
             // adjust stack
             if STACK::stack_next() {
-                prepare_prompt(state);
                 fs_reload(state, true);
             };
         }

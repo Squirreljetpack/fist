@@ -330,7 +330,6 @@ impl FsPane {
                 case,
                 no_heading,
                 patterns,
-                pattern_index,
                 paths,
                 rg,
                 complete,
