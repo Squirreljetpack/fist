@@ -318,6 +318,8 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
+'--no-exec[]' \
+'--tty[]' \
 '--fullscreen[]' \
 ':preset:((preview\:"For the f\:ist preview pane"
 display\:"For terminal display"
@@ -441,6 +443,8 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
+'--no-exec[]' \
+'--tty[]' \
 '--fullscreen[]' \
 ':preset:((preview\:"For the f\:ist preview pane"
 display\:"For terminal display"

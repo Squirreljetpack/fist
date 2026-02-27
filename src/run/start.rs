@@ -212,6 +212,7 @@ pub async fn start(
             preview_layout_index,
         ))))
         .ok();
+    // manually mirror some of the fs_reload setup
     match &pane {
         FsPane::Custom { input, .. }
         | FsPane::Nav { input, .. }
@@ -259,6 +260,11 @@ pub async fn start(
                 .ok();
         }
         _ => {}
+    }
+    if cfg.global.panes.enter_prompt(&pane) {
+        render_tx
+            .send(RenderCommand::Action(FsAction::EnterPrompt(true).into()))
+            .ok();
     }
 
     // init history capabilities

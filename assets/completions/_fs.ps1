@@ -340,6 +340,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--no-exec', '--no-exec', [CompletionResultType]::ParameterName, 'no-exec')
+            [CompletionResult]::new('--tty', '--tty', [CompletionResultType]::ParameterName, 'tty')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
@@ -352,6 +354,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--no-exec', '--no-exec', [CompletionResultType]::ParameterName, 'no-exec')
+            [CompletionResult]::new('--tty', '--tty', [CompletionResultType]::ParameterName, 'tty')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }

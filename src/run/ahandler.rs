@@ -1,3 +1,4 @@
+use cli_boilerplate_automation::{bring::split::split_whitespace_preserve_single_quotes, vec_};
 use matchmaker::{
     acs,
     message::{BindDirective, Event},
@@ -37,6 +38,21 @@ pub fn enter_prompt(
     state: &mut MMState<'_, '_>,
     enter: bool,
 ) {
+        // unfortunately, dim is kinda weak/can make things brighter, but we still want some indication
+    if let Some(dim) = GLOBAL::with_cfg(|c| c.interface.dim_prompt) {
+        let should_dim = enter ^ !dim; 
+    
+        let mods = &mut state.picker_ui.results.config.modifier;
+        let border_mods = &mut state.picker_ui.results.config.border.modifier;
+    
+        if should_dim {
+            *mods |= Modifier::DIM;
+            *border_mods |= Modifier::DIM;
+        } else {
+            mods.remove(Modifier::DIM);
+            border_mods.remove(Modifier::DIM);
+        }
+    }
     // set prompt
     if enter {
         let prompt = if let Some(cwd) = STACK::cwd() {
@@ -147,13 +163,36 @@ pub fn fs_reload(
     state.restart_worker();
 
     let injector = IndexedInjector::new_globally_indexed(state.injector());
+
+    #[allow(warnings)]
+    STACK::with_current_mut(|p| match p {
+        FsPane::Search {
+            filtering,
+            patterns,
+            input,
+            ..
+        } => {
+            if *filtering {
+                input.0 = state.picker_ui.input.input.clone();
+            } else {
+                let p = split_whitespace_preserve_single_quotes(&state.picker_ui.input.input);
+                *patterns = if p.is_empty() && GLOBAL::with_cfg(|c| !c.rg.empty_start) {
+                    vec_![""]
+                } else {
+                    p
+                };
+            };
+        }
+        _ => {}
+    });
+
     STACK::populate(injector, || {});
 
     // stash the saved index to restore it once synced
     // This is invoked only through FsAction::Undo/Redo/Restart
     TlsStore::maybe_set(STACK::take_maybe_index());
 
-    STACK::with_current_mut(|pane| {
+    STACK::with_current(|pane| {
         // apply settings when pane type changes
         if is_new {
             GLOBAL::with_cfg(|cfg| {
@@ -203,7 +242,6 @@ pub fn fs_reload(
                 filtering,
                 patterns,
                 input,
-                pattern_index,
                 no_heading,
                 ..
             } => {
@@ -251,12 +289,6 @@ pub fn fs_reload(
                         acs![FsAction::Reload],
                     ));
                 }
-
-                if f {
-                    input.0 = state.picker_ui.input.input.clone();
-                } else {
-                    patterns[*pattern_index] = state.picker_ui.input.input.clone();
-                };
 
                 state.filtering = f;
             }

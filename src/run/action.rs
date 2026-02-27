@@ -3,7 +3,9 @@
 
 use std::path::PathBuf;
 
-use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt, unwrap, wbog};
+use cli_boilerplate_automation::{
+    bait::ResultExt, bath::PathExt, bring::split::join_with_single_quotes, unwrap, wbog,
+};
 use matchmaker::{
     acs,
     action::{Action, Actions},
@@ -116,6 +118,7 @@ pub enum FsAction {
 
     // Nonbindable
     // ----------------------------------
+    EnterPrompt(bool),
     SaveInput,
     SetHeader(Option<Text<'static>>),
     SetFooter(Option<Text<'static>>),
@@ -229,6 +232,10 @@ pub fn fsaction_aliaser(
             }
             FsAction::SetStatus(s) => {
                 state.picker_ui.results.set_status_line(s);
+                acs![]
+            }
+            FsAction::EnterPrompt(enter) => {
+                enter_prompt(state, enter);
                 acs![]
             }
 
@@ -503,7 +510,6 @@ pub fn fsaction_handler(
                     input,
                     filtering,
                     patterns,
-                    pattern_index,
                     ..
                 } => {
                     if patterns.is_empty() {
@@ -513,16 +519,16 @@ pub fn fsaction_handler(
                     *filtering = !*filtering;
 
                     let new_input = if *filtering {
+                        // entering filter:
                         // restore from input
                         &input.0
                     } else {
-                        // when u stop filtering (enter rg)
+                        // entering rg:
 
                         // save input
                         *input = state.get_content_and_index();
-
-                        // set input to previous
-                        &patterns[*pattern_index]
+                        // set picker.input to previous
+                        &join_with_single_quotes(patterns)
                     };
 
                     state.picker_ui.input.set(new_input.clone(), u16::MAX);
@@ -1053,7 +1059,7 @@ macro_rules! enum_from_str_display {
                             write!(f, "Jump({})", path.display())
                         }
                     }
-                    SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) => Ok(()), // internal
+                    SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | EnterPrompt(_) => Ok(()), // internal
                     Lessfilter { preset, paging, header: _, .. } => {
                         let mut preset = preset.to_string();
                         if *paging {

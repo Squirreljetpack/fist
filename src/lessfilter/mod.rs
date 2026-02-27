@@ -14,7 +14,6 @@ use arrayvec::ArrayVec;
 use cli_boilerplate_automation::bog::BogUnwrapExt;
 use cli_boilerplate_automation::{bog::BogOkExt, broc::CommandExt};
 use cli_boilerplate_automation::{ebog, unwrap};
-use std::process::exit;
 use std::process::{Command, Stdio};
 
 use crate::cli::clap_tools::LessfilterCommand;
@@ -41,127 +40,140 @@ pub fn handle(
         header,
         paths,
         mut args,
+        no_exec,
+        tty,
     }: LessfilterCommand,
     mut cfg: LessfilterConfig,
-) -> ! {
+) -> i32 {
+    if paths.is_empty() {
+        return 2;
+    }
     let mut default = cfg.rules.get(Preset::Default).clone();
     let rules = cfg.rules.get_mut(preset);
     rules.prepend(&mut default);
 
     let mut any_file_succeeded = false;
 
-    let mut singleton = paths.len() == 1;
-
     line_column::init_from_env();
 
-    for path in paths {
-        let apath = AbsPath::new(path.clone());
-        let data = FileData::new(apath.clone(), &cfg.settings, &cfg.categories);
-        log::debug!("file data: {data:?}");
+    let path = &paths[0];
+    let apath = AbsPath::new(path.clone());
+    let data = FileData::new(apath.clone(), &cfg.settings, &cfg.categories);
+    log::debug!("file data: {data:?}");
 
-        let ActionEntry { rule, execution } = unwrap!(
-            rules.get_best_match(&path, data)
-                .ebog(format!("No rule for {}", path.to_string_lossy()));
-            continue
-        );
+    let ActionEntry { rule, execution } = unwrap!(
+        rules.get_best_match(path, data)
+        .ebog(format!("No rule for {}", path.to_string_lossy()));
+        2
+    );
 
-        if rule.is_empty() {
-            continue;
+    if rule.is_empty() {
+        return 2;
+    }
+
+    // show header
+    if header == Some(true) {
+        show_header(path);
+        any_file_succeeded = true;
+    }
+    log::debug!("rule found: {rule:?}");
+
+    let maybe_tty = || {
+        if tty || matches!(preset, Preset::Edit) {
+            tty_or_inherit()
+        } else {
+            Stdio::inherit()
         }
-        singleton &= rule.len() == 1;
+    };
 
-        // show header
-        if header == Some(true) {
-            show_header(&path);
-            any_file_succeeded = true;
-        }
-        log::debug!("rule found: {rule:?}");
+    let rl = rule.len();
 
-        let maybe_tty = || {
-            if matches!(preset, Preset::Edit) {
-                tty_or_inherit()
-            } else {
-                Stdio::inherit()
+    for (i, action) in rule.iter().enumerate() {
+        log::debug!("Action: {action:?}");
+
+        let action_success = if let Action::Custom(s) = action {
+            let Some(template) = cfg.actions.get(s) else {
+                ebog!("The custom action '{s}' is not defined!");
+                continue; // Note: This skip doesn't count as success/fail for execution logic
+            };
+            let script = format_path(template, &AbsPath::new(path.clone()));
+
+            let mut cmd = Command::from_script(&script).with_args(args.drain(..));
+
+            if !no_exec && i == rl {
+                cmd.stdin(maybe_tty()).stdout(maybe_tty())._exec();
             }
-        };
 
-        for (i, action) in rule.iter().enumerate() {
-            log::debug!("Action: {action:?}");
+            cmd.stdout(maybe_tty()).stdin(maybe_tty());
+            cmd.status()._ebog().is_some_and(|s| s.success())
+        } else if matches!(action, Action::Extract) {
+            extract(path)
+        } else {
+            let (progs, perms) = action.to_progs(path, preset);
+            let mut progs_success = true;
 
-            let action_success = if let Action::Custom(s) = action {
-                let Some(template) = cfg.actions.get(s) else {
-                    ebog!("The custom action '{s}' is not defined!");
-                    continue; // Note: This skip doesn't count as success/fail for execution logic
-                };
-                let script = format_path(template, &AbsPath::new(path.clone()));
-                let mut cmd = Command::from_script(&script);
-                cmd.stdout(maybe_tty()).stdin(maybe_tty());
+            // let pl = progs.iter().rposition(|x| !is_header(x) && !is_metadata(x));
+            let pl = (!progs.is_empty()).then_some(progs.len() - 1);
 
-                cmd.status()._ebog().is_some_and(|s| s.success())
-            } else if matches!(action, Action::Extract) {
-                extract(&path)
-            } else {
-                let (progs, perms) = action.to_progs(&path, preset);
-                singleton &= progs.len() == 1;
-                let mut progs_success = true;
-                for mut prog in progs {
-                    log::trace!("prog: {prog:?}");
-                    // filter out headers
-                    let current_success = if is_header(&prog) {
-                        if header.is_none() {
-                            show_header(&path);
-                        }
-                        true
-                    } else if is_metadata(&prog) {
-                        show_metadata(&path, i == 0)
-                    } else {
-                        log::debug!("Executing: {prog:?}");
-                        // Handle singleton execution
-                        if singleton {
-                            let mut cmd = Command::new(prog.remove(0))
-                                .with_args(prog)
-                                .with_args(args.drain(..));
-                            cmd.stdin(maybe_tty()).stdout(maybe_tty())._exec();
-                        }
-
-                        let mut cmd = Command::new(prog.remove(0));
-                        cmd.args(prog)
-                            .args(args.drain(..))
-                            .stdin(maybe_tty())
-                            .stdout(maybe_tty());
-
-                        cmd.status()._ebog().is_some_and(|s| s.success())
-                    };
-
-                    if !current_success {
-                        progs_success = false;
-                        if cfg.settings.early_exit {
-                            break;
+            for (pi, mut prog) in progs.into_iter().enumerate() {
+                log::trace!("prog: {prog:?}");
+                // filter out headers
+                let current_success = if is_header(&prog) {
+                    if header.is_none() {
+                        for p in &paths {
+                            show_header(p)
                         }
                     }
-                }
-                progs_success
-            };
+                    true
+                } else if is_metadata(&prog) {
+                    paths.iter().all(|p| show_metadata(p, i == 0))
+                } else {
+                    log::debug!("Executing: {prog:?}");
+                    // Handle singleton execution
+                    if !no_exec && Some(pi) == pl && i == rl {
+                        let mut cmd = Command::new(prog.remove(0))
+                            .with_args(prog)
+                            .with_args(&paths[1..]);
+                        cmd.stdin(maybe_tty()).stdout(maybe_tty())._exec();
+                    }
 
-            any_file_succeeded |= action_success;
+                    let mut cmd = Command::new(prog.remove(0));
+                    cmd.args(prog)
+                        .args(&paths[1..])
+                        .stdin(maybe_tty())
+                        .stdout(maybe_tty());
 
-            match execution {
-                ActionExecution::Abort if !action_success => {
-                    log::debug!("Stopped due to Execution=Abort.");
-                    break;
+                    cmd.status()._ebog().is_some_and(|s| s.success())
+                };
+
+                if !current_success {
+                    progs_success = false;
+                    if cfg.settings.early_exit {
+                        break;
+                    }
                 }
-                ActionExecution::Until if action_success => {
-                    log::debug!("Stopped due to Execution=Until.");
-                    break;
-                }
-                _ => {
-                    // ActionExecution::All continues regardless
-                }
+            }
+            progs_success
+        };
+
+        any_file_succeeded |= action_success;
+
+        match execution {
+            ActionExecution::Abort if !action_success => {
+                log::debug!("Stopped due to Execution=Abort.");
+                break;
+            }
+            ActionExecution::Until if action_success => {
+                log::debug!("Stopped due to Execution=Until.");
+                break;
+            }
+            _ => {
+                // ActionExecution::All continues regardless
             }
         }
     }
 
-    if any_file_succeeded { exit(0) } else { exit(1) }
+    if any_file_succeeded { 0 } else { 1 }
 }
 
 //-------------------------

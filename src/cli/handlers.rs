@@ -38,13 +38,13 @@ use crate::{
         DbSortOrder, DbTable, Pool, display_entries,
         zoxide::{DbFilter, RetryStrat},
     },
-    errors::CliError,
+    errors::{CliError, DbError},
     find::{
         fd::{auto_enable_hidden, build_fd_args},
         rg::build_rg_args,
         walker::list_dir,
     },
-    lessfilter,
+    lessfilter::{self, LessfilterConfig},
     run::{
         FsPane,
         mm_config::get_mm_cfg,
@@ -661,9 +661,38 @@ async fn handle_tools(
 
             let cmd = LessfilterCommand::parse_from(args);
 
-            let cfg = load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
+            let lcfg: LessfilterConfig =
+                load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
 
-            lessfilter::handle(cmd, cfg)
+            let mut handle = if lcfg.settings.tracked_presets.contains(&cmd.preset) {
+                let paths = cmd
+                    .paths
+                    .clone()
+                    .into_iter()
+                    .filter_map(|path| path.exists().then_some(AbsPath::new(path)));
+
+                Some(tokio::spawn(async move {
+                    let pool = Pool::new(cfg.db_path()).await?;
+                    let mut conn = pool.get_conn(DbTable::files).await?;
+                    conn.push_files_and_folders(paths).await?;
+                    Ok::<_, DbError>(())
+                }))
+            } else {
+                None
+            };
+            if !cmd.no_exec
+                && let Some(h) = handle.take()
+            {
+                let _ = h.await;
+            };
+
+            let code = lessfilter::handle(cmd, lcfg);
+
+            if let Some(h) = handle {
+                let _ = h.await;
+            };
+
+            exit(code)
         }
         SubTool::Bump { mut args } => {
             let path = current_exe().basename();

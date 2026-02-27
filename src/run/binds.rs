@@ -58,19 +58,33 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-n) => FsAction::New,
         key!(alt-s) => FsAction::Push,
 
+        // preview and execution
+        // ----------------------------------
+
         // preview
         key!('?') => Action::Preview(Preset::Preview.to_command_string(When::Auto)),
+        // Verbose information
         key!(alt - '/') => Action::Preview(Preset::Info.to_command_string(When::Auto)),
+        // Quick Look + a header
         key!(alt - shift - '/') => Action::Preview(Preset::Display.to_command_string(When::Always)),
+        // Keybind help
         key!(ctrl-shift-h), key!(shift-cmd-h) => FsAction::help(),
-        // spawning
-        key!(ctrl-esc) => Action::Execute("$SHELL".into()),
 
-        // lessfilter
-        key!(ctrl-q), key!(ctrl-'.')  => FsAction::new_lessfilter(Preset::Edit, false), // This one acts on the parent directory if a file is selected. The edit preset acting on a directory uses $VISUAL.
-        key!(ctrl-b) , key!(ctrl-enter) => FsAction::new_lessfilter(Preset::Open, false),
+        // This one acts on the parent directory if a file is selected.
+        // Note that the "Directory" action in the edit preset defers to $VISUAL.
+        key!(ctrl-q), key!(ctrl-'.')  => FsAction::new_lessfilter(Preset::Edit, false),
+        key!(ctrl-enter) => FsAction::new_lessfilter(Preset::Open, false),
+        // A free preset for the user to decide what to do with
+        key!(alt-8) => FsAction::new_lessfilter(Preset::Alternate, true),
+        // Maximize preview
+        // true => display the output in a pager
         key!(ctrl-l) => FsAction::new_lessfilter(Preset::Preview, true),
+        // For "full" or interactive terminal output
         key!(alt-l)  => FsAction::new_lessfilter(Preset::Extended, true),
+
+        // open a shell in the current directory
+        key!(ctrl-esc) => Action::Execute("$SHELL".into()),
+        // Actions can be defined directly as a ::Execute keybind, as a [menu] action, or indirectly through [stack.cas]
 
         // misc
         // ---------------------------------------

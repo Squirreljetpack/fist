@@ -100,13 +100,24 @@ impl Default for LessfilterConfig {
     }
 }
 
-#[derive(Debug, Default, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LessfilterSettings {
     pub infer: InferMode,
     /// This has to do with how a single action can sometimes be multiple command-line programs. This stops execution when any fail -- do not set.
     #[serde(skip)]
     pub early_exit: bool,
+    pub tracked_presets: Vec<Preset>,
+}
+
+impl Default for LessfilterSettings {
+    fn default() -> Self {
+        Self {
+            infer: Default::default(),
+            early_exit: false,
+            tracked_presets: vec![Preset::Edit, Preset::Alternate, Preset::Extended],
+        }
+    }
 }
 
 define_collection_wrapper!(

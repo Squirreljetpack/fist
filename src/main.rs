@@ -129,7 +129,7 @@ fn init_logger(
                 .format_timestamp(None);
 
             let level = cli_boilerplate_automation::bother::level_filter::from_verbosity(
-                verbosity.transform_if(verbosity > 4, |v| v - 1),
+                verbosity.transform_if(verbosity >= 4, |v| v - 1),
             );
             builder
                 .filter(Some("sqlx"), level)

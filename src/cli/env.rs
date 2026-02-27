@@ -11,7 +11,6 @@ use matchmaker::config::PartialRenderConfig;
 use matchmaker_partial::Set;
 
 use crate::cli::mm_partial_parse::{get_pairs, try_split_kv};
-use crate::utils::string::split_whitespace_keep_single_quotes;
 #[derive(Debug, Default)]
 pub struct EnvOpts {
     pub ancestor: Option<usize>,
@@ -34,8 +33,14 @@ impl EnvOpts {
         if let Ok(raw) = std::env::var("FS_OPTS")
             && !raw.is_empty()
         {
-            let tokens = split_whitespace_keep_single_quotes(&raw);
+            let tokens = split_whitespace_preserving_nesting(&raw, None, Some(['[', ']']))
+                .prefix(prefix)
+                ._ebog()?;
+
             for tok in tokens {
+                if tok.is_empty() {
+                    continue;
+                }
                 let Some((k, v)) = tok.split_once('=') else {
                     ebog!("{prefix}"; "Invalid token (expected key=value)");
                     continue;

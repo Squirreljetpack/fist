@@ -115,6 +115,8 @@ This pane operates in a query and a filter mode, which can be switched between[^
 - In _filter mode_, the results are filtered to only lines matching your input.
 - By default, the filter applies to the main (first) column. To switch to filtering the second column, type `%` (i.e. `path_filter % context_filter`)
 - The current query/filter of the inactive mode is displayed above your input.
+- In query mode, multiple queries (of which any should match) are seperated by whitespace. Queries containing whitespace can be grouped together by single quotes. Single quotes can be escaped as `\'`.
+- The default mode treats the given queries as _regexes_ (as opposed to the filter input, which does not). This can be toggled, or the default [reconfigured](#configuration).
 
 > [!NOTE]
 >
@@ -173,11 +175,11 @@ done |
 # opener: use this program to open the selected file
 # delim: use this delimiter to split the input into a Path and a Context
 # display: run this script to determine how the input item is rendered given its Path and Context. The given shell command strips path components up to and including the "vault" directory.
-FS_OPTS="opener=ob.open display='echo \${\${1#*/\$2/}%.md}' delim=\t" fs
+FS_OPTS="opener=ob.open display=[echo ${${1#*/$2/}%.md}] delim=\t" fs
 
 # Note:
 # For better performance, you should use in the last command instead of display=:
-# display-batch='while ((\$#)); do echo \${\${1#*/\$2/}%.md}; shift 2; done'
+# display-batch=[while (($#)); do echo ${${1#*/$2/}%.md}; shift 2; done]
 # which should be a script that consumes a batch of PathItems,
 # each of which correspond to 2 input arguments: the Path and the Context,
 # and outputs the desired display representation in order.
@@ -202,15 +204,19 @@ fs :o "obsidian://open?path=$(uri $1)"
 
 f:ist records the **files, directories and applications** that you've visited in a local database, where they are displayed in the `Files`/`Folders` (`ctrl-g`) and `Apps` panes, sorted by relevance[^6].
 
+The _Files_ and _Folders_ panes are most useful when integrated in the ambient context where you usually access files. For example, the [Shell](#shell-integration)
+
+<img src=".README.assets/image-20260226171122403.png" alt="image-20260226171122403" style="width:550px;" />
+
 The apps pane comes prepopulated from the existing applications on your system, and can be accessed either through
 
 - `fs :o -w [..FILES]` on the command-line
 - the `open with` [menu action](#menu)
 - or the `App` action (`alt-shift-s`) in-app.
 
-It will open files (provided through the command line, or saved to the [stash](#stash)) using the selected application.
+It can be used to select a launch method for a given set of files (provided through the command line, or saved to the [stash](#stash)).
 
-<img src=".README.assets/image-20260226171122403.png" alt="image-20260226171122403" style="width:550px;" />
+
 
 [^6]: frequency, recency, and similarity to query.
 

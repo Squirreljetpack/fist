@@ -54,6 +54,10 @@ transparent advance into compressed files
 
 # Rg
 
+- On non-nav panes, this should populate with the currently stored files
+- Max store size? No store?
+
+
 # Global Filters
 
 - we shouldn't conflate DbSort and SortOrder: todo: seperate them and support them in filtersoverlay
@@ -122,6 +126,7 @@ Possible Conditions:
 - finer control of bumping from actions (Lessfilter/Execute/Become/PrintAccept)
 - configurable prompt styling
 - fstoggle: reverse
+- a bit annoying that the default search of rg is on paths, it should be able to configure to search on both or the other
 
 # Stash
 
