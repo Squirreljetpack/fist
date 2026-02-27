@@ -7,7 +7,7 @@ use crate::{
     cli::paths::{BINARY_SHORT, current_exe},
     lessfilter::{RulesConfig, file_rule::ParseFileRuleError},
 };
-use fist_types::When;
+use fist_types::{FileCategory, When};
 
 #[derive(
     Default,
@@ -100,14 +100,24 @@ impl Default for LessfilterConfig {
     }
 }
 
-#[derive(Debug, Default, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LessfilterSettings {
     pub infer: InferMode,
-    /// A rule pairs pairs a condition with a sequence of actions.
-    /// By default, actions are tried.
-    /// Setting this to true ends the sequence on the first *successful* action.
+    /// This has to do with how a single action can sometimes be multiple command-line programs. This stops execution when any fail -- do not set.
+    #[serde(skip)]
     pub early_exit: bool,
+    pub tracked_presets: Vec<Preset>,
+}
+
+impl Default for LessfilterSettings {
+    fn default() -> Self {
+        Self {
+            infer: Default::default(),
+            early_exit: false,
+            tracked_presets: vec![Preset::Edit, Preset::Alternate, Preset::Extended],
+        }
+    }
 }
 
 define_collection_wrapper!(
@@ -120,7 +130,7 @@ define_collection_wrapper!(
     CustomActions: HashMap<String, String>
 );
 define_collection_wrapper!(
-    #[derive(Debug, serde::Deserialize)]
+    #[derive(Debug)]
     Categories: HashMap<String, Vec<MimeString>>
 );
 
@@ -172,8 +182,25 @@ impl MimeString {
 
 // --------------------- BOILERPLATE ----------------------------------------
 
-// impl std::ops::DerefMut for Categories {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.0
-//     }
-// }
+use serde::de::Error as DeError;
+use serde::{Deserialize, Deserializer};
+
+impl<'de> Deserialize<'de> for Categories {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let map = HashMap::<String, Vec<MimeString>>::deserialize(deserializer)?;
+
+        for key in map.keys() {
+            if FileCategory::from_str(key).is_ok() {
+                return Err(D::Error::custom(format!(
+                    "key '{}' must not be a valid FileCategory",
+                    key
+                )));
+            }
+        }
+
+        Ok(Categories(map))
+    }
+}

@@ -38,13 +38,13 @@ use crate::{
         DbSortOrder, DbTable, Pool, display_entries,
         zoxide::{DbFilter, RetryStrat},
     },
-    errors::CliError,
+    errors::{CliError, DbError},
     find::{
         fd::{auto_enable_hidden, build_fd_args},
         rg::build_rg_args,
         walker::list_dir,
     },
-    lessfilter,
+    lessfilter::{self, LessfilterConfig},
     run::{
         FsPane,
         mm_config::get_mm_cfg,
@@ -54,7 +54,7 @@ use crate::{
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
-    utils::{colors::display_ratatui_styles, path::paths_base, string::path_formatter},
+    utils::{colors::display_ratatui_styles, formatter::format_path, path::paths_base},
 };
 use fist_types::filetypes::{FileType, FileTypeArg};
 use fist_types::filters::{SortOrder, Visibility};
@@ -175,9 +175,13 @@ async fn handle_rg(
     if cmd.vis.is_default() {
         cmd.vis = cfg.global.panes.search.default_visibility
     }
-    let sort = cmd
-        .sort
-        .unwrap_or(cfg.global.panes.search.default_sort.unwrap_or(SortOrder::none));
+    let sort = cmd.sort.unwrap_or(
+        cfg.global
+            .panes
+            .search
+            .default_sort
+            .unwrap_or(SortOrder::none),
+    );
 
     if cmd._no_heading_alias {
         cmd.no_heading = Some(true);
@@ -657,9 +661,38 @@ async fn handle_tools(
 
             let cmd = LessfilterCommand::parse_from(args);
 
-            let cfg = load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
+            let lcfg: LessfilterConfig =
+                load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
 
-            lessfilter::handle(cmd, cfg)
+            let mut handle = if lcfg.settings.tracked_presets.contains(&cmd.preset) {
+                let paths = cmd
+                    .paths
+                    .clone()
+                    .into_iter()
+                    .filter_map(|path| path.exists().then_some(AbsPath::new(path)));
+
+                Some(tokio::spawn(async move {
+                    let pool = Pool::new(cfg.db_path()).await?;
+                    let mut conn = pool.get_conn(DbTable::files).await?;
+                    conn.push_files_and_folders(paths).await?;
+                    Ok::<_, DbError>(())
+                }))
+            } else {
+                None
+            };
+            if !cmd.no_exec
+                && let Some(h) = handle.take()
+            {
+                let _ = h.await;
+            };
+
+            let code = lessfilter::handle(cmd, lcfg);
+
+            if let Some(h) = handle {
+                let _ = h.await;
+            };
+
+            exit(code)
         }
         SubTool::Bump { mut args } => {
             let path = current_exe().basename();
@@ -804,7 +837,7 @@ pub fn print(
     output_separator: &str,
 ) {
     let mut display = if let Some(template) = &template {
-        path_formatter(template, &AbsPath::new(path))
+        format_path(template, &AbsPath::new(path))
     } else {
         path.to_string_lossy().into()
     };

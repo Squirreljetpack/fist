@@ -53,12 +53,17 @@ pub enum FileRuleKind {
     /// [_, x-elf]: tries to read file headers
     Mime(MimeString), // Higher than ext
 
+    /// If the given key is the name of a [`FileCategory`], checks if the file matches it.
+    /// Otherwise, check if the file's mime is contained in the user-defined [`Categories`] table under the given key.
     Cat(String), // Higher than ext
     /// True if the specified program doesn't exist.
     /// Parsed with invert from have:prog.
     /// Score modifiers should not be set on this rule!
     Have(String), // The default score has the effect: have:x -> NotHave -> Min(0). !have:x -> has x -> Min(0).
 
+    /// Check if the file matches a known [`FileType`]
+    /// A few additional broad file types are supported:
+    /// - Text
     FileType(OverloadedFileType),
 }
 
@@ -116,7 +121,12 @@ impl<'a> FileData<'a> {
     fn children_names(&self) -> &[OsString] {
         self.children
             .get_or_init(|| {
-                std::fs::read_dir(&self.path)
+                let dir = if self.path.is_dir() {
+                    self.path.as_path()
+                } else {
+                    self.path.parent().unwrap_or(&self.path)
+                };
+                std::fs::read_dir(dir)
                     .ok()
                     .map(|rd| rd.filter_map(|e| e.ok()).map(|e| e.file_name()).collect())
                     .unwrap_or_default()
@@ -164,6 +174,7 @@ impl Test<Path> for FileRule {
                 else {
                     return false;
                 };
+
                 if let Some(mimes) = data.categories.get(s) {
                     mimes.iter().any(|m| m.equal(mime))
                 } else {

@@ -105,6 +105,7 @@ pub fn build_rg_args(
         When::Auto => "--smart-case",
         When::Always => "--case-sensitive",
     };
+    ret.push(case.into());
     let fixed = if fixed_strings {
         "--fixed-strings"
     } else {

@@ -1,7 +1,14 @@
-use matchmaker::config::PartialRenderConfig;
+#[cfg(feature = "mm_override")]
+use {crate::run::FsPane, matchmaker::config::PartialRenderConfig};
 
-use crate::run::FsPane;
+#[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct MatchmakerOverrides {
+    pub fullscreen: bool,
+    pub reverse: bool, // unimplemented
+}
 
+#[cfg(feature = "mm_override")]
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MatchmakerOverrides {
@@ -18,6 +25,7 @@ pub struct MatchmakerOverrides {
     pub settings: PartialRenderConfig,
 }
 
+#[cfg(feature = "mm_override")]
 impl MatchmakerOverrides {
     pub fn get(
         &self,

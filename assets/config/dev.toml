@@ -1,7 +1,8 @@
 [panes.nav]
-    show_preview = true
+    show_preview       = true
+    default_visibility = { hidden = true }
 
-[panes.fd]
+[panes.find]
     on_leave_unset_dirs_only = true
 
 [history]
@@ -9,3 +10,6 @@
 
 [misc]
     append_mode_logging = true
+
+[panes.search]
+    show_preview = true

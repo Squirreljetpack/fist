@@ -1,17 +1,20 @@
 use std::sync::LazyLock;
 
-use anyhow::bail;
 use cli_boilerplate_automation::{
     bait::ResultExt,
     bog::BogOkExt,
     bring::{consume_escaped, parse_next_escape, split::split_whitespace_preserving_nesting},
     ebog, wbog,
 };
-use matchmaker::config::PartialRenderConfig;
-use matchmaker_partial::Set;
 
-use crate::cli::mm_partial_parse::{get_pairs, try_split_kv};
-use crate::utils::string::split_whitespace_keep_single_quotes;
+#[cfg(feature = "mm_override")]
+use {
+    crate::cli::mm_partial_parse::{get_pairs, try_split_kv},
+    anyhow::bail,
+    matchmaker::config::PartialRenderConfig,
+    matchmaker_partial::Set,
+};
+
 #[derive(Debug, Default)]
 pub struct EnvOpts {
     pub ancestor: Option<usize>,
@@ -34,8 +37,14 @@ impl EnvOpts {
         if let Ok(raw) = std::env::var("FS_OPTS")
             && !raw.is_empty()
         {
-            let tokens = split_whitespace_keep_single_quotes(&raw);
+            let tokens = split_whitespace_preserving_nesting(&raw, None, Some(['[', ']']))
+                .prefix(prefix)
+                ._ebog()?;
+
             for tok in tokens {
+                if tok.is_empty() {
+                    continue;
+                }
                 let Some((k, v)) = tok.split_once('=') else {
                     ebog!("{prefix}"; "Invalid token (expected key=value)");
                     continue;
@@ -96,6 +105,7 @@ impl EnvOpts {
         Some(ret)
     }
 
+    #[cfg(feature = "mm_override")]
     /// Gets a PartialRenderConfig by reading from environment variables MM_OPTS0, MM_OPTS1...
     /// Warns and stops reading on encountering improper top-level nesting.
     /// Returns None upon encountering parse errors after (the top-level split).
@@ -131,6 +141,7 @@ impl EnvOpts {
         Self::parse_mm_override(args)._wbog()
     }
 
+    #[cfg(feature = "mm_override")]
     fn parse_mm_override(args: Vec<String>) -> anyhow::Result<PartialRenderConfig> {
         let split = get_pairs(args)?;
         log::trace!("{split:?}");

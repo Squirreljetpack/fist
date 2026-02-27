@@ -83,19 +83,19 @@ impl PanesConfig {
     pub fn enter_prompt(
         &self,
         pane: &FsPane,
-    ) -> bool {
+    ) -> Option<bool> {
         match pane {
             FsPane::Custom { .. } => self.custom.enter_prompt,
             FsPane::Stream { .. } => self.stream.enter_prompt,
             FsPane::Find { .. } => self.find.enter_prompt,
             FsPane::Files { .. } | FsPane::Folders { .. } => self.history.enter_prompt,
             FsPane::Apps { .. } => self.app.enter_prompt,
-            FsPane::Nav { .. } => false,
+            FsPane::Nav { .. } => Some(false),
             FsPane::Search { .. } => self.search.enter_prompt,
         }
     }
 
-    pub fn preview_show(
+    pub fn show_preview(
         &self,
         pane: &FsPane,
     ) -> Option<ShowCondition> {
@@ -133,7 +133,7 @@ pub struct PaneSettings {
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
-    pub enter_prompt: bool,
+    pub enter_prompt: Option<bool>,
 
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
@@ -143,7 +143,7 @@ impl Default for PaneSettings {
         Self {
             prompt: None,
             show_preview: None,
-            enter_prompt: true,
+            enter_prompt: Some(true),
             preview_layout_index: 0,
         }
     }
@@ -157,7 +157,7 @@ pub struct FdPaneSettings {
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
-    pub enter_prompt: bool,
+    pub enter_prompt: Option<bool>,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
@@ -172,7 +172,7 @@ impl Default for FdPaneSettings {
         Self {
             prompt: None,
             show_preview: Some(ShowCondition::Free(60)),
-            enter_prompt: true,
+            enter_prompt: Some(true),
             preview_layout_index: 0,
 
             default_visibility: Default::default(),
@@ -189,7 +189,7 @@ pub struct RgPaneSettings {
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
-    pub enter_prompt: bool,
+    pub enter_prompt: Option<bool>,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
@@ -216,7 +216,7 @@ impl Default for RgPaneSettings {
         Self {
             prompt: None,
             show_preview: Some(ShowCondition::Free(20)),
-            enter_prompt: true,
+            enter_prompt: Some(true),
             preview_layout_index: 1,
 
             no_heading: true,
@@ -265,7 +265,7 @@ pub struct HistoryPaneSettings {
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
-    pub enter_prompt: bool,
+    pub enter_prompt: Option<bool>,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
 }
@@ -277,7 +277,7 @@ pub struct AppPaneSettings {
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
-    pub enter_prompt: bool,
+    pub enter_prompt: Option<bool>,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------

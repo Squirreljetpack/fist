@@ -40,7 +40,7 @@ impl Default for PromptConfig {
 #[derive(Debug)]
 pub struct PromptOverlay(InputUI, Rect);
 
-auto_impl!(PromptOverlay: Deref => InputUI; DerefMut);
+auto_impl!(PromptOverlay => 0 : Deref => InputUI; DerefMut);
 
 impl PromptOverlay {
     pub fn new(config: PromptConfig) -> Self {

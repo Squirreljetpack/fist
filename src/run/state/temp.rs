@@ -12,7 +12,7 @@ thread_local! {
 }
 
 #[derive(Debug)]
-pub struct ExecuteHandlerShouldProcessCwd;
+pub struct ExecuteHandlerShouldProcessParent;
 
 #[derive(Clone, Debug)]
 pub struct InitialRelativePathSetting(pub bool);

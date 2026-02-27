@@ -1,6 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use clap::{ArgGroup, Parser};
+use clap::{ArgAction, ArgGroup, Parser};
 
 use crate::{db::DbTable, lessfilter::Preset};
 use fist_types::filters::DbSortOrder;
@@ -72,6 +72,12 @@ pub struct LessfilterCommand {
 
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub paths: Vec<PathBuf>,
+
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub no_exec: bool,
+
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub tty: bool,
 
     // Some(true) => Always show header at top
     // Some(false) => Never show header

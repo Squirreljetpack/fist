@@ -23,7 +23,7 @@ pub fn is_header(cmd: &Vec<OsString>) -> bool {
     cmd.is_empty()
 }
 
-pub fn header_viewer(_path: &Path) -> Vec<OsString> {
+pub fn simple_header(_path: &Path) -> Vec<OsString> {
     vec_![]
 }
 
@@ -32,7 +32,7 @@ pub fn is_metadata(cmd: &Vec<OsString>) -> bool {
     cmd.len() == 1 && cmd[0].is_empty()
 }
 
-pub fn metadata_viewer(_path: &Path) -> Vec<OsString> {
+pub fn simple_metadata(_path: &Path) -> Vec<OsString> {
     vec_![: ""]
 }
 

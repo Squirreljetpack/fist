@@ -10,4 +10,5 @@ pub use clap_::*;
 pub mod env;
 pub mod mm_;
 
+#[cfg(feature = "mm_override")]
 mod mm_partial_parse;

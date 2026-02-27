@@ -341,9 +341,22 @@ impl Overlay for StashOverlay {
                     // undecided
                 }
 
-                Action::Custom(FsAction::Menu) => {
-                    self.enter_edit();
+                Action::Print(s) if s.is_empty() => {
+                    // undecided
                 }
+
+                Action::Custom(f) => match f {
+                    FsAction::Menu => {
+                        self.enter_edit();
+                    }
+                    FsAction::Undo => {
+                        STASH::cycle_cas(true);
+                    }
+                    FsAction::Redo => {
+                        STASH::cycle_cas(false);
+                    }
+                    _ => {}
+                },
 
                 Action::Quit(_) => return OverlayEffect::Disable,
                 _ => {}

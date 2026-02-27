@@ -36,6 +36,7 @@ impl SortOrder {
 // ------------------------------------------------------------
 #[derive(Debug, Default, Clone, clap::Args, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct Visibility {
     /// show hidden files and folders
     #[arg(short = 'h')]

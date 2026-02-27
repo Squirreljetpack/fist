@@ -236,6 +236,7 @@ pub struct InterfaceConfig {
     pub toast_on_empty: bool,
     /// If [AutoJump](`crate::run::FsAction::AutoJump`) should accept or advance
     pub autojump_advance: bool,
+    pub dim_prompt: Option<bool>
 }
 
 impl Default for InterfaceConfig {
@@ -248,6 +249,7 @@ impl Default for InterfaceConfig {
             cwd_prompt: "{} ".into(),
             toast_on_empty: true,
             autojump_advance: false,
+            dim_prompt: Some(true)
         }
     }
 }
@@ -255,7 +257,6 @@ impl Default for InterfaceConfig {
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FdConfig {
-    // todo: lowpri: lookup is by OsString but storage is as String...
     /// A map of folders => exclusion globs which should be applied when in them.
     /// ~ can be used in lieu of $HOME.
     /// If a list is specified for the empty path "", that list will override the list of default exclusions for the platform, and apply everywhere.
@@ -291,6 +292,8 @@ pub struct RgConfig {
     //  ---------------- Experimental/Nonstandard ---------------
     /// The set of arguments applied to the end of `fs :` when no `rg_args` were given.
     pub default_args: Vec<String>,
+    /// Initially empty search.
+    pub empty_start: bool,
 }
 
 impl Default for RgConfig {
@@ -303,6 +306,7 @@ impl Default for RgConfig {
                 "--no-context-separator",
                 "--field-context-separator=-",
             ],
+            empty_start: false,
             default_args: Default::default(),
         }
     }

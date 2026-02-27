@@ -3,7 +3,9 @@
 
 use std::path::PathBuf;
 
-use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt, unwrap, wbog};
+use cli_boilerplate_automation::{
+    bait::ResultExt, bath::PathExt, bring::split::join_with_single_quotes, unwrap, wbog,
+};
 use matchmaker::{
     acs,
     action::{Action, Actions},
@@ -19,12 +21,12 @@ use crate::{
     clipboard::{copy_files, copy_paths_as_text},
     lessfilter::Preset,
     run::{
-        ahandler::{enter_dir_pane, enter_prompt, fs_reload, prepare_prompt},
+        ahandler::{enter_dir_pane, enter_prompt, fs_reload},
         item::short_display,
         pane::FsPane,
         stash::{STASH, StashItem},
         state::{
-            ExecuteHandlerShouldProcessCwd, FILTERS, GLOBAL, STACK, TASKS, TOAST, TlsStore,
+            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, TASKS, TOAST, TlsStore,
             context::ActionContext,
         },
     },
@@ -89,14 +91,15 @@ pub enum FsAction {
     Cut,
     /// Copy file (to the [`STASH`] and the system clipboard).
     Copy,
+    /// Save a file to the [`STASH`] under the custom type.
+    Push,
     /// Copy full path.
     CopyPath,
     /// Create a new file.
     New,
     /// Create a new directory. (todo)
     NewDir,
-    /// Save a file to the [`STASH`]
-    PushStash,
+
     /// Save the file to the backup directory. (todo)
     Backup,
     /// Delete the file using system trash.
@@ -115,6 +118,7 @@ pub enum FsAction {
 
     // Nonbindable
     // ----------------------------------
+    EnterPrompt(bool),
     SaveInput,
     SetHeader(Option<Text<'static>>),
     SetFooter(Option<Text<'static>>),
@@ -228,6 +232,10 @@ pub fn fsaction_aliaser(
             }
             FsAction::SetStatus(s) => {
                 state.picker_ui.results.set_status_line(s);
+                acs![]
+            }
+            FsAction::EnterPrompt(enter) => {
+                enter_prompt(state, enter);
                 acs![]
             }
 
@@ -467,12 +475,23 @@ pub fn fsaction_handler(
                 FILTERS::visibility(),
             );
 
-            if STACK::set_or_push(pane) {
-                prepare_prompt(state);
-                fs_reload(state, true);
-            } else {
+            // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
+            // todo: there is a problem
+            if STACK::with_current(|p| *p == pane) {
                 fs_reload(state, false);
+            } else {
+                STACK::push(pane);
+
+                fs_reload(state, true);
             }
+
+            // not this because this erases current settings when the intutive behavior is to just reload
+            // if STACK::set_or_push(pane) {
+            //     prepare_prompt(state);
+            //     fs_reload(state, true);
+            // } else {
+            //     fs_reload(state, false);
+            // }
         }
 
         FsAction::History => {
@@ -482,54 +501,57 @@ pub fn fsaction_handler(
 
             let _ = STACK::swap_history();
 
-            prepare_prompt(state);
             fs_reload(state, true);
         }
 
         FsAction::Search => {
-            // save input
-            let (content, index) = state.get_content_and_index();
-            STACK::save_input(content, index);
-
-            // save input
             if STACK::with_current_mut(|x| match x {
                 FsPane::Search {
                     input,
                     filtering,
                     patterns,
-                    pattern_index,
                     ..
                 } => {
                     if patterns.is_empty() {
                         patterns.push(String::new());
                     }
-                    if *filtering {
-                        // load picker_ui.input from patterns, reload will start reading last pattern from picker_ui.input
-                        std::mem::swap(
-                            &mut patterns[*pattern_index],
-                            &mut state.picker_ui.input.input,
-                        );
-                    } else {
-                        std::mem::swap(&mut input.0, &mut state.picker_ui.input.input);
-                    }
-                    state.picker_ui.input.recompute_graphemes();
-                    state.picker_ui.input.set(None, u16::MAX);
+
                     *filtering = !*filtering;
+
+                    let new_input = if *filtering {
+                        // entering filter:
+                        // restore from input
+                        &input.0
+                    } else {
+                        // entering rg:
+
+                        // save input
+                        *input = state.get_content_and_index();
+                        // set picker.input to previous
+                        &join_with_single_quotes(patterns)
+                    };
+
+                    state.picker_ui.input.set(new_input.clone(), u16::MAX);
+
                     true
                 }
                 _ => false,
             }) {
                 fs_reload(state, false);
             } else {
+                // save input
+                let (content, index) = state.get_content_and_index();
+                STACK::save_input(content, index);
+
                 // let mut vis = FILTERS::visibility(); // todo: merge instead of overwrite
                 let vis = GLOBAL::with_cfg(|cfg| cfg.panes.search.default_visibility);
 
-                let opts = GLOBAL::with_cfg(|c| [c.panes.search.no_heading, c.panes.search.fixed_strings]);
+                let opts =
+                    GLOBAL::with_cfg(|c| [c.panes.search.no_heading, c.panes.search.fixed_strings]);
                 let pane =
                     FsPane::new_rg(STACK::cwd().unwrap_or_default(), FILTERS::sort(), vis, opts);
                 STACK::push(pane);
-                prepare_prompt(state);
-                fs_reload(state, false);
+                fs_reload(state, true);
             }
         }
 
@@ -540,7 +562,6 @@ pub fn fsaction_handler(
 
             let pane = FsPane::new_launch(STASH::cas());
             if STACK::set_or_push(pane) {
-                prepare_prompt(state);
                 fs_reload(state, true);
             } else {
                 fs_reload(state, false);
@@ -554,7 +575,6 @@ pub fn fsaction_handler(
 
             // adjust stack
             if STACK::stack_prev() {
-                prepare_prompt(state);
                 fs_reload(state, true);
             };
         }
@@ -565,7 +585,6 @@ pub fn fsaction_handler(
 
             // adjust stack
             if STACK::stack_next() {
-                prepare_prompt(state);
                 fs_reload(state, true);
             };
         }
@@ -672,7 +691,7 @@ pub fn fsaction_handler(
         }
 
         // Note: This is the only stash action which also pushes the cwd
-        FsAction::PushStash => {
+        FsAction::Push => {
             let mut toast_vec = vec![];
 
             if !in_prompt {
@@ -872,10 +891,9 @@ pub fn fsaction_handler(
 
             // since in Nav pane, Advance is bound to edit cursor item, it's more useful to make the action always edit the menu item.
             if matches!(preset, Preset::Edit)
-                && STACK::nav_cwd().is_some()
                 && state.current_raw().is_some_and(|x| x.path.is_file())
             {
-                TlsStore::set(ExecuteHandlerShouldProcessCwd {});
+                TlsStore::set(ExecuteHandlerShouldProcessParent {});
             }
 
             let mut template = if special == 1 {
@@ -969,7 +987,7 @@ enum_from_str_display! {
 
     units:
     Advance, Parent, Find, Search, History, App,
-    Undo, Redo, PushStash,
+    Undo, Redo, Push,
     Filters, Stash,
     Menu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir,
@@ -1037,7 +1055,7 @@ macro_rules! enum_from_str_display {
                             write!(f, "Jump({})", path.display())
                         }
                     }
-                    SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) => Ok(()), // internal
+                    SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | EnterPrompt(_) => Ok(()), // internal
                     Lessfilter { preset, paging, header: _, .. } => {
                         let mut preset = preset.to_string();
                         if *paging {

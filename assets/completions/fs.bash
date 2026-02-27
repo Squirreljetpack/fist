@@ -538,7 +538,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__lessfilter)
-            opts="-a --arg --header --verbosity --override --config --mm-config --style --fullscreen preview display extended info open alternate edit [PATHS]..."
+            opts="-a --arg --no-exec --tty --header --verbosity --override --config --mm-config --style --fullscreen preview display extended info open alternate edit [PATHS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
