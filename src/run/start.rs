@@ -123,6 +123,7 @@ pub async fn start(
         overlay,
     } = mm_cfg;
     log::debug!("cfg: {cfg:?}");
+    let preview_layout_index = cfg.global.panes.preview_layout_index(&pane);
 
     if let Some(x) = cfg.global.panes.preview_show(&pane) {
         render.preview.show = x
@@ -130,7 +131,6 @@ pub async fn start(
     if let Some(x) = cfg.global.panes.prompt(&pane) {
         render.input.prompt = x;
     }
-    let preview_layout_index = cfg.global.panes.preview_layout_index(&pane);
 
     if let FsPane::Search {
         filtering,

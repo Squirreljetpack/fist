@@ -38,13 +38,13 @@ pub fn enter_prompt(
     state: &mut MMState<'_, '_>,
     enter: bool,
 ) {
-        // unfortunately, dim is kinda weak/can make things brighter, but we still want some indication
+    // unfortunately, dim is kinda weak/can make things brighter, but we still want some indication
     if let Some(dim) = GLOBAL::with_cfg(|c| c.interface.dim_prompt) {
-        let should_dim = enter ^ !dim; 
-    
+        let should_dim = enter ^ !dim;
+
         let mods = &mut state.picker_ui.results.config.modifier;
         let border_mods = &mut state.picker_ui.results.config.border.modifier;
-    
+
         if should_dim {
             *mods |= Modifier::DIM;
             *border_mods |= Modifier::DIM;
@@ -196,6 +196,9 @@ pub fn fs_reload(
         // apply settings when pane type changes
         if is_new {
             GLOBAL::with_cfg(|cfg| {
+                if let Some(p) = state.preview_ui {
+                    p.set_layout(cfg.panes.preview_layout_index(pane));
+                };
                 if let Some(condition) = cfg.panes.preview_show(pane) {
                     let area = state.ui_size();
                     if let Some(p) = state.preview_ui.as_mut() {
@@ -206,9 +209,6 @@ pub fn fs_reload(
                 if let Some(x) = cfg.panes.prompt(pane) {
                     state.picker_ui.input.config.prompt = x;
                 }
-                if let Some(p) = state.preview_ui {
-                    p.set_layout(cfg.panes.preview_layout_index(pane));
-                };
 
                 let partial = cfg.mm.get(pane);
                 {

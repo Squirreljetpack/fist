@@ -161,12 +161,15 @@ fs -t d --list $OBSIDIAN_HOME . -- --max-depth 1 |
 while read -r line; do
   # This command finds all markdown files, and prints them in a custom format:
   # {a:b} is a slicing syntax for path components
-  # {-1:} means take the last component
-  # 3 different delimiters are supported for slicing: , `=`, `.`
-  # `:` target the single-quoted current item
-  # `=` target the current item without single quotes
-  # `=` target the current working directory without single quotes
-  # The effect is to print alongside each note their containing "vault".
+  # {-1:} means take all components including and after the last
+  # omitting either end takes the full range in that direction
+  # 3 different delimiters are supported for slicing: `:`, `=` and `.`
+  # `:` targets the current item and adds single quotes around it
+  # `=` targets the current item without single quotes
+  # `.` targets the current working directory without single quotes
+  # Finally, `{}` prints the full path, and `{_}` the context.
+  #
+  # Here, the effect is to print alongside each note their containing "vault".
   #
   # --no-read is needed because fs tries to read from stdin if it detects incoming input
   FS_OUTPUT="{=}\t{-1.}" fs -t .md --list --no-read $line .
@@ -204,7 +207,7 @@ fs :o "obsidian://open?path=$(uri $1)"
 
 f:ist records the **files, directories and applications** that you've visited in a local database, where they are displayed in the `Files`/`Folders` (`ctrl-g`) and `Apps` panes, sorted by relevance[^6].
 
-The _Files_ and _Folders_ panes are most useful when integrated in the ambient context where you usually access files. For example, the [Shell](#shell-integration)
+The _Files_ and _Folders_ panes are most useful when integrated in the ambient context where you usually access files. For example, the [shell](#shell-integration), or a [command launcher](#dependencies).
 
 <img src=".README.assets/image-20260226171122403.png" alt="image-20260226171122403" style="width:550px;" />
 
@@ -288,6 +291,9 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 > no arguments: interactively select from history.
 > last argument is `.` : interactively search subdirectories of the best match.
 > otherwise: cd into the best match[^9] for the search term (if one exists).
+> 
+> One final change from zoxide is the introduction of the `history.refind` setting in the [config](#configuration).
+> When no match is found, or when the top result is the current directory, this setting causes the the interactive interface to be started.
 
 [^8]: See: [zoxide](https://github.com/ajeetdsouza/zoxide)
 

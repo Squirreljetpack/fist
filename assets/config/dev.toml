@@ -10,3 +10,6 @@
 
 [misc]
     append_mode_logging = true
+
+[panes.search]
+    show_preview = true
