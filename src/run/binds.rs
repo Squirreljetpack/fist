@@ -57,7 +57,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-x) => FsAction::Cut,
         key!(ctrl-c) => FsAction::Copy,
         key!(ctrl-n) => FsAction::New,
-        key!(alt-s) => FsAction::PushStash,
+        key!(alt-s) => FsAction::Push,
 
         // preview
         key!('?') => Action::Preview(Preset::Preview.to_command_string(When::Auto)),

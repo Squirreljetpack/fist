@@ -77,18 +77,63 @@ impl StashItem {
 pub enum CustomStashActionActionState {
     #[default]
     Symlink,
-    Other,
+    Custom(usize),
     // This is different from the other states in being exclusive. When in this state:
     // - non-app actions (including custom-type) are not processed (transferred/cleared/etc.)
     // - non-app actions are not displayed.
     App,
 }
+impl CustomStashActionActionState {
+    pub fn cycle(
+        &mut self,
+        custom_max: usize,
+        forwards: bool,
+    ) {
+        *self = if forwards {
+            match *self {
+                Self::Symlink => {
+                    if custom_max > 0 {
+                        Self::Custom(0)
+                    } else {
+                        Self::App
+                    }
+                }
+                Self::Custom(i) => {
+                    if i + 1 < custom_max {
+                        Self::Custom(i + 1)
+                    } else {
+                        Self::App
+                    }
+                }
+                Self::App => Self::Symlink,
+            }
+        } else {
+            match *self {
+                Self::Symlink => Self::App,
+                Self::Custom(i) => {
+                    if i > 0 {
+                        Self::Custom(i - 1)
+                    } else {
+                        Self::Symlink
+                    }
+                }
+                Self::App => {
+                    if custom_max > 0 {
+                        Self::Custom(custom_max - 1)
+                    } else {
+                        Self::Symlink
+                    }
+                }
+            }
+        };
+    }
+}
 
 // -------- GLOBAL ---------
 pub type AlternateStashItem = AbsPath;
-
+pub type CustomStashActionKey = String;
 thread_local! {
-    static MAIN_STASH: RefCell<(SimpleStack, CustomStashActionActionState)> = const { RefCell::new((SimpleStack::new(), CustomStashActionActionState::Symlink)) };
+    static MAIN_STASH: RefCell<(SimpleStack, CustomStashActionActionState, Vec<CustomStashActionKey>)> = const { RefCell::new((SimpleStack::new(), CustomStashActionActionState::Symlink, Vec::new())) };
     // note: we don't necessarily just want a path here
     // note: we could support more exclusive stashes variants above which would also be stored here, which are also mututally exclusive
     static ALTERNATE_STASH: RefCell<SimpleStack<AlternateStashItem>> = const { RefCell::new(SimpleStack::new()) };
@@ -149,7 +194,7 @@ impl STASH {
     ) -> R {
         MAIN_STASH.with(|cell| {
             let mut borrow = cell.borrow_mut();
-            let (stack, state) = &mut *borrow;
+            let (stack, state, ..) = &mut *borrow;
             f((stack, state))
         })
     }
@@ -165,14 +210,21 @@ impl STASH {
     pub fn cas() -> CustomStashActionActionState {
         MAIN_STASH.with(|cell| {
             let borrow = cell.borrow();
-            let (_, state) = &*borrow;
-            *state
+            borrow.1
         })
     }
 
     pub fn set_cas(state: CustomStashActionActionState) {
         MAIN_STASH.with(|cell| {
             cell.borrow_mut().1 = state;
+        });
+    }
+
+    pub fn cycle_cas(forwards: bool) {
+        MAIN_STASH.with(|cell| {
+            let mut stash = cell.borrow_mut();
+            let l = stash.2.len();
+            stash.1.cycle(l, forwards);
         });
     }
 

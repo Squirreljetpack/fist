@@ -89,14 +89,15 @@ pub enum FsAction {
     Cut,
     /// Copy file (to the [`STASH`] and the system clipboard).
     Copy,
+    /// Save a file to the [`STASH`] under the custom type.
+    Push,
     /// Copy full path.
     CopyPath,
     /// Create a new file.
     New,
     /// Create a new directory. (todo)
     NewDir,
-    /// Save a file to the [`STASH`]
-    PushStash,
+
     /// Save the file to the backup directory. (todo)
     Backup,
     /// Delete the file using system trash.
@@ -679,7 +680,7 @@ pub fn fsaction_handler(
         }
 
         // Note: This is the only stash action which also pushes the cwd
-        FsAction::PushStash => {
+        FsAction::Push => {
             let mut toast_vec = vec![];
 
             if !in_prompt {
@@ -976,7 +977,7 @@ enum_from_str_display! {
 
     units:
     Advance, Parent, Find, Search, History, App,
-    Undo, Redo, PushStash,
+    Undo, Redo, Push,
     Filters, Stash,
     Menu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir,
