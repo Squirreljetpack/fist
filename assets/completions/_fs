@@ -110,6 +110,11 @@ _arguments "${_arguments_options[@]}" : \
 mtime\:""
 none\:""
 size\:"Not always supported"))' \
+'-h+[show hidden files and folders]::HIDDEN:(true false)' \
+'-I+[HIDE ignored files]::IGNORE:(true false)' \
+'-a+[show all]::ALL:(true false)' \
+'-F+[only show directories]::DIRS:(true false)' \
+'-f+[show only files]::FILES:(true false)' \
 '*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
@@ -117,11 +122,6 @@ size\:"Not always supported"))' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
-'-h[show hidden files and folders]' \
-'-I[HIDE ignored files]' \
-'-a[show all]' \
-'-F[only show directories]' \
-'-f[show only files]' \
 '--cd[print the first match]' \
 '--no-read[Never stream input from stdin]' \
 '--list[]' \
@@ -136,6 +136,11 @@ _arguments "${_arguments_options[@]}" : \
 mtime\:""
 none\:""
 size\:"Not always supported"))' \
+'-h+[show hidden files and folders]::HIDDEN:(true false)' \
+'-I+[HIDE ignored files]::IGNORE:(true false)' \
+'-a+[show all]::ALL:(true false)' \
+'-F+[only show directories]::DIRS:(true false)' \
+'-f+[show only files]::FILES:(true false)' \
 '*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
@@ -143,11 +148,6 @@ size\:"Not always supported"))' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
-'-h[show hidden files and folders]' \
-'-I[HIDE ignored files]' \
-'-a[show all]' \
-'-F[only show directories]' \
-'-f[show only files]' \
 '--cd[print the first match]' \
 '--no-read[Never stream input from stdin]' \
 '--list[]' \
@@ -158,6 +158,11 @@ size\:"Not always supported"))' \
 ;;
 (:rg)
 _arguments "${_arguments_options[@]}" : \
+'-h+[show hidden files and folders]::HIDDEN:(true false)' \
+'-I+[HIDE ignored files]::IGNORE:(true false)' \
+'-a+[show all]::ALL:(true false)' \
+'-F+[only show directories]::DIRS:(true false)' \
+'-f+[show only files]::FILES:(true false)' \
 '--sort=[]:SORT:((name\:""
 mtime\:""
 none\:""
@@ -177,11 +182,6 @@ size\:"Not always supported"))' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
-'-h[show hidden files and folders]' \
-'-I[HIDE ignored files]' \
-'-a[show all]' \
-'-F[only show directories]' \
-'-f[show only files]' \
 '-i[]' \
 '--ignore-case[]' \
 '-s[]' \
@@ -189,6 +189,7 @@ size\:"Not always supported"))' \
 '-S[]' \
 '--smart-case[]' \
 '--no-fixed-strings[Enable fixed string matching Disable fixed string matching]' \
+'--filtering[]' \
 '-1[]' \
 '--list[]' \
 '--help[]' \
@@ -198,6 +199,11 @@ size\:"Not always supported"))' \
 ;;
 (:)
 _arguments "${_arguments_options[@]}" : \
+'-h+[show hidden files and folders]::HIDDEN:(true false)' \
+'-I+[HIDE ignored files]::IGNORE:(true false)' \
+'-a+[show all]::ALL:(true false)' \
+'-F+[only show directories]::DIRS:(true false)' \
+'-f+[show only files]::FILES:(true false)' \
 '--sort=[]:SORT:((name\:""
 mtime\:""
 none\:""
@@ -217,11 +223,6 @@ size\:"Not always supported"))' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons colors none all auto)' \
-'-h[show hidden files and folders]' \
-'-I[HIDE ignored files]' \
-'-a[show all]' \
-'-F[only show directories]' \
-'-f[show only files]' \
 '-i[]' \
 '--ignore-case[]' \
 '-s[]' \
@@ -229,6 +230,7 @@ size\:"Not always supported"))' \
 '-S[]' \
 '--smart-case[]' \
 '--no-fixed-strings[Enable fixed string matching Disable fixed string matching]' \
+'--filtering[]' \
 '-1[]' \
 '--list[]' \
 '--help[]' \

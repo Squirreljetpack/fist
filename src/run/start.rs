@@ -27,7 +27,7 @@ use crate::{
     errors::CliError,
     run::{
         action::{fsaction_aliaser, fsaction_handler},
-        ahandler::{fs_post_reload_new, paste_handler},
+        ahandlers::{fs_post_reload_new, paste_handler},
         dhandlers::{MMExt, query_handler, sync_handler},
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},

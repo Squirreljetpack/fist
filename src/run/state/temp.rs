@@ -24,7 +24,7 @@ pub struct TlsStore;
 impl TlsStore {
     pub fn set<T: 'static + Debug>(value: T) {
         TLS_MAP.with(|map| {
-            map.borrow_mut().insert::<T>(_dbg!("TlsSet", value));
+            map.borrow_mut().insert::<T>(_dbg!("TlsSet"; value));
         });
     }
     pub fn maybe_set<T: 'static + Debug>(value: Option<T>) {
@@ -39,7 +39,7 @@ impl TlsStore {
 
     pub fn take<T: 'static + Debug>() -> Option<T> {
         _dbg!(
-            "TlsTake",
+            "TlsTake";
             TLS_MAP.with(|map| map.borrow_mut().remove::<T>())
         )
     }

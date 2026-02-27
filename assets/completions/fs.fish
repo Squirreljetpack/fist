@@ -117,6 +117,16 @@ complete -c fs -n "__fish_fs_using_subcommand :fd" -l sort -r -f -a "name\t''
 mtime\t''
 none\t''
 size\t'Not always supported'"
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s h -d 'show hidden files and folders' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s I -d 'HIDE ignored files' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s a -d 'show all' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s F -d 'only show directories' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s f -d 'show only files' -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l override -d 'config override' -r
@@ -127,11 +137,6 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s h -d 'show hidden files and folders'
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s I -d 'HIDE ignored files'
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s a -d 'show all'
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s F -d 'only show directories'
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s f -d 'show only files'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l list
@@ -141,6 +146,16 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -l sort -r -f -a "name\t''
 mtime\t''
 none\t''
 size\t'Not always supported'"
+complete -c fs -n "__fish_fs_using_subcommand ::" -s h -d 'show hidden files and folders' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand ::" -s I -d 'HIDE ignored files' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand ::" -s a -d 'show all' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand ::" -s F -d 'only show directories' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand ::" -s f -d 'show only files' -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l override -d 'config override' -r
@@ -151,16 +166,21 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand ::" -s h -d 'show hidden files and folders'
-complete -c fs -n "__fish_fs_using_subcommand ::" -s I -d 'HIDE ignored files'
-complete -c fs -n "__fish_fs_using_subcommand ::" -s a -d 'show all'
-complete -c fs -n "__fish_fs_using_subcommand ::" -s F -d 'only show directories'
-complete -c fs -n "__fish_fs_using_subcommand ::" -s f -d 'show only files'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l list
 complete -c fs -n "__fish_fs_using_subcommand ::" -l help
 complete -c fs -n "__fish_fs_using_subcommand ::" -l fullscreen
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s h -d 'show hidden files and folders' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s I -d 'HIDE ignored files' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s a -d 'show all' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s F -d 'only show directories' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s f -d 'show only files' -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l sort -r -f -a "name\t''
 mtime\t''
 none\t''
@@ -181,19 +201,25 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s h -d 'show hidden files and folders'
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s I -d 'HIDE ignored files'
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s a -d 'show all'
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s F -d 'only show directories'
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s f -d 'show only files'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s i -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s S -l smart-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l no-fixed-strings -d 'Enable fixed string matching Disable fixed string matching'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l filtering
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s 1
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l list
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l help
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l fullscreen
+complete -c fs -n "__fish_fs_using_subcommand :" -s h -d 'show hidden files and folders' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :" -s I -d 'HIDE ignored files' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :" -s a -d 'show all' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :" -s F -d 'only show directories' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :" -s f -d 'show only files' -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -l sort -r -f -a "name\t''
 mtime\t''
 none\t''
@@ -214,15 +240,11 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :" -s h -d 'show hidden files and folders'
-complete -c fs -n "__fish_fs_using_subcommand :" -s I -d 'HIDE ignored files'
-complete -c fs -n "__fish_fs_using_subcommand :" -s a -d 'show all'
-complete -c fs -n "__fish_fs_using_subcommand :" -s F -d 'only show directories'
-complete -c fs -n "__fish_fs_using_subcommand :" -s f -d 'show only files'
 complete -c fs -n "__fish_fs_using_subcommand :" -s i -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :" -s S -l smart-case
 complete -c fs -n "__fish_fs_using_subcommand :" -l no-fixed-strings -d 'Enable fixed string matching Disable fixed string matching'
+complete -c fs -n "__fish_fs_using_subcommand :" -l filtering
 complete -c fs -n "__fish_fs_using_subcommand :" -s 1
 complete -c fs -n "__fish_fs_using_subcommand :" -l list
 complete -c fs -n "__fish_fs_using_subcommand :" -l help

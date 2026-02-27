@@ -1,4 +1,4 @@
-mod ahandler;
+mod ahandlers;
 mod binds;
 mod dhandlers;
 mod previewer;

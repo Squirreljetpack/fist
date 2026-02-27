@@ -115,7 +115,7 @@ fn init_logger(
             builder
                 .filter(None, Info)
                 .filter(Some("nucleo"), Debug)
-                .filter(Some("matchmaker"), Debug)
+                .filter(Some("matchmaker"), Trace)
                 .filter(Some(BINARY_FULL), Trace);
         }
         #[cfg(not(debug_assertions))]

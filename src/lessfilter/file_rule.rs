@@ -198,6 +198,9 @@ impl Test<Path> for FileRule {
 
             FileRuleKind::Have(cmd) => has(cmd),
         };
+        if ok {
+            log::trace!("{self:?} passed")
+        }
 
         if self.invert { !ok } else { ok }
     }

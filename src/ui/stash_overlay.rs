@@ -265,16 +265,22 @@ impl Overlay for StashOverlay {
     ) -> Result<Rect, [SizeHint; 2]> {
         if STACK::in_app() {
             self.widths = Default::default();
-            let pref_width = STASH::with_alternate(|scratch| {
-                scratch
-                    .iter()
-                    .map(|s| s.to_string_lossy().len() + 2)
-                    .max()
-                    .unwrap_or_default() as u16
-            })
-            .min(ui_area.width * 9 / 10);
+            let (pref_width, pref_height) = STASH::with_alternate(|scratch| {
+                (
+                    scratch
+                        .iter()
+                        .map(|s| s.to_string_lossy().len() + 4)
+                        .max()
+                        .unwrap_or_default() as u16,
+                    scratch.len() as u16,
+                )
+            });
+            let pref_width = (pref_width + self.border().width())
+                .max((ui_area.width.saturating_sub(2)).min(20))
+                .min(ui_area.width * 9 / 10);
+            let pref_height = (1 + pref_height + self.border().height());
 
-            Err([pref_width.into(), SizeHint::Min(self.border().height() + 4)])
+            Err([pref_width.into(), SizeHint::Min(pref_height)])
         } else {
             STASH::with(|scratch| {
                 self.save_widths(scratch, ui_area.width.saturating_sub(self.border().width()));

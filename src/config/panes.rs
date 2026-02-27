@@ -110,6 +110,23 @@ impl PanesConfig {
         }
     }
 
+    pub fn default_visibility(
+        &self,
+        pane: &FsPane,
+    ) -> Option<PartialVisibility> {
+        match pane {
+            // todo: lowpri: maybe we aggregate more than just apps later, and add visibility
+            FsPane::Custom { .. }
+            | FsPane::Stream { .. }
+            | FsPane::Apps { .. }
+            | FsPane::Files { .. }
+            | FsPane::Folders { .. } => None,
+            FsPane::Find { .. } => Some(self.find.default_visibility),
+            FsPane::Nav { .. } => Some(self.nav.default_visibility),
+            FsPane::Search { .. } => Some(self.search.default_visibility),
+        }
+    }
+
     pub fn preview_layout_index(
         &self,
         pane: &FsPane,
@@ -162,7 +179,7 @@ pub struct FdPaneSettings {
     pub preview_layout_index: u8,
     // ----------------------------
     /// Default visibility when no visibility is specified.
-    pub default_visibility: Visibility,
+    pub default_visibility: PartialVisibility,
     /// When leaving the fd pane, untoggle the `only show directories` visibility filter.
     pub on_leave_unset_dirs_only: bool,
 }
@@ -194,7 +211,7 @@ pub struct RgPaneSettings {
     pub preview_layout_index: u8,
     // ----------------------------
     /// Initial visibility when entering the rg pane.
-    pub default_visibility: Visibility,
+    pub default_visibility: PartialVisibility,
     /// Initial sort entering the rg pane.
     pub default_sort: Option<SortOrder>,
     /// Whether to display each match on a seperate line. This can be overridden with the --no-heading command line option.
@@ -206,12 +223,17 @@ pub struct RgPaneSettings {
     pub rg_status_template: String,
     /// Template to display when filtering with fs
     pub fs_status_template: String,
+
+    /// Whether to display results on empty query
+    pub search_empty_query: bool,
 }
 
 impl Default for RgPaneSettings {
     fn default() -> Self {
-        let mut default_visibility = Visibility::default();
-        default_visibility.ignore = true;
+        let default_visibility = PartialVisibility {
+            ignore: Some(true),
+            ..Default::default()
+        };
 
         Self {
             prompt: None,
@@ -223,6 +245,7 @@ impl Default for RgPaneSettings {
             fixed_strings: false,
             default_visibility,
             default_sort: Some(SortOrder::none),
+            search_empty_query: true,
 
             rg_status_template: r"{blue:filter: {}} \s\m/\t".into(),
             fs_status_template: r"{red:query: {}} \s\m/\t".into(),
@@ -242,7 +265,7 @@ pub struct NavPaneSettings {
     // ----------------------------
     pub default_sort: SortOrder,
     /// Default visibility when no visibility is specified.
-    pub default_visibility: Visibility,
+    pub default_visibility: PartialVisibility,
 }
 
 impl Default for NavPaneSettings {

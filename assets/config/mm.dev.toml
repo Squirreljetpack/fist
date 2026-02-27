@@ -1,14 +1,28 @@
 [tui]
-percentage = 50
-min = 22
-max = 25
+    percentage = 50
+    min        = 22
+    max        = 25
 
 [preview]
-wrap = true
+    wrap = true
+
+[[preview.layout]]
+    side       = "right"
+    percentage = 40
+    min        = 30
+    max        = 120
+    border     = { type = "LightDoubleDashed", color = "DarkGray" }
+
+[[preview.layout]]
+    side       = "top"
+    percentage = 50
+    min        = 5
+    max        = 50
+    border     = { type = "LightDoubleDashed", color = "DarkGray" }
 
 [overlay]
-border = { type = "Plain", padding = 1 }
+    border = { type = "Plain", padding = 1 }
 
 [filters]
-border = { type = "Plain", padding = [4, 0] }
-alignment = "Center"
+    border    = { type = "Plain", padding = [ 4, 0 ] }
+    alignment = "Center"

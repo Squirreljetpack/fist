@@ -38,7 +38,7 @@ Call as:
 
 - `ctrl-f`/`ctrl-r`: Find files / Search text.
 - `ctrl-g`: History view (Folders and files).
-- `alt-shift-a`: App view[^2]
+- `alt-a`/`alt-shift-a`: App view[^2]
 - `ctrl-z`/`ctrl-y`: Undo / Redo.
 
 ---
@@ -60,12 +60,14 @@ Call as:
 - `ctrl-l`: Maximize preview.
 - `alt-l`: Maximize extended preview.
 - `/` and `~`: Jump to home
+- `ctrl-[1-9]`: Autojump to item
+- `ctrl-0`: Autojump to prompt
 
 For a full list of binds, press `ctrl-shift-h` within the app. [^1]
 
 [^1]: For more information on bindings (how they are defined, key testing, and default generic binds), see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
 
-[^2]: Since a single key can be bound to multiple actions, you may consider replacing this bind with the chain: [`CAS(App)`, `ClearStash`, `Push`, `App`], which will open all currently selected items with the selected app.
+[^2]: You can also replace this bind with the chain: [`CAS(App)`, `ClearStash`, `Push`, `App`], which will open all currently selected items with the selected app.
 
 # Panes
 
@@ -73,30 +75,33 @@ For a full list of binds, press `ctrl-shift-h` within the app. [^1]
 
 To begin, call `fs` without any positional arguments.
 
-When inside the app, you can enter this pane by pressing the left/right arrow keys (corresponding to the `Parent`/ `Advance` actions).
+<img src=".README.assets/image-20260227213112814.png" alt="image-20260227213112814" style="height:400px;" /> 
 
-<img src=".README.assets/image-20260226020033515.png" alt="image-20260226020033515" style="width:360px;" />
+Once inside, you can navigate and re-enter from other panes by pressing the left/right arrow keys (corresponding to the `Parent`/ `Advance` actions).
 
-### Find
 
-You can search through all files recursively
+
+### Find 
+
+You can search through all files recursively by
 
 - using the subcommand: `fs :: [OPTIONS] [PATHS]... [PATTERN]`
 - by calling `fs` directly with the same arguments
 - or by triggering the `Find` action (`ctrl-f`) in-app.
 
-The results will be available for filtering, navigating, editing, previewing and various other actions. Filtering and sort order can be adjusted through the [Filters overlay](#Filters).
+<img src=".README.assets/image-20260227223347559.png" alt="image-20260227223347559" style="height:412px;" />
+
+The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Filters overlay](#Filters)
 
 > [!NOTE]
 >
-> f:ist uses fd for this internally, and that search parameters can be passed through directly following `--`. However, it is not a strict wrapper and several differences in behavior exist beyond the interface for the purposes of improving user experience:
+> f:ist uses fd for this internally, and that search parameters can be passed through directly following `--`. However, it is not a strict wrapper and several differences in behavior in the command specification exist:
 >
 > - The last positional argument is treated as the query instead of the first
 > - queries beginning with `.` auto-enables the inclusion of hidden files
 > - Default parameters, directory-specific ignores, and other parameters can be set in the [config](./src/config/mod.rs#L257).
 > - The `-t` (type) flag has be overloaded to support more conditions. In addition to file types (`directory/d, symlink/l, ..etc.` ), it now supports extensions (`-t .ext`), pre-set categories (`image/i, video/v`), and custom categories as well.
 
-<img src=".README.assets/image-20260226020201947.png" alt="image-20260226020201947" style="width:360px" />
 
 ### Search
 
@@ -122,15 +127,13 @@ This pane operates in a query and a filter mode, which can be switched between[^
 >
 > When the active item is `advance`/`executed` on, the matched line and column are saved in the environment variables `HIGHLIGHT_LINE` and `HIGHLIGHT_COLUMN`. If your system has a compatible editor, the `Lessfilter::Edit` action can automatically open the file to the corresponding position -- otherwise, you can configure this manually.
 
-The following image shows how this pane looks in a narrow window with preview wrapping enabled.[^5]
+<img src=".README.assets/image-20260227181856867.png" alt="image-20260227181856867" style="width: 700px;" />
 
-<img src=".README.assets/image-20260226021241522.png" alt="image-20260226021241522" style="width:360px" />
+
 
 [^3]: In the previous panes, the secondary column was simply empty and therefore not displayed.
 
 [^4]: via the same action.
-
-[^5]: There is a mistake in the image of the inactive filter `f` not being displayed which has since been fixed
 
 ### Stream/Custom
 
@@ -201,21 +204,25 @@ uri() {
 fs :o "obsidian://open?path=$(uri $1)"
 ```
 
-<img src=".README.assets/image-20260226164920746.png" alt="instantly search through up to hundreds of thousands of files" style="width:561px;" />
+<img src=".README.assets/image-20260228112637463.png" alt="image-20260228112637463" style="width:411px;" />
 
-### History/App
+### History
 
 f:ist records the **files, directories and applications** that you've visited in a local database, where they are displayed in the `Files`/`Folders` (`ctrl-g`) and `Apps` panes, sorted by relevance[^6].
 
-The _Files_ and _Folders_ panes are most useful when integrated in the ambient context where you usually access files. For example, the [shell](#shell-integration), or a [command launcher](#dependencies).
+<img src=".README.assets/image-20260228113222004.png" alt="image-20260228113222004" style="width:640px;" />
 
-<img src=".README.assets/image-20260226171122403.png" alt="image-20260226171122403" style="width:550px;" />
+The _Files_ and _Folders_ panes are most useful when integrated into the ambient context where you usually access files. For example, the [shell](#shell-integration), or a [command launcher](#dependencies).
+
+### App
 
 The apps pane comes prepopulated from the existing applications on your system, and can be accessed either through
 
 - `fs :o -w [..FILES]` on the command-line
 - the `open with` [menu action](#menu)
-- or the `App` action (`alt-shift-s`) in-app.
+- or the `App` action (`alt-a`) in-app.
+
+<img src=".README.assets/image-20260227220033390.png" alt="image-20260227220033390" style="width:360px;" />
 
 It can be used to select a launch method for a given set of files (provided through the command line, or saved to the [stash](#stash)).
 
@@ -235,6 +242,8 @@ For more information on any of the panes, run `fs [pane] --help` with the approp
 >
 > Incomplete
 
+<img src=".README.assets/image-20260227222022484.png" alt="image-20260227222022484" style="height:400px;" />
+
 The **Stash** (`ctrl-t`) is a place where actions on items are queued. Within the overlay, stashed item item statuses are visible, and they can be edited, rearranged, removed and executed. Items can also be executed through the [`StackFlush`](#Actions) action.
 
 `Copy` and `Cut` places items on the Stash under the `Copy` and `Cut` stack action types respectively. The `Paste` action executes all stashed `Copy`, `Cut` and `Symlink` tasks, transferring files to their destinations -- the active directory at the time of _execution_ by default.[^7]
@@ -252,6 +261,8 @@ The CAS can be shared or exclusive. The `App` CAS is exclusive: when in this sta
 Custom stack types can be declared in the `[stash]` section of the config, and executed through the same channels as the built-in actions -- the overlay, the [Menu](#Menu), or through the [`FlushStash`](#Actions) action.
 
 ### Filters
+
+<img src=".README.assets/image-20260227223347559.png" alt="image-20260227223347559" style="height:360px;" />
 
 The **Filters overlay** (`ctrl-i`) contains the filtering, sorting, and other pane-specific controls for the displayed results.
 
@@ -304,13 +315,13 @@ The jump+open function (`zz`) is an analogous replacement for [`lessfilter edit`
 Including the `--aliases` flag will add a few simple alias definitions into the initialization:
 
 - [lessfilter](#lessfilter)
-- lz: directory display
-- l: lessfilter (display preset)
-- la: lessfilter (extended preset)
-- ll: lessfilter (info preset)
-- n: edit (lessfilter with edit preset)
-- o: [open](#app)
-- Z: `z`, then navigate
+- `lz`: directory display
+- `l`: lessfilter (display preset)
+- `la`: lessfilter (extended preset)
+- `ll`: lessfilter (info preset)
+- `n`: edit (lessfilter with edit preset)
+- `o`: [open](#app)
+- `Z`: jump (`z`), then navigate
   - In case your shell doesn't support uppercase function names, this one can be renamed like so: `fs :tool shell --aliases --shell csh --nav-name x`.
 - `zf`: recent files history
 
@@ -332,6 +343,8 @@ The lessfilter tool dispatches to 8 presets:
 - open: System open
 - alternate: An extra preset for any use
 - edit: For editing
+
+<img src=".README.assets/image-20260228113456192.png" alt="image-20260228113456192" style="width: 600px;" alt="the info preset, using mediainfo to display metadata on a folder of images" />
 
 Each preset is configured by a rules table; each rule is a pair (Actions, Patterns); and for a given file, the rule whose patterns score the highest is selected -- its actions are invoked on the target file.
 
@@ -367,7 +380,7 @@ preview = [
 
 # When invoking the edit action (in `fist` or through the `n` alias),
 # any file belonging to this category will be opened with the system's default preferred application.
-# Note that since this rule has minimal priority (at most 1), any subsequent rule will override it.
+# Since this rule has minimal priority (at most 1), any subsequent rule will override it.
 edit = [
   [ [ "Open" ], [ "1|cat:document", "1|cat:spreadsheet", "1|cat:email", "1|cat:academic" ] ],
 ]
@@ -406,7 +419,7 @@ A list of all supported types, used by the `-t` parameter of the [find subcomman
 
 ### Liza
 
-Liza is an eza wrapper used internally by the lessfilter/previewer to display directories. It can accessed directly through the [`lz` alias](#aliases).
+Liza is an eza wrapper used internally by the lessfilter/previewer to display directories. It can accessed directly through the `lz` [alias](#additional).
 
 ### Dependencies
 
@@ -414,6 +427,8 @@ Liza is an eza wrapper used internally by the lessfilter/previewer to display di
 
 > [!NOTE]
 > todo
+
+
 
 # Additional
 
@@ -433,7 +448,7 @@ Conversely, fist integrates into [CommandSpace](https://github.com/Squirreljetpa
 
 - The `New` action creates a directory if the target ends with a path seperator[^11].
 
-- The process which runs the command that spawns programs can be relegated to a process manager. For example, using [pueue](https://github.com/Nukesor/pueue):
+- The command that spawns programs can be delegated to a process manager. For example, using [pueue](https://github.com/Nukesor/pueue):
 
 ```toml
 # config.toml

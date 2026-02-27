@@ -43,7 +43,7 @@ impl StashItem {
 
         if matches!(kind, StashAction::Custom) {
             match custom_action_state {
-                CustomStashActionActionState::Symlink => match symlink(src, dst) {
+                CustomStashActionActionState::Symln => match symlink(src, dst) {
                     Ok(()) => {
                         status.state.store(StashItemState::CompleteOk);
                     }

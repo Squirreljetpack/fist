@@ -605,6 +605,13 @@ impl FsPane {
                     let mut files: Vec<PathBuf> = iter.collect();
 
                     match sort {
+                        //                         files.sort_by(|a, b| {
+                        //     a.file_name()
+                        //         .to_string_lossy()
+                        //         .to_lowercase()
+                        //         .cmp(&b.file_name().to_string_lossy().to_lowercase())
+                        // });
+                        // Case sensitive
                         SortOrder::name => files.sort_by(|a, b| a.file_name().cmp(&b.file_name())),
                         SortOrder::mtime => sort_by_mtime(&mut files),
                         SortOrder::size => sort_by_size(&mut files),

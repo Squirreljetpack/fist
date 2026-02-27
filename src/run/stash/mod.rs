@@ -9,7 +9,7 @@ use cli_boilerplate_automation::bath::{PathExt, auto_dest_for_src};
 use crate::{
     abspath::AbsPath,
     cli::paths::__home,
-    run::state::{GLOBAL, TASKS},
+    run::state::{GLOBAL, TASKS, TlsStore},
 };
 
 #[derive(Debug)]
@@ -74,15 +74,22 @@ impl StashItem {
 
 /// The state can be toggled in the overlay (TODO)
 #[derive(Debug, Default, Clone, Copy, strum_macros::Display)]
+#[strum(serialize_all = "lowercase")]
 pub enum CustomStashActionActionState {
     #[default]
-    Symlink,
+    Symln,
     Custom(usize),
     // This is different from the other states in being exclusive. When in this state:
     // - non-app actions (including custom-type) are not processed (transferred/cleared/etc.)
     // - non-app actions are not displayed.
     App,
 }
+impl CustomStashActionActionState {
+    pub fn is_exclusive(&self) -> bool {
+        matches!(self, Self::App)
+    }
+}
+
 impl CustomStashActionActionState {
     pub fn cycle(
         &mut self,
@@ -91,7 +98,7 @@ impl CustomStashActionActionState {
     ) {
         *self = if forwards {
             match *self {
-                Self::Symlink => {
+                Self::Symln => {
                     if custom_max > 0 {
                         Self::Custom(0)
                     } else {
@@ -105,23 +112,23 @@ impl CustomStashActionActionState {
                         Self::App
                     }
                 }
-                Self::App => Self::Symlink,
+                Self::App => Self::Symln,
             }
         } else {
             match *self {
-                Self::Symlink => Self::App,
+                Self::Symln => Self::App,
                 Self::Custom(i) => {
                     if i > 0 {
                         Self::Custom(i - 1)
                     } else {
-                        Self::Symlink
+                        Self::Symln
                     }
                 }
                 Self::App => {
                     if custom_max > 0 {
                         Self::Custom(custom_max - 1)
                     } else {
-                        Self::Symlink
+                        Self::Symln
                     }
                 }
             }
@@ -133,7 +140,7 @@ impl CustomStashActionActionState {
 pub type AlternateStashItem = AbsPath;
 pub type CustomStashActionKey = String;
 thread_local! {
-    static MAIN_STASH: RefCell<(SimpleStack, CustomStashActionActionState, Vec<CustomStashActionKey>)> = const { RefCell::new((SimpleStack::new(), CustomStashActionActionState::Symlink, Vec::new())) };
+    static MAIN_STASH: RefCell<(SimpleStack, CustomStashActionActionState, Vec<CustomStashActionKey>)> = const { RefCell::new((SimpleStack::new(), CustomStashActionActionState::Symln, Vec::new())) };
     // note: we don't necessarily just want a path here
     // note: we could support more exclusive stashes variants above which would also be stored here, which are also mututally exclusive
     static ALTERNATE_STASH: RefCell<SimpleStack<AlternateStashItem>> = const { RefCell::new(SimpleStack::new()) };
@@ -143,9 +150,17 @@ pub static STASH_ACTION_HISTORY: Mutex<Vec<StashItem>> = const { Mutex::new(Vec:
 pub struct STASH;
 
 impl STASH {
+    /// Do not push heterogenous item kinds
     pub fn extend(items: impl IntoIterator<Item = StashItem>) {
+        let mut no_exclusive = false;
         for item in items {
+            if !item.is_custom() {
+                no_exclusive = true
+            }
             MAIN_STASH.with_borrow_mut(|s| insert_once(&mut s.0.stack, item, false));
+        }
+        if no_exclusive {
+            STASH::restore_to_nonexclusive_cas();
         }
     }
 
@@ -214,7 +229,18 @@ impl STASH {
         })
     }
 
+    pub fn restore_to_nonexclusive_cas() {
+        MAIN_STASH.with_borrow_mut(|cell| {
+            cell.1 = TlsStore::take().unwrap_or_default(); // always consume (?)
+            if cell.1.is_exclusive() {
+                cell.1 = Default::default()
+            }
+            // if let Some(cas) = TlsStore::get() && !matches!(cas, CustomStashActionActionState::App)
+        });
+    }
+
     pub fn set_cas(state: CustomStashActionActionState) {
+        log::trace!("set cas {state:?}");
         MAIN_STASH.with(|cell| {
             cell.borrow_mut().1 = state;
         });
@@ -229,7 +255,7 @@ impl STASH {
     }
 
     pub fn stashed_apps() -> Vec<OsString> {
-        todo!()
+        ALTERNATE_STASH.with(|cell| cell.borrow_mut().iter().map(|x| x.to_os_string()).collect())
     }
 }
 

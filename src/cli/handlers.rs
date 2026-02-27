@@ -89,9 +89,10 @@ async fn handle_open(
         for path in cmd.files {
             STASH::push_custom(AbsPath::new_unchecked(path));
         }
+        TlsStore::set(CustomStashActionActionState::default());
 
         cfg.global.interface.no_multi_accept = true;
-        let pane = FsPane::new_launch(Default::default());
+        let pane = FsPane::new_launch();
 
         let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
 
@@ -156,7 +157,6 @@ async fn handle_files(
     cmd: FilesCmd,
     cfg: Config,
 ) -> Result<(), CliError> {
-    // _dbg!(cli, cmd, cfg);
     let pane = FsPane::Files {
         sort: cmd.sort,
         input: (cmd.query, 0),
@@ -172,9 +172,8 @@ async fn handle_rg(
     mut cmd: RgCommand,
     mut cfg: Config,
 ) -> Result<(), CliError> {
-    if cmd.vis.is_default() {
-        cmd.vis = cfg.global.panes.search.default_visibility
-    }
+    let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.search.default_visibility);
+
     let sort = cmd.sort.unwrap_or(
         cfg.global
             .panes
@@ -193,7 +192,7 @@ async fn handle_rg(
         let (prog, args) = (
             "rg",
             build_rg_args(
-                cmd.vis.validated(),
+                vis,
                 sort,
                 cmd.context.resolve(),
                 cmd.case.resolve(),
@@ -217,7 +216,7 @@ async fn handle_rg(
 
         let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
             let path = PathBuf::from(line);
-            let push = cmd.vis.post_fd_filter(&path);
+            let push = vis.post_fd_filter(&path);
 
             if push {
                 print(&path, &template, &output_separator)
@@ -232,14 +231,15 @@ async fn handle_rg(
     let pane = FsPane::new_rg_full(
         AbsPath::default(),
         sort,
-        cmd.vis,
+        vis,
         cmd.paths,
         cmd.query,
+        cmd.patterns,
+        cmd.filtering,
         cmd.context.resolve(),
         cmd.case.resolve(),
         no_heading,
         cmd.fixed_strings,
-        cmd.patterns,
         cmd.rg,
     );
 
@@ -329,17 +329,30 @@ async fn handle_default(
     mut cfg: Config,
 ) -> Result<(), CliError> {
     // check input
-    let cli_set_ignore = cmd.vis.ignore;
+    let mut is_default_dir = true;
     if !cmd.types.is_empty() {
-        cmd.vis.dirs = cmd
+        if cmd
             .types
             .iter()
-            .all(|x| matches!(x, FileTypeArg::Type(FileType::Directory)));
-        cmd.vis.files = cmd
+            .all(|x| matches!(x, FileTypeArg::Type(FileType::Directory)))
+        {
+            if cmd.vis.files == Some(false) {
+                wbog!("Overriding vis.dirs to true due to -t d")
+            }
+            cmd.vis.dirs = Some(true)
+        }
+        if cmd
             .types
             .iter()
-            .all(|x| !matches!(x, FileTypeArg::Type(FileType::Directory)));
+            .all(|x| !matches!(x, FileTypeArg::Type(FileType::Directory)))
+        {
+            if cmd.vis.files == Some(false) {
+                wbog!("Overriding vis.files to true due to -t")
+            }
+            cmd.vis.files = Some(true)
+        }
     }
+
     if cmd.cd && cmd.list {
         return Err(CliError::ConflictingFlags("cd", "list"));
     }
@@ -357,7 +370,7 @@ async fn handle_default(
             TlsStore::set(cfg.styles.path.relative);
             cfg.styles.path.relative = false;
         };
-        FsPane::new_stream(AbsPath::new_unchecked(__cwd()), cmd.vis, true)
+        FsPane::new_stream(AbsPath::new_unchecked(__cwd()), cmd.vis.into(), true)
     } else if cmd.cd {
         if !cmd.fd.is_empty() && !cmd.paths.is_empty() {
             wbog!(
@@ -374,14 +387,6 @@ async fn handle_default(
                     .is_some_and(|s| s == MAIN_SEPARATOR_STR || s == "/")
             })
         });
-
-        if cmd.vis.is_default() {
-            cmd.vis = if nav_pane {
-                cfg.global.panes.nav.default_visibility
-            } else {
-                cfg.global.panes.find.default_visibility
-            }
-        }
 
         // determine cwd
         let cwd = if cmd.paths.len() > 1
@@ -433,9 +438,8 @@ async fn handle_default(
         {
             if cmd.paths.is_empty() {
                 cmd.paths.push("..".into())
-            } else if !nav_pane && cfg.global.fd.default_search_ignore && !cli_set_ignore {
-                cmd.vis.ignore = true;
-            }
+            };
+            is_default_dir = true;
 
             // the z shell function passes through here when the last provided argument is ., .. or ./, corresponding to:
             // - `.`: search all directories in default_dir
@@ -455,21 +459,28 @@ async fn handle_default(
         };
 
         if nav_pane {
+            let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.nav.default_visibility);
+
             FsPane::new_nav(
                 cwd,
-                cmd.vis,
+                vis,
                 cmd.sort.unwrap_or(cfg.global.panes.nav.default_sort),
             )
         } else
         // interactively search the best match
         {
-            FsPane::new_fd_from_command(cmd, cwd)
+            FsPane::new_fd_from_command(
+                cmd,
+                is_default_dir,
+                cfg.global.panes.find.default_visibility,
+                cwd,
+            )
         }
     } else if
     // any fd arg is specified
     !cmd.paths.is_empty()
         || !cmd.types.is_empty()
-        || cmd.vis != Visibility::default()
+        || !cmd.vis.is_default()
         || !cmd.fd.is_empty()
     {
         if cmd.vis.is_default() {
@@ -478,10 +489,7 @@ async fn handle_default(
 
         // pattern specified
         let cwd = if cmd.paths.len() == 1 {
-            if cfg.global.fd.default_search_ignore && !cli_set_ignore {
-                cmd.vis.ignore = true;
-            }
-
+            is_default_dir = true;
             // support `..` as a shorthand for 'search (any pattern in) current directory'
             let force_search_in_cwd = cmd.paths[0].cmp_exch("..", ".".into());
 
@@ -526,19 +534,15 @@ async fn handle_default(
 
         if cmd.list {
             // mirror new_fd behavior
-            if auto_enable_hidden(&cmd.paths) {
-                cmd.vis.hidden = true;
+            let mut vis =
+                Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.find.default_visibility);
+            if cmd.vis.hidden.is_none() && auto_enable_hidden(&cmd.paths) {
+                vis.hidden = true;
             }
 
             let (prog, args) = (
                 "fd",
-                build_fd_args(
-                    cmd.vis.validated(),
-                    &cmd.types,
-                    &cmd.paths,
-                    &cmd.fd,
-                    &cfg.global.fd,
-                ),
+                build_fd_args(vis, &cmd.types, &cmd.paths, &cmd.fd, &cfg.global.fd),
             );
 
             let stdout = match Command::new(prog).args(args).spawn_piped()._ebog() {
@@ -552,7 +556,7 @@ async fn handle_default(
 
             let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
                 let path = PathBuf::from(line);
-                let push = cmd.vis.post_fd_filter(&path);
+                let push = vis.post_fd_filter(&path);
 
                 if push {
                     print(&path, &template, &output_separator)
@@ -562,15 +566,18 @@ async fn handle_default(
             return Ok(());
         };
 
-        FsPane::new_fd_from_command(cmd, cwd)
+        FsPane::new_fd_from_command(
+            cmd,
+            is_default_dir,
+            cfg.global.panes.find.default_visibility,
+            cwd,
+        )
     } else {
-        let DefaultCommand { sort, mut vis, .. } = cmd;
-        if vis.is_default() {
-            vis = cfg.global.panes.nav.default_visibility;
-        }
+        let DefaultCommand { sort, .. } = cmd;
+        let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.nav.default_visibility);
 
         if cmd.list {
-            let iter = list_dir(__cwd(), cmd.vis, 1); // cwd is abs so we can add results as unchecked
+            let iter = list_dir(__cwd(), vis, 1); // cwd is abs so we can add results as unchecked
             let sort = sort.unwrap_or_default();
             let template = EnvOpts::with_env(|s| s.output_template.clone());
             let output_separator =
@@ -598,6 +605,8 @@ async fn handle_default(
             }
             return Ok(());
         };
+
+        let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.nav.default_visibility);
         FsPane::new_nav(
             AbsPath::new_unchecked(__cwd()),
             vis,
@@ -614,7 +623,6 @@ async fn handle_tools(
     ToolsCmd { tool, args, .. }: ToolsCmd,
     cfg: Config,
 ) -> Result<(), CliError> {
-    // _dbg!(cli, args, cfg);
     let tool = if let Some(x) = tool {
         x
     } else {
@@ -705,7 +713,6 @@ async fn handle_tools(
                 table,
                 reset,
             } = BumpCommand::parse_from(args);
-            // _dbg!(paths, pattern, count);
 
             if reset {
                 if let Some(table) = table {

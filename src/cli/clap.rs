@@ -11,8 +11,8 @@ use crate::{
     },
     db::DbTable,
 };
-use fist_types::filetypes::FileTypeArg;
-use fist_types::filters::{DbSortOrder, SortOrder, Visibility};
+use fist_types::filters::{DbSortOrder, SortOrder};
+use fist_types::{filetypes::FileTypeArg, filters::PartialVisibility};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -251,7 +251,7 @@ pub struct FilesCmd {
 #[derive(Debug, Parser, Default, Clone)]
 pub struct RgCommand {
     #[command(flatten)]
-    pub vis: Visibility,
+    pub vis: PartialVisibility,
     #[arg(long)]
     pub sort: Option<SortOrder>,
 
@@ -281,6 +281,8 @@ pub struct RgCommand {
     /// Disable fixed string matching
     #[arg(long = "no-fixed-strings", action = ArgAction::SetFalse)]
     pub fixed_strings: bool,
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub filtering: bool,
 
     #[arg(short = '1', hide = true)]
     pub _no_heading_alias: bool,
@@ -306,7 +308,7 @@ pub struct DefaultCommand {
     #[arg(long)]
     pub sort: Option<SortOrder>,
     #[command(flatten)]
-    pub vis: Visibility,
+    pub vis: PartialVisibility,
 
     /// print the first match.
     #[arg(long)]

@@ -8,16 +8,13 @@ use cli_boilerplate_automation::bring::split::join_with_single_quotes;
 use matchmaker::preview::AppendOnly;
 
 use crate::{
-    abspath::AbsPath,
-    cli::DefaultCommand,
-    db::DbSortOrder,
-    find::fd::auto_enable_hidden,
-    run::{item::PathItem, stash::CustomStashActionActionState},
+    abspath::AbsPath, cli::DefaultCommand, db::DbSortOrder, find::fd::auto_enable_hidden,
+    run::item::PathItem,
 };
 use fist_types::{
     When,
     filetypes::FileTypeArg,
-    filters::{SortOrder, Visibility},
+    filters::{PartialVisibility, SortOrder, Visibility},
 };
 
 #[derive(Debug, Clone)]
@@ -82,7 +79,6 @@ pub enum FsPane {
     },
     Apps {
         sort: DbSortOrder,
-        previous_cas: CustomStashActionActionState,
     },
     Nav {
         cwd: AbsPath,
@@ -114,10 +110,9 @@ impl FsPane {
         }
     }
 
-    pub fn new_launch(previous_cas: CustomStashActionActionState) -> Self {
+    pub fn new_launch() -> Self {
         Self::Apps {
             sort: DbSortOrder::frecency,
-            previous_cas,
         }
     }
 
@@ -136,17 +131,21 @@ impl FsPane {
         }
     }
 
+    // default ignore: apply when not explicit in cli -- this can work on the partial
+    // auto_enable hidden: when not explicit in cli
     pub fn new_fd_from_command(
-        mut cmd: DefaultCommand,
+        cmd: DefaultCommand,
+        is_default_dir: bool,
+        default_visibility: PartialVisibility,
         cwd: AbsPath,
     ) -> Self {
-        if auto_enable_hidden(&cmd.paths) {
-            cmd.vis.hidden = true;
+        let mut vis = Visibility::from_cmd_or_cfg(cmd.vis, default_visibility);
+        if cmd.vis.hidden.is_none() && auto_enable_hidden(&cmd.paths) {
+            vis.hidden = true;
         }
 
         let DefaultCommand {
             sort,
-            vis,
             types,
             paths,
             fd,
@@ -183,31 +182,6 @@ impl FsPane {
         }
     }
 
-    pub fn new_rg(
-        cwd: AbsPath,
-        sort: SortOrder,
-        vis: Visibility,
-        [no_heading, fixed_strings]: [bool; 2],
-    ) -> Self {
-        let context = Default::default();
-        let case = Default::default();
-        let paths = vec![cwd.inner()];
-
-        Self::new_rg_full(
-            cwd,
-            sort,
-            vis,
-            paths,
-            String::new(),
-            context,
-            case,
-            no_heading,
-            fixed_strings,
-            vec![],
-            vec![],
-        )
-    }
-
     pub fn new_rg_full(
         cwd: AbsPath,
         sort: SortOrder,
@@ -215,21 +189,19 @@ impl FsPane {
         //
         paths: Vec<PathBuf>,
         query: String,
+        mut patterns: Vec<String>,
+        filtering: bool,
+        //
         context: [usize; 2],
         case: When,
         no_heading: bool,
         fixed_strings: bool,
-        mut patterns: Vec<String>, // enforce nonempty
         //
         rg: Vec<OsString>,
     ) -> Self {
         if patterns.is_empty() {
-            patterns.push(String::new());
+            patterns.push(String::new()); // rg requires at least one pattern
         }
-
-        // let filtering = !(patterns.is_empty() || patterns[0].is_empty());
-        let filtering = true;
-
         Self::Search {
             cwd,
             input: (query, 0),
@@ -313,15 +285,27 @@ impl FsPane {
         // 0 -> always sort
         match self {
             FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. } => 5,
-            FsPane::Search { filtering, .. } => {
+            FsPane::Search {
+                filtering, sort, ..
+            } => {
                 if *filtering {
-                    0
+                    if matches!(sort, SortOrder::none) {
+                        0
+                    } else {
+                        5
+                    }
                 } else {
                     u32::MAX
                 }
             }
             FsPane::Custom { .. } | FsPane::Stream { .. } => 5, // maybe
-            _ => 0,
+            FsPane::Nav { sort, .. } | FsPane::Find { sort, .. } => {
+                if matches!(sort, SortOrder::none) {
+                    0
+                } else {
+                    5
+                }
+            }
         }
     }
 
@@ -331,7 +315,7 @@ impl FsPane {
         // todo: lowpri: allow customizing?
     }
 
-    /// initialize input on new pane
+    /// initialize input on new pane, see [`crate::run::ahandlers::fs_post_reload_new`]
     pub fn get_input(&self) -> String {
         match self {
             FsPane::Custom { input, .. }
@@ -354,6 +338,18 @@ impl FsPane {
                 }
             }
             _ => String::new(),
+        }
+    }
+
+    pub fn vis_mut(&mut self) -> Option<&mut Visibility> {
+        match self {
+            FsPane::Custom { vis, .. }
+            | FsPane::Stream { vis, .. }
+            | FsPane::Find { vis, .. }
+            | FsPane::Search { vis, .. }
+            | FsPane::Nav { vis, .. } => Some(vis),
+
+            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. } => None,
         }
     }
 }

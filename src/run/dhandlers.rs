@@ -1,4 +1,7 @@
-use std::{ffi::OsString, process::Command};
+use std::{
+    ffi::OsString,
+    process::{Command, Stdio},
+};
 
 use cli_boilerplate_automation::{
     bait::TransformExt,
@@ -8,7 +11,7 @@ use cli_boilerplate_automation::{
     env_vars, unwrap,
 };
 use easy_ext::ext;
-use log::{debug, info};
+use log::{debug, info, warn};
 use matchmaker::{
     message::{Event, Interrupt},
     nucleo::Indexed,
@@ -18,9 +21,10 @@ use matchmaker::{
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
+    cli::paths::text_renderer_path,
     run::{
         FsMatchmaker,
-        ahandler::fs_reload,
+        ahandlers::fs_reload,
         item::PathItem,
         pane::FsPane,
         state::{ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, TlsStore},
@@ -145,7 +149,7 @@ impl FsMatchmaker {
                 let mut vars = state.make_env_vars();
                 let preview_cmd = path_formatter(p, state.preview_payload());
                 let extra = env_vars!(
-                    "FZF_PREVIEW_COMMAND" => preview_cmd,
+                    "FS_PREVIEW_COMMAND" => preview_cmd,
                 );
                 vars.extend(extra);
                 if let Some((line, col)) = state.current_raw().and_then(|item| {
@@ -219,7 +223,28 @@ fn execute(
     path: &AbsPath,
     state: &mut MMState<'_, '_>,
 ) -> bool {
-    let cmd = format_path(template.unwrap_or(state.payload()), path);
+    let (template, variant) = if let Some(t) = template {
+        (t, 0)
+    } else if let Some(t) = state.payload().strip_prefix("\0\0\0")
+        && t.len() > 1
+        && let Ok(v) = t[0..1].parse::<u8>()
+    {
+        (&t[1..], v)
+    } else {
+        (state.payload().as_str(), 0u8)
+    };
+
+    // // we need to use the renderer because the first pass of renderer won't render when it sees it is being piped
+    // if let Some(pp) = text_renderer_path().shell_quote() {
+    //     #[cfg(windows)]
+    //     template.push_str(&format!(" | cmd /c \"set PG_LANG=toml && {pp}\" > CON"));
+    //     #[cfg(unix)]
+    //     template.push_str(&format!(" | PG_LANG=toml {pp} > /dev/tty"));
+    // } else {
+    //     wbog!("Pager path could not be decoded, please check your installation's cache directory.")
+    // }
+
+    let cmd = format_path(template, path);
 
     let mut vars = state.make_env_vars();
 
@@ -245,24 +270,100 @@ fn execute(
             vars.push(("SCROLL_LINE".to_string(), p.offset().to_string()));
         }
     }
+    let preview_cmd = format_path(state.preview_payload(), path);
+    vars.push(("FS_PREVIEW_COMMAND".to_string(), preview_cmd));
 
-    if let Some(mut child) = Command::from_script(&cmd)
+    let mut builder = Command::from_script(&cmd);
+
+    builder
         .envs(vars)
         .stdin(tty_or_inherit())
-        .transform_if(c.is_some(), move |x| x.current_dir(c.unwrap()))
-        ._spawn()
-    {
-        match child.wait() {
-            Ok(i) => {
-                info!("Command [{cmd}] exited with {i}");
-                i.success()
+        .transform_if(c.is_some(), move |x| x.current_dir(c.unwrap()));
+
+    // Apply variant-specific configurations
+    match variant {
+        1 => {
+            // Prepare to pipe stdout to another program
+            builder.stdout(Stdio::piped()).stdin(Stdio::null());
+        }
+        2 => {
+            // full detach
+            builder
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .stdin(Stdio::null())
+                .detach();
+        }
+        3 => {
+            // Silence but don't detach
+            builder
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .stdin(Stdio::null());
+        }
+        4 => {
+            // Connect everything to tty (placeholder: i dont see a use case for this)
+            builder
+                .stdout(maybe_tty())
+                .stderr(maybe_tty())
+                .stdin(maybe_tty());
+        }
+
+        _ => {} // As 0
+    }
+
+    if let Some(mut child) = builder._spawn() {
+        match variant {
+            1 => {
+                if let Some(stdout) = child.stdout.take() {
+                    let Some(mut child) = std::process::Command::new(text_renderer_path())
+                        .stdin(stdout)
+                        ._spawn()
+                    else {
+                        warn!("Failed to spawn pager: {:?}", text_renderer_path());
+                        return false;
+                    };
+
+                    match child.wait() {
+                        Ok(i) => {
+                            info!("Command [{cmd}] exited with {i}");
+                            i.success()
+                        }
+                        Err(e) => {
+                            info!("Failed to wait on command [{cmd}]: {e}");
+                            false
+                        }
+                    }
+                } else {
+                    false
+                }
             }
-            Err(e) => {
-                info!("Failed to wait on command [{cmd}]: {e}");
-                false
+            2 => true,
+            _ => {
+                // Variant 0 and 2 logic: Just wait for the primary child
+                match child.wait() {
+                    Ok(i) => {
+                        info!("Command [{cmd}] exited with {i}");
+                        i.success()
+                    }
+                    Err(e) => {
+                        info!("Failed to wait on command [{cmd}]: {e}");
+                        false
+                    }
+                }
             }
         }
     } else {
         false
+    }
+}
+
+fn maybe_tty() -> Stdio {
+    if let Ok(tty) = std::fs::File::open("/dev/tty") {
+        // let _ = std::io::Write::flush(&mut tty); // does nothing but seems logical
+        Stdio::from(tty)
+    } else {
+        log::error!("Failed to open /dev/tty");
+        Stdio::inherit()
     }
 }

@@ -168,6 +168,26 @@ _fs() {
                     COMPREPLY=($(compgen -W "name mtime none size" -- "${cur}"))
                     return 0
                     ;;
+                -h)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -I)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -a)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -F)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -f)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
                 --types)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -342,12 +362,32 @@ _fs() {
             return 0
             ;;
         fs__:rg)
-            opts="-h -I -a -F -f -p -i -s -S -A -B -C -1 --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --no-heading --no-fixed-strings --list --query --help --verbosity --override --config --mm-config --style --fullscreen [PATTERNS]... [RG_ARGS]..."
+            opts="-h -I -a -F -f -p -i -s -S -A -B -C -1 --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --no-heading --no-fixed-strings --filtering --list --query --help --verbosity --override --config --mm-config --style --fullscreen [PATTERNS]... [RG_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                -h)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -I)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -a)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -F)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -f)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
                 --sort)
                     COMPREPLY=($(compgen -W "name mtime none size" -- "${cur}"))
                     return 0

@@ -128,7 +128,6 @@ pub fn handle(
                 } else if is_metadata(&prog) {
                     paths.iter().all(|p| show_metadata(p, i == 0))
                 } else {
-                    log::debug!("Executing: {prog:?}");
                     // Handle singleton execution
                     if !no_exec && Some(pi) == pl && i == rl {
                         let mut cmd = Command::new(prog.remove(0))

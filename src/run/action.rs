@@ -21,7 +21,7 @@ use crate::{
     clipboard::{copy_files, copy_paths_as_text},
     lessfilter::Preset,
     run::{
-        ahandler::{enter_dir_pane, enter_prompt, fs_reload},
+        ahandlers::{enter_dir_pane, enter_prompt, fs_reload},
         item::short_display,
         pane::FsPane,
         stash::{STASH, StashItem},
@@ -115,7 +115,8 @@ pub enum FsAction {
         header: When,
         special: u8,
     },
-
+    // Execute
+    Execute(String, usize),
     // Nonbindable
     // ----------------------------------
     EnterPrompt(bool),
@@ -290,7 +291,9 @@ pub fn fsaction_aliaser(
             }
 
             //  ------------- Overlay aliases --------------
-            FsAction::Stash | FsAction::Filters | FsAction::Menu if raw_input => {
+            FsAction::Stash | FsAction::Filters | FsAction::Menu
+                if state.overlay_index().is_some() =>
+            {
                 acs![fa]
             }
             FsAction::Stash => {
@@ -543,13 +546,41 @@ pub fn fsaction_handler(
                 let (content, index) = state.get_content_and_index();
                 STACK::save_input(content, index);
 
-                // let mut vis = FILTERS::visibility(); // todo: merge instead of overwrite
-                let vis = GLOBAL::with_cfg(|cfg| cfg.panes.search.default_visibility);
-
-                let opts =
+                let [no_heading, fixed_strings] =
                     GLOBAL::with_cfg(|c| [c.panes.search.no_heading, c.panes.search.fixed_strings]);
-                let pane =
-                    FsPane::new_rg(STACK::cwd().unwrap_or_default(), FILTERS::sort(), vis, opts);
+
+                let cwd = STACK::cwd().unwrap_or_default();
+
+                //
+                let paths = vec![cwd.inner()];
+                let query = String::new();
+                let filtering = true;
+                let patterns = if GLOBAL::with_cfg(|c| c.panes.search.search_empty_query) {
+                    vec!["".into()]
+                } else {
+                    vec![]
+                };
+
+                // let filtering = !(patterns.is_empty() || patterns[0].is_empty());
+                let context = Default::default();
+                let case = Default::default();
+
+                let pane = FsPane::new_rg_full(
+                    cwd,
+                    FILTERS::sort(),
+                    FILTERS::visibility(),
+                    //
+                    paths,
+                    String::new(),
+                    patterns,
+                    filtering,
+                    //
+                    context,
+                    case,
+                    no_heading,
+                    fixed_strings,
+                    vec![],
+                );
                 STACK::push(pane);
                 fs_reload(state, true);
             }
@@ -560,7 +591,9 @@ pub fn fsaction_handler(
             let (content, index) = state.get_content_and_index();
             STACK::save_input(content, index);
 
-            let pane = FsPane::new_launch(STASH::cas());
+            TlsStore::set(STASH::cas());
+
+            let pane = FsPane::new_launch();
             if STACK::set_or_push(pane) {
                 fs_reload(state, true);
             } else {
@@ -838,19 +871,9 @@ pub fn fsaction_handler(
                     };
                     if !in_prompt {
                         if vis.dirs {
-                            state.picker_ui.input.prompt = Span::styled(
-                                "d: ",
-                                Style::default()
-                                    .fg(Color::Blue)
-                                    .add_modifier(Modifier::ITALIC),
-                            );
+                            state.picker_ui.input.prompt = Span::styled("d: ", prompt_main_style());
                         } else if vis.files {
-                            state.picker_ui.input.prompt = Span::styled(
-                                "f: ",
-                                Style::default()
-                                    .fg(Color::Blue)
-                                    .add_modifier(Modifier::ITALIC),
-                            );
+                            state.picker_ui.input.prompt = Span::styled("f: ", prompt_main_style());
                         } else {
                             state.picker_ui.input.reset_prompt();
                         }
@@ -920,6 +943,13 @@ pub fn fsaction_handler(
                     )
                 }
             }
+
+            state.set_interrupt(Interrupt::Execute, template);
+        } // todo: use a special sequence to communicate to handler whether to pipe/silent or detach
+
+        FsAction::Execute(mut template, v) => {
+            let prefix = format!("\0\0\0{}", v);
+            template.insert_str(0, &prefix);
 
             state.set_interrupt(Interrupt::Execute, template);
         }
@@ -1062,7 +1092,18 @@ macro_rules! enum_from_str_display {
                             preset.push('|')
                         };
                         write!(f, "Lessfilter({preset})")
+                    },
+                    Execute(s, u) => {
+                        match u {
+                            0 => write!(f, "Execute({})", s),
+                            1 => write!(f, "ExecutePaged({})", s),
+                            2 => write!(f, "ExecuteDetached({})", s),
+                            3 => write!(f, "ExecuteSilent({})", s),
+                            4 => write!(f, "ExecuteTTY({})", s),
+                            _ => write!(f, "Execute({})", s),
+                        }
                     }
+
                     /* ------------------------------------- */
                 }
             }
@@ -1145,6 +1186,28 @@ macro_rules! enum_from_str_display {
                         let header = When::default();
                         Ok(Self::Lessfilter { preset, paging, header, special: Default::default() })
                     }
+                    "Execute" => {
+                        let cmd = data.ok_or_else(|| "Missing command for Execute")?;
+                        Ok(Self::Execute(cmd.into(), 0))
+                    }
+                    "ExecutePaged" => {
+                        let cmd = data.ok_or_else(|| "Missing command for ExecutePaged")?;
+                        Ok(Self::Execute(cmd.into(), 1))
+                    }
+
+                    "ExecuteDetached" => {
+                        let cmd = data.ok_or_else(|| "Missing command for ExecuteDetached")?;
+                        Ok(Self::Execute(cmd.into(), 2))
+                    }
+                    "ExecuteSilent" => {
+                        let cmd = data.ok_or_else(|| "Missing command for ExecuteSilent")?;
+                        Ok(Self::Execute(cmd.into(), 3))
+                    }
+                    "ExecuteTTY" => {
+                        let cmd = data.ok_or_else(|| "Missing command for ExecuteTTY")?;
+                        Ok(Self::Execute(cmd.into(), 4))
+                    }
+
                     /* ------------------------------------- */
 
                     _ => Err(format!("Unknown action {}", s)),
@@ -1154,3 +1217,9 @@ macro_rules! enum_from_str_display {
     };
 }
 use enum_from_str_display;
+
+pub fn prompt_main_style() -> Style {
+    Style::default()
+        .fg(Color::Blue)
+        .add_modifier(Modifier::ITALIC)
+}
