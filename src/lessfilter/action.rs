@@ -9,7 +9,7 @@ use crate::arr;
 use crate::cli::paths::{current_exe, show_error_path, text_renderer_path};
 use crate::lessfilter::Preset;
 use crate::lessfilter::helpers::{
-    header_viewer, image_viewer, infer_editor, infer_visual, metadata_viewer,
+    simple_header, image_viewer, infer_editor, infer_visual, simple_metadata,
 };
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, serde::Serialize)]
@@ -90,7 +90,7 @@ impl Action {
                 ),
                 Preset::Extended => (
                     arr![
-                        header_viewer(path),
+                        simple_header(path),
                         vec_![: current_exe(), ":tool", "liza", ":sba", path]
                     ],
                     [true, false, true],
@@ -114,13 +114,13 @@ impl Action {
                 // but using our app header is more consistent
                 Preset::Extended => (
                     arr![
-                        header_viewer(path),
+                        simple_header(path),
                         vec_![: text_renderer_path(), path],
-                        metadata_viewer(path)
+                        simple_metadata(path)
                     ],
                     [true, false, false],
                 ),
-                Preset::Info => (arr![metadata_viewer(path)], [true, false, false]),
+                Preset::Info => (arr![simple_metadata(path)], [true, false, false]),
                 Preset::Edit => (arr![infer_editor(path)], [true, true, false]),
 
                 Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
@@ -131,14 +131,14 @@ impl Action {
                 }
                 Preset::Extended => (
                     arr![
-                        header_viewer(path),
+                        simple_header(path),
                         image_viewer(path),
-                        metadata_viewer(path)
+                        simple_metadata(path)
                     ],
                     [true, false, false],
                 ),
                 Preset::Info => (
-                    arr![header_viewer(path), metadata_viewer(path)],
+                    arr![simple_header(path), simple_metadata(path)],
                     [true, false, false],
                 ),
                 Preset::Edit => (
@@ -150,13 +150,13 @@ impl Action {
 
             Action::Metadata => match preset {
                 Preset::Extended => (
-                    arr![header_viewer(path), metadata_viewer(path)],
+                    arr![simple_header(path), simple_metadata(path)],
                     [true, false, false],
                 ),
                 Preset::Info => (
                     arr![
                         vec_![: current_exe(), ":tool", "liza", ":l", path],
-                        metadata_viewer(path)
+                        simple_metadata(path)
                     ],
                     [true, false, true],
                 ),
@@ -164,14 +164,14 @@ impl Action {
                     arr![vec_![: show_error_path(), "No handler configured."]],
                     [true, false, false],
                 ),
-                _ => (arr![metadata_viewer(path)], [true, false, false]),
+                _ => (arr![simple_metadata(path)], [true, false, false]),
             },
 
             Action::Open => (
                 arr![vec_![: current_exe(), ":open", "--", path]],
                 [false, false, false],
             ),
-            Action::Header => (arr![header_viewer(path)], [true, false, false]),
+            Action::Header => (arr![simple_header(path)], [true, false, false]),
             Action::Custom(_) => unreachable!(),
             Action::Extract => unreachable!(),
             Action::None => (arr![], [false, false, false]),

@@ -1,5 +1,6 @@
 [panes.nav]
-    show_preview = true
+    show_preview       = true
+    default_visibility = { hidden = true }
 
 [panes.find]
     on_leave_unset_dirs_only = true

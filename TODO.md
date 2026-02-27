@@ -140,6 +140,7 @@ Possible Conditions:
 - we have some zsh specific scripts, posix/something crossplatform would be better.
 - aging algorithm
 - prepopulate some directories: trash, desktop, home etc.
+- option to auto-add children and parents of visited directories
 - option for second pass on z jump fail: search children and parents
 
 # Per pane mm/ui configs:

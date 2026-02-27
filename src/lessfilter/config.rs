@@ -104,9 +104,8 @@ impl Default for LessfilterConfig {
 #[serde(default, deny_unknown_fields)]
 pub struct LessfilterSettings {
     pub infer: InferMode,
-    /// A rule pairs pairs a condition with a sequence of actions.
-    /// By default, actions are tried.
-    /// Setting this to true ends the sequence on the first *successful* action.
+    /// This has to do with how a single action can sometimes be multiple command-line programs. This stops execution when any fail -- do not set.
+    #[serde(skip)]
     pub early_exit: bool,
 }
 

@@ -51,7 +51,6 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(shift-delete) => FsAction::Delete,
 
         key!(ctrl-v) => FsAction::Paste("".into()),
-        key!(alt-b) => FsAction::Backup, // TODO
 
         // these behave the same on the prompt
         key!(ctrl-x) => FsAction::Cut,
@@ -61,14 +60,15 @@ pub fn default_binds() -> BindMap<FsAction> {
 
         // preview
         key!('?') => Action::Preview(Preset::Preview.to_command_string(When::Auto)),
-        key!(alt - '/') => Action::Preview(Preset::Display.to_command_string(When::Always)),
+        key!(alt - '/') => Action::Preview(Preset::Info.to_command_string(When::Auto)),
+        key!(alt - shift - '/') => Action::Preview(Preset::Display.to_command_string(When::Always)),
         key!(ctrl-shift-h), key!(shift-cmd-h) => FsAction::help(),
         // spawning
         key!(ctrl-esc) => Action::Execute("$SHELL".into()),
 
         // lessfilter
+        key!(ctrl-q)  => FsAction::new_lessfilter(Preset::Edit, false), // This one acts on the parent directory if a file is selected. The edit preset acting on a directory uses $VISUAL.
         key!(ctrl-b) , key!(ctrl-enter) => FsAction::new_lessfilter(Preset::Open, false),
-        key!(alt-b)  => FsAction::new_lessfilter(Preset::Edit, false),
         key!(ctrl-l) => FsAction::new_lessfilter(Preset::Preview, true),
         key!(alt-l)  => FsAction::new_lessfilter(Preset::Extended, true),
 

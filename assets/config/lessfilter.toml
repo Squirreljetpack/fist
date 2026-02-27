@@ -56,10 +56,16 @@
   ]
 
   # the 'la' alias
-  extended = [  ]
+  extended = [
+  ]
 
   # the 'll' alias
-  info = [  ]
+  info = [
+    [
+      [ "mediainfo" ],
+      [ "image/*", "cat:image", "cat:video", "cat:audio", "cat:lossless", "cat:diagram", "cat:model", "have:mediainfo" ],
+    ],
+  ]
 
   # opener
   open = [  ] #  Metadata, Image, Text, Extract all defer to fs: open in this preset and the next
@@ -82,3 +88,5 @@ EOF
     echo
 done
 '''
+
+  mediainfo = 'mediainfo {}'

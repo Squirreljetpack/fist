@@ -23,7 +23,7 @@ use crate::{
         ahandler::fs_reload,
         item::PathItem,
         pane::FsPane,
-        state::{ExecuteHandlerShouldProcessCwd, FILTERS, GLOBAL, STACK, TlsStore},
+        state::{ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, TlsStore},
     },
     utils::formatter::format_path,
 };
@@ -111,12 +111,18 @@ impl FsMatchmaker {
         self.register_interrupt_handler(Interrupt::Execute, move |state| {
             let template = state.payload();
             if !template.is_empty() {
-                let path = unwrap!(if state.picker_ui.results.cursor_disabled
-                    || TlsStore::take::<ExecuteHandlerShouldProcessCwd>().is_some()
-                {
+                let path = unwrap!(if state.picker_ui.results.cursor_disabled {
                     STACK::cwd()
                 } else {
-                    state.current_raw().map(|t| t.inner.path.clone())
+                    state.current_raw().map(|t| {
+                        if TlsStore::take::<ExecuteHandlerShouldProcessParent>().is_some()
+                            && let Some(p) = t.inner.path.parent()
+                        {
+                            AbsPath::new_unchecked(p)
+                        } else {
+                            t.inner.path.clone()
+                        }
+                    })
                 });
                 if execute(None, &path, state) {
                     GLOBAL::db().bump(path.is_dir(), path);

@@ -32,7 +32,7 @@ Call as:
 - `Enter`: Default (system) open.
   - `Alt-Enter`: Print / Alternate open.
   - `Ctrl-Enter`: Open in background.
-  - `alt-b`: Edit folder
+  - `ctrl-q`: Open folder in editor.
 
 ---
 
@@ -55,8 +55,9 @@ Call as:
 - `Tab`: Toggle select.
 - `alt-enter`: Print.
 - `?`: toggle preview.
-- `ctrl-l`: Full preview.
-- `alt-l`: Extended preview.
+- `alt-/`: toggle informative preview.
+- `ctrl-l`: Maximize preview.
+- `alt-l`: Maximize extended preview.
 - `/` and `~`: Jump to home
 
 For a full list of binds, press `ctrl-shift-h` within the app. [^1]
@@ -67,7 +68,7 @@ For a full list of binds, press `ctrl-shift-h` within the app. [^1]
 
 ### Nav
 
-To begin: call `fs` without any positional arguments.
+To begin, call `fs` without any positional arguments.
 
 When inside the app, you can enter this pane by pressing the left/right arrow keys (corresponding to the `Parent`/ `Advance` actions).
 
