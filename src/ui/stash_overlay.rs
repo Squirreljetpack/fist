@@ -1,38 +1,30 @@
 use crate::{
     cli::paths::__home,
-    find::size::{format_size, sort_by_size},
+    find::size::format_size,
     run::{
         action::FsAction,
         stash::{
-            AlternateStashItem, CustomStashActionActionState, STASH, StashAction, StashItem,
-            StashItemState, StashItemStatus,
+            AlternateStashItem, CustomStashActionActionState, STASH, StashItem, StashItemState,
+            StashItemStatus,
         },
         state::STACK,
     },
     utils::serde::border_result,
 };
 
-use cli_boilerplate_automation::{
-    bath::PathExt, bring::StrExt, bum::Float32Ext, define_transparent_wrapper, vec_,
-};
+use cli_boilerplate_automation::{bath::PathExt, bring::StrExt, bum::Float32Ext};
 use matchmaker::{
     action::Action,
-    config::{self, BorderSetting, PartialBorderSetting},
+    config::{BorderSetting, PartialBorderSetting},
     ui::{Overlay, OverlayEffect, SizeHint},
 };
 use ratatui::{
     prelude::*,
-    widgets::{
-        Block, BorderType, Borders, Cell, Clear, HighlightSpacing, Paragraph, Row, Table,
-        TableState,
-    },
+    widgets::{Cell, Clear, Paragraph, Row, Table, TableState},
 };
 use unicode_width::UnicodeWidthStr;
 
-use std::{
-    fmt::Alignment,
-    sync::atomic::{AtomicBool, AtomicU8, Ordering},
-};
+use std::{fmt::Alignment, sync::atomic::Ordering};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -278,7 +270,7 @@ impl Overlay for StashOverlay {
             let pref_width = (pref_width + self.border().width())
                 .max((ui_area.width.saturating_sub(2)).min(20))
                 .min(ui_area.width * 9 / 10);
-            let pref_height = (1 + pref_height + self.border().height());
+            let pref_height = 1 + pref_height + self.border().height();
 
             Err([pref_width.into(), SizeHint::Min(pref_height)])
         } else {
@@ -379,12 +371,6 @@ impl Overlay for StashOverlay {
                     todo!()
                 }
                 Action::ForwardChar => {
-                    todo!()
-                }
-                Action::BackwardWord => {
-                    todo!()
-                }
-                Action::BackwardWord => {
                     todo!()
                 }
                 Action::DeleteChar => {
@@ -517,7 +503,7 @@ impl StashItemStatus {
         let style = match state {
             StashItemState::Pending => Style::default(),
             StashItemState::Started => {
-                let percent = (progress as f32 / 255.0);
+                let percent = progress as f32 / 255.0;
                 let mut text =
                     format!("{:5.2}%", percent * 100.0).pad_to(10, std::fmt::Alignment::Center);
                 let (left, right) = if percent == 1.0 {

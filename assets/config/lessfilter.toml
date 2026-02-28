@@ -10,8 +10,7 @@
 # ----------
 # Add: +{value}|{rule},
 # Sub: -{value}|{rule},
-# Max: >{value}|{rule},
-# Max: {value}|{rule},
+# Max: >{value}|{rule}, {value}|{rule},
 # Min: <{value}|{rule},
 # Req: ^|{rule},
 # Default Score: {rule},

@@ -317,15 +317,19 @@ pub fn fsaction_aliaser(
 
             // todo: support post-creation actions
             FsAction::New => {
-                if let Some(cwd) = STACK::nav_cwd()
-                    && state.overlay_index().is_none()
-                {
-                    TlsStore::set_input_bar(Some(PromptKind::NewDir), MenuTarget::Cwd(cwd));
-                    acs![Action::Overlay(2)]
+                if state.overlay_index().is_some() {
+                    return acs![];
                 }
                 // no support for creating outside of nav
-                else {
-                    acs![fa]
+                if let Some(p) = state.current_raw() {
+                    let p = p.path._parent();
+                    TlsStore::set_input_bar(Some(PromptKind::NewDir), MenuTarget::Cwd(p));
+                    acs![Action::Overlay(2)]
+                } else if let Some(cwd) = STACK::nav_cwd() {
+                    TlsStore::set_input_bar(Some(PromptKind::NewDir), MenuTarget::Cwd(cwd));
+                    acs![Action::Overlay(2)]
+                } else {
+                    acs![]
                 }
             }
             // FsAction::NewDir => {

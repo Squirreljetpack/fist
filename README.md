@@ -56,9 +56,9 @@ Call as:
 - `Tab`: Toggle select.
 - `alt-enter`: Print.
 - `?`: toggle preview.
-- `alt-/`: toggle informative preview.
+- `alt-/`: toggle [informative](#Lessfilter) preview.
 - `ctrl-l`: Maximize preview.
-- `alt-l`: Maximize extended preview.
+- `alt-l`: Maximize [extended](#Lessfilter) preview.
 - `/` and `~`: Jump to home
 - `ctrl-[1-9]`: Autojump to item
 - `ctrl-0`: Autojump to prompt
@@ -91,7 +91,7 @@ You can search through all files recursively by
 
 <img src=".README.assets/image-20260227223347559.png" alt="image-20260227223347559" style="height:412px;" />
 
-The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Filters overlay](#Filters)
+The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Filters overlay](#Filters).
 
 > [!NOTE]
 >
@@ -204,7 +204,9 @@ uri() {
 fs :o "obsidian://open?path=$(uri $1)"
 ```
 
-<img src=".README.assets/image-20260228112637463.png" alt="image-20260228112637463" style="width:411px;" />
+
+
+<img src=".README.assets/image-20260228112637463.png" alt="image-20260228112637463" style="height:160px;" /> <img src=".README.assets/image-20260228151634342.png" alt="creating a new note" style="height:160px" />
 
 ### History
 
@@ -244,19 +246,19 @@ For more information on any of the panes, run `fs [pane] --help` with the approp
 
 <img src=".README.assets/image-20260227222022484.png" alt="image-20260227222022484" style="height:400px;" />
 
-The **Stash** (`ctrl-t`) is a place where actions on items are queued. Within the overlay, stashed item item statuses are visible, and they can be edited, rearranged, removed and executed. Items can also be executed through the [`StackFlush`](#Actions) action.
+The **Stash** (`ctrl-t`) is a place where actions on items are queued. Within the overlay, stashed item item statuses are visible, and they can be edited, rearranged, removed and executed. Items can also be executed through the [`Paste`] or [`StackFlush`](#Actions) actions.
 
 `Copy` and `Cut` places items on the Stash under the `Copy` and `Cut` stack action types respectively. The `Paste` action executes all stashed `Copy`, `Cut` and `Symlink` tasks, transferring files to their destinations -- the active directory at the time of _execution_ by default.[^7]
 
 `Push` (`alt-s`) places items on the stack under the **Custom** type. When executed, its effect depends on the currently set [Custom Action Type](#CAS).
 
-[^7]: Although safeguards exist to keep these alive and prevent data loss during normal application execution and shutdown, if reliability is absolutely crucial you may consider defining custom actions to perform, manage and monitor these actions externally.
+[^7]: Although safeguards exist to keep these alive and prevent data loss during normal application execution and shutdown, if reliability is crucial it might be safer to define your own custom actions to perform, manage and monitor these actions externally. Ideas and contributions in this area are welcome!
 
 ##### _CAS_
 
-All custom-type actions display their action in the stash as the current Custom Action State (_CAS_), which can be toggled when in the Stash overlay using [`Undo/Redo`](#Actions). The default state is `Symlink`.
+All custom-type actions display their action in the stash as the current Custom Action State (CAS), which can be toggled when in the Stash overlay using [`Undo/Redo`](#Actions). The default state is `Symlink`.
 
-The CAS can be shared or exclusive. The `App` CAS is exclusive: when in this state, stash actions (such as [`ClearStash`](#Actions)) only affect the `App` stash, and only `App` items are shown in the overlay. The symlink action is inclusive: it is shared with other actions, and shown with them together.
+The CAS can be shared or exclusive. The `App` CAS is exclusive: when in this state, stash actions (such as [`ClearStash`](#Actions)) only affect the `App` stash, and only `App` items are shown in the overlay. The symlink action is inclusive: it is shown and executed together with the other (`Copy` and `Cut`) actions.
 
 Custom stack types can be declared in the `[stash]` section of the config, and executed through the same channels as the built-in actions -- the overlay, the [Menu](#Menu), or through the [`FlushStash`](#Actions) action.
 
@@ -290,7 +292,7 @@ Only zsh is supported for now.
 
 The output of `fs :tool shell` will, when sourced, provide the jump and jump+open functions:
 
-The jump function (`z`) is a replacement for `cd`, except that incomplete queries are matched to a most likely destination drawn from the unified f:ist database.
+The jump function (`z`) is a replacement for `cd`, except that incomplete queries are matched to a most likely destination drawn from the unified f:ist database. This behavior closely mirrors that of [zoxide](https://github.com/ajeetdsouza/zoxide).
 
 > [!NOTE]
 >
@@ -298,13 +300,11 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 >
 > - the only argument is a valid path: `cd`.
 > - no arguments: interactively select from history.
-> - last argument is `.` : interactively search subdirectories of the best match.[^8]
+> - last argument is `.` : interactively search subdirectories of the best match.
 > - otherwise: cd into the best match for the search term (if one exists).[^9]
 >
 > One final change from zoxide is the introduction of the `history.refind` setting in the [config](#configuration).
 > When no match is found, or when the top result is the current directory, this setting causes the the interactive interface to be started.
-
-[^8]: This mirrors the behavior of [zoxide](https://github.com/ajeetdsouza/zoxide)
 
 [^9]: There is one final case: if the last argument is `./`: z interactively navigates the best match. If you have [aliases](#aliases) enabled, this is also just `Z`.
 
@@ -346,7 +346,7 @@ The lessfilter tool dispatches to 8 presets:
 
 <img src=".README.assets/image-20260228113456192.png" alt="image-20260228113456192" style="width: 600px;" alt="the info preset, using mediainfo to display metadata on a folder of images" />
 
-Each preset is configured by a rules table; each rule is a pair (Actions, Patterns); and for a given file, the rule whose patterns score the highest is selected -- its actions are invoked on the target file.
+Each preset is configured by a rules table in the [config file](#https://github.com/Squirreljetpack/fist/blob/main/assets/config/lessfilter.toml). Each rule is a pair (Actions, Patterns), and for a given file, the rule whose patterns score the highest is selected -- its actions are invoked on the target file.
 
 The patterns can be prefixed with a score modifier which dictates how the score is modified by a successful match of the pattern - if this is omitted, the default score modifier for the pattern is used.
 

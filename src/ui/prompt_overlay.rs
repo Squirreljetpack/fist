@@ -1,19 +1,14 @@
-use std::cell::RefCell;
-
 use crate::run::action::FsAction;
-use cli_boilerplate_automation::{auto_impl, define_transparent_wrapper};
+use cli_boilerplate_automation::auto_impl;
 use matchmaker::{
     action::Action,
-    config::{BorderSetting, InputConfig},
+    config::{BorderSetting, InputConfig, Percentage},
     ui::{Overlay, OverlayEffect, SizeHint},
 };
 use ratatui::{
-    layout::{Position, Rect},
-    style::Stylize,
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    layout::Rect,
+    widgets::{Borders, Clear},
 };
-use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
 use matchmaker::ui::InputUI;
@@ -89,26 +84,24 @@ impl PromptOverlay {
         ui_area: &Rect,
     ) -> Rect {
         let height = self.config.border.height() + 1;
-        let width = (ui_area.width * 8 / 10)
-            .max(self.input.width() as u16)
-            .clamp(12, 70);
-        let y = ui_area.y + (ui_area.height.saturating_sub(height + 16)) / 2;
-
-        if width < ui_area.width {
-            Rect {
-                x: (ui_area.width - width) / 2,
-                y,
-                width,
-                height,
-            }
+        let width = if (ui_area.width * 7 / 10) < self.input.width() as u16 {
+            (self.input.width() as u16)
+                .min(ui_area.width.saturating_sub(self.config.border.width() + 2))
         } else {
-            // left align, not center
-            Rect {
-                x: 1,
-                y,
-                width: width.min(ui_area.width - 2),
-                height,
-            }
+            (ui_area.width * 7 / 10).min(70)
+        };
+
+        let available_height = ui_area.height.saturating_sub(height);
+        let offset =
+            available_height / 2 - Percentage::new(20).compute_clamped(available_height, 0, 0);
+
+        let y = ui_area.y + offset;
+
+        Rect {
+            x: (ui_area.width - width) / 2,
+            y,
+            width,
+            height,
         }
     }
 }

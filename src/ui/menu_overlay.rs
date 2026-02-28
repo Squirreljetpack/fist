@@ -1,12 +1,10 @@
 use crate::{
     abspath::AbsPath,
-    cli::paths::__cwd,
-    fs::{auto_dest, create_all, rename},
     run::{
         action::FsAction,
-        item::{PathItem, short_display},
+        item::short_display,
         stash::{CustomStashActionActionState, STASH, StashItem},
-        state::{APP, GLOBAL, STACK, TASKS, TOAST, TlsStore},
+        state::{GLOBAL, STACK, TASKS, TOAST, TlsStore},
     },
     spawn::{menu_action::MenuActions, open_wrapped},
     ui::prompt_overlay::{PromptConfig, PromptOverlay},
@@ -16,10 +14,6 @@ use crate::{
     },
 };
 
-use cli_boilerplate_automation::{
-    bath::{PathExt, RenamePolicy, auto_dest_for_src, root_dir},
-    bog::BogUnwrapExt,
-};
 use matchmaker::{
     action::Action,
     config::{BorderSetting, PartialBorderSetting},
@@ -27,9 +21,8 @@ use matchmaker::{
 };
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, Clear, Padding, Paragraph},
+    widgets::{Borders, Clear, Padding, Paragraph},
 };
-use std::path::Path;
 const MAX_ITEM_WIDTH: u16 = 9;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -57,34 +50,7 @@ impl Default for MenuConfig {
     }
 }
 
-#[derive(Debug, strum::Display, Clone, Copy)]
-pub enum PromptKind {
-    New,
-    #[strum(serialize = "New folder")]
-    NewDir,
-    Rename,
-}
-
-#[derive(Debug)]
-pub enum MenuTarget {
-    Item(PathItem),
-    Cwd(AbsPath),
-}
-impl Default for MenuTarget {
-    fn default() -> Self {
-        Self::Cwd(AbsPath::empty())
-    }
-}
-impl MenuTarget {
-    pub fn title(&self) -> Option<String> {
-        match self {
-            Item(s) => Some(s.path.basename()),
-            _ => None,
-        }
-    }
-}
-
-use MenuTarget::*;
+pub use super::menu_overlay_impl::*;
 
 /// MenuItem enum with stateless action
 #[derive(Clone)]
@@ -211,13 +177,13 @@ impl MenuItem {
 
 /// The main MenuOverlay
 pub struct MenuOverlay {
-    cursor: usize,
-    config: MenuConfig,
-    prompt_kind: Option<PromptKind>,
-    prompt: PromptOverlay,
+    pub cursor: usize,
+    pub config: MenuConfig,
+    pub prompt_kind: Option<PromptKind>,
+    pub prompt: PromptOverlay,
     /// See [TEMP::set_input_bar]
-    target: MenuTarget,
-    items: Vec<MenuItem>,
+    pub target: MenuTarget,
+    pub items: Vec<MenuItem>,
 }
 
 pub static MENU_ITEMS: [MenuItem; 8] = [
@@ -275,19 +241,6 @@ impl MenuOverlay {
         Paragraph::new(lines).block(self.border().as_block())
     }
 
-    fn target_path(&self) -> AbsPath {
-        match &self.target {
-            Item(p) => p.path.clone(),
-            Cwd(p) => p.clone(),
-        }
-    }
-    fn target_parent(&self) -> AbsPath {
-        match &self.target {
-            Item(p) => p.path._parent(),
-            Cwd(p) => p.clone(),
-        }
-    }
-
     fn set_prompt(
         &mut self,
         prompt: PromptKind,
@@ -307,10 +260,8 @@ impl MenuOverlay {
     ) -> OverlayEffect {
         if let Some(item) = MenuItem::from_key(c) {
             let action_result = match &self.target {
-                Item(target) => item.action(target.path.clone()),
-                Cwd(_) => {
-                    todo!()
-                }
+                MenuTarget::Item(target) => item.action(target.path.clone()),
+                MenuTarget::Cwd(target) => item.action(target.clone()),
             };
             match action_result {
                 Ok((prompt, extra)) => {
@@ -327,108 +278,12 @@ impl MenuOverlay {
         }
     }
 
-    fn on_prompt_accept(
-        &mut self,
-        prompt: PromptKind,
-    ) -> OverlayEffect {
-        match prompt {
-            PromptKind::New => {
-                let current_item_parent = self.target_parent();
-                let input_path = Path::new(&self.prompt.input);
-                let dest = auto_dest(input_path, &current_item_parent); // replaced if input is absolute
-                let dest_slice = [dest];
-
-                TASKS::spawn(async move {
-                    match create_all(&dest_slice).await {
-                        Ok(_) => {
-                            let dest_path = match &dest_slice[0] {
-                                Ok(p) | Err(p) => p,
-                            };
-                            TOAST::push(ToastStyle::Success, "New: ", [short_display(dest_path)]);
-                        }
-                        Err(_) => {
-                            let dest_path = match &dest_slice[0] {
-                                Ok(p) | Err(p) => p,
-                            };
-                            TOAST::push(
-                                ToastStyle::Error,
-                                "Failed to create: ",
-                                [short_display(dest_path)],
-                            );
-                        }
-                    }
-                });
-            }
-            PromptKind::NewDir => {
-                let current_item_parent = self.target_parent();
-                let input_path = Path::new(&self.prompt.input);
-                let dest = AbsPath::new_unchecked(input_path.abs(current_item_parent));
-
-                TASKS::spawn(async move {
-                    match std::fs::create_dir_all(&dest) {
-                        Ok(_) => {
-                            TOAST::push(ToastStyle::Success, "New: ", [short_display(&dest)]);
-                        }
-                        Err(_) => {
-                            TOAST::push(
-                                ToastStyle::Error,
-                                "Failed to create: ",
-                                [short_display(&dest)],
-                            );
-                        }
-                    }
-                });
-            }
-            PromptKind::Rename => {
-                let old_path = self.target_path();
-                if old_path.file_name().is_none() {
-                    OverlayEffect::None;
-                }
-                let dest = AbsPath::new_unchecked(
-                    auto_dest_for_src(&old_path, &self.prompt.input, &RenamePolicy::default())
-                        .abs(old_path.parent().unwrap()),
-                );
-
-                if dest == old_path {
-                    TOAST::push_skipped();
-                } else {
-                    TASKS::spawn(async move {
-                        match rename(&old_path, &dest).await {
-                            Ok(_) => {
-                                let new_display = dest.to_string_lossy().to_string().into();
-                                TOAST::push_pair(
-                                    ToastStyle::Success,
-                                    "Renamed: ",
-                                    short_display(&old_path),
-                                    new_display,
-                                );
-                            }
-                            Err(_) => {
-                                TOAST::push(
-                                    ToastStyle::Error,
-                                    "Failed to rename: ",
-                                    [short_display(&old_path)],
-                                );
-                            }
-                        }
-                    });
-                }
-            }
-        }
-
-        self.prompt_kind = None;
-        self.prompt.on_disable();
-        OverlayEffect::Disable
-    }
-
     pub fn accept(&mut self) -> OverlayEffect {
         let item = &self.items[self.cursor];
 
         let action_result = match &self.target {
-            Item(target) => item.action(target.path.clone()),
-            Cwd(_) => {
-                todo!()
-            }
+            MenuTarget::Item(target) => item.action(target.path.clone()),
+            MenuTarget::Cwd(p) => item.action(p.clone()),
         };
         match action_result {
             Ok((prompt, extra)) => {
@@ -495,6 +350,7 @@ impl Overlay for MenuOverlay {
         action: &Action<Self::A>,
     ) -> OverlayEffect {
         if let Some(p) = self.prompt_kind {
+            // defer to prompt
             match self.prompt.handle_action_(action) {
                 None => {}
                 Some(false) => self.prompt_kind = None,
@@ -516,7 +372,7 @@ impl Overlay for MenuOverlay {
         &mut self,
         ui_area: &Rect,
     ) -> Result<Rect, [SizeHint; 2]> {
-        self.prompt.area(ui_area);
+        let _ = self.prompt.area(ui_area);
         Err([
             (MAX_ITEM_WIDTH + self.border().width()).into(),
             (self.items.len() as u16 + self.border().height()).into(),

@@ -4,10 +4,7 @@ use crate::{
         action::FsAction,
         state::{FILTERS, GLOBAL, STACK},
     },
-    utils::{
-        serde::border_result,
-        text::{bold_indices, bold_segments},
-    },
+    utils::{serde::border_result, text::bold_indices},
 };
 
 use cli_boilerplate_automation::bum::UsizeExt;
@@ -20,7 +17,7 @@ use matchmaker::{
 
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::{Clear, Paragraph},
 };
 use strum::IntoEnumIterator;
 
