@@ -6,7 +6,7 @@ use std::{
 };
 
 use cli_boilerplate_automation::bath::PathExt;
-use matchmaker::nucleo::{Color, Render, Span, Style, Text};
+use matchmaker::nucleo::{Color, Line, Render, Span, Style, Text};
 
 use crate::{
     abspath::AbsPath,
@@ -171,15 +171,27 @@ fn render(
     {
         if stripped.is_empty() {
             return {
-                let ret = if cfg.dir_icons {
-                    format!("{} ~", Icons::HOME)
-                } else {
-                    "~".to_string()
-                };
-
                 if cfg.dir_colors {
-                    Text::from(Span::styled(ret, Style::default().fg(Color::Blue)))
+                    let style = Style::default().fg(Color::Blue);
+                    if cfg.dir_icons && cfg.icon_colors {
+                        Text::from(Line::from(vec![
+                            Span::styled(Icons::HOME.to_string(), style),
+                            Span::raw(" ~"),
+                        ]))
+                    } else {
+                        let ret = if cfg.dir_icons {
+                            format!("{} ~", Icons::HOME)
+                        } else {
+                            "~".to_string()
+                        };
+                        Text::from(Span::styled(ret, style))
+                    }
                 } else {
+                    let ret = if cfg.dir_icons {
+                        format!("{} ~", Icons::HOME)
+                    } else {
+                        "~".to_string()
+                    };
                     Text::from(ret)
                 }
             };
@@ -192,31 +204,49 @@ fn render(
 
     match full_path.is_dir() {
         true => {
-            let content = if cfg.dir_icons {
-                format!("{} {}", icon_for_file(full_path), path.to_string_lossy())
-            } else {
-                path.to_string_lossy().to_string()
-            };
-
-            if cfg.dir_colors {
+            let icon = icon_for_file(full_path);
+            let path_str = path.to_string_lossy();
+            let style = if cfg.dir_colors {
                 let style = if full_path.is_symlink() {
                     Style::default().fg(Color::LightCyan)
                 } else {
                     Style::default().fg(Color::Blue)
                 };
-                Text::from(Span::styled(content, style))
+                Some(style)
             } else {
-                Text::from(content)
+                None
+            };
+
+            match style {
+                Some(style) => {
+                    if cfg.dir_icons && cfg.icon_colors {
+                        Text::from(Line::from(vec![
+                            Span::styled(icon.to_string(), style),
+                            Span::raw(format!(" {}", path_str)),
+                        ]))
+                    } else {
+                        let content = if cfg.dir_icons {
+                            format!("{} {}", icon, path_str)
+                        } else {
+                            path_str.to_string()
+                        };
+                        Text::from(Span::styled(content, style))
+                    }
+                }
+                None => {
+                    let content = if cfg.dir_icons {
+                        format!("{} {}", icon, path_str)
+                    } else {
+                        path_str.to_string()
+                    };
+                    Text::from(content)
+                }
             }
         }
         _ => {
-            let content = if cfg.file_icons {
-                format!("{} {}", icon_for_file(full_path), path.to_string_lossy())
-            } else {
-                path.to_string_lossy().to_string()
-            };
-
-            if cfg.file_colors {
+            let icon = icon_for_file(full_path);
+            let path_str = path.to_string_lossy();
+            let style = if cfg.file_colors {
                 let mut style = FileCategory::get(&path)
                     .map(|c| cfg.file_styles.style(&c))
                     .unwrap_or_default();
@@ -228,9 +258,35 @@ fn render(
                         style.fg(Color::Red)
                     }
                 }
-                Text::from(Span::styled(content, style))
+                Some(style)
             } else {
-                Text::from(content)
+                None
+            };
+
+            match style {
+                Some(style) => {
+                    if cfg.file_icons && cfg.icon_colors {
+                        Text::from(Line::from(vec![
+                            Span::styled(icon.to_string(), style),
+                            Span::raw(format!(" {}", path_str)),
+                        ]))
+                    } else {
+                        let content = if cfg.file_icons {
+                            format!("{} {}", icon, path_str)
+                        } else {
+                            path_str.to_string()
+                        };
+                        Text::from(Span::styled(content, style))
+                    }
+                }
+                None => {
+                    let content = if cfg.file_icons {
+                        format!("{} {}", icon, path_str)
+                    } else {
+                        path_str.to_string()
+                    };
+                    Text::from(content)
+                }
             }
         }
     }
@@ -363,6 +419,80 @@ mod tests {
 
             let rendered = render(home, cwd);
             assert_eq!(rendered.to_string(), "~");
+        });
+    }
+
+    #[test]
+    fn test_render_icon_colors() {
+        let cwd = __cwd();
+        let path_in_cwd = cwd.join("src").join("main.rs");
+
+        // Case 1: file_colors=true, icon_colors=true
+        let config = PathDisplayConfig {
+            file_colors: true,
+            icon_colors: true,
+            file_icons: true,
+            ..PathDisplayConfig::DEFAULT
+        };
+        with_config(config, || {
+            let rendered = render(&path_in_cwd, cwd);
+            // rendered should have 1 line, and that line should have 2 spans
+            assert_eq!(rendered.lines.len(), 1);
+            let line = &rendered.lines[0];
+            assert_eq!(line.spans.len(), 2);
+
+            // First span is the icon, should be styled
+            assert!(line.spans[0].style.fg.is_some());
+
+            // Second span is the path, should be raw (default style)
+            assert!(line.spans[1].style.fg.is_none());
+            assert_eq!(line.spans[1].content, " src/main.rs");
+        });
+
+        // Case 2: file_colors=true, icon_colors=false
+        let config = PathDisplayConfig {
+            file_colors: true,
+            icon_colors: false,
+            file_icons: true,
+            ..PathDisplayConfig::DEFAULT
+        };
+        with_config(config, || {
+            let rendered = render(&path_in_cwd, cwd);
+            // rendered should have 1 line, and that line should have 1 span (the whole thing styled)
+            assert_eq!(rendered.lines.len(), 1);
+            let line = &rendered.lines[0];
+            assert_eq!(line.spans.len(), 1);
+            assert!(line.spans[0].style.fg.is_some());
+        });
+    }
+
+    #[test]
+    fn test_render_home_icon_colors() {
+        let home = __home();
+        let cwd = __cwd();
+
+        // Case: collapse_home=true, dir_colors=true, icon_colors=true
+        let config = PathDisplayConfig {
+            collapse_home: true,
+            dir_colors: true,
+            icon_colors: true,
+            dir_icons: true,
+            ..PathDisplayConfig::DEFAULT
+        };
+        with_config(config, || {
+            let rendered = render(home, cwd);
+            // rendered should have 1 line, and that line should have 2 spans
+            assert_eq!(rendered.lines.len(), 1);
+            let line = &rendered.lines[0];
+            assert_eq!(line.spans.len(), 2);
+
+            // First span is the icon, should be styled
+            assert!(line.spans[0].style.fg.is_some());
+            assert_eq!(line.spans[0].content, Icons::HOME.to_string());
+
+            // Second span is " ~", should be raw
+            assert!(line.spans[1].style.fg.is_none());
+            assert_eq!(line.spans[1].content, " ~");
         });
     }
 }

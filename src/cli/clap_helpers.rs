@@ -6,7 +6,7 @@ use fist_types::When;
 #[strum(serialize_all = "lowercase")]
 pub enum ClapStyleOverride {
     Icons,
-    // IconColors,
+    IconColors,
     Colors,
     None,
     All,

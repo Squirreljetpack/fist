@@ -19,7 +19,8 @@ _fs() {
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.]' \
 '--fullscreen[]' \
 '--help[]' \
@@ -42,7 +43,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--list[]' \
 '--help[initial query]' \
 '--fullscreen[]' \
@@ -57,7 +59,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--list[]' \
 '--help[initial query]' \
 '--fullscreen[]' \
@@ -78,7 +81,8 @@ none\:""))' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--help[]' \
 '--fullscreen[]' \
 && ret=0
@@ -97,7 +101,8 @@ none\:""))' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--cd[print the first match]' \
 '--help[]' \
 '--fullscreen[]' \
@@ -121,7 +126,8 @@ size\:"Not always supported"))' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--cd[print the first match]' \
 '--no-read[Never stream input from stdin]' \
 '--list[]' \
@@ -147,7 +153,8 @@ size\:"Not always supported"))' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--cd[print the first match]' \
 '--no-read[Never stream input from stdin]' \
 '--list[]' \
@@ -181,7 +188,8 @@ size\:"Not always supported"))' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '-i[]' \
 '--ignore-case[]' \
 '-s[]' \
@@ -222,7 +230,8 @@ size\:"Not always supported"))' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '-i[]' \
 '--ignore-case[]' \
 '-s[]' \
@@ -244,7 +253,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--help[]' \
 '--fullscreen[]' \
 '::args:_default' \
@@ -264,7 +274,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--fullscreen[]' \
 && ret=0
 ;;
@@ -274,7 +285,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--fullscreen[]' \
 '*::args:_default' \
 && ret=0
@@ -305,7 +317,8 @@ none\:""))' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--aliases[]' \
 '--fullscreen[]' \
 && ret=0
@@ -319,7 +332,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--no-exec[]' \
 '--tty[]' \
 '--fullscreen[]' \
@@ -343,7 +357,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--reset[reset the database]' \
 '--fullscreen[]' \
 '*::paths -- path to bump:_files' \
@@ -355,7 +370,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--fullscreen[]' \
 && ret=0
 ;;
@@ -369,7 +385,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--help[]' \
 '--fullscreen[]' \
 '::args:_default' \
@@ -389,7 +406,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--fullscreen[]' \
 && ret=0
 ;;
@@ -399,7 +417,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--fullscreen[]' \
 '*::args:_default' \
 && ret=0
@@ -430,7 +449,8 @@ none\:""))' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--aliases[]' \
 '--fullscreen[]' \
 && ret=0
@@ -444,7 +464,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--no-exec[]' \
 '--tty[]' \
 '--fullscreen[]' \
@@ -468,7 +489,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--reset[reset the database]' \
 '--fullscreen[]' \
 '*::paths -- path to bump:_files' \
@@ -480,7 +502,8 @@ _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--fullscreen[]' \
 && ret=0
 ;;
@@ -501,7 +524,8 @@ none\:""))' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
-'--style=[]:STYLE:(icons colors none all auto)' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '-m[Don'\''t print decorations]' \
 '--minimal[Don'\''t print decorations]' \
 '--help[]' \

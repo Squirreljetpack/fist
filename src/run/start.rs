@@ -27,7 +27,7 @@ use crate::{
     errors::CliError,
     run::{
         action::{fsaction_aliaser, fsaction_handler},
-        ahandlers::{fs_post_reload_new, paste_handler},
+        ahandlers::{self, fs_post_reload_new, paste_handler},
         dhandlers::{MMExt, query_handler, sync_handler},
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
@@ -111,6 +111,7 @@ pub async fn start(
     mut cfg: Config,
     mm_cfg: MMConfig,
     db_pool: Pool,
+    enter_prompt: Option<bool>,
 ) -> Result<(), CliError> {
     // init configs
     let MMConfig {
@@ -176,7 +177,12 @@ pub async fn start(
         .event_loop(event_loop)
         .ext_handler(move |x, y| fsaction_handler(x, y, &mut context))
         .ext_aliaser(fsaction_aliaser)
-        .initializer(fs_post_reload_new)
+        .initializer(move |state| {
+            fs_post_reload_new(state);
+            if let Some(enter) = enter_prompt {
+                ahandlers::enter_prompt(state, enter);
+            }
+        })
         .paste_handler(paste_handler)
         .hidden_columns(vec![false, false, true])
         .matcher(MATCHER_CONFIG)

@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_fs_global_optspecs
-	string join \n verbosity= override= config= mm-config= dump-config style= fullscreen help V/version
+	string join \n verbosity= override= config= mm-config= dump-config style= fullscreen enter-prompt= help V/version
 end
 
 function __fish_fs_needs_command
@@ -29,10 +29,13 @@ complete -c fs -n "__fish_fs_needs_command" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_needs_command" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_needs_command" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_needs_command" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_needs_command" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_needs_command" -l dump-config -d 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.'
 complete -c fs -n "__fish_fs_needs_command" -l fullscreen
 complete -c fs -n "__fish_fs_needs_command" -l help
@@ -54,10 +57,13 @@ complete -c fs -n "__fish_fs_using_subcommand :open" -l override -d 'config over
 complete -c fs -n "__fish_fs_using_subcommand :open" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :open" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :open" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :open" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :open" -l list
 complete -c fs -n "__fish_fs_using_subcommand :open" -l help -d 'initial query'
 complete -c fs -n "__fish_fs_using_subcommand :open" -l fullscreen
@@ -67,10 +73,13 @@ complete -c fs -n "__fish_fs_using_subcommand :o" -l override -d 'config overrid
 complete -c fs -n "__fish_fs_using_subcommand :o" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :o" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :o" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :o" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :o" -l list
 complete -c fs -n "__fish_fs_using_subcommand :o" -l help -d 'initial query'
 complete -c fs -n "__fish_fs_using_subcommand :o" -l fullscreen
@@ -87,10 +96,13 @@ complete -c fs -n "__fish_fs_using_subcommand :file" -l override -d 'config over
 complete -c fs -n "__fish_fs_using_subcommand :file" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :file" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :file" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :file" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :file" -l help
 complete -c fs -n "__fish_fs_using_subcommand :file" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l sort -d 'history sort order' -r -f -a "name\t''
@@ -106,10 +118,13 @@ complete -c fs -n "__fish_fs_using_subcommand :dir" -l override -d 'config overr
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :dir" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l help
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l fullscreen
@@ -133,10 +148,13 @@ complete -c fs -n "__fish_fs_using_subcommand :fd" -l override -d 'config overri
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l list
@@ -162,10 +180,13 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -l override -d 'config overrid
 complete -c fs -n "__fish_fs_using_subcommand ::" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand ::" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand ::" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand ::" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l list
@@ -197,10 +218,13 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -l override -d 'config overri
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s i -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s S -l smart-case
@@ -236,10 +260,13 @@ complete -c fs -n "__fish_fs_using_subcommand :" -l override -d 'config override
 complete -c fs -n "__fish_fs_using_subcommand :" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -s i -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :" -s S -l smart-case
@@ -254,10 +281,13 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcomm
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l help
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -a "colors"
@@ -271,20 +301,26 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l z-name -d 'Name for jump function' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l z-dot-args -d 'Arguments passed to `fs ::` when z is invoked with a trailing `.`' -r
@@ -311,10 +347,13 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l aliases
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -s a -l arg -d 'Arguments to pass to the first executed command (experimental)' -r
@@ -325,10 +364,13 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l no-exec
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l tty
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l fullscreen
@@ -339,10 +381,13 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l reset -d 'reset the database'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l verbosity -r
@@ -350,20 +395,26 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l help
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -a "colors"
@@ -377,20 +428,26 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l z-name -d 'Name for jump function' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l z-dot-args -d 'Arguments passed to `fs ::` when z is invoked with a trailing `.`' -r
@@ -417,10 +474,13 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l aliases
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -s a -l arg -d 'Arguments to pass to the first executed command (experimental)' -r
@@ -431,10 +491,13 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l no-exec
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l tty
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l fullscreen
@@ -445,10 +508,13 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l reset -d 'reset the database'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l verbosity -r
@@ -456,10 +522,13 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l fullscreen
 complete -c fs -n "__fish_fs_using_subcommand :info" -l sort -d 'history sort order' -r -f -a "name\t''
 atime\t''
@@ -472,10 +541,13 @@ complete -c fs -n "__fish_fs_using_subcommand :info" -l override -d 'config over
 complete -c fs -n "__fish_fs_using_subcommand :info" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :info" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :info" -l style -r -f -a "icons\t''
+icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :info" -l enter-prompt -r -f -a "true\t''
+false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :info" -s m -l minimal -d 'Don\'t print decorations'
 complete -c fs -n "__fish_fs_using_subcommand :info" -l help
 complete -c fs -n "__fish_fs_using_subcommand :info" -l fullscreen

@@ -124,6 +124,9 @@ Otherwise, this will OVERWRITE your main config."#
 
     #[arg(long, global = true, default_value_t)]
     pub fullscreen: bool,
+
+    #[arg(long, global = true)]
+    pub enter_prompt: Option<bool>,
 }
 
 impl CliOpts {

@@ -959,18 +959,30 @@ pub fn fsaction_handler(
         }
 
         FsAction::AcceptPrompt => {
-            // accepting on nav pane prompt opens the displayed directory
-            if let Some(cwd) = STACK::nav_cwd() {
-                let path = cwd.inner().into();
-                let pool = GLOBAL::db();
+            if let Some(p) = STACK::nav_cwd() {
+                if in_prompt {
+                    // same as below
+                    let s = p.display().to_string();
+                    print_handle.push(s);
 
-                TASKS::spawn(async move {
-                    let conn = unwrap!(pool.get_conn(crate::db::DbTable::dirs).await.ok());
-                    open_wrapped(conn, None, &[path], true).await._elog();
-                });
+                    GLOBAL::db().bump(true, p);
 
-                if state.selections().is_empty() {
+                    state.picker_ui.selector.clear();
                     state.should_quit = true;
+                } else {
+                    // accepting on nav pane prompt opens the displayed directory
+                    let path = p.inner().into();
+                    let pool = GLOBAL::db();
+
+                    TASKS::spawn(async move {
+                        let conn = unwrap!(pool.get_conn(crate::db::DbTable::dirs).await.ok());
+                        open_wrapped(conn, None, &[path], true).await._elog();
+                    });
+
+                    // this one is conditional unlike the rest
+                    if state.selections().is_empty() {
+                        state.should_quit = true;
+                    }
                 }
             } else if let Some(cwd) = STACK::cwd() {
                 enter_dir_pane(state, cwd);
@@ -983,6 +995,7 @@ pub fn fsaction_handler(
                 // print cwd
                 let s = p.to_string_lossy().to_string();
                 print_handle.push(s);
+
                 // bump
                 GLOBAL::db().bump(true, p);
             } else {

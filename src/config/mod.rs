@@ -251,12 +251,13 @@ impl Config {
                 style.dir_icons = false;
                 style.dir_colors = false;
             }
-            // ClapStyleOverride::IconColors => {
-            //     style.file_icons = true;
-            //     style.dir_icons = true;
-            //     style.file_colors = true;
-            //     style.dir_colors = true;
-            // }
+            ClapStyleOverride::IconColors => {
+                style.file_icons = true;
+                style.dir_icons = true;
+                style.icon_colors = true;
+                style.file_colors = true;
+                style.dir_colors = true;
+            }
             ClapStyleOverride::Icons => {
                 style.file_icons = true;
                 style.dir_icons = true;

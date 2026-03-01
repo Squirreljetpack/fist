@@ -96,7 +96,7 @@ async fn handle_open(
 
         let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
 
-        start(pane, cfg, mm_cfg, pool).await
+        start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
     } else {
         let conn = pool.get_conn(DbTable::apps).await?;
 
@@ -164,7 +164,7 @@ async fn handle_files(
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
     let pool = Pool::new(cfg.db_path()).await?;
-    start(pane, cfg, mm_cfg, pool).await
+    start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
 }
 
 async fn handle_rg(
@@ -244,7 +244,7 @@ async fn handle_rg(
     );
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-    start(pane, cfg, mm_cfg, pool).await
+    start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
 }
 
 async fn handle_dirs(
@@ -320,7 +320,7 @@ async fn handle_dirs(
     };
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-    start(pane, cfg, mm_cfg, pool).await
+    start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
 }
 
 async fn handle_default(
@@ -615,7 +615,7 @@ async fn handle_default(
     };
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-    start(pane, cfg, mm_cfg, pool).await
+    start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
 }
 
 async fn handle_tools(

@@ -87,7 +87,7 @@ You can search through all files recursively by
 - by calling `fs` directly with the same arguments
 - or by triggering the `Find` action (`ctrl-f`) in-app.
 
-<img src=".README.assets/image-20260227223347559.png" alt="image-20260227223347559" style="height:412px;" />
+<img src=".README.assets/image-20260227223347559.png" alt="image-20260227223347559" style="height:309px;" />
 
 The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Filters overlay](#Filters).
 
@@ -205,7 +205,7 @@ fs :o "obsidian://open?path=$(uri $1)"
 
 f:ist records the **files, directories and applications** that you've visited in a local database, where they are displayed in the `Files`/`Folders` (`ctrl-g`) and `Apps` panes, sorted by relevance[^6].
 
-<img src=".README.assets/image-20260228113222004.png" alt="image-20260228113222004" style="width:640px;" />
+<img src=".README.assets/image-20260301082915830.png" alt="image-20260301082915830" style="width:500px" />
 
 The _Files_ and _Folders_ panes are most useful when integrated into the ambient context where you usually access files. For example, the [shell](#shell-integration), or a [command launcher](#dependencies).
 
