@@ -7,7 +7,7 @@ use cli_boilerplate_automation::{
     ebog, wbog,
 };
 
-#[cfg(feature = "mm_override")]
+#[cfg(feature = "mm_overrides")]
 use {
     crate::cli::mm_partial_parse::{get_pairs, try_split_kv},
     anyhow::bail,
@@ -105,7 +105,7 @@ impl EnvOpts {
         Some(ret)
     }
 
-    #[cfg(feature = "mm_override")]
+    #[cfg(feature = "mm_overrides")]
     /// Gets a PartialRenderConfig by reading from environment variables MM_OPTS0, MM_OPTS1...
     /// Warns and stops reading on encountering improper top-level nesting.
     /// Returns None upon encountering parse errors after (the top-level split).
@@ -138,11 +138,11 @@ impl EnvOpts {
         if args.is_empty() {
             return None;
         }
-        Self::parse_mm_override(args)._wbog()
+        Self::parse_mm_overrides(args)._wbog()
     }
 
-    #[cfg(feature = "mm_override")]
-    fn parse_mm_override(args: Vec<String>) -> anyhow::Result<PartialRenderConfig> {
+    #[cfg(feature = "mm_overrides")]
+    fn parse_mm_overrides(args: Vec<String>) -> anyhow::Result<PartialRenderConfig> {
         let split = get_pairs(args)?;
         log::trace!("{split:?}");
         let mut partial = PartialRenderConfig::default();

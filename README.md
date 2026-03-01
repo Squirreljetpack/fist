@@ -75,13 +75,11 @@ For a full list of binds, press `ctrl-shift-h` within the app. [^1]
 
 To begin, call `fs` without any positional arguments.
 
-<img src=".README.assets/image-20260227213112814.png" alt="image-20260227213112814" style="height:400px;" /> 
+<img src=".README.assets/image-20260227213112814.png" alt="image-20260227213112814" style="height:400px;" />
 
 Once inside, you can navigate and re-enter from other panes by pressing the left/right arrow keys (corresponding to the `Parent`/ `Advance` actions).
 
-
-
-### Find 
+### Find
 
 You can search through all files recursively by
 
@@ -101,7 +99,6 @@ The results will be available for filtering, navigating, editing, previewing etc
 > - queries beginning with `.` auto-enables the inclusion of hidden files
 > - Default parameters, directory-specific ignores, and other parameters can be set in the [config](./src/config/mod.rs#L257).
 > - The `-t` (type) flag has be overloaded to support more conditions. In addition to file types (`directory/d, symlink/l, ..etc.` ), it now supports extensions (`-t .ext`), pre-set categories (`image/i, video/v`), and custom categories as well.
-
 
 ### Search
 
@@ -128,8 +125,6 @@ This pane operates in a query and a filter mode, which can be switched between[^
 > When the active item is `advance`/`executed` on, the matched line and column are saved in the environment variables `HIGHLIGHT_LINE` and `HIGHLIGHT_COLUMN`. If your system has a compatible editor, the `Lessfilter::Edit` action can automatically open the file to the corresponding position -- otherwise, you can configure this manually.
 
 <img src=".README.assets/image-20260227181856867.png" alt="image-20260227181856867" style="width: 700px;" />
-
-
 
 [^3]: In the previous panes, the secondary column was simply empty and therefore not displayed.
 
@@ -203,8 +198,6 @@ uri() {
 }
 fs :o "obsidian://open?path=$(uri $1)"
 ```
-
-
 
 <img src=".README.assets/image-20260228112637463.png" alt="image-20260228112637463" style="height:160px;" /> <img src=".README.assets/image-20260228151634342.png" alt="creating a new note" style="height:160px" />
 
@@ -333,7 +326,7 @@ For speed and safety, it is recommended pass your actual shell through to `--she
 
 The previewer is controlled by the lessfilter tool.
 
-The lessfilter tool dispatches to 8 presets:
+The lessfilter tool dispatches to 9 presets:
 
 - preview: For the preview pane
 - display: For terminal display
@@ -341,8 +334,8 @@ The lessfilter tool dispatches to 8 presets:
 - info: Metadata/raw info
 - extract: Extract document contents with [kreuzberg](#https://github.com/kreuzberg-dev)
 - open: System open
-- alternate: An extra preset for any use
 - edit: For editing
+- alternate/alternate2: Extra presets for any use
 
 <img src=".README.assets/image-20260228113456192.png" alt="image-20260228113456192" style="width: 600px;" alt="the info preset, using mediainfo to display metadata on a folder of images" />
 
@@ -428,8 +421,6 @@ Liza is an eza wrapper used internally by the lessfilter/previewer to display di
 > [!NOTE]
 > todo
 
-
-
 # Additional
 
 ### Dependencies
@@ -470,6 +461,10 @@ Replacements:
 - `{_}`
 
 # Configuration
+
+Configuration is presently only documented in the source files: [Main Config](./src/config/mod.rs), [Panes](./src/config/panes.rs), [Styling](./src/config/styles.rs), [Miscellaneous UI](./src/config/ui.rs), [Lessfilter](./src/lessfilter/config.rs), [Lessfilter](./src/lessfilter/config.rs), [Matchmaker Config](./src/run/mm_config.rs)[^12].
+
+[^12]: For more information on this one, you can refer to the matchmaker documentation [here](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/src/config.rs).
 
 ### Notes
 

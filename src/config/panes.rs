@@ -64,84 +64,6 @@ impl Default for PanesConfig {
     }
 }
 
-impl PanesConfig {
-    pub fn prompt(
-        &self,
-        pane: &FsPane,
-    ) -> Option<String> {
-        match pane {
-            FsPane::Custom { .. } => self.custom.prompt.clone(),
-            FsPane::Stream { .. } => self.stream.prompt.clone(),
-            FsPane::Find { .. } => self.find.prompt.clone(),
-            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.prompt.clone(),
-            FsPane::Apps { .. } => self.app.prompt.clone(),
-            FsPane::Nav { .. } => self.nav.prompt.clone(),
-            FsPane::Search { .. } => self.search.prompt.clone(),
-        }
-    }
-
-    pub fn enter_prompt(
-        &self,
-        pane: &FsPane,
-    ) -> Option<bool> {
-        match pane {
-            FsPane::Custom { .. } => self.custom.enter_prompt,
-            FsPane::Stream { .. } => self.stream.enter_prompt,
-            FsPane::Find { .. } => self.find.enter_prompt,
-            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.enter_prompt,
-            FsPane::Apps { .. } => self.app.enter_prompt,
-            FsPane::Nav { .. } => Some(false),
-            FsPane::Search { .. } => self.search.enter_prompt,
-        }
-    }
-
-    pub fn show_preview(
-        &self,
-        pane: &FsPane,
-    ) -> Option<ShowCondition> {
-        match pane {
-            FsPane::Custom { .. } => self.custom.show_preview,
-            FsPane::Stream { .. } => self.stream.show_preview,
-            FsPane::Find { .. } => self.find.show_preview,
-            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.show_preview,
-            FsPane::Apps { .. } => self.app.show_preview,
-            FsPane::Nav { .. } => self.nav.show_preview,
-            FsPane::Search { .. } => self.search.show_preview,
-        }
-    }
-
-    pub fn default_visibility(
-        &self,
-        pane: &FsPane,
-    ) -> Option<PartialVisibility> {
-        match pane {
-            // todo: lowpri: maybe we aggregate more than just apps later, and add visibility
-            FsPane::Custom { .. }
-            | FsPane::Stream { .. }
-            | FsPane::Apps { .. }
-            | FsPane::Files { .. }
-            | FsPane::Folders { .. } => None,
-            FsPane::Find { .. } => Some(self.find.default_visibility),
-            FsPane::Nav { .. } => Some(self.nav.default_visibility),
-            FsPane::Search { .. } => Some(self.search.default_visibility),
-        }
-    }
-
-    pub fn preview_layout_index(
-        &self,
-        pane: &FsPane,
-    ) -> u8 {
-        match pane {
-            FsPane::Custom { .. } => self.custom.preview_layout_index,
-            FsPane::Stream { .. } => self.stream.preview_layout_index,
-            FsPane::Find { .. } => self.find.preview_layout_index,
-            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.preview_layout_index,
-            FsPane::Apps { .. } => self.app.preview_layout_index,
-            FsPane::Nav { .. } => self.nav.preview_layout_index,
-            FsPane::Search { .. } => self.search.preview_layout_index,
-        }
-    }
-}
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PaneSettings {
@@ -305,4 +227,85 @@ pub struct AppPaneSettings {
     pub preview_layout_index: u8,
     // ----------------------------
     pub app_scan_directories: Vec<PathBuf>,
+}
+
+// -------------------------------------------------------------------
+
+impl PanesConfig {
+    pub fn prompt(
+        &self,
+        pane: &FsPane,
+    ) -> Option<String> {
+        match pane {
+            FsPane::Custom { .. } => self.custom.prompt.clone(),
+            FsPane::Stream { .. } => self.stream.prompt.clone(),
+            FsPane::Find { .. } => self.find.prompt.clone(),
+            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.prompt.clone(),
+            FsPane::Apps { .. } => self.app.prompt.clone(),
+            FsPane::Nav { .. } => self.nav.prompt.clone(),
+            FsPane::Search { .. } => self.search.prompt.clone(),
+        }
+    }
+
+    pub fn enter_prompt(
+        &self,
+        pane: &FsPane,
+    ) -> Option<bool> {
+        match pane {
+            FsPane::Custom { .. } => self.custom.enter_prompt,
+            FsPane::Stream { .. } => self.stream.enter_prompt,
+            FsPane::Find { .. } => self.find.enter_prompt,
+            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.enter_prompt,
+            FsPane::Apps { .. } => self.app.enter_prompt,
+            FsPane::Nav { .. } => Some(false),
+            FsPane::Search { .. } => self.search.enter_prompt,
+        }
+    }
+
+    pub fn show_preview(
+        &self,
+        pane: &FsPane,
+    ) -> Option<ShowCondition> {
+        match pane {
+            FsPane::Custom { .. } => self.custom.show_preview,
+            FsPane::Stream { .. } => self.stream.show_preview,
+            FsPane::Find { .. } => self.find.show_preview,
+            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.show_preview,
+            FsPane::Apps { .. } => self.app.show_preview,
+            FsPane::Nav { .. } => self.nav.show_preview,
+            FsPane::Search { .. } => self.search.show_preview,
+        }
+    }
+
+    pub fn default_visibility(
+        &self,
+        pane: &FsPane,
+    ) -> Option<PartialVisibility> {
+        match pane {
+            // todo: lowpri: maybe we aggregate more than just apps later, and add visibility
+            FsPane::Custom { .. }
+            | FsPane::Stream { .. }
+            | FsPane::Apps { .. }
+            | FsPane::Files { .. }
+            | FsPane::Folders { .. } => None,
+            FsPane::Find { .. } => Some(self.find.default_visibility),
+            FsPane::Nav { .. } => Some(self.nav.default_visibility),
+            FsPane::Search { .. } => Some(self.search.default_visibility),
+        }
+    }
+
+    pub fn preview_layout_index(
+        &self,
+        pane: &FsPane,
+    ) -> u8 {
+        match pane {
+            FsPane::Custom { .. } => self.custom.preview_layout_index,
+            FsPane::Stream { .. } => self.stream.preview_layout_index,
+            FsPane::Find { .. } => self.find.preview_layout_index,
+            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.preview_layout_index,
+            FsPane::Apps { .. } => self.app.preview_layout_index,
+            FsPane::Nav { .. } => self.nav.preview_layout_index,
+            FsPane::Search { .. } => self.search.preview_layout_index,
+        }
+    }
 }

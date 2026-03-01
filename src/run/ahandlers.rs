@@ -207,7 +207,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
                 state.picker_ui.input.reset_prompt();
             }
 
-            #[cfg(feature = "mm_override")]
+            #[cfg(feature = "mm_overrides")]
             {
                 use matchmaker_partial::Apply;
                 let partial = c.mm.get(pane);

@@ -208,6 +208,7 @@ pub struct RulesConfig {
     pub info: RulePreset,
     pub open: RulePreset,
     pub alternate: RulePreset,
+    pub alternate2: RulePreset,
     pub edit: RulePreset,
     pub default: RulePreset,
 }
@@ -222,6 +223,7 @@ impl Default for RulesConfig {
             info: RuleMatcher::new(),
             open: RuleMatcher::new(),
             alternate: RuleMatcher::new(),
+            alternate2: RuleMatcher::new(),
             edit: RuleMatcher::new(),
             default: RuleMatcher::new(),
         }
@@ -241,6 +243,7 @@ impl RulesConfig {
             Preset::Info => &self.info,
             Preset::Open => &self.open,
             Preset::Alternate => &self.alternate,
+            Preset::Alternate2 => &self.alternate2,
             Preset::Edit => &self.edit,
             Preset::Default => &self.default,
         }
@@ -258,6 +261,7 @@ impl RulesConfig {
             Preset::Info => &mut self.info,
             Preset::Open => &mut self.open,
             Preset::Alternate => &mut self.alternate,
+            Preset::Alternate2 => &mut self.alternate2,
             Preset::Edit => &mut self.edit,
             Preset::Default => &mut self.default,
         }

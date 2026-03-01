@@ -1,7 +1,3 @@
-# Actions
-
-Platform specific feature flags for dependencies
-
 # Docs
 
 - Intro guide
@@ -56,7 +52,6 @@ transparent advance into compressed files
 
 - On non-nav panes, this should populate with the currently stored files
 - Max store size? No store?
-
 
 # Global Filters
 
@@ -127,6 +122,7 @@ Possible Conditions:
 - configurable prompt styling
 - fstoggle: reverse
 - a bit annoying that the default search of rg is on paths, it should be able to configure to search on both or the other
+- icon only coloring
 
 # Stash
 

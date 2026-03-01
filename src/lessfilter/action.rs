@@ -9,7 +9,7 @@ use crate::arr;
 use crate::cli::paths::{current_exe, show_error_path, text_renderer_path};
 use crate::lessfilter::Preset;
 use crate::lessfilter::helpers::{
-    simple_header, image_viewer, infer_editor, infer_visual, simple_metadata,
+    image_viewer, infer_editor, infer_visual, simple_header, simple_metadata,
 };
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, serde::Serialize)]
@@ -100,7 +100,9 @@ impl Action {
                     [true, false, true],
                 ),
                 Preset::Edit => (arr![infer_visual(path)], [true, false, true]),
-                Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
+                Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
+                    unreachable!()
+                }
             },
             Action::Text => match preset {
                 Preset::Preview | Preset::Display => (
@@ -123,7 +125,9 @@ impl Action {
                 Preset::Info => (arr![simple_metadata(path)], [true, false, false]),
                 Preset::Edit => (arr![infer_editor(path)], [true, true, false]),
 
-                Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
+                Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
+                    unreachable!()
+                }
             },
             Action::Image => match preset {
                 Preset::Preview | Preset::Display => {
@@ -145,7 +149,9 @@ impl Action {
                     arr![vec_![: current_exe(), ":open", "--", path]],
                     [true, false, false],
                 ),
-                Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
+                Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
+                    unreachable!()
+                }
             },
 
             Action::Metadata => match preset {

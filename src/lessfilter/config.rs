@@ -1,6 +1,8 @@
 use std::{collections::HashMap, str::FromStr};
 
-use cli_boilerplate_automation::define_collection_wrapper;
+use cli_boilerplate_automation::{
+    bird::transform::camelcase_normalized, define_collection_wrapper,
+};
 use mime_guess::Mime;
 
 use crate::{
@@ -47,6 +49,8 @@ pub enum Preset {
     Open,
     /// Alternate (custom) open
     Alternate,
+    /// Alternate (custom) open
+    Alternate2,
     #[clap(alias = "e")]
     // For [`crate::run::FsAction::Advance`]
     Edit,
@@ -85,14 +89,6 @@ pub struct LessfilterConfig {
     pub categories: Categories,
 }
 
-#[derive(Debug, Default, Copy, Clone, serde::Deserialize)]
-pub enum InferMode {
-    Guess,
-    Infer,
-    #[default]
-    FileFormat,
-}
-
 impl Default for LessfilterConfig {
     fn default() -> Self {
         let ret = toml::from_str(include_str!("../../assets/config/lessfilter.toml"));
@@ -103,11 +99,20 @@ impl Default for LessfilterConfig {
 #[derive(Debug, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LessfilterSettings {
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub infer: InferMode,
     /// This has to do with how a single action can sometimes be multiple command-line programs. This stops execution when any fail -- do not set.
     #[serde(skip)]
     pub early_exit: bool,
     pub tracked_presets: Vec<Preset>,
+}
+
+#[derive(Debug, Default, Copy, Clone, serde::Deserialize)]
+pub enum InferMode {
+    Guess,
+    Infer,
+    #[default]
+    FileFormat,
 }
 
 impl Default for LessfilterSettings {
@@ -133,6 +138,8 @@ define_collection_wrapper!(
     #[derive(Debug)]
     Categories: HashMap<String, Vec<MimeString>>
 );
+
+// --------------------- BOILERPLATE ---------------------
 
 #[derive(Default, Debug, serde::Deserialize, Clone)]
 #[serde(default, transparent)]
@@ -180,7 +187,7 @@ impl MimeString {
     }
 }
 
-// --------------------- BOILERPLATE ----------------------------------------
+// ---------------------
 
 use serde::de::Error as DeError;
 use serde::{Deserialize, Deserializer};

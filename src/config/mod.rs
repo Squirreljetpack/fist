@@ -94,94 +94,9 @@ pub struct GlobalConfig {
     /// Configure various pane related settings.
     pub panes: PanesConfig,
 
-    /// Matchmaker styling overrides for panes.
-    /// [Warning!]: Highly unstable and untested.
-    pub mm: MatchmakerOverrides, // not sure about the role, eventually we want some pane-specific matchmaker overrides, should be stored
-}
-
-impl Config {
-    pub fn check_dirs_or_exit(&self) {
-        let dirs = [&self.state_dir, &self.cache_dir];
-
-        for dir in dirs {
-            log::debug!("checking: {dir:?}");
-            if !create_dir(dir) {
-                std::process::exit(1)
-            }
-        }
-    }
-
-    // initialize helper files
-    pub fn check_scripts(
-        &self,
-        force: bool,
-    ) {
-        let files = [
-            (liza_path(), include_str!("../../assets/scripts/liza")),
-            (
-                text_renderer_path(),
-                include_str!("../../assets/scripts/pager"),
-            ),
-            (
-                show_error_path(),
-                include_str!("../../assets/scripts/fist_show_error"),
-            ),
-        ];
-
-        for (path, script) in files {
-            let error_prefix = format!("Failed set executability of {path:?}");
-            if (force || !path.exists())
-                && write_str(path, script)._ebog().is_some()
-                && set_executable(path).prefix(&error_prefix)._ebog().is_some()
-            {
-                if !force
-                // less noise for debug
-                {
-                    _ibog!("{} saved to: {}", path.filename(), path.to_string_lossy());
-                }
-            }
-        }
-    }
-
-    pub fn override_from(
-        &mut self,
-        cli: &CliOpts,
-    ) {
-        let style = &mut self.styles.path;
-        match cli.style {
-            ClapStyleOverride::Auto => {
-                // leave config unchanged
-            }
-            ClapStyleOverride::None => {
-                style.file_icons = false;
-                style.file_colors = false;
-                style.dir_icons = false;
-                style.dir_colors = false;
-            }
-            ClapStyleOverride::Icons => {
-                style.file_icons = true;
-                style.dir_icons = true;
-
-                style.file_colors = false;
-                style.dir_colors = false;
-            }
-            ClapStyleOverride::Colors => {
-                style.file_icons = false;
-                style.dir_icons = false;
-
-                style.file_colors = true;
-                style.dir_colors = true;
-            }
-            ClapStyleOverride::All => {
-                style.file_icons = true;
-                style.file_colors = true;
-                style.dir_icons = true;
-                style.dir_colors = true;
-            }
-        }
-
-        self.global.mm.fullscreen |= cli.fullscreen;
-    }
+    /// Matchmaker styling overrides (per-pane).
+    /// [Warning!]: Unstable and untested.
+    pub mm: MatchmakerOverrides,
 }
 
 /// Miscellaneous and Tool specific options.
@@ -212,7 +127,7 @@ impl Default for MiscConfig {
     }
 }
 
-// -------------- GLOBAL ---------------------------------
+// -------------- GLOBAL --------------
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -236,7 +151,7 @@ pub struct InterfaceConfig {
     pub toast_on_empty: bool,
     /// If [AutoJump](`crate::run::FsAction::AutoJump`) should accept or advance
     pub autojump_advance: bool,
-    pub dim_prompt: Option<bool>
+    pub dim_prompt: Option<bool>,
 }
 
 impl Default for InterfaceConfig {
@@ -249,7 +164,7 @@ impl Default for InterfaceConfig {
             cwd_prompt: "{} ".into(),
             toast_on_empty: true,
             autojump_advance: false,
-            dim_prompt: Some(true)
+            dim_prompt: Some(true),
         }
     }
 }
@@ -318,16 +233,57 @@ pub struct FsConfig {
     pub rename_policy: RenamePolicy,
 }
 
-// #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-// #[serde(default, deny_unknown_fields)]
-// pub struct CurrentConfig {
-//     pub render_script: Option<String>,
-
-//     #[serde(deserialize_with = "escaped_opt_char")]
-//     pub delimiter: Option<char>,
-// }
+// -------------- IMPL --------------------------
 
 impl Config {
+    pub fn override_from(
+        &mut self,
+        cli: &CliOpts,
+    ) {
+        let style = &mut self.styles.path;
+        match cli.style {
+            ClapStyleOverride::Auto => {
+                // leave config unchanged
+            }
+            ClapStyleOverride::None => {
+                style.file_icons = false;
+                style.file_colors = false;
+                style.dir_icons = false;
+                style.dir_colors = false;
+            }
+            // ClapStyleOverride::IconColors => {
+            //     style.file_icons = true;
+            //     style.dir_icons = true;
+            //     style.file_colors = true;
+            //     style.dir_colors = true;
+            // }
+            ClapStyleOverride::Icons => {
+                style.file_icons = true;
+                style.dir_icons = true;
+
+                style.file_colors = false;
+                style.dir_colors = false;
+            }
+            ClapStyleOverride::Colors => {
+                style.file_icons = false;
+                style.dir_icons = false;
+
+                style.file_colors = true;
+                style.dir_colors = true;
+            }
+            ClapStyleOverride::All => {
+                style.file_icons = true;
+                style.file_colors = true;
+                style.dir_icons = true;
+                style.dir_colors = true;
+            }
+        }
+
+        self.global.mm.fullscreen |= cli.fullscreen;
+    }
+
+    // --------------------------------------------------
+
     pub fn db_path(&self) -> PathBuf {
         #[cfg(debug_assertions)]
         {
@@ -342,6 +298,66 @@ impl Config {
     pub fn log_path(&self) -> PathBuf {
         self.state_dir.join(format!("{BINARY_FULL}.log"))
     }
+
+    pub fn check_dirs_or_exit(&self) {
+        let dirs = [&self.state_dir, &self.cache_dir];
+
+        for dir in dirs {
+            log::debug!("checking: {dir:?}");
+            if !create_dir(dir) {
+                std::process::exit(1)
+            }
+        }
+    }
+
+    // initialize helper files
+    pub fn check_scripts(
+        &self,
+        force: bool,
+    ) {
+        let files = [
+            (liza_path(), include_str!("../../assets/scripts/liza")),
+            (
+                text_renderer_path(),
+                include_str!("../../assets/scripts/pager"),
+            ),
+            (
+                show_error_path(),
+                include_str!("../../assets/scripts/fist_show_error"),
+            ),
+        ];
+
+        for (path, script) in files {
+            let error_prefix = format!("Failed set executability of {path:?}");
+            if (force || !path.exists())
+                && write_str(path, script)._ebog().is_some()
+                && set_executable(path).prefix(&error_prefix)._ebog().is_some()
+            {
+                if !force
+                // less noise for debug
+                {
+                    _ibog!("{} saved to: {}", path.filename(), path.to_string_lossy());
+                }
+            }
+        }
+    }
 }
 
-// ----------------------------------------
+#[cfg(test)]
+mod tests {
+    use crate::{lessfilter::LessfilterConfig, run::mm_config::MMConfig};
+
+    use super::*;
+
+    #[test]
+    fn deserialize_configs() {
+        let _: Config = toml::from_str(include_str!("../../assets/config/config.toml")).unwrap();
+        let _: Config = toml::from_str(include_str!("../../assets/config/dev.toml")).unwrap();
+        let _: LessfilterConfig =
+            toml::from_str(include_str!("../../assets/config/lessfilter.toml")).unwrap();
+        let _: LessfilterConfig =
+            toml::from_str(include_str!("../../assets/config/lessfilter.dev.toml")).unwrap();
+        let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.toml")).unwrap();
+        let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.dev.toml")).unwrap();
+    }
+}
