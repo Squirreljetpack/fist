@@ -91,12 +91,12 @@ impl Action {
                 Preset::Extended => (
                     arr![
                         simple_header(path),
-                        vec_![: current_exe(), ":tool", "liza", ":sba", path]
+                        vec_![: current_exe(), ":tool", "liza", "::nav", path]
                     ],
                     [true, false, true],
                 ),
                 Preset::Info => (
-                    arr![vec_![: current_exe(), ":tool", "liza", ":l", path]],
+                    arr![vec_![: current_exe(), ":tool", "liza", ":sba", path]],
                     [true, false, true],
                 ),
                 Preset::Edit => (arr![infer_visual(path)], [true, false, true]),
@@ -109,11 +109,7 @@ impl Action {
                     arr![vec_![: text_renderer_path(), path]],
                     [true, false, false],
                 ),
-                // another approach is to enable the "native" header in the handler:
-                // if matches!(preset, Preset::Extended) && matches!(action, Action::Text) {
-                //     cmd.env("PG_FLAGS", "--style=header,rule,snip");
-                // }
-                // but using our app header is more consistent
+                // bat has a "native" header but using our app header is more consistent
                 Preset::Extended => (
                     arr![
                         simple_header(path),
@@ -141,6 +137,7 @@ impl Action {
                     ],
                     [true, false, false],
                 ),
+                // todo: integrate mediainfo
                 Preset::Info => (
                     arr![simple_header(path), simple_metadata(path)],
                     [true, false, false],
@@ -159,6 +156,7 @@ impl Action {
                     arr![simple_header(path), simple_metadata(path)],
                     [true, false, false],
                 ),
+                // todo: change this
                 Preset::Info => (
                     arr![
                         vec_![: current_exe(), ":tool", "liza", ":l", path],

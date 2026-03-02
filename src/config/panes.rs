@@ -64,7 +64,7 @@ impl Default for PanesConfig {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PaneSettings {
     /// Input prompt
@@ -77,18 +77,18 @@ pub struct PaneSettings {
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
 }
-impl Default for PaneSettings {
-    fn default() -> Self {
-        Self {
-            prompt: None,
-            show_preview: None,
-            enter_prompt: Some(true),
-            preview_layout_index: 0,
-        }
-    }
-}
+// impl Default for PaneSettings {
+//     fn default() -> Self {
+//         Self {
+//             prompt: None,
+//             show_preview: None,
+//             enter_prompt: Some(true),
+//             preview_layout_index: 0,
+//         }
+//     }
+// }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FdPaneSettings {
     /// Input prompt
@@ -106,21 +106,21 @@ pub struct FdPaneSettings {
     pub on_leave_unset_dirs_only: bool,
 }
 
-impl Default for FdPaneSettings {
-    fn default() -> Self {
-        Self {
-            prompt: None,
-            show_preview: Some(ShowCondition::Free(60)),
-            enter_prompt: Some(true),
-            preview_layout_index: 0,
+// impl Default for FdPaneSettings {
+//     fn default() -> Self {
+//         Self {
+//             prompt: None,
+//             show_preview: Some(ShowCondition::Free(60)),
+//             enter_prompt: None,
+//             preview_layout_index: 0,
 
-            default_visibility: Default::default(),
-            on_leave_unset_dirs_only: false,
-        }
-    }
-}
+//             default_visibility: Default::default(),
+//             on_leave_unset_dirs_only: false,
+//         }
+//     }
+// }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RgPaneSettings {
     /// Input prompt
@@ -150,40 +150,43 @@ pub struct RgPaneSettings {
     pub search_empty_query: bool,
 }
 
-impl Default for RgPaneSettings {
-    fn default() -> Self {
-        let default_visibility = PartialVisibility {
-            ignore: Some(true),
-            ..Default::default()
-        };
+// impl Default for RgPaneSettings {
+//     fn default() -> Self {
+//         let default_visibility = PartialVisibility {
+//             ignore: Some(true),
+//             ..Default::default()
+//         };
 
-        Self {
-            prompt: None,
-            show_preview: Some(ShowCondition::Free(20)),
-            enter_prompt: Some(true),
-            preview_layout_index: 1,
+//         Self {
+//             prompt: None,
+//             enter_prompt: Some(true),
+//             show_preview: Some(ShowCondition::Free(20)),
+//             preview_layout_index: 1,
 
-            no_heading: true,
-            fixed_strings: false,
-            default_visibility,
-            default_sort: Some(SortOrder::none),
-            search_empty_query: true,
+//             no_heading: true,
+//             fixed_strings: false,
+//             default_visibility,
+//             default_sort: Some(SortOrder::none),
+//             search_empty_query: true,
 
-            rg_status_template: r"{blue:filter: {}} \s\m/\t".into(),
-            fs_status_template: r"{red:query: {}} \s\m/\t".into(),
-        }
-    }
-}
+//             rg_status_template: r"{blue:filter: {}} \s\m/\t".into(),
+//             fs_status_template: r"{red:query: {}} \s\m/\t".into(),
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct NavPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
+    /// Whether to enter the prompt when switching to this pane
+    pub enter_prompt: Option<bool>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
+
     // ----------------------------
     pub default_sort: SortOrder,
     /// Default visibility when no visibility is specified.
@@ -194,6 +197,7 @@ impl Default for NavPaneSettings {
     fn default() -> Self {
         Self {
             prompt: None,
+            enter_prompt: None,
             show_preview: Some(ShowCondition::Free(50)),
             preview_layout_index: 0,
 
@@ -257,7 +261,7 @@ impl PanesConfig {
             FsPane::Find { .. } => self.find.enter_prompt,
             FsPane::Files { .. } | FsPane::Folders { .. } => self.history.enter_prompt,
             FsPane::Apps { .. } => self.app.enter_prompt,
-            FsPane::Nav { .. } => Some(false),
+            FsPane::Nav { .. } => self.nav.enter_prompt,
             FsPane::Search { .. } => self.search.enter_prompt,
         }
     }

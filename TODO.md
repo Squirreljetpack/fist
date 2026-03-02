@@ -35,7 +35,7 @@ Image rendering
 - note: since we plan to require reading images anyway, baking in the clipboard instead of relying on an external program makes sense.
 
 Better support for some of the modes
-
+sudo prompting (for this and other actions)
 # Archives
 
 transparent advance into compressed files
@@ -61,6 +61,7 @@ transparent advance into compressed files
 - Table editing
 
 - better per-pane filters: fd/rg probably wants to toggle --follow (in own pane probably), not sure about anything else
+- does visibility apply to history panes? if so, --all should disable filtering out the nonexistant entries
 
 # Disk
 
@@ -123,6 +124,8 @@ Possible Conditions:
 - fstoggle: reverse
 - a bit annoying that the default search of rg is on paths, it should be able to configure to search on both or the other
 - icon only coloring
+- basic support for multi-line filenames (fd, rg should use null delimiters)
+- In zle, piped execution fails. I think if we use the shell for piping it works, but its a bit uglier and i feel like we should just be able to resolve it directly somehow.
 
 # Stash
 

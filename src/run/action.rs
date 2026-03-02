@@ -938,9 +938,9 @@ pub fn fsaction_handler(
                 // we need to use the renderer because the first pass of renderer won't render when it sees it is being piped
                 if let Some(pp) = text_renderer_path().shell_quote() {
                     #[cfg(windows)]
-                    template.push_str(&format!(" | cmd /c \"set PG_LANG=toml && {pp}\" > CON"));
+                    template.push_str(&format!(" | cmd /c \"set PG_LANG=ini && {pp}\" > CON"));
                     #[cfg(unix)]
-                    template.push_str(&format!(" | PG_LANG=toml {pp} > /dev/tty"));
+                    template.push_str(&format!(" | PG_LANG=ini {pp} > /dev/tty"));
                 } else {
                     wbog!(
                         "Pager path could not be decoded, please check your installation's cache directory."
@@ -1112,7 +1112,6 @@ macro_rules! enum_from_str_display {
                     },
                     Execute(s, u) => {
                         match u {
-                            0 => write!(f, "Execute({})", s),
                             1 => write!(f, "ExecutePaged({})", s),
                             2 => write!(f, "ExecuteDetached({})", s),
                             3 => write!(f, "ExecuteSilent({})", s),

@@ -7,7 +7,7 @@ pub fn print_shell(
         z_name,
         z_dot_args,
         z_slash_args,
-        z_sort,
+        z_dir_args,
         open_name,
         open_cmd,
         dir_widget_bind,
@@ -28,7 +28,7 @@ pub fn print_shell(
         .replacen("$${Z_NAME}", z_name, 1)
         .replace("$${Z_DOT_ARGS}", z_dot_args)
         .replace("$${Z_SLASH_ARGS}", z_slash_args)
-        .replace("$${Z_SORT}", z_sort.into())
+        .replace("$${Z_DIR_ARGS}", z_dir_args)
         //
         .replacen("$${OPEN_NAME}", open_name, 1)
         .replace("$${OPEN_CMD}", open_cmd)

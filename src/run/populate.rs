@@ -100,12 +100,10 @@ impl FsPane {
                         stdout,
                         move |line| {
                             let item = PathItem::new_from_split(line.split_delim(delim), &cwd);
-                            if vis.filter(&item.path) {
-                                if let Some(stored) = &stored {
-                                    stored.push(item.clone());
-                                };
-                                injector.push(item)?;
-                            }
+                            if let Some(stored) = &stored {
+                                stored.push(item.clone());
+                            };
+                            injector.push(item)?;
                             anyhow::Ok(())
                         },
                         complete.clone(),
@@ -206,12 +204,10 @@ impl FsPane {
                         stdout,
                         move |line| {
                             let item = PathItem::new_from_split(line.split_delim(delim), &cwd);
-                            if vis.filter(&item.path) {
-                                if let Some(stored) = &stored {
-                                    stored.push(item.clone());
-                                };
-                                injector.push(item)?;
-                            }
+                            if let Some(stored) = &stored {
+                                stored.push(item.clone());
+                            };
+                            injector.push(item)?;
                             anyhow::Ok(())
                         },
                         complete.clone(),

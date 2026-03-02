@@ -706,7 +706,7 @@ _fs() {
             return 0
             ;;
         fs__:tool__shell)
-            opts="--z-name --z-dot-args --z-slash-args --z-sort --open-name --open-cmd --dir-widget-bind --file-widget-bind --rg-widget-bind --file-open-cmd --rg-open-cmd --dir-widget-args --file-widget-args --rg-widget-args --aliases --nav-name --shell --verbosity --override --config --mm-config --style --fullscreen --enter-prompt"
+            opts="--z-name --z-dot-args --z-slash-args --z-dir-args --open-name --open-cmd --dir-widget-bind --file-widget-bind --rg-widget-bind --file-open-cmd --rg-open-cmd --dir-widget-args --file-widget-args --rg-widget-args --aliases --nav-name --shell --verbosity --override --config --mm-config --style --fullscreen --enter-prompt"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -724,8 +724,8 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --z-sort)
-                    COMPREPLY=($(compgen -W "name atime frecency count none" -- "${cur}"))
+                --z-dir-args)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --open-name)

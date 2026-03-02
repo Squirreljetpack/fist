@@ -76,6 +76,7 @@ impl StashItem {
 #[derive(Debug, Default, Clone, Copy, strum_macros::Display)]
 #[strum(serialize_all = "lowercase")]
 pub enum CustomStashActionActionState {
+    /// Create a _relative_ symlink
     #[default]
     Symln,
     Custom(usize),

@@ -75,7 +75,7 @@ pub fn get_mm_cfg(
     }
 
     let binds = default_binds();
-    default_binds().append(&mut mm_cfg.binds);
+    default_binds().extend(mm_cfg.binds);
     mm_cfg.binds = binds;
 
     // Render display

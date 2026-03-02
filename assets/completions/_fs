@@ -296,11 +296,7 @@ _arguments "${_arguments_options[@]}" : \
 '--z-name=[Name for jump function]:Z_NAME:_default' \
 '--z-dot-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`.\`]:Z_DOT_ARGS:_default' \
 '--z-slash-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`./\`]:Z_SLASH_ARGS:_default' \
-'--z-sort=[Default sort order for the interactive jump menu]:Z_SORT:((name\:""
-atime\:""
-frecency\:"Weighted frequency + recency"
-count\:""
-none\:""))' \
+'--z-dir-args=[Arguments passed to \`fs \:dir\` for the interactive jump menu]:Z_DIR_ARGS:_default' \
 '--open-name=[Name for open function]:OPEN_NAME:_default' \
 '--open-cmd=[Command used by open function]:OPEN_CMD:_default' \
 '--dir-widget-bind=[Bind for the directory widget]:DIR_WIDGET_BIND:_default' \
@@ -428,11 +424,7 @@ _arguments "${_arguments_options[@]}" : \
 '--z-name=[Name for jump function]:Z_NAME:_default' \
 '--z-dot-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`.\`]:Z_DOT_ARGS:_default' \
 '--z-slash-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`./\`]:Z_SLASH_ARGS:_default' \
-'--z-sort=[Default sort order for the interactive jump menu]:Z_SORT:((name\:""
-atime\:""
-frecency\:"Weighted frequency + recency"
-count\:""
-none\:""))' \
+'--z-dir-args=[Arguments passed to \`fs \:dir\` for the interactive jump menu]:Z_DIR_ARGS:_default' \
 '--open-name=[Name for open function]:OPEN_NAME:_default' \
 '--open-cmd=[Command used by open function]:OPEN_CMD:_default' \
 '--dir-widget-bind=[Bind for the directory widget]:DIR_WIDGET_BIND:_default' \

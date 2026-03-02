@@ -43,7 +43,7 @@ impl StashItem {
 
         if matches!(kind, StashAction::Custom) {
             match custom_action_state {
-                CustomStashActionActionState::Symln => match symlink(src, dst) {
+                CustomStashActionActionState::Symln => match symlink(src, dst, true) {
                     Ok(()) => {
                         status.state.store(StashItemState::CompleteOk);
                     }
@@ -159,6 +159,7 @@ impl STASH {
                 return (vec![], c);
             }
 
+            // queue and prepare tasks
             let queue = s
                 .iter()
                 .cloned()

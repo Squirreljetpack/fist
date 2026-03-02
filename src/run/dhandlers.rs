@@ -234,16 +234,6 @@ fn execute(
         (state.payload().as_str(), 0u8)
     };
 
-    // // we need to use the renderer because the first pass of renderer won't render when it sees it is being piped
-    // if let Some(pp) = text_renderer_path().shell_quote() {
-    //     #[cfg(windows)]
-    //     template.push_str(&format!(" | cmd /c \"set PG_LANG=toml && {pp}\" > CON"));
-    //     #[cfg(unix)]
-    //     template.push_str(&format!(" | PG_LANG=toml {pp} > /dev/tty"));
-    // } else {
-    //     wbog!("Pager path could not be decoded, please check your installation's cache directory.")
-    // }
-
     let cmd = format_path(template, path);
 
     let mut vars = state.make_env_vars();
@@ -318,6 +308,7 @@ fn execute(
                 if let Some(stdout) = child.stdout.take() {
                     let Some(mut child) = std::process::Command::new(text_renderer_path())
                         .stdin(stdout)
+                        .stdout(Stdio::inherit())
                         ._spawn()
                     else {
                         warn!("Failed to spawn pager: {:?}", text_renderer_path());
@@ -359,8 +350,8 @@ fn execute(
 }
 
 fn maybe_tty() -> Stdio {
-    if let Ok(tty) = std::fs::File::open("/dev/tty") {
-        // let _ = std::io::Write::flush(&mut tty); // does nothing but seems logical
+    if let Ok(mut tty) = std::fs::File::open("/dev/tty") {
+        let _ = std::io::Write::flush(&mut tty); // does nothing but seems logical
         Stdio::from(tty)
     } else {
         log::error!("Failed to open /dev/tty");

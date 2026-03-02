@@ -66,38 +66,32 @@ impl Visibility {
         files: false,
     };
 
-    // rust can probably optimize out unnecessary file accesses?
-    pub fn filter(
+    // note: does rust know to get all these metadata checks in one go?
+    pub fn post_nav_filter(
         &self,
         path: &Path,
     ) -> bool {
         let mut push = true;
 
         if self.hidden_only {
-            push = if self.dirs {
-                path.is_dir()
-            } else if self.files {
-                path.is_file()
-            } else {
-                path.is_hidden()
-            }
+            return path.is_hidden()
+                || if self.dirs {
+                    path.is_dir()
+                } else if self.files {
+                    path.is_file()
+                } else {
+                    false
+                };
         } else if !self.hidden {
-            push = !path.is_hidden()
-        }
-
-        if self.ignore {
-            // todo
+            push &= !path.is_hidden()
         }
 
         if self.dirs {
-            push = path.is_dir()
+            push &= path.is_dir()
         } else if self.files {
-            push = path.is_file()
+            push &= path.is_file()
         }
 
-        // if !self.all {
-        //     push = path.exists()
-        // }
         push
     }
 
@@ -108,18 +102,16 @@ impl Visibility {
         let mut push = true;
 
         if self.hidden_only {
-            push = if self.dirs {
-                path.is_dir()
-            } else if self.files {
-                path.is_file()
-            } else {
-                path.is_hidden()
-            }
+            push = path.is_hidden()
+                || if self.dirs {
+                    path.is_dir()
+                } else if self.files {
+                    path.is_file()
+                } else {
+                    false
+                };
         };
 
-        // if !self.all {
-        //     push = path.exists()
-        // }
         push
     }
 

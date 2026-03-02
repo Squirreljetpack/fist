@@ -3,7 +3,6 @@ use std::{ffi::OsString, path::PathBuf};
 use clap::{ArgAction, ArgGroup, Parser};
 
 use crate::{db::DbTable, lessfilter::Preset};
-use fist_types::filters::DbSortOrder;
 
 #[derive(Debug, Parser, Default, Clone)]
 pub struct ShellCommand {
@@ -11,14 +10,14 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("z"))]
     pub z_name: String,
     /// Arguments passed to `fs ::` when z is invoked with a trailing `.`
-    #[arg(long, default_value_t = String::from("-F"))]
+    #[arg(long, default_value_t = String::from("-F --style=colors"))]
     pub z_dot_args: String,
     /// Arguments passed to `fs ::` when z is invoked with a trailing `./`
     #[arg(long, default_value_t = String::from(""))]
     pub z_slash_args: String,
-    /// Default sort order for the interactive jump menu
-    #[arg(long, default_value_t = DbSortOrder::atime)]
-    pub z_sort: DbSortOrder,
+    /// Arguments passed to `fs :dir` for the interactive jump menu
+    #[arg(long, default_value_t = String::from("--sort atime --style=colors"))]
+    pub z_dir_args: String,
 
     /// Name for open function.
     #[arg(long, default_value_t = String::from("zz"))]
