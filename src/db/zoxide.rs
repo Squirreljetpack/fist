@@ -30,13 +30,23 @@ pub struct HistoryConfig {
     #[serde(deserialize_with = "camelcase_normalized")]
     pub refind: RetryStrat,
 
-    /// Whether to save resolved paths (todo)
+    /// When checking for existence, whether to follow symlinks
     pub resolve_symlinks: bool,
     /// Experimental
     pub base_dir: Option<String>,
 
+    /// The criterion by which a path is determined to match a given set of keywords
+    pub query_strategy: QueryMatchStrategy,
+
     /// Default: smart (only if keyword contains capitalization)
     pub case_sensitive: Option<bool>,
+}
+
+#[derive(Default, Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum QueryMatchStrategy {
+    #[default]
+    Monotonic,
+    Substring,
 }
 
 impl Default for HistoryConfig {
@@ -46,10 +56,11 @@ impl Default for HistoryConfig {
             show_missing: Default::default(),
             missing_expiry: TtlDays(7),
             resolve_symlinks: Default::default(),
-            atime_expiry: Default::default(),
+            atime_expiry: TtlDays(999),
             base_dir: Default::default(),
             refind: Default::default(),
             case_sensitive: Default::default(),
+            query_strategy: Default::default(),
         }
     }
 }
@@ -214,35 +225,37 @@ pub struct DbFilter {
     now: Epoch,
     pub keywords: Vec<String>,
     // exclude: GlobSet,
-    atime_expiration: Epoch,
+    atime_expiry: Epoch,
 
     pub show_missing: bool,
-    pub missing_expiration: Epoch,
+    pub missing_expiry: Epoch,
     pub resolve_symlinks: bool,
     /// filter_before is stored as epoch seconds
     base_dir: Option<String>,
     pub refind: RetryStrat,
     pub case_sensitive: Option<bool>,
+    pub query_strategy: QueryMatchStrategy,
 }
 
 impl DbFilter {
     pub fn new(config: &HistoryConfig) -> Self {
         let now = Utc::now().timestamp();
-        let atime_expiry = now - config.atime_expiry.0 * 24 * 60 * 60; // convert TTL days to seconds
-        let missing_expiry = now - config.missing_expiry.0 * 24 * 60 * 60; // convert TTL days to seconds
+        let atime_expiry = now - config.atime_expiry.0 * 24 * 60 * 60; // convert TTL days to absolute seconds
+        let missing_expiry = now - config.missing_expiry.0 * 24 * 60 * 60;
 
         DbFilter {
             now,
             keywords: Default::default(),
             // exclude,
-            atime_expiration: atime_expiry,
+            atime_expiry,
 
             show_missing: config.show_missing,
-            missing_expiration: missing_expiry,
+            missing_expiry,
             resolve_symlinks: config.resolve_symlinks,
             refind: config.refind,
             base_dir: config.base_dir.clone(),
             case_sensitive: config.case_sensitive,
+            query_strategy: config.query_strategy,
         }
     }
 
@@ -279,7 +292,7 @@ impl DbFilter {
         //     log::debug!("filtered by: exclude");
         //     return Some(false);
         // }
-        if atime <= self.atime_expiration {
+        if atime <= self.atime_expiry {
             log::debug!("filtered by: atime");
             return None;
         }
@@ -289,7 +302,7 @@ impl DbFilter {
         }
         if !self.filter_by_exists(path) {
             log::debug!("filtered by: exist");
-            return if atime <= self.missing_expiration {
+            return if atime <= self.missing_expiry {
                 None
             } else {
                 Some(false)
@@ -349,15 +362,15 @@ impl DbFilter {
         if self.show_missing {
             return true;
         }
-        path.exists()
+        // path.exists()
 
-        // let resolver = if self.resolve_symlinks {
-        //     std::fs::symlink_metadata
-        // } else {
-        //     std::fs::metadata
-        // };
+        let resolver = if self.resolve_symlinks {
+            std::fs::symlink_metadata
+        } else {
+            std::fs::metadata
+        };
 
-        // resolver(path).map(|meta| meta.is_dir()).unwrap_or(false)
+        resolver(path).map(|meta| meta.is_dir()).unwrap_or(false)
     }
 
     /// zoxide algorithm with some adjustments:
@@ -382,9 +395,27 @@ impl DbFilter {
             .map(|k| k.trim_end_matches(std::path::MAIN_SEPARATOR).to_lowercase())
             .collect();
 
-        let mut idx = path_components.len();
+        let matcher = |component: &str, keyword: &str| -> bool {
+            let (comp, kw) = match self.case_sensitive {
+                Some(true) => (component.to_string(), keyword.to_string()),
+                Some(false) => (component.to_lowercase(), keyword.to_lowercase()),
+                None => {
+                    if keyword.chars().any(|ch| ch.is_uppercase()) {
+                        (component.to_string(), keyword.to_string())
+                    } else {
+                        (component.to_lowercase(), keyword.to_string())
+                    }
+                }
+            };
 
-        // Last kw must succeed
+            match self.query_strategy {
+                QueryMatchStrategy::Monotonic => is_monotonic_substring(&comp, &kw),
+                QueryMatchStrategy::Substring => comp.contains(&kw),
+            }
+        };
+
+        let mut idx = path_components.len();
+        // last kw must succeed
         let mut first = true;
 
         for keyword in keywords_lower.iter().rev() {
@@ -395,26 +426,18 @@ impl DbFilter {
             };
 
             let mut found = false;
+
             for start in (0..idx).rev() {
                 if start + key_components.len() > idx {
                     continue;
                 }
 
                 let slice = &path_components[start..start + key_components.len()];
+
                 if slice
                     .iter()
                     .zip(key_components.iter())
-                    .all(|(c, k)| match self.case_sensitive {
-                        Some(true) => is_monotonic_substring(c, k), // fully case-sensitive
-                        Some(false) => is_monotonic_substring(&c.to_lowercase(), &k.to_lowercase()), // fully insensitive
-                        None => {
-                            if k.chars().any(|ch| ch.is_uppercase()) {
-                                is_monotonic_substring(c, k) // sensitive
-                            } else {
-                                is_monotonic_substring(&c.to_lowercase(), k) // insensitive
-                            }
-                        }
-                    })
+                    .all(|(c, k)| matcher(c, k))
                 {
                     idx = start;
                     found = true;
