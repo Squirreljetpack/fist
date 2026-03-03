@@ -309,6 +309,7 @@ fn execute(
                     let Some(mut child) = std::process::Command::new(text_renderer_path())
                         .stdin(stdout)
                         .stdout(Stdio::inherit())
+                        .env("PG_FORCE_TTY", "true")
                         ._spawn()
                     else {
                         warn!("Failed to spawn pager: {:?}", text_renderer_path());

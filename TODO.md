@@ -125,7 +125,7 @@ Possible Conditions:
 - a bit annoying that the default search of rg is on paths, it should be able to configure to search on both or the other
 - icon only coloring
 - basic support for multi-line filenames (fd, rg should use null delimiters)
-- In zle, piped execution fails. I think if we use the shell for piping it works, but its a bit uglier and i feel like we should just be able to resolve it directly somehow.
+- Check that "interactive-shell-mode" pager works on all shells, not just zsh
 
 # Stash
 
