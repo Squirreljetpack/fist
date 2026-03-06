@@ -786,11 +786,9 @@ async fn handle_tools(
                     conn.push_files_and_folders(entry_queue).await?;
                 }
             } else {
+                let table = table.unwrap_or(table.unwrap_or(DbTable::dirs));
                 // glob is per-table
-                let mut conn = Pool::new(cfg.db_path())
-                    .await?
-                    .get_conn(table.unwrap_or(DbTable::dirs))
-                    .await?;
+                let mut conn = Pool::new(cfg.db_path()).await?.get_conn(table).await?;
 
                 let glob = GlobBuilder::new(&pattern.unwrap())
                     .build()
@@ -799,7 +797,7 @@ async fn handle_tools(
 
                 let mut to_remove = Vec::new();
 
-                let db_filter = DbFilter::new(&cfg.history);
+                let db_filter = DbFilter::new(&cfg.history).with_resolve_symlinks(table);
                 let entries = conn
                     .get_entries(DbSortOrder::none, &db_filter)
                     .await

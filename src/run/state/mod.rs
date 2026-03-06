@@ -134,9 +134,16 @@ pub mod GLOBAL {
         conn: &mut Connection,
         sort: DbSortOrder,
     ) -> Result<Vec<crate::db::Entry>, DbError> {
-        let guard = DB_FILTER.lock().await;
-        let db_filter = guard.as_ref().unwrap();
-        conn.get_entries(sort, db_filter).await
+        let mut guard = DB_FILTER.lock().await;
+        let db_filter = guard.as_mut().unwrap();
+        if conn.table_name != "dirs" {
+            let o = std::mem::take(&mut db_filter.resolve_symlinks);
+            let ret = conn.get_entries(sort, db_filter).await;
+            db_filter.resolve_symlinks = o;
+            ret
+        } else {
+            conn.get_entries(sort, db_filter).await
+        }
     }
 }
 
@@ -263,6 +270,7 @@ impl TOAST {
 
     /// Push a message with empty prefix.
     /// `replace = true` clears all previous messages of this type.
+    /// Note: Style the spans, not the line
     pub fn push_msg(
         line: impl Into<Line<'static>>,
         replace: bool,

@@ -113,8 +113,7 @@ pub fn collect_apps() -> Vec<Entry> {
                 return None;
             }
             if exec.is_empty() || name.is_empty() {
-                use cli_boilerplate_automation::_log;
-                _log!("Missing from {path:?}: Exec: {exec}, Name: {name}");
+                log::debug!("Missing fields in {path:?}: Exec: {exec}, Name: {name}");
                 return None;
             }
 

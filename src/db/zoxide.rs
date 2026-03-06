@@ -8,7 +8,7 @@ use std::path::Path;
 
 use crate::{
     abspath::AbsPath,
-    db::{Connection, DbSortOrder, Entry, Epoch},
+    db::{Connection, DbSortOrder, DbTable, Entry, Epoch},
 };
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -251,12 +251,22 @@ impl DbFilter {
 
             show_missing: config.show_missing,
             missing_expiry,
-            resolve_symlinks: config.resolve_symlinks,
+            resolve_symlinks: config.resolve_symlinks, // todo: support resolve specifically for dirs
             refind: config.refind,
             base_dir: config.base_dir.clone(),
             case_sensitive: config.case_sensitive,
             query_strategy: config.query_strategy,
         }
+    }
+
+    pub fn with_resolve_symlinks(
+        mut self,
+        table: DbTable,
+    ) -> Self {
+        if !matches!(table, DbTable::dirs) {
+            self.resolve_symlinks = false;
+        }
+        self
     }
 
     pub fn with_keywords(
@@ -301,7 +311,7 @@ impl DbFilter {
             return Some(false);
         }
         if !self.filter_by_exists(path) {
-            log::debug!("filtered by: exist");
+            log::debug!("{path:?} filtered by: exist");
             return if atime <= self.missing_expiry {
                 None
             } else {
@@ -364,13 +374,14 @@ impl DbFilter {
         }
         // path.exists()
 
-        let resolver = if self.resolve_symlinks {
-            std::fs::symlink_metadata
+        if self.resolve_symlinks {
+            std::fs::symlink_metadata(path)
+                .ok()
+                .map(|m| m.is_dir())
+                .unwrap_or(false)
         } else {
-            std::fs::metadata
-        };
-
-        resolver(path).map(|meta| meta.is_dir()).unwrap_or(false)
+            path.exists()
+        }
     }
 
     /// zoxide algorithm with some adjustments:

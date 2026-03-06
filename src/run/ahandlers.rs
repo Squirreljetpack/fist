@@ -23,7 +23,8 @@ pub fn paste_handler(
 ) -> String {
     if let Some(c) = STACK::nav_cwd()
         && !(GLOBAL::with_cfg(|c| c.interface.always_paste)
-            || state.picker_ui.results.cursor_disabled)
+            || state.picker_ui.results.cursor_disabled
+            || state.overlay_index().is_some())
     {
         STASH::transfer_all(c, false);
         String::new()

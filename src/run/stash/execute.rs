@@ -1,5 +1,5 @@
 use super::*;
-use ratatui::text::Line;
+use ratatui::text::Span;
 
 use std::{
     ffi::OsString,
@@ -195,7 +195,7 @@ impl STASH {
 
         if !queue.is_empty() {
             TOAST::push_msg(
-                Line::styled(
+                Span::styled(
                     format!("Starting {} items.", queue.len()),
                     ToastStyle::Normal,
                 ),
@@ -207,7 +207,9 @@ impl STASH {
                     item.transfer(custom_action);
                 }
             });
-        };
+        } else {
+            TOAST::push_msg(Span::styled("Stash is empty.", ToastStyle::Normal), true);
+        }
     }
 
     pub fn clear_invalid_and_completed() {
