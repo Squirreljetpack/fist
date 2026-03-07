@@ -193,7 +193,6 @@ pub fn fsaction_aliaser(
             // handle nonbindable events here so that overlays don't intercept them.
             // -------------------------------------------------
             FsAction::Reload => {
-                state.picker_ui.selector.revalidate();
                 fs_reload(state, false);
                 acs![]
             }

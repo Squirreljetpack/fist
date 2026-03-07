@@ -168,6 +168,7 @@ pub fn fs_reload(
         if !state.picker_ui.results.cursor_disabled {
             state.picker_ui.results.cursor_jump(0);
         }
+        state.picker_ui.selector.revalidate();
         fs_post_reload(state);
     }
 }
