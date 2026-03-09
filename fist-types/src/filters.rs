@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::bath::PathExt;
+use cba::bath::PathExt;
 use std::path::Path;
 
 #[allow(non_camel_case_types)]
@@ -34,36 +34,24 @@ impl SortOrder {
 }
 
 // ------------------------------------------------------------
-#[derive(Debug, Default, Clone, clap::Args, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(default))]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Visibility {
     /// show hidden files and folders
-    #[arg(short = 'h')]
     pub hidden: bool,
-
-    #[clap(skip)]
     /// show hidden files only.
     /// When combined with dir or files, the effect is inclusive: hidden or a file, hidden or a directory.
     pub hidden_only: bool,
-
     /// HIDE ignored files
-    #[arg(short = 'I')]
     pub ignore: bool,
-
     /// show all
-    #[arg(short = 'a', short_alias = 'u')]
     all: bool,
 
     /// only show directories
-    #[arg(short = 'F')]
     pub dirs: bool,
     /// show only files
-    #[arg(short = 'f')]
     pub files: bool,
 
     /// Don't follow symlinks (tui only).
-    #[arg(skip)]
     pub no_follow: bool,
 }
 
@@ -78,38 +66,32 @@ impl Visibility {
         files: false,
     };
 
-    // rust can probably optimize out unnecessary file accesses?
-    pub fn filter(
+    // note: does rust know to get all these metadata checks in one go?
+    pub fn post_nav_filter(
         &self,
         path: &Path,
     ) -> bool {
         let mut push = true;
 
         if self.hidden_only {
-            push = if self.dirs {
-                path.is_dir()
-            } else if self.files {
-                path.is_file()
-            } else {
-                path.is_hidden()
-            }
+            return path.is_hidden()
+                || if self.dirs {
+                    path.is_dir()
+                } else if self.files {
+                    path.is_file()
+                } else {
+                    false
+                };
         } else if !self.hidden {
-            push = !path.is_hidden()
-        }
-
-        if self.ignore {
-            // todo
+            push &= !path.is_hidden()
         }
 
         if self.dirs {
-            push = path.is_dir()
+            push &= path.is_dir()
         } else if self.files {
-            push = path.is_file()
+            push &= path.is_file()
         }
 
-        // if !self.all {
-        //     push = path.exists()
-        // }
         push
     }
 
@@ -120,18 +102,16 @@ impl Visibility {
         let mut push = true;
 
         if self.hidden_only {
-            push = if self.dirs {
-                path.is_dir()
-            } else if self.files {
-                path.is_file()
-            } else {
-                path.is_hidden()
-            }
+            push = path.is_hidden()
+                || if self.dirs {
+                    path.is_dir()
+                } else if self.files {
+                    path.is_file()
+                } else {
+                    false
+                };
         };
 
-        // if !self.all {
-        //     push = path.exists()
-        // }
         push
     }
 
@@ -192,6 +172,114 @@ impl Visibility {
     // fn depth(&self) -> usize {
     //     self.depth
     // }
+}
+
+#[derive(Debug, Default, Clone, clap::Args, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(default))]
+pub struct PartialVisibility {
+    /// show hidden files and folders
+    #[arg(
+        short = 'h',
+        num_args = 0..=1,
+        default_missing_value = "true",
+        value_parser = clap::value_parser!(bool),
+    )]
+    pub hidden: Option<bool>,
+
+    /// HIDE ignored files
+    #[arg(
+        short = 'I',
+        num_args = 0..=1,
+        default_missing_value = "true",
+        value_parser = clap::value_parser!(bool),
+    )]
+    pub ignore: Option<bool>,
+
+    /// show all
+    #[arg(
+        short = 'a',
+        short_alias = 'u',
+        num_args = 0..=1,
+        default_missing_value = "true",
+        value_parser = clap::value_parser!(bool),
+    )]
+    pub all: Option<bool>,
+
+    /// only show directories
+    #[arg(
+        short = 'F',
+        num_args = 0..=1,
+        default_missing_value = "true",
+        value_parser = clap::value_parser!(bool),
+    )]
+    pub dirs: Option<bool>,
+
+    /// show only files
+    #[arg(
+        short = 'f',
+        num_args = 0..=1,
+        default_missing_value = "true",
+        value_parser = clap::value_parser!(bool),
+    )]
+    pub files: Option<bool>,
+
+    /// Don't follow symlinks (tui only).
+    #[arg(skip)]
+    pub no_follow: Option<bool>,
+}
+
+impl PartialVisibility {
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+    pub fn into(self) -> Visibility {
+        let mut vis = Visibility::default();
+        vis.apply(self);
+        vis
+    }
+}
+
+impl Visibility {
+    pub fn apply(
+        &mut self,
+        patch: PartialVisibility,
+    ) {
+        if let Some(v) = patch.hidden {
+            self.hidden = v;
+        }
+        if let Some(v) = patch.ignore {
+            self.ignore = v;
+        }
+        if let Some(v) = patch.all {
+            self.all = v;
+        }
+        if let Some(v) = patch.dirs {
+            self.dirs = v;
+        }
+        if let Some(v) = patch.files {
+            self.files = v;
+        }
+        if let Some(v) = patch.no_follow {
+            self.no_follow = v;
+        }
+        *self = self.validated();
+    }
+
+    pub fn from_cmd_or_cfg(
+        cmd: PartialVisibility,
+        cfg: PartialVisibility,
+    ) -> Self {
+        let mut vis = Self::default();
+
+        if cmd.is_default() {
+            vis.apply(cfg);
+        } else {
+            vis.apply(cmd);
+        }
+
+        vis
+    }
 }
 
 #[allow(non_camel_case_types)]

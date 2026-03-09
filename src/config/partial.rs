@@ -1,4 +1,4 @@
-#[cfg(feature = "mm_override")]
+#[cfg(feature = "mm_overrides")]
 use {crate::run::FsPane, matchmaker::config::PartialRenderConfig};
 
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -8,7 +8,7 @@ pub struct MatchmakerOverrides {
     pub reverse: bool, // unimplemented
 }
 
-#[cfg(feature = "mm_override")]
+#[cfg(feature = "mm_overrides")]
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MatchmakerOverrides {
@@ -25,7 +25,7 @@ pub struct MatchmakerOverrides {
     pub settings: PartialRenderConfig,
 }
 
-#[cfg(feature = "mm_override")]
+#[cfg(feature = "mm_overrides")]
 impl MatchmakerOverrides {
     pub fn get(
         &self,

@@ -5,15 +5,15 @@ mod config;
 pub mod file_rule;
 mod helpers;
 pub mod rule_matcher;
-use cli_boilerplate_automation::broc::tty_or_inherit;
+use cba::broc::tty_or_inherit;
 pub use config::*;
 pub mod env;
 pub mod mime_helpers;
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::bog::BogUnwrapExt;
-use cli_boilerplate_automation::{bog::BogOkExt, broc::CommandExt};
-use cli_boilerplate_automation::{ebog, unwrap};
+use cba::bog::BogUnwrapExt;
+use cba::{bog::BogOkExt, broc::CommandExt};
+use cba::{ebog, unwrap};
 use std::process::{Command, Stdio};
 
 use crate::cli::clap_tools::LessfilterCommand;
@@ -128,7 +128,6 @@ pub fn handle(
                 } else if is_metadata(&prog) {
                     paths.iter().all(|p| show_metadata(p, i == 0))
                 } else {
-                    log::debug!("Executing: {prog:?}");
                     // Handle singleton execution
                     if !no_exec && Some(pi) == pl && i == rl {
                         let mut cmd = Command::new(prog.remove(0))
@@ -209,6 +208,7 @@ pub struct RulesConfig {
     pub info: RulePreset,
     pub open: RulePreset,
     pub alternate: RulePreset,
+    pub alternate2: RulePreset,
     pub edit: RulePreset,
     pub default: RulePreset,
 }
@@ -223,6 +223,7 @@ impl Default for RulesConfig {
             info: RuleMatcher::new(),
             open: RuleMatcher::new(),
             alternate: RuleMatcher::new(),
+            alternate2: RuleMatcher::new(),
             edit: RuleMatcher::new(),
             default: RuleMatcher::new(),
         }
@@ -242,6 +243,7 @@ impl RulesConfig {
             Preset::Info => &self.info,
             Preset::Open => &self.open,
             Preset::Alternate => &self.alternate,
+            Preset::Alternate2 => &self.alternate2,
             Preset::Edit => &self.edit,
             Preset::Default => &self.default,
         }
@@ -259,6 +261,7 @@ impl RulesConfig {
             Preset::Info => &mut self.info,
             Preset::Open => &mut self.open,
             Preset::Alternate => &mut self.alternate,
+            Preset::Alternate2 => &mut self.alternate2,
             Preset::Edit => &mut self.edit,
             Preset::Default => &mut self.default,
         }

@@ -2,14 +2,14 @@ use std::ffi::OsString;
 use std::path::Path;
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::vec_;
+use cba::vec_;
 use serde::{Deserialize, Deserializer};
 
 use crate::arr;
 use crate::cli::paths::{current_exe, show_error_path, text_renderer_path};
 use crate::lessfilter::Preset;
 use crate::lessfilter::helpers::{
-    simple_header, image_viewer, infer_editor, infer_visual, simple_metadata,
+    image_viewer, infer_editor, infer_visual, simple_header, simple_metadata,
 };
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, serde::Serialize)]
@@ -91,27 +91,25 @@ impl Action {
                 Preset::Extended => (
                     arr![
                         simple_header(path),
-                        vec_![: current_exe(), ":tool", "liza", ":sba", path]
+                        vec_![: current_exe(), ":tool", "liza", "::nav", path]
                     ],
                     [true, false, true],
                 ),
                 Preset::Info => (
-                    arr![vec_![: current_exe(), ":tool", "liza", ":l", path]],
+                    arr![vec_![: current_exe(), ":tool", "liza", ":sba", path]],
                     [true, false, true],
                 ),
                 Preset::Edit => (arr![infer_visual(path)], [true, false, true]),
-                Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
+                Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
+                    unreachable!()
+                }
             },
             Action::Text => match preset {
                 Preset::Preview | Preset::Display => (
                     arr![vec_![: text_renderer_path(), path]],
                     [true, false, false],
                 ),
-                // another approach is to enable the "native" header in the handler:
-                // if matches!(preset, Preset::Extended) && matches!(action, Action::Text) {
-                //     cmd.env("PG_FLAGS", "--style=header,rule,snip");
-                // }
-                // but using our app header is more consistent
+                // bat has a "native" header but using our app header is more consistent
                 Preset::Extended => (
                     arr![
                         simple_header(path),
@@ -123,7 +121,9 @@ impl Action {
                 Preset::Info => (arr![simple_metadata(path)], [true, false, false]),
                 Preset::Edit => (arr![infer_editor(path)], [true, true, false]),
 
-                Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
+                Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
+                    unreachable!()
+                }
             },
             Action::Image => match preset {
                 Preset::Preview | Preset::Display => {
@@ -137,6 +137,7 @@ impl Action {
                     ],
                     [true, false, false],
                 ),
+                // todo: integrate mediainfo
                 Preset::Info => (
                     arr![simple_header(path), simple_metadata(path)],
                     [true, false, false],
@@ -145,7 +146,9 @@ impl Action {
                     arr![vec_![: current_exe(), ":open", "--", path]],
                     [true, false, false],
                 ),
-                Preset::Default | Preset::Open | Preset::Alternate => unreachable!(),
+                Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
+                    unreachable!()
+                }
             },
 
             Action::Metadata => match preset {
@@ -153,6 +156,7 @@ impl Action {
                     arr![simple_header(path), simple_metadata(path)],
                     [true, false, false],
                 ),
+                // todo: change this
                 Preset::Info => (
                     arr![
                         vec_![: current_exe(), ":tool", "liza", ":l", path],

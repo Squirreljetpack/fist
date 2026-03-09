@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::define_const_default;
+use cba::define_const_default;
 use matchmaker::config::HorizontalSeparator;
 
 pub use super::styles::FileStyles;
@@ -9,7 +9,6 @@ define_const_default!(
     pub struct StyleConfig {
         pub path: PathDisplayConfig,
         pub matchmaker: MatchmakerExtraConfig,
-
     }
 );
 
@@ -34,7 +33,8 @@ define_const_default!(
         pub dir_colors: bool = true,
         /// Style configuration based on file type
         pub file_styles: FileStyles,
-        
+        pub icon_colors: bool = true,
+
         // Experimental
         pub symlink: Option<bool> = None, // hide/normal/fancy(target/color?)
         pub invalid: Option<bool> = None, // hide/normal/fancy(color)
@@ -50,5 +50,3 @@ define_const_default!(
         pub horizontal_separator: HorizontalSeparator = HorizontalSeparator::Light,
     }
 );
-
-

@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{bath::PathExt, bs::FsPathExt};
+use cba::{bath::PathExt, bs::FsPathExt};
 // SPDX-FileCopyrightText: 2024 Christina Sørensen
 // SPDX-License-Identifier: EUPL-1.2
 //

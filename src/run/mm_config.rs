@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::bo::load_type_or_default;
+use cba::bo::load_type_or_default;
 use matchmaker::{
     binds::BindMap,
     config::{
@@ -12,7 +12,7 @@ use std::path::Path;
 
 use super::{FsAction, binds::default_binds};
 
-#[cfg(feature = "mm_override")]
+#[cfg(feature = "mm_overrides")]
 use crate::cli::env::EnvOpts;
 
 use crate::{
@@ -25,7 +25,8 @@ use crate::{
 };
 use fist_types::When;
 
-// ------- Main config --------
+// ------- MM config --------
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MMConfig {
@@ -61,18 +62,20 @@ impl Default for MMConfig {
 
 pub const MATCHER_CONFIG: nucleo::Config = const { nucleo::Config::DEFAULT.match_paths() };
 
+// -------------------------------------------------------------------------------------------
+
 pub fn get_mm_cfg(
     path: &Path,
     cfg: &Config,
 ) -> MMConfig {
     let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
-    #[cfg(feature = "mm_override")]
+    #[cfg(feature = "mm_overrides")]
     if let Some(partial) = EnvOpts::get_mm_partial() {
         mm_cfg.render.apply(partial);
     }
 
     let binds = default_binds();
-    default_binds().append(&mut mm_cfg.binds);
+    default_binds().extend(mm_cfg.binds);
     mm_cfg.binds = binds;
 
     // Render display

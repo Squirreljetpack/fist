@@ -7,7 +7,7 @@ use super::{action::*, file_rule::*, *};
 use crate::abspath::AbsPath;
 use crate::cli::paths::{current_exe, text_renderer_path};
 use crate::lessfilter::helpers::simple_metadata;
-use cli_boilerplate_automation::vec_;
+use cba::vec_;
 use tempfile::tempdir;
 
 fn get_test_config() -> RulesConfig {

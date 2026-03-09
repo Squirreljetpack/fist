@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use cli_boilerplate_automation::{StringError, bait::ResultExt};
+use cba::{StringError, bait::ResultExt};
 use ignore::{
     WalkBuilder,
     overrides::{Override, OverrideBuilder},
@@ -29,7 +29,7 @@ pub fn list_dir(
 
     // hidden handling
     if vis.hidden || vis.hidden_only {
-        // ignore `hidden`, handle filtering manually
+        // show `hidden`, handle filtering manually
         builder.hidden(false);
     } else {
         builder.hidden(!vis.hidden);
@@ -42,7 +42,7 @@ pub fn list_dir(
         .filter(move |e| e.path() != cwd)
         .filter(move |e| {
             let path = e.path();
-            vis.filter(path)
+            vis.post_nav_filter(path)
         })
         .map(|e| e.into_path())
 }

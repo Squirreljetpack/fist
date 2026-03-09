@@ -12,11 +12,14 @@
     repository   = "https://github.com/Squirreljetpack/fist"
 
 [workspace.dependencies]
-    fist-types                 = { path = "fist-types" }
-    cli_boilerplate_automation = { version = "0.0.*", features = [ "bring", "serde" ] }
-    phf                        = { version = "0.13.1", features = [ "macros", "phf_macros" ] }
-    strum                      = { version = "0.27.2", features = [ "strum_macros" ] }
-    strum_macros               = "0.27.2"
+    fist-types = { path = "fist-types" }
+    cli_boilerplate_automation = { version = "0.0.*", features = [
+        "bring",
+        "serde",
+    ] }
+    phf = { version = "0.13.1", features = [ "macros", "phf_macros" ] }
+    strum = { version = "0.27.2", features = [ "strum_macros" ] }
+    strum_macros = "0.27.2"
 
     serde         = "1.0.228"
     file-format   = { version = "0.28.0", default-features = false }
@@ -34,11 +37,13 @@
     description            = "Fist: Interactive Search Tool"
 
 [dependencies]
-    fist-types                 = { workspace = true, features = [ "serde", "file-format" ] }
+    fist-types = { workspace = true, features = [ "serde", "file-format" ] }
     cli_boilerplate_automation = { workspace = true }
-    matchmaker-lib             = { version = "0.0.8", features = [ "bracketed-paste" ] }
-    matchmaker-partial         = { version = "0.0.*", optional = true }
-    matchmaker-partial-macros  = { version = "0.0.*", features = [ "partial" ], optional = true }
+    matchmaker-lib = { version = "0.0.*", features = [ "bracketed-paste" ] }
+    matchmaker-partial = { version = "0.0.*", optional = true }
+    matchmaker-partial-macros = { version = "0.0.*", features = [
+        "partial",
+    ], optional = true }
 
     # tui + text
     atty                 = "0.2.14"
@@ -114,14 +119,30 @@
     too_many_arguments    = "allow"
 
 [features]
-    default            = [ "image-defaults", "file-format", "partial" ]
-    mm_override        = [  ]
-    partial            = [ "matchmaker-lib/partial", "matchmaker-lib/experimental", "matchmaker-partial", "matchmaker-partial-macros/partial" ]
-    image-defaults     = [ "image/png", "image/jpeg" ]
-    image-all          = [ "image/png", "image/jpeg", "image/gif", "image/bmp", "image/ico", "image/tiff", "image/webp" ]
-    infer              = [ "dep:infer" ]
+    default = [ "image-defaults", "file-format", "file-format-reader", "partial" ]
+
+    partial = [
+        "matchmaker-lib/partial",
+        "matchmaker-lib/experimental",
+        "matchmaker-partial",
+        "matchmaker-partial-macros/partial",
+    ]
+    mm_overrides = [ "partial" ]
+
+    image-defaults = [ "image/png", "image/jpeg" ]
+    image-all = [
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/bmp",
+        "image/ico",
+        "image/tiff",
+        "image/webp",
+    ]
+
     file-format        = [ "dep:file-format" ]
-    file-format-reader = [ "file-format/reader" ]
+    file-format-reader = [ "file-format", "file-format/reader" ]
+    infer              = [ "dep:infer" ]
 
 [patch.crates-io]
     nucleo = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }

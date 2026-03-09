@@ -3,7 +3,7 @@
 use std::{cell::RefCell, fmt::Debug};
 
 use anymap::AnyMap;
-use cli_boilerplate_automation::_dbg;
+use cba::_dbg;
 
 use crate::ui::menu_overlay::{MenuTarget, PromptKind};
 
@@ -13,6 +13,9 @@ thread_local! {
 
 #[derive(Debug)]
 pub struct ExecuteHandlerShouldProcessParent;
+
+#[derive(Debug, Clone)]
+pub struct InitialQueryShouldNotAbort;
 
 #[derive(Clone, Debug)]
 pub struct InitialRelativePathSetting(pub bool);
@@ -24,7 +27,7 @@ pub struct TlsStore;
 impl TlsStore {
     pub fn set<T: 'static + Debug>(value: T) {
         TLS_MAP.with(|map| {
-            map.borrow_mut().insert::<T>(_dbg!("TlsSet", value));
+            map.borrow_mut().insert::<T>(_dbg!("TlsSet"; value));
         });
     }
     pub fn maybe_set<T: 'static + Debug>(value: Option<T>) {
@@ -39,7 +42,7 @@ impl TlsStore {
 
     pub fn take<T: 'static + Debug>() -> Option<T> {
         _dbg!(
-            "TlsTake",
+            "TlsTake";
             TLS_MAP.with(|map| map.borrow_mut().remove::<T>())
         )
     }

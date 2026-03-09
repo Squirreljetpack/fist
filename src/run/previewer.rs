@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{bring::StrExt, env_vars};
+use cba::{bring::StrExt, env_vars};
 use log::warn;
 use matchmaker::{config::PreviewerConfig, message::Event, preview::previewer::{PreviewMessage, Previewer}};
 use ratatui::text::Text;

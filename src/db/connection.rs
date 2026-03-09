@@ -28,7 +28,7 @@ impl Pool {
         #[cfg(not(test))] // in-memory
         {
             if !path.exists() {
-                use cli_boilerplate_automation::bog::BogOkExt;
+                use cba::bog::BogOkExt;
                 std::fs::File::create(path)._wbog();
             }
         }

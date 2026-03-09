@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-use cli_boilerplate_automation::ebog;
+use cba::ebog;
 use log::warn;
 
 use crate::abspath::AbsPath;

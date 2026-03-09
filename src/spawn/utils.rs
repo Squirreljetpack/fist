@@ -1,6 +1,6 @@
 use std::process::Stdio;
 
-use cli_boilerplate_automation::{StringError, bait::ResultExt, broc::SHELL};
+use cba::{StringError, bait::ResultExt, broc::SHELL};
 use tokio::process::{ChildStdout, Command};
 
 pub fn tokio_command_from_script(script: &str) -> tokio::process::Command {

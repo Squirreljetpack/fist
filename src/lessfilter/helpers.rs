@@ -6,12 +6,12 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::{cell::OnceCell, fs::File};
 
-use cli_boilerplate_automation::bait::ResultExt;
-use cli_boilerplate_automation::bo::map_reader_lines;
-use cli_boilerplate_automation::bring::TableBuilder;
-use cli_boilerplate_automation::broc::CommandExt;
-use cli_boilerplate_automation::{StringError, wbog};
-use cli_boilerplate_automation::{bo::MapReaderError, bog::BogOkExt, broc::has, vec_};
+use cba::bait::ResultExt;
+use cba::bo::map_reader_lines;
+use cba::bring::TableBuilder;
+use cba::broc::CommandExt;
+use cba::{StringError, wbog};
+use cba::{bo::MapReaderError, bog::BogOkExt, broc::has, vec_};
 use crossterm::style::Stylize;
 
 use super::env::line_column;

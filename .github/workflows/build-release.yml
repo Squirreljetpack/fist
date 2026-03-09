@@ -34,7 +34,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Release
-        run: cargo build --release
+        run: cargo build --release -F mm_overrides
 
       - name: Archive Binary (Unix)
         if: matrix.os != 'windows-latest'
@@ -70,4 +70,4 @@ jobs:
       - name: Publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_API_KEY }}
-        run: cargo publish -F partial
+        run: cargo publish

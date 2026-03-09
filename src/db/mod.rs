@@ -10,7 +10,7 @@ pub mod zoxide;
 pub use fist_types::filters::DbSortOrder;
 
 use crate::{abspath::AbsPath, errors::DbError, run::state::TASKS};
-use cli_boilerplate_automation::{bait::ResultExt, bath::PathExt};
+use cba::{bait::ResultExt, bath::PathExt};
 
 pub type Epoch = i64;
 

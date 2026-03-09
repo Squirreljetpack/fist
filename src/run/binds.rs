@@ -78,7 +78,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(alt-8) => FsAction::new_lessfilter(Preset::Alternate, true),
         // Maximize preview
         // true => display the output in a pager
-        key!(ctrl-l) => FsAction::new_lessfilter(Preset::Preview, true),
+        key!(ctrl-l) => FsAction::Execute("eval \"$=FS_PREVIEW_COMMAND\"".to_string(), 1),
         // For "full" or interactive terminal output
         key!(alt-l)  => FsAction::new_lessfilter(Preset::Extended, true),
 
@@ -93,7 +93,7 @@ pub fn default_binds() -> BindMap<FsAction> {
 
         key!(ctrl-shift-'/'), key!(shift-cmd-'/') => Action::CyclePreview,
         key!(alt-r) => Action::Reload("".to_string()),
-        key!(ctrl-0), key!(ctrl-'`') => FsAction::AutoJump(0),
+        key!(ctrl-0), key!(ctrl-shift-0), key!(ctrl-'`') => FsAction::AutoJump(0),
         key!(ctrl-1) => FsAction::AutoJump(1),
         key!(ctrl-2) => FsAction::AutoJump(2),
         key!(ctrl-3) => FsAction::AutoJump(3),

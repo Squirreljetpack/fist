@@ -1,5 +1,5 @@
 use chrono::{DateTime, Local};
-use cli_boilerplate_automation::{bog::BogUnwrapExt, prints};
+use cba::{bog::BogUnwrapExt, prints};
 use comfy_table::{ContentArrangement, Row, Table, presets::UTF8_FULL};
 
 use crate::db::{Entry, Epoch};

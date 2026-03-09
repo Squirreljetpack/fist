@@ -11,7 +11,7 @@ use std::{
 
 use ansi_to_tui::IntoText;
 use anyhow::bail;
-use cli_boilerplate_automation::{
+use cba::{
     bait::ResultExt,
     bo::{MapReaderError, map_reader_lines},
     bog::BogOkExt,
@@ -29,7 +29,10 @@ use crate::{
     cli::env::EnvOpts,
     config::GlobalConfig,
     find::rg::build_rg_args,
-    run::{FsPane, state::TOAST},
+    run::{
+        FsPane,
+        state::{InitialQueryShouldNotAbort, TOAST, TlsStore},
+    },
     utils::text::{extract_rg_line_no_path, parse_rg_line, scrub_text_styles, text_to_lines},
 };
 use crate::{
@@ -100,12 +103,10 @@ impl FsPane {
                         stdout,
                         move |line| {
                             let item = PathItem::new_from_split(line.split_delim(delim), &cwd);
-                            if vis.filter(&item.path) {
-                                if let Some(stored) = &stored {
-                                    stored.push(item.clone());
-                                };
-                                injector.push(item)?;
-                            }
+                            if let Some(stored) = &stored {
+                                stored.push(item.clone());
+                            };
+                            injector.push(item)?;
                             anyhow::Ok(())
                         },
                         complete.clone(),
@@ -206,12 +207,10 @@ impl FsPane {
                         stdout,
                         move |line| {
                             let item = PathItem::new_from_split(line.split_delim(delim), &cwd);
-                            if vis.filter(&item.path) {
-                                if let Some(stored) = &stored {
-                                    stored.push(item.clone());
-                                };
-                                injector.push(item)?;
-                            }
+                            if let Some(stored) = &stored {
+                                stored.push(item.clone());
+                            };
+                            injector.push(item)?;
                             anyhow::Ok(())
                         },
                         complete.clone(),
@@ -300,7 +299,8 @@ impl FsPane {
                     .spawn_piped()
                     ._ebog()?;
 
-                let abort_empty = STACK::len() == 1;
+                let abort_empty =
+                    STACK::len() == 1 && TlsStore::get::<InitialQueryShouldNotAbort>().is_none();
 
                 map_reader(
                     stdout,
@@ -605,6 +605,13 @@ impl FsPane {
                     let mut files: Vec<PathBuf> = iter.collect();
 
                     match sort {
+                        //                         files.sort_by(|a, b| {
+                        //     a.file_name()
+                        //         .to_string_lossy()
+                        //         .to_lowercase()
+                        //         .cmp(&b.file_name().to_string_lossy().to_lowercase())
+                        // });
+                        // Case sensitive
                         SortOrder::name => files.sort_by(|a, b| a.file_name().cmp(&b.file_name())),
                         SortOrder::mtime => sort_by_mtime(&mut files),
                         SortOrder::size => sort_by_size(&mut files),

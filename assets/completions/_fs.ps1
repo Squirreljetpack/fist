@@ -26,6 +26,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
@@ -52,6 +53,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'initial query')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
@@ -65,6 +67,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'initial query')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
@@ -80,6 +83,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
@@ -94,6 +98,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
@@ -101,6 +106,11 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
         }
         'fs;:fd' {
             [CompletionResult]::new('--sort', '--sort', [CompletionResultType]::ParameterName, 'sort')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'show hidden files and folders')
+            [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'HIDE ignored files')
+            [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'show all')
+            [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
+            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
             [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
             [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
@@ -108,11 +118,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'show hidden files and folders')
-            [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'HIDE ignored files')
-            [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'show all')
-            [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
-            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Never stream input from stdin')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
@@ -122,6 +128,11 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
         }
         'fs;::' {
             [CompletionResult]::new('--sort', '--sort', [CompletionResultType]::ParameterName, 'sort')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'show hidden files and folders')
+            [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'HIDE ignored files')
+            [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'show all')
+            [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
+            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
             [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
             [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
@@ -129,11 +140,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'show hidden files and folders')
-            [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'HIDE ignored files')
-            [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'show all')
-            [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
-            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Never stream input from stdin')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
@@ -142,6 +149,11 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:rg' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'show hidden files and folders')
+            [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'HIDE ignored files')
+            [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'show all')
+            [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
+            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
             [CompletionResult]::new('--sort', '--sort', [CompletionResultType]::ParameterName, 'sort')
             [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Files or directories to search in')
             [CompletionResult]::new('--path', '--path', [CompletionResultType]::ParameterName, 'Files or directories to search in')
@@ -158,11 +170,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'show hidden files and folders')
-            [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'HIDE ignored files')
-            [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'show all')
-            [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
-            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'i')
             [CompletionResult]::new('--ignore-case', '--ignore-case', [CompletionResultType]::ParameterName, 'ignore-case')
             [CompletionResult]::new('-s', '-s', [CompletionResultType]::ParameterName, 's')
@@ -170,6 +178,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-S', '-S ', [CompletionResultType]::ParameterName, 'S')
             [CompletionResult]::new('--smart-case', '--smart-case', [CompletionResultType]::ParameterName, 'smart-case')
             [CompletionResult]::new('--no-fixed-strings', '--no-fixed-strings', [CompletionResultType]::ParameterName, 'Enable fixed string matching Disable fixed string matching')
+            [CompletionResult]::new('--filtering', '--filtering', [CompletionResultType]::ParameterName, 'filtering')
             [CompletionResult]::new('-1', '-1', [CompletionResultType]::ParameterName, '1')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
@@ -177,6 +186,11 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:' {
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'show hidden files and folders')
+            [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'HIDE ignored files')
+            [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'show all')
+            [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
+            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
             [CompletionResult]::new('--sort', '--sort', [CompletionResultType]::ParameterName, 'sort')
             [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Files or directories to search in')
             [CompletionResult]::new('--path', '--path', [CompletionResultType]::ParameterName, 'Files or directories to search in')
@@ -193,11 +207,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'show hidden files and folders')
-            [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'HIDE ignored files')
-            [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'show all')
-            [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
-            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'i')
             [CompletionResult]::new('--ignore-case', '--ignore-case', [CompletionResultType]::ParameterName, 'ignore-case')
             [CompletionResult]::new('-s', '-s', [CompletionResultType]::ParameterName, 's')
@@ -205,6 +215,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-S', '-S ', [CompletionResultType]::ParameterName, 'S')
             [CompletionResult]::new('--smart-case', '--smart-case', [CompletionResultType]::ParameterName, 'smart-case')
             [CompletionResult]::new('--no-fixed-strings', '--no-fixed-strings', [CompletionResultType]::ParameterName, 'Enable fixed string matching Disable fixed string matching')
+            [CompletionResult]::new('--filtering', '--filtering', [CompletionResultType]::ParameterName, 'filtering')
             [CompletionResult]::new('-1', '-1', [CompletionResultType]::ParameterName, '1')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
@@ -217,6 +228,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('colors', 'colors', [CompletionResultType]::ParameterValue, 'colors')
@@ -233,6 +245,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('colors', 'colors', [CompletionResultType]::ParameterValue, 'colors')
@@ -249,6 +262,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
@@ -258,6 +272,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
@@ -267,6 +282,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
@@ -276,6 +292,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
@@ -283,7 +300,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--z-name', '--z-name', [CompletionResultType]::ParameterName, 'Name for jump function')
             [CompletionResult]::new('--z-dot-args', '--z-dot-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when z is invoked with a trailing `.`')
             [CompletionResult]::new('--z-slash-args', '--z-slash-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when z is invoked with a trailing `./`')
-            [CompletionResult]::new('--z-sort', '--z-sort', [CompletionResultType]::ParameterName, 'Default sort order for the interactive jump menu')
+            [CompletionResult]::new('--z-dir-args', '--z-dir-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs :dir` for the interactive jump menu')
             [CompletionResult]::new('--open-name', '--open-name', [CompletionResultType]::ParameterName, 'Name for open function')
             [CompletionResult]::new('--open-cmd', '--open-cmd', [CompletionResultType]::ParameterName, 'Command used by open function')
             [CompletionResult]::new('--dir-widget-bind', '--dir-widget-bind', [CompletionResultType]::ParameterName, 'Bind for the directory widget')
@@ -301,6 +318,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--aliases', '--aliases', [CompletionResultType]::ParameterName, 'aliases')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
@@ -309,7 +327,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--z-name', '--z-name', [CompletionResultType]::ParameterName, 'Name for jump function')
             [CompletionResult]::new('--z-dot-args', '--z-dot-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when z is invoked with a trailing `.`')
             [CompletionResult]::new('--z-slash-args', '--z-slash-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when z is invoked with a trailing `./`')
-            [CompletionResult]::new('--z-sort', '--z-sort', [CompletionResultType]::ParameterName, 'Default sort order for the interactive jump menu')
+            [CompletionResult]::new('--z-dir-args', '--z-dir-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs :dir` for the interactive jump menu')
             [CompletionResult]::new('--open-name', '--open-name', [CompletionResultType]::ParameterName, 'Name for open function')
             [CompletionResult]::new('--open-cmd', '--open-cmd', [CompletionResultType]::ParameterName, 'Command used by open function')
             [CompletionResult]::new('--dir-widget-bind', '--dir-widget-bind', [CompletionResultType]::ParameterName, 'Bind for the directory widget')
@@ -327,6 +345,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--aliases', '--aliases', [CompletionResultType]::ParameterName, 'aliases')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
@@ -340,6 +359,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--no-exec', '--no-exec', [CompletionResultType]::ParameterName, 'no-exec')
             [CompletionResult]::new('--tty', '--tty', [CompletionResultType]::ParameterName, 'tty')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
@@ -354,6 +374,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--no-exec', '--no-exec', [CompletionResultType]::ParameterName, 'no-exec')
             [CompletionResult]::new('--tty', '--tty', [CompletionResultType]::ParameterName, 'tty')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
@@ -369,6 +390,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--reset', '--reset', [CompletionResultType]::ParameterName, 'reset the database')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
@@ -383,6 +405,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--reset', '--reset', [CompletionResultType]::ParameterName, 'reset the database')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
@@ -393,6 +416,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
@@ -402,6 +426,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             break
         }
@@ -414,6 +439,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('-m', '-m', [CompletionResultType]::ParameterName, 'Don''t print decorations')
             [CompletionResult]::new('--minimal', '--minimal', [CompletionResultType]::ParameterName, 'Don''t print decorations')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')

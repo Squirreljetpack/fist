@@ -1,6 +1,6 @@
 use crate::errors::DbError;
 use crate::{abspath::OsStringWrapper, db::*};
-use cli_boilerplate_automation::bait::ResultExt;
+use cba::bait::ResultExt;
 use log::trace;
 use sqlx::Acquire;
 use std::{

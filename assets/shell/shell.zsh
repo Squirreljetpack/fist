@@ -20,11 +20,7 @@ function $${Z_NAME}() {
     "." | "..") $${BINARY_PATH} :: $${Z_DOT_ARGS} --no-read --cd -- $@ ;;
     "./") $${BINARY_PATH} :: $${Z_SLASH_ARGS} --no-read --cd -- $@ ;;
     *)
-      if (($# == 1)) && [ "$1" = ".." ]; then
-        $${BINARY_PATH} :: $${Z_DOT_ARGS} --no-read --cd -- ..
-      else
-        $${BINARY_PATH} :dir --sort $${Z_SORT} --cd --initial-input="$FS_INITIAL_INPUT" -- $@
-      fi
+      $${BINARY_PATH} :dir $${Z_DIR_ARGS} --cd --initial-input="$FS_INITIAL_INPUT" -- $@
       ;;
   esac)" || return
 

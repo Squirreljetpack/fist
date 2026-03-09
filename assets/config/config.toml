@@ -1,2 +1,49 @@
+### PANES ###
+#
 [panes.nav]
+    show_preview = 60
+    enter_prompt = false
+
     # default_visibility = { hidden = true }
+
+[panes.find]
+    show_preview = 60
+    enter_prompt = true
+
+[panes.search]
+    enter_prompt         = true
+    show_preview         = 20
+    preview_layout_index = 1
+
+    no_heading         = true
+    default_visibility = { ignore = true }
+    default_sort       = "none"
+    search_empty_query = true
+
+    rg_status_template = '''
+{blue:filter: {}} \s\m/\t
+'''
+    fs_status_template = '''
+{red:query: {}} \s\m/\t
+'''
+
+### STYLES ####
+#
+[styles]
+
+### SETTINGS ###
+#
+[fd]
+
+[rg]
+
+[notify]
+
+[misc]
+
+[history]
+    refind = "Search"
+
+    ### ACTIONS ####
+
+[actions]

@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{bring::split::split_whitespace_preserve_single_quotes, vec_};
+use cba::{bring::split::split_whitespace_preserve_single_quotes, vec_};
 use matchmaker::{
     acs,
     message::{BindDirective, Event},
@@ -23,7 +23,8 @@ pub fn paste_handler(
 ) -> String {
     if let Some(c) = STACK::nav_cwd()
         && !(GLOBAL::with_cfg(|c| c.interface.always_paste)
-            || state.picker_ui.results.cursor_disabled)
+            || state.picker_ui.results.cursor_disabled
+            || state.overlay_index().is_some())
     {
         STASH::transfer_all(c, false);
         String::new()
@@ -114,11 +115,14 @@ pub fn fs_reload(
     state: &mut MMState<'_, '_>,
     is_new: bool,
 ) {
-    // clear worker entries
-    state
-        .picker_ui
-        .worker
-        .set_stability(STACK::with_current(FsPane::stability_threshold));
+    if is_new {
+        // clear worker entries
+        state
+            .picker_ui
+            .worker
+            .set_stability(STACK::with_current(FsPane::stability_threshold));
+    }
+
     state.restart_worker();
 
     let injector = IndexedInjector::new_globally_indexed(state.injector());
@@ -151,9 +155,20 @@ pub fn fs_reload(
     TlsStore::maybe_set(STACK::take_maybe_index());
 
     if is_new {
+        STACK::with_current_mut(|pane| {
+            if let Some(pv) = GLOBAL::with_cfg(|c| c.panes.default_visibility(pane))
+                && let Some(v) = pane.vis_mut()
+            {
+                v.apply(pv);
+            }
+        });
+
         fs_post_reload_new(state);
     } else {
-        state.picker_ui.results.cursor_jump(0);
+        if !state.picker_ui.results.cursor_disabled {
+            state.picker_ui.results.cursor_jump(0);
+        }
+        state.picker_ui.selector.revalidate();
         fs_post_reload(state);
     }
 }
@@ -175,15 +190,10 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
                 state.picker_ui.input.config.prompt = p
             };
 
-            if let Some(enter) = c.panes.enter_prompt(pane) {
-                enter_prompt(state, enter);
-            } else if !state.picker_ui.results.cursor_disabled {
-                state.picker_ui.input.reset_prompt();
-            }
-
             if let Some(p) = state.preview_ui {
                 p.set_layout(c.panes.preview_layout_index(pane));
             };
+
             if let Some(condition) = c.panes.show_preview(pane) {
                 let area = state.ui_size();
                 if let Some(p) = state.preview_ui.as_mut() {
@@ -192,7 +202,14 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
                 }
             }
 
-            #[cfg(feature = "mm_override")]
+            // this hides the preview if needed
+            if let Some(enter) = c.panes.enter_prompt(pane) {
+                enter_prompt(state, enter);
+            } else if !state.picker_ui.results.cursor_disabled {
+                state.picker_ui.input.reset_prompt();
+            }
+
+            #[cfg(feature = "mm_overrides")]
             {
                 use matchmaker_partial::Apply;
                 let partial = c.mm.get(pane);
@@ -237,6 +254,13 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
         .set(STACK::with_current(FsPane::get_input), u16::MAX);
     state.picker_ui.selector.clear();
     TOAST::clear_msgs();
+
+    if STACK::in_app() {
+        TOAST::clear();
+        STASH::set_cas(CustomStashActionActionState::App);
+    } else if let Some(cas) = TlsStore::get() {
+        STASH::set_cas(cas);
+    }
 
     fs_post_reload(state);
 }
@@ -300,13 +324,11 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
                 state.filtering = f;
             }
             _ => {
-                match pane {
-                    FsPane::Apps { .. } => {
-                        TOAST::clear();
-                        STASH::set_cas(CustomStashActionActionState::App)
-                    }
-                    _ => {}
-                }
+                // match pane {
+                //     FsPane::Apps { .. } => {
+                //     }
+                //     _ => {}
+                // }
 
                 // restore non-rg settings
                 {

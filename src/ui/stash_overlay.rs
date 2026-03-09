@@ -1,38 +1,30 @@
 use crate::{
     cli::paths::__home,
-    find::size::{format_size, sort_by_size},
+    find::size::format_size,
     run::{
         action::FsAction,
         stash::{
-            AlternateStashItem, CustomStashActionActionState, STASH, StashAction, StashItem,
-            StashItemState, StashItemStatus,
+            AlternateStashItem, CustomStashActionActionState, STASH, StashItem, StashItemState,
+            StashItemStatus,
         },
         state::STACK,
     },
     utils::serde::border_result,
 };
 
-use cli_boilerplate_automation::{
-    bath::PathExt, bring::StrExt, bum::Float32Ext, define_transparent_wrapper, vec_,
-};
+use cba::{bath::PathExt, bring::StrExt, bum::Float32Ext};
 use matchmaker::{
     action::Action,
-    config::{self, BorderSetting, PartialBorderSetting},
+    config::{BorderSetting, PartialBorderSetting},
     ui::{Overlay, OverlayEffect, SizeHint},
 };
 use ratatui::{
     prelude::*,
-    widgets::{
-        Block, BorderType, Borders, Cell, Clear, HighlightSpacing, Paragraph, Row, Table,
-        TableState,
-    },
+    widgets::{Cell, Clear, Paragraph, Row, Table, TableState},
 };
 use unicode_width::UnicodeWidthStr;
 
-use std::{
-    fmt::Alignment,
-    sync::atomic::{AtomicBool, AtomicU8, Ordering},
-};
+use std::{fmt::Alignment, sync::atomic::Ordering};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -265,16 +257,22 @@ impl Overlay for StashOverlay {
     ) -> Result<Rect, [SizeHint; 2]> {
         if STACK::in_app() {
             self.widths = Default::default();
-            let pref_width = STASH::with_alternate(|scratch| {
-                scratch
-                    .iter()
-                    .map(|s| s.to_string_lossy().len() + 2)
-                    .max()
-                    .unwrap_or_default() as u16
-            })
-            .min(ui_area.width * 9 / 10);
+            let (pref_width, pref_height) = STASH::with_alternate(|scratch| {
+                (
+                    scratch
+                        .iter()
+                        .map(|s| s.to_string_lossy().len() + 4)
+                        .max()
+                        .unwrap_or_default() as u16,
+                    scratch.len() as u16,
+                )
+            });
+            let pref_width = (pref_width + self.border().width())
+                .max((ui_area.width.saturating_sub(2)).min(20))
+                .min(ui_area.width * 9 / 10);
+            let pref_height = 1 + pref_height + self.border().height();
 
-            Err([pref_width.into(), SizeHint::Min(self.border().height() + 4)])
+            Err([pref_width.into(), SizeHint::Min(pref_height)])
         } else {
             STASH::with(|scratch| {
                 self.save_widths(scratch, ui_area.width.saturating_sub(self.border().width()));
@@ -373,12 +371,6 @@ impl Overlay for StashOverlay {
                     todo!()
                 }
                 Action::ForwardChar => {
-                    todo!()
-                }
-                Action::BackwardWord => {
-                    todo!()
-                }
-                Action::BackwardWord => {
                     todo!()
                 }
                 Action::DeleteChar => {
@@ -511,7 +503,7 @@ impl StashItemStatus {
         let style = match state {
             StashItemState::Pending => Style::default(),
             StashItemState::Started => {
-                let percent = (progress as f32 / 255.0);
+                let percent = progress as f32 / 255.0;
                 let mut text =
                     format!("{:5.2}%", percent * 100.0).pad_to(10, std::fmt::Alignment::Center);
                 let (left, right) = if percent == 1.0 {
