@@ -1,5 +1,5 @@
 use chrono::Utc;
-use cli_boilerplate_automation::{
+use cba::{
     bait::ResultExt, bird::transform::camelcase_normalized, bog::BogOkExt,
     define_transparent_wrapper, prints,
 };

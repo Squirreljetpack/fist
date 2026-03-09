@@ -7,7 +7,7 @@ use crate::{
     utils::{serde::border_result, text::bold_indices},
 };
 
-use cli_boilerplate_automation::bum::UsizeExt;
+use cba::bum::UsizeExt;
 use fist_types::{When, filters::*};
 use matchmaker::{
     action::Action,

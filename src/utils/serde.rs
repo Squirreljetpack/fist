@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::bring::consume_escaped;
+use cba::bring::consume_escaped;
 use serde::Deserialize;
 
 pub fn escaped_opt_char<'de, D>(deserializer: D) -> Result<Option<char>, D::Error>

@@ -3,7 +3,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use cli_boilerplate_automation::{
+use cba::{
     bait::TransformExt,
     bog::BogOkExt,
     bring::StrExt,

@@ -1,6 +1,6 @@
 use std::sync::LazyLock;
 
-use cli_boilerplate_automation::{
+use cba::{
     bait::ResultExt,
     bog::BogOkExt,
     bring::{consume_escaped, parse_next_escape, split::split_whitespace_preserving_nesting},

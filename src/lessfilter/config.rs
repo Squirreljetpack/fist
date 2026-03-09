@@ -1,6 +1,6 @@
 use std::{collections::HashMap, str::FromStr};
 
-use cli_boilerplate_automation::{
+use cba::{
     bird::transform::camelcase_normalized, define_collection_wrapper,
 };
 use mime_guess::Mime;

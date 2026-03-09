@@ -1,6 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use cli_boilerplate_automation::{vec_, wbog};
+use cba::{vec_, wbog};
 
 use crate::{
     cli::paths::{__cwd, __home},

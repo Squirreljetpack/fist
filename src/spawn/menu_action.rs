@@ -1,7 +1,7 @@
 #![allow(warnings)]
 use std::collections::HashMap;
 
-use cli_boilerplate_automation::define_collection_wrapper;
+use cba::define_collection_wrapper;
 
 use crate::lessfilter::file_rule::FileRuleKind;
 

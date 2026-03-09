@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::define_const_default;
+use cba::define_const_default;
 use matchmaker::config::HorizontalSeparator;
 
 pub use super::styles::FileStyles;

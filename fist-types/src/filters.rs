@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::bath::PathExt;
+use cba::bath::PathExt;
 use std::path::Path;
 
 #[allow(non_camel_case_types)]

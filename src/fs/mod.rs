@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::abspath::AbsPath;
-use cli_boilerplate_automation::bath::PathExt;
+use cba::bath::PathExt;
 use tokio::fs;
 
 // Returns Err(dest) if the given ends with slash

@@ -12,7 +12,7 @@ use crate::{
     utils::serde::border_result,
 };
 
-use cli_boilerplate_automation::{bath::PathExt, bring::StrExt, bum::Float32Ext};
+use cba::{bath::PathExt, bring::StrExt, bum::Float32Ext};
 use matchmaker::{
     action::Action,
     config::{BorderSetting, PartialBorderSetting},

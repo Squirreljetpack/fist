@@ -11,7 +11,7 @@ use std::{
 
 use ansi_to_tui::IntoText;
 use anyhow::bail;
-use cli_boilerplate_automation::{
+use cba::{
     bait::ResultExt,
     bo::{MapReaderError, map_reader_lines},
     bog::BogOkExt,
@@ -29,7 +29,10 @@ use crate::{
     cli::env::EnvOpts,
     config::GlobalConfig,
     find::rg::build_rg_args,
-    run::{FsPane, state::TOAST},
+    run::{
+        FsPane,
+        state::{InitialQueryShouldNotAbort, TOAST, TlsStore},
+    },
     utils::text::{extract_rg_line_no_path, parse_rg_line, scrub_text_styles, text_to_lines},
 };
 use crate::{
@@ -296,7 +299,8 @@ impl FsPane {
                     .spawn_piped()
                     ._ebog()?;
 
-                let abort_empty = STACK::len() == 1;
+                let abort_empty =
+                    STACK::len() == 1 && TlsStore::get::<InitialQueryShouldNotAbort>().is_none();
 
                 map_reader(
                     stdout,

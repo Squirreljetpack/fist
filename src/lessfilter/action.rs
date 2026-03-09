@@ -2,7 +2,7 @@ use std::ffi::OsString;
 use std::path::Path;
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::vec_;
+use cba::vec_;
 use serde::{Deserialize, Deserializer};
 
 use crate::arr;

@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{
+use cba::{
     _ibog,
     bait::ResultExt,
     bath::{PathExt, RenamePolicy},

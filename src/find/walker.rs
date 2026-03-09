@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use cli_boilerplate_automation::{StringError, bait::ResultExt};
+use cba::{StringError, bait::ResultExt};
 use ignore::{
     WalkBuilder,
     overrides::{Override, OverrideBuilder},

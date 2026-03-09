@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{
+use cba::{
     bath::root_dir,
     bog::{BogOkExt, BogUnwrapExt},
     expr_as_path_fn,

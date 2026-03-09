@@ -1,6 +1,6 @@
 use std::path::{MAIN_SEPARATOR, Path, PathBuf};
 
-use cli_boilerplate_automation::bring::consume_escaped;
+use cba::bring::consume_escaped;
 
 use crate::{
     abspath::AbsPath,

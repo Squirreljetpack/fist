@@ -8,7 +8,7 @@ use crate::{
     utils::text::ToastStyle,
 };
 
-use cli_boilerplate_automation::bath::{PathExt, RenamePolicy, auto_dest_for_src};
+use cba::bath::{PathExt, RenamePolicy, auto_dest_for_src};
 use matchmaker::ui::{Overlay, OverlayEffect};
 use std::path::Path;
 

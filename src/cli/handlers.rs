@@ -1,6 +1,6 @@
 //! CLI command handlers
 use clap::Parser;
-use cli_boilerplate_automation::{
+use cba::{
     bait::{MaybeExt, TransformExt},
     bath::PathExt,
     bo::map_reader_lines,
@@ -16,7 +16,7 @@ use std::{
 };
 
 #[allow(unused_imports)]
-use cli_boilerplate_automation::{
+use cba::{
     _dbg, _ibog,
     bait::ResultExt,
     bo::load_type_or_default,

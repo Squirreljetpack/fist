@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::bo::load_type_or_default;
+use cba::bo::load_type_or_default;
 use matchmaker::{
     binds::BindMap,
     config::{

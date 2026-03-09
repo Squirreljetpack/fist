@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cli_boilerplate_automation::StringError;
+use cba::StringError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

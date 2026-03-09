@@ -5,9 +5,9 @@ pub mod menu_action;
 pub mod utils;
 
 use crate::abspath::AbsPath;
-use cli_boilerplate_automation::bait::TransformExt;
-use cli_boilerplate_automation::vec_;
-use cli_boilerplate_automation::{bog::BogOkExt, broc::ChildExt};
+use cba::bait::TransformExt;
+use cba::vec_;
+use cba::{bog::BogOkExt, broc::ChildExt};
 pub use program::*;
 // -----------
 use crate::db::{Connection, DbTable};
@@ -76,7 +76,7 @@ pub async fn bump_after_open(
     }
 }
 
-use cli_boilerplate_automation::broc::{CommandExt, format_sh_command};
+use cba::broc::{CommandExt, format_sh_command};
 use std::process::Command;
 
 /// Open some files, optionally with a [`Program`]

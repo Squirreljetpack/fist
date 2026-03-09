@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{bring::split::split_whitespace_preserve_single_quotes, vec_};
+use cba::{bring::split::split_whitespace_preserve_single_quotes, vec_};
 use matchmaker::{
     acs,
     message::{BindDirective, Event},

@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{broc::current_shell, prints};
+use cba::{broc::current_shell, prints};
 
 use crate::cli::clap_tools::ShellCommand;
 

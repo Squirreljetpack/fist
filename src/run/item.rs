@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use cli_boilerplate_automation::bath::PathExt;
+use cba::bath::PathExt;
 use matchmaker::nucleo::{Color, Line, Render, Span, Style, Text};
 
 use crate::{

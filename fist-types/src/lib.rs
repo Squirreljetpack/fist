@@ -7,7 +7,7 @@ pub mod icons;
 
 pub use categories::FileCategory;
 
-use cli_boilerplate_automation::define_when;
+use cba::define_when;
 
 define_when! {
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

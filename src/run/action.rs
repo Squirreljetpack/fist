@@ -3,9 +3,7 @@
 
 use std::path::PathBuf;
 
-use cli_boilerplate_automation::{
-    bait::ResultExt, bath::PathExt, bring::split::join_with_single_quotes, unwrap, wbog,
-};
+use cba::{bait::ResultExt, bath::PathExt, bring::split::join_with_single_quotes, unwrap, wbog};
 use matchmaker::{
     acs,
     action::{Action, Actions},
@@ -26,8 +24,8 @@ use crate::{
         pane::FsPane,
         stash::{STASH, StashItem},
         state::{
-            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, TASKS, TOAST, TlsStore,
-            context::ActionContext,
+            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, InitialQueryShouldNotAbort, STACK,
+            TASKS, TOAST, TlsStore, context::ActionContext,
         },
     },
     spawn::open_wrapped,
@@ -481,13 +479,14 @@ pub fn fsaction_handler(
                 FILTERS::visibility(),
             );
 
+            TlsStore::set(InitialQueryShouldNotAbort {});
+
             // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
             // todo: there is a problem
             if STACK::with_current(|p| *p == pane) {
                 fs_reload(state, false);
             } else {
                 STACK::push(pane);
-
                 fs_reload(state, true);
             }
 
@@ -1209,7 +1208,6 @@ macro_rules! enum_from_str_display {
                         let cmd = data.ok_or_else(|| "Missing command for ExecutePaged")?;
                         Ok(Self::Execute(cmd.into(), 1))
                     }
-
                     "ExecuteDetached" => {
                         let cmd = data.ok_or_else(|| "Missing command for ExecuteDetached")?;
                         Ok(Self::Execute(cmd.into(), 2))

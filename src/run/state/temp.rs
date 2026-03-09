@@ -3,7 +3,7 @@
 use std::{cell::RefCell, fmt::Debug};
 
 use anymap::AnyMap;
-use cli_boilerplate_automation::_dbg;
+use cba::_dbg;
 
 use crate::ui::menu_overlay::{MenuTarget, PromptKind};
 
@@ -13,6 +13,9 @@ thread_local! {
 
 #[derive(Debug)]
 pub struct ExecuteHandlerShouldProcessParent;
+
+#[derive(Debug, Clone)]
+pub struct InitialQueryShouldNotAbort;
 
 #[derive(Clone, Debug)]
 pub struct InitialRelativePathSetting(pub bool);

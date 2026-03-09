@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::bath::{bytes_to_os_string, os_str_to_bytes};
+use cba::bath::{bytes_to_os_string, os_str_to_bytes};
 use sqlx::{
     Database, Decode, Encode, Sqlite, Type,
     encode::IsNull,

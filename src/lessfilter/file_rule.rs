@@ -2,7 +2,7 @@ use std::{ffi::OsString, path::Path, str::FromStr, sync::OnceLock};
 
 use globset::{Glob as GlobBuilder, GlobMatcher};
 
-use cli_boilerplate_automation::{broc::has, bs::permissions, wbog};
+use cba::{broc::has, bs::permissions, wbog};
 
 use fist_types::{categories::FileCategory, filetypes::FileType};
 

@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 use std::{cell::RefCell, sync::Mutex};
 
-use cli_boilerplate_automation::bait::ResultExt;
+use cba::bait::ResultExt;
 use log::debug;
 use matchmaker::{action::Action, event::RenderSender};
 use ratatui::{
@@ -309,7 +309,7 @@ pub mod APP {
 pub mod TASKS {
     use std::{cell::RefCell, time::Duration};
 
-    use cli_boilerplate_automation::{_ibog, dbog, wbog};
+    use cba::{_ibog, dbog, wbog};
     use tokio::{self, task::JoinSet};
 
     thread_local! {

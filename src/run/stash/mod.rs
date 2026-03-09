@@ -4,7 +4,7 @@ pub use status::*;
 
 use std::{cell::RefCell, ffi::OsString, sync::Mutex};
 
-use cli_boilerplate_automation::bath::{PathExt, auto_dest_for_src};
+use cba::bath::{PathExt, auto_dest_for_src};
 
 use crate::{
     abspath::AbsPath,

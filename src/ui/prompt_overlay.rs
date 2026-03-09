@@ -1,5 +1,5 @@
 use crate::run::action::FsAction;
-use cli_boilerplate_automation::auto_impl;
+use cba::auto_impl;
 use matchmaker::{
     action::Action,
     config::{BorderSetting, InputConfig, Percentage},

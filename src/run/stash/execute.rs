@@ -8,7 +8,7 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use cli_boilerplate_automation::{
+use cba::{
     bath::{PathExt, auto_dest_for_src},
     bs::symlink,
 };

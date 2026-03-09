@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{bath::PathExt, bog::BogOkExt};
+use cba::{bath::PathExt, bog::BogOkExt};
 use std::{env::current_dir, path::PathBuf};
 
 pub fn paths_base<P>(paths: impl IntoIterator<Item = P>) -> PathBuf

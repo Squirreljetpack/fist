@@ -1,6 +1,6 @@
 use std::{fs::OpenOptions, io::Write, path::PathBuf, process::exit};
 
-use cli_boilerplate_automation::{
+use cba::{
     _ibog,
     bait::ResultExt,
     bo::{load_type_or_default, write_str},
@@ -120,7 +120,7 @@ fn init_logger(
         }
         #[cfg(not(debug_assertions))]
         {
-            use cli_boilerplate_automation::bait::TransformExt;
+            use cba::bait::TransformExt;
 
             // set style
             builder
@@ -128,12 +128,12 @@ fn init_logger(
                 .format_target(false)
                 .format_timestamp(None);
 
-            let level = cli_boilerplate_automation::bother::level_filter::from_verbosity(
+            let level = cba::bother::level_filter::from_verbosity(
                 verbosity.transform_if(verbosity >= 4, |v| v - 1),
             );
             builder
                 .filter(Some("sqlx"), level)
-                .filter(Some("cli_boilerplate_automation"), level)
+                .filter(Some("cba"), level)
                 .filter(Some("matchmaker"), level)
                 .filter(Some(BINARY_FULL), level);
         }

@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use cli_boilerplate_automation::{bath::PathExt, define_restricted_wrapper};
+use cba::{bath::PathExt, define_restricted_wrapper};
 
 use crate::cli::paths;
 

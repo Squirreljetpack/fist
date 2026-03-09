@@ -1,6 +1,6 @@
 use std::{ffi::OsString, sync::Arc};
 
-use cli_boilerplate_automation::{
+use cba::{
     bog::BogOkExt,
     bring::{StrExt, split::join_with_single_quotes},
     prints, unwrap,

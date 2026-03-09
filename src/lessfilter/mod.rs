@@ -5,15 +5,15 @@ mod config;
 pub mod file_rule;
 mod helpers;
 pub mod rule_matcher;
-use cli_boilerplate_automation::broc::tty_or_inherit;
+use cba::broc::tty_or_inherit;
 pub use config::*;
 pub mod env;
 pub mod mime_helpers;
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::bog::BogUnwrapExt;
-use cli_boilerplate_automation::{bog::BogOkExt, broc::CommandExt};
-use cli_boilerplate_automation::{ebog, unwrap};
+use cba::bog::BogUnwrapExt;
+use cba::{bog::BogOkExt, broc::CommandExt};
+use cba::{ebog, unwrap};
 use std::process::{Command, Stdio};
 
 use crate::cli::clap_tools::LessfilterCommand;

@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, atomic::AtomicBool},
 };
 
-use cli_boilerplate_automation::bring::split::join_with_single_quotes;
+use cba::bring::split::join_with_single_quotes;
 use matchmaker::preview::AppendOnly;
 
 use crate::{

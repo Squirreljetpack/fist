@@ -1,7 +1,7 @@
 use std::{ffi::OsString, path::PathBuf};
 
 use clap::{ArgAction, Args, Parser, Subcommand, error::ErrorKind};
-use cli_boilerplate_automation::_dbg;
+use cba::_dbg;
 
 use crate::{
     cli::{

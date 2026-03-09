@@ -1,5 +1,5 @@
 use arboard::{Clipboard, ImageData};
-use cli_boilerplate_automation::bait::{OptionExt, ResultExt};
+use cba::bait::{OptionExt, ResultExt};
 use image::ImageReader;
 use ratatui::text::Span;
 use std::borrow::Cow;

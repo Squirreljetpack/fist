@@ -1,17 +1,11 @@
+# Top
+-  Confirmation dialog overlay: for permanent delete
+- package/build?
+
 # Docs
 
 - Intro guide
 - FS_OPTS
-
-# Panes
-
-Nav: - search depth
-Custom: - sorting?
-implement --list for open/files/dirs panes
-
-# Footer
-
-- empty directory
 
 # Lessfilter (lowpri)
 
@@ -48,14 +42,16 @@ transparent advance into compressed files
 - Theme?
 - Debounce rerenders to avoid showing 0 items
 
+
 # Rg
 
-- On non-nav panes, this should populate with the currently stored files
+- On non-nav panes, this should populate with the currently selected/stored files
 - Max store size? No store?
 
 # Global Filters
 
-- we shouldn't conflate DbSort and SortOrder: todo: seperate them and support them in filtersoverlay
+- we shouldn't conflate DbSort and SortOrder
+  - todo: seperate them and support them in filtersoverlay
 
 - Better column sizing, display paths from end
 - Table editing
@@ -126,17 +122,16 @@ Possible Conditions:
 - icon only coloring
 - basic support for multi-line filenames (fd, rg should use null delimiters)
 - Check that "interactive-shell-mode" pager works on all shells, not just zsh
+- panes:
+  - Nav: - search depth
+  - Custom: - sorting?
 
 # Stash
 
 - overridden actions should hide the overridden toast as well somehow.
-- persist?
-
-# Bugs
-
-- sync handler never runs if no elements
-  - need display toast on empty dir
+- persist on disk?
 - how to make file operations feel bulletproof
+- 
 
 # Shell
 

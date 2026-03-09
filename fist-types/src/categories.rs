@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::bath::{PathExt, split_ext};
+use cba::bath::{PathExt, split_ext};
 use std::path::Path;
 
 pub use super::categories_phf::*;
