@@ -34,7 +34,7 @@ pub enum FileCategory {
     Configuration,
     /// Plain text.
     Text,
-
+    
     /// Organized collections of data.
     Database,
     /// Visual information using graphics and spatial relationships.
@@ -67,14 +67,14 @@ pub enum FileCategory {
     Spreadsheet,
     /// Subtitles and captions.
     Subtitle,
-
+    
     /// Email data.
     Email,
     /// Academic and publishing.
     Academic,
     /// Markdown.
     Markdown,
-
+    
     /// Data which do not fit in any of the other kinds.
     Other,
 }
@@ -82,50 +82,50 @@ pub enum FileCategory {
 impl FileCategory {
     pub fn exts(&self) -> Vec<&'static str> {
         EXTENSION_TYPES
-            .entries()
-            .filter_map(|(ext, cat)| (cat == self).then_some(*ext))
-            .collect()
+        .entries()
+        .filter_map(|(ext, cat)| (cat == self).then_some(*ext))
+        .collect()
     }
-
+    
     // todo: flesh out
     pub fn get(path: &Path) -> Option<FileCategory> {
         let name = path.filename();
         let ext = split_ext(&name)[1];
-
+        
         // Case-insensitive readme check
         if name.to_lowercase().starts_with("readme") {
             return Some(Self::Build);
         }
-
+        
         // Check full filename mapping
         if let Some(file_type) = FILENAME_TYPES.get(&*name) {
             return Some(file_type.clone());
         }
-
+        
         // Check extension mapping
         if let Some(file_type) = EXTENSION_TYPES.get(ext) {
             return Some(file_type.clone());
         }
-
+        
         // Temporary file check (~ or #…#)
         if name.ends_with('~') || (name.starts_with('#') && name.ends_with('#')) {
             return Some(Self::Temp);
         }
-
+        
         // Modification of original: just do a ext check
         if EXTENSION_TYPES.get(ext) == Some(&Self::Compiled) {
             return Some(Self::Compiled);
         };
-
+        
         None
     }
-
+    
     // TODO: flesh out
     #[cfg(feature = "file-format")]
     pub fn from_fileformat(format: file_format::FileFormat) -> Self {
         use FileCategory::*;
         use file_format::Kind;
-
+        
         match format.kind() {
             Kind::Archive | Kind::Compressed => Compressed,
             Kind::Audio => Audio,
@@ -153,21 +153,21 @@ impl FileCategory {
             _ => Other,
         }
     }
-
+    
     pub fn is_text(&self) -> bool {
         use FileCategory::*;
         matches!(self, Text | Source | Configuration)
     }
-
+    
     /// Command-line parsing (FromStr is separate)
     pub fn parse_with_aliases(s: &str) -> Result<FileCategory, String> {
         use FileCategory::*;
-
+        
         // first try EnumString
         if let Ok(category) = s.parse::<FileCategory>() {
             return Ok(category);
         }
-
+        
         // fallback to common aliases
         let s_lower = s.to_lowercase();
         let category = match s_lower.as_str() {
@@ -182,7 +182,7 @@ impl FileCategory {
             "s" | "src" | "code" => Source,
             "conf" | "cfg" => Configuration,
             "txt" => Text,
-
+            
             // new variants
             "db" => Database,
             "diag" => Diagram,
@@ -192,131 +192,240 @@ impl FileCategory {
             "ppt" => Presentation,
             "xl" | "xlsx" => Spreadsheet,
             "md" => Markdown,
-
+            
             _ => return Err(s.to_string()),
         };
-
+        
         Ok(category)
     }
+    
+pub fn from_mime(mime: &str) -> Self {
+        use FileCategory::*;
 
-    pub fn from_mime(_mime: &str) -> Self {
-        // documents = [
-        // "application/pdf",
-        // "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        // "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        // "application/msword",
-        // "application/vnd.ms-powerpoint",
-        // "application/vnd.oasis.opendocument.text",
-        // ]
+        let m = mime.to_lowercase();
+        let m_str = m.as_str();
 
-        // spreadsheets = [
-        // "application/vnd.ms-excel",
-        // "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        // "application/vnd.ms-excel.sheet.macroenabled.12",
-        // "application/vnd.ms-excel.sheet.binary.macroenabled.12",
-        // "application/vnd.ms-excel.addin.macroenabled.12",
-        // "application/vnd.ms-excel",
-        // "application/vnd.oasis.opendocument.spreadsheet",
-        // ]
+        match m_str {
+            // --- Document: Word processing and desktop publishing ---
+            "application/pdf" |
+            "application/msword" |
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" |
+            "application/vnd.oasis.opendocument.text" |
+            "application/rtf" |
+            "text/rtf" |
+            "application/vnd.apple.pages" |
+            "application/x-iwork-pages-sffpages" |
+            "application/vnd.ms-word.document.macroenabled.12" => Document,
 
-        // text_and_markup = [
-        // "text/plain",
-        // "text/markdown",
-        // "text/x-markdown",
-        // "text/html",
-        // "application/xhtml+xml",
-        // "application/xml",
-        // "text/xml",
-        // "image/svg+xml",
-        // "text/x-rst",
-        // "text/x-org",
-        // "application/rtf",
-        // "text/rtf",
-        // "text/x-djot",
-        // ]
+            // --- Presentation: Slide shows ---
+            "application/vnd.ms-powerpoint" |
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation" |
+            "application/vnd.oasis.opendocument.presentation" |
+            "application/vnd.apple.keynote" |
+            "application/x-iwork-keynote-sffkey" => Presentation,
 
-        // structured_data = [
-        // "application/json",
-        // "text/json",
-        // "application/x-yaml",
-        // "text/yaml",
-        // "text/x-yaml",
-        // "application/toml",
-        // "text/toml",
-        // "text/csv",
-        // "text/tab-separated-values",
-        // ]
+            // --- Spreadsheet: Data in tabular form ---
+            "application/vnd.ms-excel" |
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" |
+            "application/vnd.oasis.opendocument.spreadsheet" |
+            "text/csv" |
+            "text/tab-separated-values" |
+            "application/vnd.apple.numbers" |
+            "application/x-iwork-numbers-sffnumbers" => Spreadsheet,
 
-        // email = [
-        // "message/rfc822",
-        // "application/vnd.ms-outlook",
-        // ]
+            // --- Academic: Academic and publishing ---
+            "application/x-latex" |
+            "text/x-tex" |
+            "application/x-bibtex" |
+            "application/x-biblatex" |
+            "application/x-typst" |
+            "application/x-ipynb+json" |
+            "application/x-research-info-systems" |
+            "application/csl+json" => Academic,
 
-        // images = [
-        // "image/png",
-        // "image/jpeg",
-        // "image/jpg",
-        // "image/webp",
-        // "image/bmp",
-        // "image/x-bmp",
-        // "image/x-ms-bmp",
-        // "image/tiff",
-        // "image/x-tiff",
-        // "image/gif",
-        // "image/jp2",
-        // "image/jpx",
-        // "image/jpm",
-        // "image/mj2",
-        // "image/x-jbig2",
-        // "image/x-portable-anymap",
-        // ]
+            // --- Ebook: Electronic books ---
+            "application/epub+zip" |
+            "application/x-mobipocket-ebook" |
+            "application/vnd.amazon.mobi8-ebook" |
+            "application/x-fictionbook+xml" => Ebook,
 
-        // archives = [
-        // "application/zip",
-        // "application/x-zip-compressed",
-        // "application/x-tar",
-        // "application/x-bzip2",
-        // "application/x-xz",
-        // "application/tar",
-        // "application/x-gtar",
-        // "application/x-ustar",
-        // "application/x-7z-compressed",
-        // "application/gzip",
-        // "application/x-gzip",
-        // ]
+            // --- Configuration: Configuration and structured data ---
+            "application/json" |
+            "application/ld+json" |
+            "application/x-yaml" |
+            "text/yaml" |
+            "text/x-yaml" |
+            "application/toml" |
+            "text/toml" |
+            "text/x-toml" |
+            "application/xml" |
+            "text/xml" |
+            "text/x-ini" |
+            "application/x-config" |
+            "application/x-properties" |
+            "application/x-env" |
+            "application/x-dotenv" => Configuration,
 
-        // academic_and_publishing = [
-        // "application/x-latex",
-        // "text/x-tex",
-        // "application/epub+zip",
-        // "application/x-bibtex",
-        // "application/x-biblatex",
-        // "application/x-typst",
-        // "application/x-ipynb+json",
-        // "application/x-fictionbook+xml",
-        // "application/docbook+xml",
-        // "application/x-jats+xml",
-        // "application/x-opml+xml",
-        // "application/x-research-info-systems",
-        // "application/x-endnote+xml",
-        // "application/x-pubmed",
-        // "application/csl+json",
-        // ]
+            // --- Metadata: Information about other data ---
+            "application/x-meta" |
+            "application/x-extended-attributes" |
+            "application/prs.xsf+xml" | 
+            "application/xml-external-parsed-entity" |
+            "application/x-desktop" |
+            "application/x-service" |
+            "application/x-icns" => Metadata,
 
-        // markdown_variants = [
-        // "text/x-commonmark",
-        // "text/x-gfm",
-        // "text/x-multimarkdown",
-        // "text/x-markdown-extra",
-        // "text/x-djot",
-        // ]
+            // --- Formula: Mathematical formulas ---
+            "application/mathml+xml" |
+            "text/mathml" |
+            "application/x-tex-math" |
+            "application/vnd.oasis.opendocument.formula" => Formula,
 
-        // other_formats = [
-        // "text/x-mdoc",
-        // "text/troff",
-        // "text/x-pod",
-        // "text/x-dokuwiki",
-        // ]
-        todo!()
+            // --- Markdown: Markdown ---
+            "text/markdown" |
+            "text/x-markdown" |
+            "text/x-commonmark" |
+            "text/x-gfm" |
+            "text/x-djot" => Markdown,
+
+            // --- Source: Source code ---
+            m if m.starts_with("text/x-") || 
+                 m.contains("javascript") || 
+                 m.contains("typescript") ||
+                 m.contains("script") ||
+                 m == "image/svg+xml" || 
+                 m == "text/html" ||
+                 m == "application/x-httpd-php" ||
+                 m == "application/x-ruby" ||
+                 m == "application/x-python" ||
+                 m == "application/x-perl" => Source,
+
+            // --- Text: Plain text ---
+            "text/plain" => Text,
+
+            // --- Image: Raster and Vector graphics ---
+            m if m.starts_with("image/") => Image,
+            
+            // --- Video: Moving images ---
+            m if m.starts_with("video/") || m == "application/vnd.ms-asf" => Video,
+
+            // --- Audio & Lossless: Musics and recordings ---
+            m if m.starts_with("audio/") => {
+                if m.contains("flac") || m.contains("alac") || m.contains("wav") || 
+                   m.contains("x-ape") || m.contains("dsd") || m.contains("x-matroska") {
+                    Lossless
+                } else {
+                    Audio
+                }
+            }
+
+            // --- Playlist: Lists for sequential playback ---
+            "application/vnd.apple.mpegurl" | 
+            "application/mpegurl" | 
+            "audio/x-mpegurl" | 
+            "video/x-mpegurl" |
+            "application/x-pls+xml" |
+            "audio/x-scpls" |
+            "application/vnd.ms-asx" | // The actual playlist redirect for ASF
+            "audio/x-ms-asx" |
+            "video/x-ms-asx" => Playlist,
+
+            // --- Subtitle: Subtitles and captions ---
+            "text/vtt" | 
+            "application/x-subrip" | 
+            "text/x-ssa" | 
+            "text/x-ass" |
+            "application/x-subtitle" => Subtitle,
+
+            // --- Geospatial: GPS tracks and location files ---
+            "application/vnd.google-earth.kml+xml" |
+            "application/vnd.google-earth.kmz" |
+            "application/geo+json" |
+            "application/gml+xml" |
+            "application/x-gpx+xml" |
+            "application/vnd.shp" |
+            "application/vnd.dbf" |
+            "application/vnd.geo+json" => Geospatial,
+
+            // --- Model: 3D models and CAD ---
+            "model/stl" |
+            "model/obj" |
+            "model/gltf+json" |
+            "model/gltf-binary" |
+            "model/vrml" |
+            "model/step" |
+            "model/iges" |
+            "model/3mf" |
+            "application/x-blender" |
+            "application/vnd.autodesk.dwg" => Model,
+
+            // --- Compressed: Single possibly compressed archive ---
+            "application/zip" |
+            "application/x-tar" |
+            "application/x-rar-compressed" |
+            "application/x-7z-compressed" |
+            "application/x-bzip2" |
+            "application/x-xz" |
+            "application/x-zstd" |
+            "application/gzip" |
+            "application/x-lzma" |
+            "application/x-lzip" => Compressed,
+
+            // --- Package: Bundles for software distribution ---
+            "application/x-debian-package" |
+            "application/x-redhat-package-manager" |
+            "application/vnd.android.package-archive" |
+            "application/x-msi" |
+            "application/x-pkg-config" |
+            "application/x-snappy-package" => Package,
+
+            // --- Disk: Floppy, Optical, and VM disks ---
+            "application/x-iso9660-image" |
+            "application/x-vmdk" |
+            "application/x-vdi" |
+            "application/x-qcow2" |
+            "application/x-apple-diskimage" |
+            "application/x-virtualbox-vdi" => Disk,
+
+            // --- Rom: Copies of read-only memory chips ---
+            "application/x-nintendo-nes-rom" |
+            "application/x-gameboy-rom" |
+            "application/x-genesis-rom" |
+            "application/x-n64-rom" |
+            "application/x-gba-rom" |
+            "application/x-dreamcast-rom" |
+            "application/x-nintendo-ds-rom" => Rom,
+
+            // --- Executable: Machine-executable code ---
+            "application/x-executable" |
+            "application/x-msdownload" |
+            "application/x-elf" |
+            "application/x-mach-binary" |
+            "application/x-pie-executable" |
+            "application/x-sharedlib" => Executable,
+
+            // --- Compiled: Compilation artifacts ---
+            "application/wasm" |
+            "application/x-java-archive" |
+            "application/x-python-code" |
+            "application/x-perl-bytecode" |
+            "application/x-elc" |
+            "application/x-pyc" |
+            "application/x-object" => Compiled,
+
+            // --- Database: Organized collections of data ---
+            "application/x-sqlite3" | 
+            "application/sql" | 
+            "application/vnd.sqlite3" |
+            "application/x-berkeley-db" => Database,
+
+            // --- Remaining Variants ---
+            m if m.starts_with("font/") || m.contains("x-font") => Font,
+            "message/rfc822" | "application/vnd.ms-outlook" => Email,
+            "application/x-crypto-key" | "application/pgp-keys" | "application/pkcs8" => Crypto,
+            "application/x-temp" | "application/x-trash" => Temp,
+
+            _ => Other,
+        }
     }
 }

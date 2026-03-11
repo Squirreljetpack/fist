@@ -210,7 +210,7 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s p -l path -d 'Files or dir
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s A -l after-context -d 'Show NUM lines after each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s B -l before-context -d 'Show NUM lines before each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s C -l context -d 'Show NUM lines before and after each match' -r
-complete -c fs -n "__fish_fs_using_subcommand :rg" -l no-heading -d 'Display each match on a separate line. Alias: `-1`' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l one-line -d 'Display each match on a separate line. Alias: `-1`' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l query -d 'initial query' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l verbosity -r
@@ -230,7 +230,7 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s S -l smart-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l no-fixed-strings -d 'Enable fixed string matching Disable fixed string matching'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l filtering
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s 1
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s 1 -l no-heading
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l list
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l help
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l fullscreen
@@ -252,7 +252,7 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s p -l path -d 'Files or direc
 complete -c fs -n "__fish_fs_using_subcommand :" -s A -l after-context -d 'Show NUM lines after each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -s B -l before-context -d 'Show NUM lines before each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -s C -l context -d 'Show NUM lines before and after each match' -r
-complete -c fs -n "__fish_fs_using_subcommand :" -l no-heading -d 'Display each match on a separate line. Alias: `-1`' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :" -l one-line -d 'Display each match on a separate line. Alias: `-1`' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -l query -d 'initial query' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l verbosity -r
@@ -272,7 +272,7 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :" -s S -l smart-case
 complete -c fs -n "__fish_fs_using_subcommand :" -l no-fixed-strings -d 'Enable fixed string matching Disable fixed string matching'
 complete -c fs -n "__fish_fs_using_subcommand :" -l filtering
-complete -c fs -n "__fish_fs_using_subcommand :" -s 1
+complete -c fs -n "__fish_fs_using_subcommand :" -s 1 -l no-heading
 complete -c fs -n "__fish_fs_using_subcommand :" -l list
 complete -c fs -n "__fish_fs_using_subcommand :" -l help
 complete -c fs -n "__fish_fs_using_subcommand :" -l fullscreen

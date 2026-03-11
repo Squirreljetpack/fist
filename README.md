@@ -6,17 +6,23 @@ F:ist is a fast and intuitive search tool for the filesystem.
 
 # Installation
 
+# Or install via cargo 
+
+
+Install from GitHub releases[^20]:
 ```shell
-# Install from GitHub releases
-curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/fist/main/assets/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/fist/main/install.sh | sh
+```
 
-# Or install via cargo (not recommended: currently missing features)
-cargo install fist
-
+Install the required dependencies:
+```shell
 # dependencies (optional)
 cargo install bat fd-find eza ripgrep
+```
 
-# (Optional) setup shell integration:
+Optionally, setup shell integration:
+```
+# Only zsh support for now
 echo "\neval$(fs :tool shell)" >> ~/.zshrc # or whatever the startup file of your respective shell is.
 ```
 
@@ -26,6 +32,8 @@ Call as:
 - `fs [..paths] pattern`: interactive find
 - `generate_paths | fs`: enriched fuzzy searching of paths
 - `z [query]`: directory jump (requires [shell integration](#shell-integration))
+
+[^20]: f:ist is also on cargo: `cargo install fist`, but this method is not recommended as fist is currently missing features
 
 # Commands
 

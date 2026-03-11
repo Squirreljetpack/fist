@@ -109,7 +109,7 @@ pub fn default_binds() -> BindMap<FsAction> {
     let ext = bindmap!(
         key!(ctrl-h), key!(cmd-backspace) => FsAction::Trash,
         key!(alt-backspace) => Action::DeleteWord,
-        key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete,
+        key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete(false),
     );
     #[cfg(not(target_os = "macos"))]
     let ext = bindmap!();

@@ -203,11 +203,24 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
                 }
             }
 
-            // this hides the preview if needed
             if let Some(enter) = c.panes.enter_prompt(pane) {
+                // this hides the preview if needed
                 enter_prompt(state, enter);
-            } else if !state.picker_ui.results.cursor_disabled {
-                state.picker_ui.input.set_prompt(None);
+            } else {
+                match pane {
+                    FsPane::Find { input, .. }
+                    | FsPane::Search { input, .. }
+                    | FsPane::Files { input, .. }
+                    | FsPane::Folders { input, .. }
+                        if input.0.is_empty() =>
+                    {
+                        enter_prompt(state, true);
+                    }
+                    _ if !state.picker_ui.results.cursor_disabled => {
+                        state.picker_ui.input.set_prompt(None);
+                    }
+                    _ => {}
+                }
             }
 
             #[cfg(feature = "mm_overrides")]
@@ -274,7 +287,7 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
                 filtering,
                 patterns,
                 input,
-                no_heading,
+                one_line,
                 ..
             } => {
                 let f = *filtering;
@@ -285,19 +298,16 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
                 let mm = &global_ui().matchmaker;
                 r.config.right_align_last = false;
 
-                if !*no_heading {
+                if !*one_line {
                     // todo: where to add a place to configure this? pane/ui/other?
                     r.config.horizontal_separator = mm.horizontal_separator;
                     r.config.stacked_columns = true;
-                    r.status_config.show = true;
                 } else {
                     r.config.horizontal_separator = Default::default();
                     r.config.stacked_columns = false;
-                    r.set_status_line(None);
                 }
 
                 // set status
-                // todo: more style flexibility in status
                 let status = GLOBAL::with_cfg(|c| {
                     let base = if f {
                         &c.panes.search.fs_status_template
@@ -312,6 +322,7 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
                     t
                 });
                 r.set_status_line(Some(status));
+                r.status_config.show = true;
 
                 if f {
                     GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()));

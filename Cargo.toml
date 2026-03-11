@@ -6,13 +6,13 @@
     ]
 
 [workspace.package]
-    version      = "0.0.2"
+    version      = "0.0.3"
     edition      = "2024"
     license-file = "LICENSE"
     repository   = "https://github.com/Squirreljetpack/fist"
 
 [workspace.dependencies]
-    fist-types = { path = "fist-types" }
+    fist-types = { version = "0.0.*", path = "fist-types" }
     cli_boilerplate_automation = { version = "0.0.*", features = [
         "bring",
         "serde",

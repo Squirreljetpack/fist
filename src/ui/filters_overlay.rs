@@ -176,7 +176,7 @@ impl FilterOverlay {
             FsPane::Search {
                 context: [before, after],
                 case,
-                no_heading,
+                one_line,
                 fixed_strings,
                 ..
             } => {
@@ -211,7 +211,7 @@ impl FilterOverlay {
                         bold_indices(case_str, [case_str.len() - 1], self.item_style()),
                         (*case).into(),
                     ),
-                    (single, Some(*no_heading)),
+                    (single, Some(*one_line)),
                     (regex, Some(!*fixed_strings)),
                 ]
             }
@@ -354,7 +354,7 @@ impl FilterOverlay {
                     FsPane::Search {
                         context,
                         case,
-                        no_heading,
+                        one_line,
                         fixed_strings,
                         ..
                     } => match y {
@@ -368,7 +368,7 @@ impl FilterOverlay {
                             context[1].ssub(1);
                         }
                         4 => case.cycle(),
-                        5 => *no_heading = !(*no_heading),
+                        5 => *one_line = !(*one_line),
                         6 => *fixed_strings = !(*fixed_strings),
                         _ => {}
                     },
@@ -455,7 +455,7 @@ impl Overlay for FilterOverlay {
                     FsPane::Search {
                         context,
                         case,
-                        no_heading,
+                        one_line,
                         fixed_strings,
                         ..
                     } => match c {
@@ -474,7 +474,7 @@ impl Overlay for FilterOverlay {
                         }
 
                         'e' => case.cycle(),
-                        '1' => *no_heading = !(*no_heading),
+                        '1' => *one_line = !(*one_line),
                         'r' => *fixed_strings = !(*fixed_strings),
 
                         _ => reload = false,

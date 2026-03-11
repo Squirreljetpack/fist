@@ -64,7 +64,7 @@ pub enum FsPane {
         case: When,
         patterns: Vec<String>,
         fixed_strings: bool,
-        no_heading: bool,
+        one_line: bool,
 
         rg: Vec<OsString>,
         complete: Arc<AtomicBool>,
@@ -194,7 +194,7 @@ impl FsPane {
         //
         context: [usize; 2],
         case: When,
-        no_heading: bool,
+        one_line: bool,
         fixed_strings: bool,
         //
         rg: Vec<OsString>,
@@ -214,7 +214,7 @@ impl FsPane {
             context,
             case,
             patterns,
-            no_heading,
+            one_line,
             fixed_strings,
 
             rg,
