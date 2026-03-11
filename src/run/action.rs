@@ -556,8 +556,8 @@ pub fn fsaction_handler(
                 let (content, index) = state.get_content_and_index();
                 STACK::save_input(content, index);
 
-                let [no_heading, fixed_strings] =
-                    GLOBAL::with_cfg(|c| [c.panes.search.no_heading, c.panes.search.fixed_strings]);
+                let [one_line, fixed_strings] =
+                    GLOBAL::with_cfg(|c| [c.panes.search.one_line, c.panes.search.fixed_strings]);
 
                 let cwd = STACK::cwd().unwrap_or_default();
 
@@ -587,7 +587,7 @@ pub fn fsaction_handler(
                     //
                     context,
                     case,
-                    no_heading,
+                    one_line,
                     fixed_strings,
                     vec![],
                 );

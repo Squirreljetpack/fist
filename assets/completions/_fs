@@ -182,7 +182,7 @@ size\:"Not always supported"))' \
 '--before-context=[Show NUM lines before each match]:NUM:_default' \
 '-C+[Show NUM lines before and after each match]:NUM:_default' \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
-'--no-heading=[Display each match on a separate line. Alias\: \`-1\`]:NO_HEADING:(true false)' \
+'--one-line=[Display each match on a separate line. Alias\: \`-1\`]:ONE_LINE:(true false)' \
 '--query=[initial query]:QUERY:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
@@ -199,6 +199,7 @@ size\:"Not always supported"))' \
 '--no-fixed-strings[Enable fixed string matching Disable fixed string matching]' \
 '--filtering[]' \
 '-1[]' \
+'--no-heading[]' \
 '--list[]' \
 '--help[]' \
 '--fullscreen[]' \
@@ -224,7 +225,7 @@ size\:"Not always supported"))' \
 '--before-context=[Show NUM lines before each match]:NUM:_default' \
 '-C+[Show NUM lines before and after each match]:NUM:_default' \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
-'--no-heading=[Display each match on a separate line. Alias\: \`-1\`]:NO_HEADING:(true false)' \
+'--one-line=[Display each match on a separate line. Alias\: \`-1\`]:ONE_LINE:(true false)' \
 '--query=[initial query]:QUERY:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
@@ -241,6 +242,7 @@ size\:"Not always supported"))' \
 '--no-fixed-strings[Enable fixed string matching Disable fixed string matching]' \
 '--filtering[]' \
 '-1[]' \
+'--no-heading[]' \
 '--list[]' \
 '--help[]' \
 '--fullscreen[]' \

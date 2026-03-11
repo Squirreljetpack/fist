@@ -18,16 +18,16 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 error() {
-	echo -e "${RED}Error: $1${NC}" >&2
+	printf "%b\n" "${RED}Error: $1${NC}" >&2
 	exit 1
 }
 
 info() {
-	echo -e "${GREEN}$1${NC}"
+	printf "%b\n" "${GREEN}$1${NC}"
 }
 
 warn() {
-	echo -e "${YELLOW}$1${NC}"
+	printf "%b\n" "${YELLOW}$1${NC}"
 }
 
 # Detect OS and architecture
@@ -119,7 +119,18 @@ main() {
 		rm -f "$INSTALL_PATH"
 	fi
 
-	mv "$TEMP_DIR/$BINARY_NAME" "$INSTALL_DIR/"
+	if [[ -f "$TEMP_DIR/$BINARY_NAME" ]]; then
+		mv "$TEMP_DIR/$BINARY_NAME" "$INSTALL_DIR/"
+	elif [[ -f "$TEMP_DIR/target/release/$BINARY_NAME" ]]; then
+		mv "$TEMP_DIR/target/release/$BINARY_NAME" "$INSTALL_DIR/"
+	else
+		FOUND_BIN=$(find "$TEMP_DIR" -name "$BINARY_NAME" -type f | head -n 1)
+		if [[ -n "$FOUND_BIN" ]]; then
+			mv "$FOUND_BIN" "$INSTALL_DIR/"
+		else
+			error "Could not find binary $BINARY_NAME in the downloaded archive"
+		fi
+	fi
 	chmod +x "$INSTALL_PATH"
 
 	info "Successfully installed $BINARY_NAME to $INSTALL_PATH"

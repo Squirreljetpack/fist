@@ -15,7 +15,7 @@
     show_preview         = 20
     preview_layout_index = 1
 
-    no_heading         = true
+    one_line         = true
     default_visibility = { ignore = true }
     default_sort       = "none"
     search_empty_query = true

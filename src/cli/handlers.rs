@@ -183,10 +183,10 @@ async fn handle_rg(
     );
 
     if cmd._no_heading_alias {
-        cmd.no_heading = Some(true);
+        cmd.one_line = Some(true);
     };
-    cfg.global.panes.search.no_heading._take(cmd.no_heading);
-    let no_heading = cfg.global.panes.search.no_heading;
+    cfg.global.panes.search.one_line._take(cmd.one_line);
+    let no_heading = cfg.global.panes.search.one_line;
 
     if cmd.list {
         let (prog, args) = (

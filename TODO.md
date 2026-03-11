@@ -31,6 +31,9 @@
 
 Out of scope: mmap directly instead of read_to_string? -- still should check that the line you are replacing is valid utf-8.
 
+# Perf
+with a lot of items, ui gets laggy, where is the blocking?
+
 # nnn
 
 - Create, list, extract (to), mount (FUSE based) archives

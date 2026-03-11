@@ -328,7 +328,7 @@ impl FsPane {
                 //
                 context,
                 case,
-                no_heading,
+                one_line,
                 patterns,
                 paths,
                 rg,
@@ -347,7 +347,7 @@ impl FsPane {
                         *sort,
                         *context,
                         *case,
-                        *no_heading,
+                        *one_line,
                         *fixed_strings,
                         patterns,
                         paths,
@@ -404,7 +404,7 @@ impl FsPane {
                 // haven't yet tested multiline
                 // possible extensions: seperate items for each context block, parsing blocks for line numbers
 
-                if *no_heading {
+                if *one_line {
                     map_reader(
                         stdout,
                         move |line| {

@@ -136,8 +136,8 @@ pub struct RgPaneSettings {
     pub default_visibility: PartialVisibility,
     /// Initial sort entering the rg pane.
     pub default_sort: Option<SortOrder>,
-    /// Whether to display each match on a seperate line. This can be overridden with the --no-heading command line option.
-    pub no_heading: bool,
+    /// Whether to display each match on a seperate line. This can be overridden with the --one-line command line option.
+    pub one_line: bool,
     /// Whether to search fixed strings by default. This can be overridden on the command line.
     pub fixed_strings: bool,
 
@@ -163,7 +163,7 @@ pub struct RgPaneSettings {
 //             show_preview: Some(ShowCondition::Free(20)),
 //             preview_layout_index: 1,
 
-//             no_heading: true,
+//             one_line: true,
 //             fixed_strings: false,
 //             default_visibility,
 //             default_sort: Some(SortOrder::none),

@@ -386,7 +386,7 @@ _fs() {
             return 0
             ;;
         fs__:rg)
-            opts="-h -I -a -F -f -p -i -s -S -A -B -C -1 --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --no-heading --no-fixed-strings --filtering --list --query --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt [PATTERNS]... [RG_ARGS]..."
+            opts="-h -I -a -F -f -p -i -s -S -A -B -C -1 --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --one-line --no-fixed-strings --filtering --no-heading --list --query --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt [PATTERNS]... [RG_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -448,7 +448,7 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --no-heading)
+                --one-line)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;

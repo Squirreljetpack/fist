@@ -1,7 +1,7 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use clap::{ArgAction, Args, Parser, Subcommand, error::ErrorKind};
 use cba::_dbg;
+use clap::{ArgAction, Args, Parser, Subcommand, error::ErrorKind};
 
 use crate::{
     cli::{
@@ -277,8 +277,8 @@ pub struct RgCommand {
     pub context: ContextArgs,
     /// Display each match on a separate line.
     /// Alias: `-1`
-    #[arg(long = "no-heading")]
-    pub no_heading: Option<bool>,
+    #[arg(long)]
+    pub one_line: Option<bool>,
     /// Enable fixed string matching
     #[arg(long = "fixed-strings", action = ArgAction::SetTrue)]
     /// Disable fixed string matching
@@ -287,7 +287,7 @@ pub struct RgCommand {
     #[arg(long, action = ArgAction::SetTrue)]
     pub filtering: bool,
 
-    #[arg(short = '1', hide = true)]
+    #[arg(short = '1', long = "no-heading", hide = true)]
     pub _no_heading_alias: bool,
 
     // /// initial query.
