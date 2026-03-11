@@ -1109,14 +1109,17 @@ const EXTENSION_ICONS: Map<&'static str, char> = phf_map! {
 
 pub fn icon_for_file(path: &Path) -> char {
     if path.is_dir() {
-        *DIRECTORY_ICONS.get(&path.filename()).unwrap_or_else(|| {
-            if path.is_empty_dir() {
-                &Icons::FOLDER_OPEN // 
-            } else {
-                &Icons::FOLDER // 
-            }
-        })
-    } else if let Some(icon) = FILENAME_ICONS.get(&path.filename()) {
+        path.filename()
+            .ok()
+            .and_then(|s| DIRECTORY_ICONS.get(s).cloned())
+            .unwrap_or_else(|| {
+                if path.is_empty_dir() {
+                    Icons::FOLDER_OPEN // 
+                } else {
+                    Icons::FOLDER // 
+                }
+            })
+    } else if let Some(icon) = path.filename().ok().and_then(|s| FILENAME_ICONS.get(s)) {
         *icon
     } else if let Some(ext) = path.extension() {
         *EXTENSION_ICONS

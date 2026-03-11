@@ -255,7 +255,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
     // currently only rg supports scroll index
     // lowpri: maybe wider support
     if let Some(p) = state.preview_ui {
-        p.config.scroll.index = None
+        p.config.initial.index = None
     }
     state.picker_ui.results.config.right_align_last = true;
 
@@ -292,7 +292,7 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
             } => {
                 let f = *filtering;
                 if let Some(p) = state.preview_ui {
-                    p.config.scroll.index = Some("3".into())
+                    p.config.initial.index = Some("3".to_string().into())
                 }
                 let r = &mut state.picker_ui.results;
                 let mm = &global_ui().matchmaker;

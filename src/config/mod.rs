@@ -281,6 +281,9 @@ impl Config {
         }
 
         self.global.mm.fullscreen |= cli.fullscreen;
+        if cli.alt_accept {
+            self.global.interface.alt_accept = !self.global.interface.alt_accept
+        }
     }
 
     // --------------------------------------------------
@@ -337,7 +340,7 @@ impl Config {
                 if !force
                 // less noise for debug
                 {
-                    _ibog!("{} saved to: {}", path.filename(), path.to_string_lossy());
+                    _ibog!("{} saved to: {}", path.basename(), path.to_string_lossy());
                 }
             }
         }

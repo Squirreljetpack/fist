@@ -180,10 +180,10 @@ impl Overlay for ConfirmOverlay {
             Action::Down(n) => {
                 self.prompt.scroll = self.prompt.scroll.saturating_add(*n);
             }
-            Action::PageUp => {
+            Action::HalfPageUp => {
                 self.prompt.scroll = self.prompt.scroll.saturating_sub(5);
             }
-            Action::PageDown => {
+            Action::HalfPageDown => {
                 self.prompt.scroll = self.prompt.scroll.saturating_add(5);
             }
             Action::Accept => return self.accept(),

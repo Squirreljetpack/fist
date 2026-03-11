@@ -1129,7 +1129,7 @@ macro_rules! enum_from_str_display {
 
                     $( $lossy(inner) => {
                         if inner.is_empty() {
-                            write!(f, stringify!($pathbuf))
+                            write!(f, stringify!($lossy))
                         } else {
                             write!(f, concat!(stringify!($lossy), "({})"), std::ffi::OsString::from(inner).to_string_lossy())
                         }

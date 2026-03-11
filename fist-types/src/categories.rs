@@ -34,7 +34,7 @@ pub enum FileCategory {
     Configuration,
     /// Plain text.
     Text,
-    
+
     /// Organized collections of data.
     Database,
     /// Visual information using graphics and spatial relationships.
@@ -67,14 +67,14 @@ pub enum FileCategory {
     Spreadsheet,
     /// Subtitles and captions.
     Subtitle,
-    
+
     /// Email data.
     Email,
     /// Academic and publishing.
     Academic,
     /// Markdown.
     Markdown,
-    
+
     /// Data which do not fit in any of the other kinds.
     Other,
 }
@@ -82,50 +82,50 @@ pub enum FileCategory {
 impl FileCategory {
     pub fn exts(&self) -> Vec<&'static str> {
         EXTENSION_TYPES
-        .entries()
-        .filter_map(|(ext, cat)| (cat == self).then_some(*ext))
-        .collect()
+            .entries()
+            .filter_map(|(ext, cat)| (cat == self).then_some(*ext))
+            .collect()
     }
-    
+
     // todo: flesh out
     pub fn get(path: &Path) -> Option<FileCategory> {
-        let name = path.filename();
-        let ext = split_ext(&name)[1];
-        
+        let name = path.filename().ok()?;
+        let ext = split_ext(name)[1];
+
         // Case-insensitive readme check
         if name.to_lowercase().starts_with("readme") {
             return Some(Self::Build);
         }
-        
+
         // Check full filename mapping
-        if let Some(file_type) = FILENAME_TYPES.get(&*name) {
+        if let Some(file_type) = FILENAME_TYPES.get(name) {
             return Some(file_type.clone());
         }
-        
+
         // Check extension mapping
         if let Some(file_type) = EXTENSION_TYPES.get(ext) {
             return Some(file_type.clone());
         }
-        
+
         // Temporary file check (~ or #…#)
         if name.ends_with('~') || (name.starts_with('#') && name.ends_with('#')) {
             return Some(Self::Temp);
         }
-        
+
         // Modification of original: just do a ext check
         if EXTENSION_TYPES.get(ext) == Some(&Self::Compiled) {
             return Some(Self::Compiled);
         };
-        
+
         None
     }
-    
+
     // TODO: flesh out
     #[cfg(feature = "file-format")]
     pub fn from_fileformat(format: file_format::FileFormat) -> Self {
         use FileCategory::*;
         use file_format::Kind;
-        
+
         match format.kind() {
             Kind::Archive | Kind::Compressed => Compressed,
             Kind::Audio => Audio,
@@ -153,21 +153,21 @@ impl FileCategory {
             _ => Other,
         }
     }
-    
+
     pub fn is_text(&self) -> bool {
         use FileCategory::*;
         matches!(self, Text | Source | Configuration)
     }
-    
+
     /// Command-line parsing (FromStr is separate)
     pub fn parse_with_aliases(s: &str) -> Result<FileCategory, String> {
         use FileCategory::*;
-        
+
         // first try EnumString
         if let Ok(category) = s.parse::<FileCategory>() {
             return Ok(category);
         }
-        
+
         // fallback to common aliases
         let s_lower = s.to_lowercase();
         let category = match s_lower.as_str() {
@@ -182,7 +182,7 @@ impl FileCategory {
             "s" | "src" | "code" => Source,
             "conf" | "cfg" => Configuration,
             "txt" => Text,
-            
+
             // new variants
             "db" => Database,
             "diag" => Diagram,
@@ -192,14 +192,14 @@ impl FileCategory {
             "ppt" => Presentation,
             "xl" | "xlsx" => Spreadsheet,
             "md" => Markdown,
-            
+
             _ => return Err(s.to_string()),
         };
-        
+
         Ok(category)
     }
-    
-pub fn from_mime(mime: &str) -> Self {
+
+    pub fn from_mime(mime: &str) -> Self {
         use FileCategory::*;
 
         let m = mime.to_lowercase();
@@ -269,7 +269,7 @@ pub fn from_mime(mime: &str) -> Self {
             // --- Metadata: Information about other data ---
             "application/x-meta" |
             "application/x-extended-attributes" |
-            "application/prs.xsf+xml" | 
+            "application/prs.xsf+xml" |
             "application/xml-external-parsed-entity" |
             "application/x-desktop" |
             "application/x-service" |
@@ -289,11 +289,11 @@ pub fn from_mime(mime: &str) -> Self {
             "text/x-djot" => Markdown,
 
             // --- Source: Source code ---
-            m if m.starts_with("text/x-") || 
-                 m.contains("javascript") || 
+            m if m.starts_with("text/x-") ||
+                 m.contains("javascript") ||
                  m.contains("typescript") ||
                  m.contains("script") ||
-                 m == "image/svg+xml" || 
+                 m == "image/svg+xml" ||
                  m == "text/html" ||
                  m == "application/x-httpd-php" ||
                  m == "application/x-ruby" ||
@@ -305,13 +305,13 @@ pub fn from_mime(mime: &str) -> Self {
 
             // --- Image: Raster and Vector graphics ---
             m if m.starts_with("image/") => Image,
-            
+
             // --- Video: Moving images ---
             m if m.starts_with("video/") || m == "application/vnd.ms-asf" => Video,
 
             // --- Audio & Lossless: Musics and recordings ---
             m if m.starts_with("audio/") => {
-                if m.contains("flac") || m.contains("alac") || m.contains("wav") || 
+                if m.contains("flac") || m.contains("alac") || m.contains("wav") ||
                    m.contains("x-ape") || m.contains("dsd") || m.contains("x-matroska") {
                     Lossless
                 } else {
@@ -320,9 +320,9 @@ pub fn from_mime(mime: &str) -> Self {
             }
 
             // --- Playlist: Lists for sequential playback ---
-            "application/vnd.apple.mpegurl" | 
-            "application/mpegurl" | 
-            "audio/x-mpegurl" | 
+            "application/vnd.apple.mpegurl" |
+            "application/mpegurl" |
+            "audio/x-mpegurl" |
             "video/x-mpegurl" |
             "application/x-pls+xml" |
             "audio/x-scpls" |
@@ -331,9 +331,9 @@ pub fn from_mime(mime: &str) -> Self {
             "video/x-ms-asx" => Playlist,
 
             // --- Subtitle: Subtitles and captions ---
-            "text/vtt" | 
-            "application/x-subrip" | 
-            "text/x-ssa" | 
+            "text/vtt" |
+            "application/x-subrip" |
+            "text/x-ssa" |
             "text/x-ass" |
             "application/x-subtitle" => Subtitle,
 
@@ -414,8 +414,8 @@ pub fn from_mime(mime: &str) -> Self {
             "application/x-object" => Compiled,
 
             // --- Database: Organized collections of data ---
-            "application/x-sqlite3" | 
-            "application/sql" | 
+            "application/x-sqlite3" |
+            "application/sql" |
             "application/vnd.sqlite3" |
             "application/x-berkeley-db" => Database,
 

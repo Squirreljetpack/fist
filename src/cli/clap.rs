@@ -127,6 +127,9 @@ Otherwise, this will OVERWRITE your main config."#
 
     #[arg(long, global = true)]
     pub enter_prompt: Option<bool>,
+
+    #[arg(long, global = true)]
+    pub alt_accept: bool,
 }
 
 impl CliOpts {

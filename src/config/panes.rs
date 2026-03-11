@@ -136,6 +136,7 @@ pub struct RgPaneSettings {
     pub default_visibility: PartialVisibility,
     /// Initial sort entering the rg pane.
     pub default_sort: Option<SortOrder>,
+    #[serde(alias = "no_heading")]
     /// Whether to display each match on a seperate line. This can be overridden with the --one-line command line option.
     pub one_line: bool,
     /// Whether to search fixed strings by default. This can be overridden on the command line.
