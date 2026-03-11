@@ -38,8 +38,8 @@ use crate::{
     },
     spawn::{Program, open_wrapped},
     ui::{
-        confirm_overlay::ConfirmOverlay, filters_overlay::FilterOverlay,
-        menu_overlay::MenuOverlay, stash_overlay::StashOverlay,
+        confirm_overlay::ConfirmOverlay, filters_overlay::FilterOverlay, menu_overlay::MenuOverlay,
+        stash_overlay::StashOverlay,
     },
     watcher::FsWatcher,
 };
@@ -184,6 +184,7 @@ pub async fn start(
         .initializer(move |state| {
             fs_post_reload_new(state);
             if let Some(enter) = enter_prompt {
+                log::debug!("{enter}");
                 ahandlers::enter_prompt(state, enter);
             }
         })

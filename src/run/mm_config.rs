@@ -19,8 +19,8 @@ use crate::{
     config::Config,
     lessfilter::Preset,
     ui::{
-        filters_overlay::FiltersConfig, menu_overlay::MenuConfig, prompt_overlay::PromptConfig,
-        stash_overlay::StashConfig, confirm_overlay::ConfirmConfig,
+        confirm_overlay::ConfirmConfig, filters_overlay::FiltersConfig, menu_overlay::MenuConfig,
+        prompt_overlay::PromptConfig, stash_overlay::StashConfig,
     },
 };
 use fist_types::When;
@@ -97,7 +97,7 @@ pub fn get_mm_cfg(
     results.stacked_columns = false;
     results.horizontal_separator = Default::default();
     results.min_wrap_width = results.min_wrap_width.max(10);
-    results.autoscroll_initial_preserved = 5;
+    results.autoscroll.initial_preserved = 5;
     if cfg.global.mm.reverse {
         results.reverse = Some(true)
     }
@@ -106,14 +106,14 @@ pub fn get_mm_cfg(
         modifier: Default::default(),
         fg: Default::default(),
         wrap: true,
-        row_connection_style: RowConnectionStyle::Full,
+        row_connection: RowConnectionStyle::Full,
         ..Default::default()
     };
 
     // Preview display
 
-    preview.scroll.index = None;
-    preview.scroll.percentage = Percentage::new(70);
+    preview.initial.index = None;
+    preview.initial.percentage = Percentage::new(70);
 
     let command = Preset::Preview.to_command_string(When::Auto);
     if preview.layout.is_empty() {

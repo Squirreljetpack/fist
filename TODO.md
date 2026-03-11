@@ -1,35 +1,4 @@
-# batch rename
 
-1. on fd, nav panes: vidir. Before executing, display a scrollable widget with a confirmation dialogue at the top.
-2. A confirmation overlay:
-   It reads from TlsStore::ConfirmPrompt, pub struct ConfirmPrompt {
-   prompt: String
-   options: Vec<(&'static str, usize)> (the options can be triggered by pressing a character: usize refers to the index in the given string of that character)
-   /// when an option is selected, call this with its index)
-   option_handler: Box<dyn FnOnce(usize)>
-   /// displayed with a paragraph below the prompt
-   content: Option<Text<'static>>
-   /// Display the content above the options
-   content_above: bool
-   }
-   Add the usual configuration options: border, content_border.
-   Support navigation with ForwardChar, BackwardChar and Accept.
-   The default for ConfirmPrompt (in case TlsStore::take fails) is prompt: "Confirm?". with options "Yes" "No". And on accept, store TlsStore::ConfirmResult, pub struct ConfirmResult(bool).
-
-- support setting the default column dynamically
-
-3. on rg: action puts 2 lines into the header: the filter and query templates, and toggles in_rename flag of Rg pane to true. On pressing action again, brings up a dialogue with 3 options: cancel, return, accept.
-
-- return: keeps the current replacement saved (in an Option<String> field), sends you back to query mode. Because the the command builder should be modified to push this to the command with the --replace flag btw. This allows you to modify the search pattern while still seeing what the replacement looks like.
-- cancel: clears the current replacement.
-- accept: iterates over the selected files in the current filter (use state.map_selected_to_vec), applying the replacement to each.
-
-  3.5.
-  in order to correctly apply replacements the process is as follows: we use map_selected_to_vec to build HashMap<PathBuf, Replacement>. Replacement: Vec<usize, String> (note that you need to strip the rg prefixes when one_line is false). Then, for each file, read the file to string and apply the replacement on the specified lines, log::error and skip on failure to read the file to string.
-
-4. on history/app panes: same as fd and nav, but each entry is formatted as {index}. {count} | {name}. For each changed line, we need to move the file, then delete the entry in the db, recreating it with the new location.
-
-Out of scope: mmap directly instead of read_to_string? -- still should check that the line you are replacing is valid utf-8.
 
 # Perf
 with a lot of items, ui gets laggy, where is the blocking?
@@ -40,10 +9,7 @@ with a lot of items, ui gets laggy, where is the blocking?
 - Stack browser
 - remote mounts
 
-# Docs
 
-- Intro guide
-- FS_OPTS
 
 # Lessfilter (lowpri)
 

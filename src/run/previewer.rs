@@ -1,9 +1,16 @@
-use cba::{bring::StrExt, env_vars};
+use cba::env_vars;
 use log::warn;
-use matchmaker::{config::PreviewerConfig, message::Event, preview::previewer::{PreviewMessage, Previewer}};
+use matchmaker::{
+    config::PreviewerConfig,
+    message::Event,
+    preview::previewer::{PreviewMessage, Previewer},
+};
 use ratatui::text::Text;
 
-use crate::{aliases::MMState, run::{FsMatchmaker,  dhandlers::path_formatter, state::STACK}};
+use crate::{
+    aliases::MMState,
+    run::{FsMatchmaker, dhandlers::path_formatter, state::STACK},
+};
 
 /// Causes the program to display a preview of the active result.
 /// The Previewer can be connected to [`Matchmaker`] using [`PickOptions::previewer`]
@@ -25,11 +32,11 @@ pub fn make_previewer(
             let cmd = path_formatter(t, m);
 
             // unwrap allowed by visible
-            let index = state.preview_ui.as_ref().unwrap().config.scroll.index.as_ref();
+            let index = state.preview_ui.as_ref().unwrap().config.initial.index.as_ref();
 
             let target = if STACK::in_rg() {
                 state.current_raw().and_then(|item| {
-                    state.picker_ui.worker.format_with(item, "3").and_then(|t| t.as_ref().split_delim(':')[0].parse::<isize>().ok())
+                    state.picker_ui.worker.format_with(item, "3").and_then(|t| atoi::atoi(t.as_bytes()))
                 })
             } else {
                 None

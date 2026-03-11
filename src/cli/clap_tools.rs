@@ -16,7 +16,7 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from(""))]
     pub z_slash_args: String,
     /// Arguments passed to `fs :dir` for the interactive jump menu
-    #[arg(long, default_value_t = String::from("--sort atime --style=colors"))]
+    #[arg(long, default_value_t = String::from("--sort atime --style=colors --enter-prompt=false"))]
     pub z_dir_args: String,
 
     /// Name for open function.
@@ -44,7 +44,7 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("-F --style=colors --enter-prompt=false"))]
     pub dir_widget_args: String,
     /// Arguments passed to `fs ::` when file widget is invoked
-    #[arg(long, default_value_t = String::from("-f --style=icon-colors --enter-prompt=false -- .."))]
+    #[arg(long, default_value_t = String::from("--alt-accept -f --style=icon-colors --enter-prompt=false  -- .."))]
     pub file_widget_args: String,
     /// Arguments passed to `fs :` when rg widget is invoked
     #[arg(long, default_value_t = String::from("-1 --fullscreen --style=colors"))]

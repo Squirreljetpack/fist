@@ -1,24 +1,31 @@
 [tui]
-percentage = 50
-min = 10
-max = 25
+    percentage = 50
+    min        = 10
+    max        = 25
 
 [[preview.layout]]
     side       = "right"
     percentage = 40
     min        = 30
     max        = 120
-    border = { type = "LightDoubleDashed", color = "DarkGray" }
+    border     = { type = "LightDoubleDashed", color = "DarkGray" }
 
 [[preview.layout]]
     side       = "top"
     percentage = 50
     min        = 5
     max        = 50
-    border = { type = "LightDoubleDashed", color = "DarkGray" }
+    border     = { type = "LightDoubleDashed", color = "DarkGray" }
+
+[[preview.layout]]
+    side       = "right"
+    percentage = 80
+    min        = 5
+    max        = 200
+    border     = { type = "LightDoubleDashed", color = "DarkGray" }
 
 [preview]
-wrap = true
+    wrap = true
 
 [overlay]
-border = { type = "Rounded", color = "darkGrey", padding = 1 }
+    border = { type = "Rounded", color = "darkGrey", padding = 1 }

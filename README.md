@@ -6,9 +6,6 @@ F:ist is a fast and intuitive search tool for the filesystem.
 
 # Installation
 
-# Or install via cargo 
-
-
 Install from GitHub releases[^20]:
 ```shell
 curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/fist/main/install.sh | sh
@@ -191,7 +188,7 @@ done |
 FS_OPTS="opener=ob.open display=[echo ${${1#*/$2/}%.md}] delim=\t" fs
 
 # Note:
-# For better performance, you should use in the last command instead of display=:
+# For better performance, you should use in the last command instead of display,
 # display-batch=[while (($#)); do echo ${${1#*/$2/}%.md}; shift 2; done]
 # which should be a script that consumes a batch of PathItems,
 # each of which correspond to 2 input arguments: the Path and the Context,
@@ -211,7 +208,7 @@ uri() {
 fs :o "obsidian://open?path=$(uri $1)"
 ```
 
-<img src=".README.assets/image-20260228112637463.png" alt="image-20260228112637463" style="height:160px;" /> <img src=".README.assets/image-20260228151634342.png" alt="creating a new note" style="height:160px" />
+<img src=".README.assets/image-20260228112637463.png" alt="image-20260228112637463" style="height:177px;" /> <img src=".README.assets/image-20260228151634342.png" alt="creating a new note" style="height:177px" />
 
 ### History
 
