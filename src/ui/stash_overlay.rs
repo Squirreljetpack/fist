@@ -328,7 +328,7 @@ impl Overlay for StashOverlay {
                     }
                 }
 
-                Action::Custom(FsAction::Trash | FsAction::Delete) => {
+                Action::Custom(FsAction::Trash | FsAction::Delete(_)) => {
                     // undecided
                     if let Some(i) = self.table_state.selected() {
                         STASH::remove(i);

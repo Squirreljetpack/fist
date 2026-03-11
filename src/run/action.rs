@@ -29,7 +29,10 @@ use crate::{
         },
     },
     spawn::open_wrapped,
-    ui::menu_overlay::{MenuTarget, PromptKind},
+    ui::{
+        confirm_overlay::ConfirmPrompt,
+        menu_overlay::{MenuTarget, PromptKind},
+    },
     utils::text::ToastStyle,
 };
 use fist_types::When;
@@ -103,7 +106,9 @@ pub enum FsAction {
     /// Delete the file using system trash.
     Trash,
     /// Permanently delete the file.
-    Delete, // (todo: confirmation).
+    Delete(bool),
+    /// Internal confirmation action.
+    Confirm,
     /// Paste all stack items into the current or specified directory
     Paste(PathBuf), // dump Stack
     /// Execute an action on the current item according [Lessfilter rules](crate::lessfilter::RulesConfig)
@@ -265,7 +270,7 @@ pub fn fsaction_aliaser(
                     acs![Action::Custom(fa)]
                 }
             }
-            FsAction::Delete => {
+            FsAction::Delete(no_confirm) => {
                 // probably not a good idea to put a delete action on the same key
                 // if raw_input {
                 //     acs![Action::DeleteWord]
@@ -288,7 +293,7 @@ pub fn fsaction_aliaser(
             }
 
             //  ------------- Overlay aliases --------------
-            FsAction::Stash | FsAction::Filters | FsAction::Menu
+            FsAction::Stash | FsAction::Filters | FsAction::Confirm | FsAction::Menu
                 if state.overlay_index().is_some() =>
             {
                 acs![fa]
@@ -299,14 +304,17 @@ pub fn fsaction_aliaser(
             FsAction::Filters => {
                 acs![Action::Overlay(1)]
             }
+            FsAction::Confirm => {
+                acs![Action::Overlay(2)]
+            }
             // todo: matchmaker needs to support activating the overlay ourselves so that the activated item is aligned
             FsAction::Menu => {
                 if let Some(p) = state.current_item() {
                     TlsStore::set_input_bar(None, MenuTarget::Item(p.clone()));
-                    acs![Action::Overlay(2)]
+                    acs![Action::Overlay(3)]
                 } else if let Some(cwd) = STACK::cwd() {
                     TlsStore::set_input_bar(None, MenuTarget::Cwd(cwd));
-                    acs![Action::Overlay(2)]
+                    acs![Action::Overlay(3)]
                 } else {
                     acs![]
                 }
@@ -772,11 +780,49 @@ pub fn fsaction_handler(
                 }
             });
         }
-        FsAction::Delete => {
+        FsAction::Delete(no_confirm) => {
             let mut items = vec![];
             state.map_selected_to_vec(|s| {
                 items.push(s.path.inner());
             });
+
+            if items.is_empty() {
+                return;
+            }
+
+            if !no_confirm {
+                let prompt = if items.len() == 1 {
+                    Line::from_iter([
+                        Span::styled("Delete", Color::Red),
+                        Span::raw(format!(
+                            " {}?",
+                            short_display(&AbsPath::new_unchecked(&items[0]))
+                        )),
+                    ])
+                } else {
+                    Line::from_iter([
+                        Span::styled("Delete", Color::Red),
+                        Span::raw(format!(" {} items?", items.len())),
+                    ])
+                };
+
+                TlsStore::set(ConfirmPrompt {
+                    prompt,
+                    options: vec![("Yes", 0), ("No", 0)],
+                    option_handler: Box::new(|idx| {
+                        if idx == 0 {
+                            GLOBAL::send_action(FsAction::Delete(true));
+                        }
+                    }),
+                    content: None,
+                    content_above: false,
+                    title_in_border: false,
+                    cursor: 1, // Default to No
+                    scroll: 0,
+                });
+                GLOBAL::send_action(FsAction::Confirm);
+                return;
+            }
 
             TASKS::spawn(async move {
                 for path in items {
@@ -802,6 +848,7 @@ pub fn fsaction_handler(
                 }
             });
         }
+        FsAction::Confirm => {}
         FsAction::CopyPath => {
             let paths = if !in_prompt {
                 state.map_selected_to_vec(|s| s.path.inner())
@@ -850,15 +897,15 @@ pub fn fsaction_handler(
                 });
 
                 if !p_str.is_empty() {
-                    let prompt = Span::styled(
+                    let prompt = Line::styled(
                         p_str,
                         Style::default()
                             .fg(Color::Blue)
                             .add_modifier(Modifier::ITALIC),
                     );
-                    state.picker_ui.input.prompt = prompt;
+                    state.picker_ui.input.set_prompt_line(prompt);
                 } else {
-                    state.picker_ui.input.reset_prompt();
+                    state.picker_ui.input.set_prompt(None);
                 }
             } else {
                 FILTERS::with_mut(|_sort, vis| {
@@ -873,11 +920,17 @@ pub fn fsaction_handler(
                     };
                     if !in_prompt {
                         if vis.dirs {
-                            state.picker_ui.input.prompt = Span::styled("d: ", prompt_main_style());
+                            state
+                                .picker_ui
+                                .input
+                                .set_prompt_line(Line::styled("d: ", prompt_main_style()));
                         } else if vis.files {
-                            state.picker_ui.input.prompt = Span::styled("f: ", prompt_main_style());
+                            state
+                                .picker_ui
+                                .input
+                                .set_prompt_line(Line::styled("f: ", prompt_main_style()));
                         } else {
-                            state.picker_ui.input.reset_prompt();
+                            state.picker_ui.input.set_prompt(None);
                         }
                     }
                 });
@@ -949,11 +1002,16 @@ pub fn fsaction_handler(
             state.set_interrupt(Interrupt::Execute, template);
         } // todo: use a special sequence to communicate to handler whether to pipe/silent or detach
 
+        // See [`crate::run::dhandlers::execute`]
         FsAction::Execute(mut template, v) => {
             let prefix = format!("\0\0\0{}", v);
             template.insert_str(0, &prefix);
 
-            state.set_interrupt(Interrupt::Execute, template);
+            if v == 2 || v == 3 {
+                state.set_interrupt(Interrupt::ExecuteSilent, template);
+            } else {
+                state.set_interrupt(Interrupt::Execute, template);
+            }
         }
 
         FsAction::AcceptPrompt => {
@@ -1036,12 +1094,13 @@ enum_from_str_display! {
     Filters, Stash,
     Menu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir,
-    Backup, Trash, Delete;
+    Backup, Trash;
 
     tuples:
     AutoJump;
 
     defaults:
+    (Delete, false)
     ;
     options:
     ClearStash
@@ -1100,7 +1159,7 @@ macro_rules! enum_from_str_display {
                             write!(f, "Jump({})", path.display())
                         }
                     }
-                    SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | EnterPrompt(_) => Ok(()), // internal
+                    SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | EnterPrompt(_) | Confirm => Ok(()), // internal
                     Lessfilter { preset, paging, header: _, .. } => {
                         let mut preset = preset.to_string();
                         if *paging {

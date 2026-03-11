@@ -37,7 +37,10 @@ use crate::{
         state::{DB_FILTER, GLOBAL, STACK, TASKS, context::ActionContext, ui::global_ui_init},
     },
     spawn::{Program, open_wrapped},
-    ui::{filters_overlay::FilterOverlay, menu_overlay::MenuOverlay, stash_overlay::StashOverlay},
+    ui::{
+        confirm_overlay::ConfirmOverlay, filters_overlay::FilterOverlay,
+        menu_overlay::MenuOverlay, stash_overlay::StashOverlay,
+    },
     watcher::FsWatcher,
 };
 
@@ -121,6 +124,7 @@ pub async fn start(
         filters,
         prompt,
         menu,
+        confirm,
         tui,
         overlay,
     } = mm_cfg;
@@ -189,6 +193,7 @@ pub async fn start(
         .overlay_config(overlay)
         .overlay(StashOverlay::new(stash))
         .overlay(FilterOverlay::new(filters))
+        .overlay(ConfirmOverlay::new(confirm))
         .overlay(MenuOverlay::new(menu, prompt, cfg.actions));
 
     let render_tx = builder.render_tx();

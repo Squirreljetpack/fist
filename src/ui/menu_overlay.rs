@@ -4,7 +4,7 @@ use crate::{
         action::FsAction,
         item::short_display,
         stash::{CustomStashActionActionState, STASH, StashItem},
-        state::{GLOBAL, STACK, TASKS, TOAST, TlsStore},
+        state::{GLOBAL, STACK, TOAST, TlsStore},
     },
     spawn::{menu_action::MenuActions, open_wrapped},
     ui::prompt_overlay::{PromptConfig, PromptOverlay},
@@ -131,25 +131,7 @@ impl MenuItem {
                 Err(false)
             }
             MenuItem::Delete => {
-                TASKS::spawn(async move {
-                    match if path.is_dir() {
-                        tokio::fs::remove_dir_all(&path).await
-                    } else {
-                        tokio::fs::remove_file(&path).await
-                    } {
-                        Ok(_) => {
-                            TOAST::push(ToastStyle::Success, "Deleted: ", [short_display(&path)])
-                        }
-                        Err(e) => {
-                            log::error!("Failed to delete {}: {e}", path.to_string_lossy());
-                            TOAST::push(
-                                ToastStyle::Error,
-                                "Failed to delete: ",
-                                [short_display(&path)],
-                            )
-                        }
-                    }
-                });
+                GLOBAL::send_action(FsAction::Delete(false));
                 Err(false)
             }
             MenuItem::Open => {

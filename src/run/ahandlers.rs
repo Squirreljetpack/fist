@@ -2,9 +2,10 @@ use cba::{bring::split::split_whitespace_preserve_single_quotes, vec_};
 use matchmaker::{
     acs,
     message::{BindDirective, Event},
-    nucleo::{Color, Modifier, Span, Style, injector::IndexedInjector},
+    nucleo::{Color, Modifier, Style, injector::IndexedInjector},
     ui::StatusUI,
 };
+use ratatui::text::Line;
 
 use crate::{
     abspath::AbsPath,
@@ -58,7 +59,7 @@ pub fn enter_prompt(
         let prompt = if let Some(cwd) = STACK::cwd() {
             let content =
                 format_prompt(&GLOBAL::with_cfg(|c| c.interface.cwd_prompt.clone()), &cwd);
-            Span::styled(
+            Line::styled(
                 content,
                 Style::default()
                     .fg(Color::Blue)
@@ -66,7 +67,7 @@ pub fn enter_prompt(
             )
         } else {
             let content = state.picker_ui.input.config.prompt.clone();
-            Span::styled(
+            Line::styled(
                 content,
                 Style::default()
                     .fg(Color::Blue)
@@ -75,10 +76,10 @@ pub fn enter_prompt(
         };
         state.picker_ui.results.cursor_jump(0);
         state.stash_preview_visibility(Some(false));
-        state.picker_ui.input.prompt = prompt;
+        state.picker_ui.input.set_prompt_line(prompt);
     } else {
         state.stash_preview_visibility(None);
-        state.picker_ui.input.reset_prompt();
+        state.picker_ui.input.set_prompt(None);
     }
     state.picker_ui.results.cursor_disabled = enter;
 
@@ -206,7 +207,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
             if let Some(enter) = c.panes.enter_prompt(pane) {
                 enter_prompt(state, enter);
             } else if !state.picker_ui.results.cursor_disabled {
-                state.picker_ui.input.reset_prompt();
+                state.picker_ui.input.set_prompt(None);
             }
 
             #[cfg(feature = "mm_overrides")]

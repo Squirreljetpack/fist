@@ -20,7 +20,7 @@ use crate::{
     lessfilter::Preset,
     ui::{
         filters_overlay::FiltersConfig, menu_overlay::MenuConfig, prompt_overlay::PromptConfig,
-        stash_overlay::StashConfig,
+        stash_overlay::StashConfig, confirm_overlay::ConfirmConfig,
     },
 };
 use fist_types::When;
@@ -46,6 +46,8 @@ pub struct MMConfig {
     pub prompt: PromptConfig,
     #[serde(default)]
     pub menu: MenuConfig,
+    #[serde(default)]
+    pub confirm: ConfirmConfig,
     #[serde(default)]
     pub tui: TerminalConfig,
 
@@ -95,6 +97,7 @@ pub fn get_mm_cfg(
     results.stacked_columns = false;
     results.horizontal_separator = Default::default();
     results.min_wrap_width = results.min_wrap_width.max(10);
+    results.autoscroll_initial_preserved = 5;
     if cfg.global.mm.reverse {
         results.reverse = Some(true)
     }
@@ -151,6 +154,11 @@ pub fn get_mm_cfg(
         let mut full = mm_cfg.overlay.border.clone();
         full.apply(p);
         mm_cfg.stash.border = Ok(full)
+    }
+    if let Err(p) = mm_cfg.confirm.border {
+        let mut full = mm_cfg.overlay.border.clone();
+        full.apply(p);
+        mm_cfg.confirm.border = Ok(full)
     }
 
     log::debug!("{mm_cfg:?}");
