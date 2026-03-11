@@ -7,10 +7,14 @@ F:ist is a fast and intuitive search tool for the filesystem.
 # Installation
 
 ```shell
-# dependencies
-cargo install bat fd-find eza ripgrep
+# Install from GitHub releases
+curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/fist/main/assets/install.sh | sh
 
+# Or install via cargo (not recommended: currently missing features)
 cargo install fist
+
+# dependencies (optional)
+cargo install bat fd-find eza ripgrep
 
 # (Optional) setup shell integration:
 echo "\neval$(fs :tool shell)" >> ~/.zshrc # or whatever the startup file of your respective shell is.

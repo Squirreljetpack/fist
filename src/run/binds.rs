@@ -48,7 +48,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         // ----------------------------------
         key!(ctrl-y) => FsAction::CopyPath,
         key!(delete) => FsAction::Trash,
-        key!(shift-delete) => FsAction::Delete,
+        key!(shift-delete) => FsAction::Delete(false),
 
         key!(ctrl-v) => FsAction::Paste("".into()),
 
