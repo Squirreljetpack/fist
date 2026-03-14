@@ -8,8 +8,14 @@ use cba::bring::split::join_with_single_quotes;
 use matchmaker::preview::AppendOnly;
 
 use crate::{
-    abspath::AbsPath, cli::DefaultCommand, db::DbSortOrder, find::fd::auto_enable_hidden,
-    run::item::PathItem,
+    abspath::AbsPath,
+    cli::DefaultCommand,
+    db::DbSortOrder,
+    find::fd::auto_enable_hidden,
+    run::{
+        item::PathItem,
+        state::{GLOBAL, InitialPreserveWhitespaceInSearch, TlsStore},
+    },
 };
 use fist_types::{
     When,
@@ -334,7 +340,13 @@ impl FsPane {
                 if *filtering {
                     input.0.clone()
                 } else {
-                    join_with_single_quotes(patterns)
+                    let mut s = join_with_single_quotes(patterns);
+                    if GLOBAL::with_cfg(|c| c.panes.search.preserve_whitespace)
+                        || TlsStore::take::<InitialPreserveWhitespaceInSearch>().is_some()
+                    {
+                        s.push_str(" '");
+                    };
+                    s
                 }
             }
             _ => String::new(),

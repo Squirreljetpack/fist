@@ -155,3 +155,5 @@ Possible Conditions:
 - Need figure out how defaults should be specified: in code or in config.
 - PaneSettings: prompt and show_preview are effectively partial, but not sure if we should just generalize that to supporting partial RenderConfig overrides. The size is bounded so it shouldn't be too bad?
 - Also, note that undo/redo won't save state changes caused by pane change overrides
+
+

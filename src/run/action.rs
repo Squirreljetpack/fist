@@ -564,7 +564,7 @@ pub fn fsaction_handler(
                 //
                 let paths = vec![cwd.inner()];
                 let query = String::new();
-                let filtering = true;
+                let filtering = false;
                 let patterns = if GLOBAL::with_cfg(|c| c.panes.search.search_empty_query) {
                     vec!["".into()]
                 } else {

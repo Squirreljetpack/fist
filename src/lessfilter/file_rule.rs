@@ -209,11 +209,11 @@ impl Test<Path> for FileRule {
 impl DefaultScore for FileRule {
     fn default_score(&self) -> Score {
         match &self.kind {
-            FileRuleKind::Glob(_) => Score::Max(100),
+            FileRuleKind::Glob(_) => Score::Max(50),
             FileRuleKind::Child(_) => Score::Max(50),
+            FileRuleKind::Ext(_) => Score::Max(30),
             FileRuleKind::Mime(_) => Score::Max(20),
             FileRuleKind::Cat(_) => Score::Max(20),
-            FileRuleKind::Ext(_) => Score::Max(10),
             FileRuleKind::Have(_) => Score::Req,
             FileRuleKind::FileType(_) => Score::Req,
         }
