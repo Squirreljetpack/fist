@@ -1,9 +1,5 @@
-use cba::{
-    bath::root_dir,
-    bog::{BogOkExt, BogUnwrapExt},
-    expr_as_path_fn,
-};
-use std::{env::current_dir, ffi::OsString, path::PathBuf};
+use cba::{bath::root_dir, bog::BogUnwrapExt, ebog, expr_as_path_fn};
+use std::{env, ffi::OsString, path::PathBuf};
 
 pub static BINARY_FULL: &str = "fist";
 pub static BINARY_SHORT: &str = "fs";
@@ -47,8 +43,46 @@ pub fn current_exe() -> std::ffi::OsString {
         .unwrap_or(BINARY_SHORT.into())
 }
 
+// preserve shell path representation
+fn cwd() -> PathBuf {
+    let pwd_path = env::var("PWD").map(PathBuf::from).ok();
+
+    match env::current_dir() {
+        Ok(current) => {
+            if let Some(pwd) = &pwd_path {
+                if let (Ok(pwd_canon), Ok(current_canon)) =
+                    (pwd.canonicalize(), current.canonicalize())
+                {
+                    if pwd_canon == current_canon {
+                        return pwd.clone(); // use logical path from PWD
+                    }
+                }
+            }
+            current
+        }
+        Err(e) => {
+            // fallback: walk up PWD until valid
+            if let Some(mut path) = pwd_path {
+                while !path.exists() {
+                    if !path.pop() {
+                        break;
+                    }
+                }
+                eprintln!(
+                    "Warning: current_dir() failed, using closest existing parent of PWD: {}",
+                    path.display()
+                );
+                path
+            } else {
+                ebog!("{e}");
+                std::process::exit(1);
+            }
+        }
+    }
+}
+
 // the absolute current directory AT INITIALIZATION
-expr_as_path_fn!(__cwd, current_dir().__ebog());
+expr_as_path_fn!(__cwd, cwd());
 
 // the absolute home directory, or root
 expr_as_path_fn!(__home, dirs::home_dir().unwrap_or(root_dir()));
