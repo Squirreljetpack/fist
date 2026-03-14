@@ -1,5 +1,4 @@
 //! CLI command handlers
-use clap::Parser;
 use cba::{
     bait::{MaybeExt, TransformExt},
     bath::PathExt,
@@ -8,6 +7,7 @@ use cba::{
     bs::sort_by_mtime,
     ibog, wbog,
 };
+use clap::Parser;
 use globset::GlobBuilder;
 use std::{
     env::{current_dir, set_current_dir},
@@ -50,7 +50,7 @@ use crate::{
         mm_config::get_mm_cfg,
         start,
         stash::{CustomStashActionActionState, STASH},
-        state::{InitialRelativePathSetting, TlsStore},
+        state::{InitialRelativePathSetting, InitialPreserveWhitespaceInSearch, TlsStore},
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
@@ -169,7 +169,7 @@ async fn handle_files(
 
 async fn handle_rg(
     cli: CliOpts,
-    mut cmd: RgCommand,
+    mut cmd: SearchCommand,
     mut cfg: Config,
 ) -> Result<(), CliError> {
     let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.search.default_visibility);
@@ -227,6 +227,9 @@ async fn handle_rg(
     };
 
     let pool = Pool::new(cfg.db_path()).await?;
+    if cmd.preserve_whitespace {
+        TlsStore::set(InitialPreserveWhitespaceInSearch);
+    }
 
     let pane = FsPane::new_rg_full(
         AbsPath::default(),

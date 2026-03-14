@@ -39,12 +39,12 @@ opts+=($@)
 bat -p $opts | {
 	IFS= read -r line
     if [ $? -eq 0 ] || [[ -n "$line" ]]; then
-        { echo $line && cat } |
-            if [[ $PG_FORCE_TTY == true ]]; then
-                LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p less -R $less_opts > /dev/tty
-            else
-                LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p less -R $less_opts
-            fi
+        echo $line
+        if [[ $PG_FORCE_TTY == true ]]; then
+            LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p less -R $less_opts > /dev/tty
+        else
+            LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p less -R $less_opts
+        fi
     fi
 }
 

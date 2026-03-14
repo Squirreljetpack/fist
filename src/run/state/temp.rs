@@ -20,6 +20,9 @@ pub struct InitialQueryShouldNotAbort;
 #[derive(Clone, Debug)]
 pub struct InitialRelativePathSetting(pub bool);
 
+#[derive(Debug)]
+pub struct InitialPreserveWhitespaceInSearch;
+
 /// Option<AbsPath>: Previous Directory
 /// Option<u32>: Stashed index
 pub struct TlsStore;

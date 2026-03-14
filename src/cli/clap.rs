@@ -158,7 +158,7 @@ pub enum SubCmd {
     #[command(name = ":fd", visible_aliases = ["::"])]
     Fd(DefaultCommand),
     #[command(name = ":rg", visible_aliases = [":"])]
-    Rg(RgCommand),
+    Rg(SearchCommand),
     #[command(name =  ":tool", visible_aliases = [":t"])]
     Tools(ToolsCmd),
     #[command(name = ":info")]
@@ -255,7 +255,7 @@ pub struct FilesCmd {
 
 /// Full text search
 #[derive(Debug, Parser, Default, Clone)]
-pub struct RgCommand {
+pub struct SearchCommand {
     #[command(flatten)]
     pub vis: PartialVisibility,
     #[arg(long)]
@@ -268,6 +268,9 @@ pub struct RgCommand {
     /// Patterns to search (`rg -e`).
     #[arg(value_name = "PATTERNS")]
     pub patterns: Vec<String>,
+    /// Prepend ' to query start
+    #[arg(long)]
+    pub preserve_whitespace: bool,
 
     /// Args passed on verbatim to rg.
     #[arg(last = true, value_name = "RG_ARGS")]

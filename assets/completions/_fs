@@ -197,6 +197,7 @@ size\:"Not always supported"))' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--preserve-whitespace[Prepend '\'' to query start]' \
 '-i[]' \
 '--ignore-case[]' \
 '-s[]' \
@@ -241,6 +242,7 @@ size\:"Not always supported"))' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--preserve-whitespace[Prepend '\'' to query start]' \
 '-i[]' \
 '--ignore-case[]' \
 '-s[]' \

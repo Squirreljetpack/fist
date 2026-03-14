@@ -1,10 +1,6 @@
 use std::{ffi::OsString, sync::Arc};
 
-use cba::{
-    bog::BogOkExt,
-    bring::{StrExt, split::join_with_single_quotes},
-    prints, unwrap,
-};
+use cba::{bog::BogOkExt, bring::StrExt, prints, unwrap};
 use matchmaker::{
     MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector,
     binds::display_binds,
@@ -118,7 +114,7 @@ pub async fn start(
 ) -> Result<(), CliError> {
     // init configs
     let MMConfig {
-        mut render,
+        render,
         binds,
         stash,
         filters,
@@ -142,20 +138,6 @@ pub async fn start(
         }
         Some(())
     });
-
-    match &pane {
-        FsPane::Search {
-            patterns,
-            filtering,
-            ..
-        } => {
-            if !filtering {
-                render.input.initial = join_with_single_quotes(patterns);
-            }
-        }
-        FsPane::Find { .. } => {}
-        _ => {}
-    }
 
     // init MM
     let (mut mm, injector) = make_mm(
@@ -184,7 +166,6 @@ pub async fn start(
         .initializer(move |state| {
             fs_post_reload_new(state);
             if let Some(enter) = enter_prompt {
-                log::debug!("{enter}");
                 ahandlers::enter_prompt(state, enter);
             }
         })
