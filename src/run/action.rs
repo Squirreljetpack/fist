@@ -60,7 +60,7 @@ pub enum FsAction {
     ///
     /// # Note
     /// The char is emitted instead of jumping if the index is in the prompt.
-    Jump(PathBuf, Option<char>),
+    Jump(Vec<PathBuf>),
     /// Enter app launching pane.
     App, // if u want to push selections, u can compose clearstack/pushstack before/after
 
@@ -244,13 +244,6 @@ pub fn fsaction_aliaser(
 
             // Actions which only trigger when not in the prompt:
             // -------------------------------------------------
-            FsAction::Jump(_, c) => {
-                if raw_input && let Some(c) = c {
-                    acs![Action::Char(c)]
-                } else {
-                    acs![Action::Custom(fa)]
-                }
-            }
             FsAction::Parent => {
                 if raw_input {
                     acs![Action::BackwardChar]
@@ -632,32 +625,41 @@ pub fn fsaction_handler(
             };
         }
 
-        FsAction::Jump(d, c) => {
-            let path = if c == Some('\0') {
-                AbsPath::new_unchecked(d)
+        FsAction::Jump(paths) => {
+            let cwd = STACK::cwd().and_then(|p| p.canonicalize().ok());
+
+            let canonical = |p: &std::path::Path| p.abs(__home()).canonicalize().ok();
+
+            let idx = if cwd.is_some() {
+                paths
+                    .iter()
+                    .position(|p| canonical(p) == cwd)
+                    .map(|i| (i + 1) % paths.len())
+                    .unwrap_or(0)
             } else {
-                let path = d.abs(__home());
-                let path = AbsPath::new_unchecked(&path);
-
-                if Some(&path) == STACK::cwd().as_ref() {
-                    return;
-                }
-
-                if !path.is_dir() {
-                    TOAST::push_msg(
-                        vec![
-                            Span::styled(d.to_string_lossy().to_string(), Color::Red),
-                            Span::raw(" is not a directory!"),
-                        ],
-                        false,
-                    );
-                    return;
-                }
-
-                path
+                0
             };
 
-            enter_dir_pane(state, path);
+            let target_path = if paths.is_empty() {
+                __home().into()
+            } else {
+                paths[idx].abs(__home())
+            };
+
+            if target_path.is_dir() {
+                let abs_target = AbsPath::new_unchecked(target_path);
+                if Some(&abs_target) != STACK::cwd().as_ref() {
+                    enter_dir_pane(state, abs_target);
+                }
+            } else {
+                TOAST::push_msg(
+                    vec![
+                        Span::styled(target_path.to_string_lossy().to_string(), Color::Red),
+                        Span::raw(" is not a valid directory!"),
+                    ],
+                    false,
+                );
+            }
         }
         FsAction::Parent => {
             // get parent path
@@ -1016,7 +1018,7 @@ pub fn fsaction_handler(
 
         FsAction::AcceptPrompt => {
             if let Some(p) = STACK::nav_cwd() {
-                if in_prompt {
+                if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
                     // same as below
                     let s = p.display().to_string();
                     print_handle.push(s);
@@ -1111,183 +1113,189 @@ enum_from_str_display! {
 }
 
 macro_rules! enum_from_str_display {
-    (
-        $enum:ty;
-        units: $( $unit:ident ),* $(,)?;
-        tuples: $( $tuple:ident ),* $(,)?;
-        defaults: $(($default:ident, $default_value:expr)),*;
-        options: $($optional:ident),*;
-        lossy: $( $lossy:ident ),* ;
-    ) => {
-        impl std::fmt::Display for $enum {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                use $enum::*;
-                match self {
-                    $( $unit => write!(f, stringify!($unit)), )*
+            (
+                $enum:ty;
+                units: $( $unit:ident ),* $(,)?;
+                tuples: $( $tuple:ident ),* $(,)?;
+                defaults: $(($default:ident, $default_value:expr)),*;
+                options: $($optional:ident),*;
+                lossy: $( $lossy:ident ),* ;
+            ) => {
+                impl std::fmt::Display for $enum {
+                    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        use $enum::*;
+                        match self {
+                            $( $unit => write!(f, stringify!($unit)), )*
 
-                    $( $tuple(inner) => write!(f, concat!(stringify!($tuple), "({})"), inner), )*
+                            $( $tuple(inner) => write!(f, concat!(stringify!($tuple), "({})"), inner), )*
 
-                    $( $lossy(inner) => {
-                        if inner.is_empty() {
-                            write!(f, stringify!($lossy))
-                        } else {
-                            write!(f, concat!(stringify!($lossy), "({})"), std::ffi::OsString::from(inner).to_string_lossy())
+                            $( $lossy(inner) => {
+                                if inner.is_empty() {
+                                    write!(f, stringify!($lossy))
+                                } else {
+                                    write!(f, concat!(stringify!($lossy), "({})"), std::ffi::OsString::from(inner).to_string_lossy())
+                                }
+                            }, )*
+
+                            $( $default(inner) => {
+                                if *inner == $default_value {
+                                    write!(f, stringify!($default))
+                                } else {
+                                    write!(f, concat!(stringify!($default), "({})"), inner)
+                                }
+                            }, )*
+
+                            $( $optional(opt) => {
+                                if let Some(inner) = opt {
+                                    write!(f, concat!(stringify!($optional), "({})"), inner)
+                                } else {
+                                    write!(f, stringify!($optional))
+                                }
+                            }, )*
+
+                            /* ---------- Manually parsed ---------- */
+                            Jump(paths) => {
+                                if paths.is_empty() {
+                                    write!(f, "Jump(⌂)")
+                                } else {
+                                    write!(f, "Jump({})", paths
+                                    .iter()
+                                    .map(|p| p.to_string_lossy())
+                                    .collect::<Vec<_>>()
+                                    .join("|||")
+                                )
+                            }
                         }
-                    }, )*
-
-                    $( $default(inner) => {
-                        if *inner == $default_value {
-                            write!(f, stringify!($default))
-                        } else {
-                            write!(f, concat!(stringify!($default), "({})"), inner)
+                        SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | EnterPrompt(_) | Confirm => Ok(()), // internal
+                        Lessfilter { preset, paging, header: _, .. } => {
+                            let mut preset = preset.to_string();
+                            if *paging {
+                                preset.push('|')
+                            };
+                            write!(f, "Lessfilter({preset})")
+                        },
+                        Execute(s, u) => {
+                            match u {
+                                1 => write!(f, "ExecutePaged({})", s),
+                                2 => write!(f, "ExecuteDetached({})", s),
+                                3 => write!(f, "ExecuteSilent({})", s),
+                                4 => write!(f, "ExecuteTTY({})", s),
+                                _ => write!(f, "Execute({})", s),
+                            }
                         }
-                    }, )*
 
-                    $( $optional(opt) => {
-                        if let Some(inner) = opt {
-                            write!(f, concat!(stringify!($optional), "({})"), inner)
-                        } else {
-                            write!(f, stringify!($optional))
-                        }
-                    }, )*
-
-                    /* ---------- Manually parsed ---------- */
-                    Jump(path, _) => {
-                        if path.is_empty() {
-                            write!(f, "Jump(⌂)")
-                        } else {
-                            write!(f, "Jump({})", path.display())
-                        }
+                        /* ------------------------------------- */
                     }
-                    SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | EnterPrompt(_) | Confirm => Ok(()), // internal
-                    Lessfilter { preset, paging, header: _, .. } => {
-                        let mut preset = preset.to_string();
-                        if *paging {
-                            preset.push('|')
-                        };
-                        write!(f, "Lessfilter({preset})")
-                    },
-                    Execute(s, u) => {
-                        match u {
-                            1 => write!(f, "ExecutePaged({})", s),
-                            2 => write!(f, "ExecuteDetached({})", s),
-                            3 => write!(f, "ExecuteSilent({})", s),
-                            4 => write!(f, "ExecuteTTY({})", s),
-                            _ => write!(f, "Execute({})", s),
-                        }
-                    }
-
-                    /* ------------------------------------- */
                 }
             }
-        }
 
-        impl std::str::FromStr for $enum {
-            type Err = String;
+            impl std::str::FromStr for $enum {
+                type Err = String;
 
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                let (name, data) = if let Some(pos) = s.find('(') {
-                    if s.ends_with(')') {
-                        (&s[..pos], Some(&s[pos + 1..s.len() - 1]))
+                fn from_str(s: &str) -> Result<Self, Self::Err> {
+                    let (name, data) = if let Some(pos) = s.find('(') {
+                        if s.ends_with(')') {
+                            (&s[..pos], Some(&s[pos + 1..s.len() - 1]))
+                        } else {
+                            (s, None)
+                        }
                     } else {
                         (s, None)
-                    }
-                } else {
-                    (s, None)
-                };
+                    };
 
-                match name {
-                    $( stringify!($unit) => {
-                        if data.is_some() {
-                            Err(format!("Unexpected data for {}", name))
-                        } else {
-                            Ok(Self::$unit)
-                        }
-                    }, )*
-
-                    $( stringify!($tuple) => {
-                        let val = data
-                        .ok_or_else(|| format!("Missing data for {}", name))?
-                        .parse()
-                        .map_err(|_| format!("Invalid data for {}", name))?;
-                        Ok(Self::$tuple(val))
-                    }, )*
-
-                    $( stringify!($lossy) => {
-                        let d = match data {
-                            Some(val) => val.parse()
-                            .map_err(|_| format!("Invalid data for {}", stringify!($lossy)))?,
-                            None => Default::default(),
-                        };
-                        Ok(Self::$lossy(d))
-                    }, )*
-
-                    $( stringify!($default) => {
-                        let d = match data {
-                            Some(val) => val.parse()
-                            .map_err(|_| format!("Invalid data for {}", stringify!($default)))?,
-                            None => $default_value,
-                        };
-                        Ok(Self::$default(d))
-                    }, )*
-
-                    $( stringify!($optional) => {
-                        let d = match data {
-                            Some(val) if !val.is_empty() => {
-                                Some(val.parse().map_err(|_| format!("Invalid data for {}", stringify!($optional)))?)
+                    match name {
+                        $( stringify!($unit) => {
+                            if data.is_some() {
+                                Err(format!("Unexpected data for {}", name))
+                            } else {
+                                Ok(Self::$unit)
                             }
-                            _ => None,
-                        };
-                        Ok(Self::$optional(d))
-                    }, )*
+                        }, )*
 
-                    /* ---------- Manually parsed ---------- */
-                    "Jump" => {
-                        let path_str = data.ok_or_else(|| "Missing path for Jump")?;
-                        Ok(Self::Jump(path_str.into(), None))
-                    }
-                    "Lessfilter" => {
-                        let mut paging = false;
-                        let mut preset_str = data.ok_or_else(|| "Missing preset for Lessfilter")?;
+                        $( stringify!($tuple) => {
+                            let val = data
+                            .ok_or_else(|| format!("Missing data for {}", name))?
+                            .parse()
+                            .map_err(|_| format!("Invalid data for {}", name))?;
+                            Ok(Self::$tuple(val))
+                        }, )*
 
-                        if let Some(stripped) = preset_str.strip_suffix('|') {
-                            preset_str = stripped;
-                            paging = true;
+                        $( stringify!($lossy) => {
+                            let d = match data {
+                                Some(val) => val.parse()
+                                .map_err(|_| format!("Invalid data for {}", stringify!($lossy)))?,
+                                None => Default::default(),
+                            };
+                            Ok(Self::$lossy(d))
+                        }, )*
+
+                        $( stringify!($default) => {
+                            let d = match data {
+                                Some(val) => val.parse()
+                                .map_err(|_| format!("Invalid data for {}", stringify!($default)))?,
+                                None => $default_value,
+                            };
+                            Ok(Self::$default(d))
+                        }, )*
+
+                        $( stringify!($optional) => {
+                            let d = match data {
+                                Some(val) if !val.is_empty() => {
+                                    Some(val.parse().map_err(|_| format!("Invalid data for {}", stringify!($optional)))?)
+                                }
+                                _ => None,
+                            };
+                            Ok(Self::$optional(d))
+                        }, )*
+
+                        /* ---------- Manually parsed ---------- */
+                        "Jump" => {
+                            let values = data.ok_or_else(|| "Missing path for Jump")?;
+                            let paths = cba::bring::split::split_on_unescaped_delimiter(values, "|||").iter().map(PathBuf::from).collect();
+                            Ok(Self::Jump(paths))
+                        }
+                        "Lessfilter" => {
+                            let mut paging = false;
+                            let mut preset_str = data.ok_or_else(|| "Missing preset for Lessfilter")?;
+
+                            if let Some(stripped) = preset_str.strip_suffix('|') {
+                                preset_str = stripped;
+                                paging = true;
+                            }
+
+                            let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for lessfilter: {preset_str}"))?;
+                            let header = When::default();
+                            Ok(Self::Lessfilter { preset, paging, header, special: Default::default() })
+                        }
+                        "Execute" => {
+                            let cmd = data.ok_or_else(|| "Missing command for Execute")?;
+                            Ok(Self::Execute(cmd.into(), 0))
+                        }
+                        "ExecutePaged" => {
+                            let cmd = data.ok_or_else(|| "Missing command for ExecutePaged")?;
+                            Ok(Self::Execute(cmd.into(), 1))
+                        }
+                        "ExecuteDetached" => {
+                            let cmd = data.ok_or_else(|| "Missing command for ExecuteDetached")?;
+                            Ok(Self::Execute(cmd.into(), 2))
+                        }
+                        "ExecuteSilent" => {
+                            let cmd = data.ok_or_else(|| "Missing command for ExecuteSilent")?;
+                            Ok(Self::Execute(cmd.into(), 3))
+                        }
+                        "ExecuteTTY" => {
+                            let cmd = data.ok_or_else(|| "Missing command for ExecuteTTY")?;
+                            Ok(Self::Execute(cmd.into(), 4))
                         }
 
-                        let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for lessfilter: {preset_str}"))?;
-                        let header = When::default();
-                        Ok(Self::Lessfilter { preset, paging, header, special: Default::default() })
-                    }
-                    "Execute" => {
-                        let cmd = data.ok_or_else(|| "Missing command for Execute")?;
-                        Ok(Self::Execute(cmd.into(), 0))
-                    }
-                    "ExecutePaged" => {
-                        let cmd = data.ok_or_else(|| "Missing command for ExecutePaged")?;
-                        Ok(Self::Execute(cmd.into(), 1))
-                    }
-                    "ExecuteDetached" => {
-                        let cmd = data.ok_or_else(|| "Missing command for ExecuteDetached")?;
-                        Ok(Self::Execute(cmd.into(), 2))
-                    }
-                    "ExecuteSilent" => {
-                        let cmd = data.ok_or_else(|| "Missing command for ExecuteSilent")?;
-                        Ok(Self::Execute(cmd.into(), 3))
-                    }
-                    "ExecuteTTY" => {
-                        let cmd = data.ok_or_else(|| "Missing command for ExecuteTTY")?;
-                        Ok(Self::Execute(cmd.into(), 4))
-                    }
+                        /* ------------------------------------- */
 
-                    /* ------------------------------------- */
-
-                    _ => Err(format!("Unknown action {}", s)),
+                        _ => Err(format!("Unknown action {}", s)),
+                    }
                 }
             }
-        }
-    };
-}
+        };
+    }
 use enum_from_str_display;
 
 pub fn prompt_main_style() -> Style {
