@@ -1,7 +1,9 @@
 use std::{
+    cell::RefCell,
+    collections::VecDeque,
     fmt::Display,
     io::{self, Read},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
     sync::{
         Arc,
@@ -20,7 +22,12 @@ use cba::{
     bs::sort_by_mtime,
     unwrap,
 };
-use matchmaker::{SSS, message::RenderCommand, nucleo::injector::Injector, preview::AppendOnly};
+use matchmaker::{
+    SSS,
+    message::RenderCommand,
+    nucleo::{Render, injector::Injector},
+    preview::AppendOnly,
+};
 use ratatui::text::Text;
 use tokio::task::spawn_blocking;
 
@@ -31,9 +38,10 @@ use crate::{
     find::rg::build_rg_args,
     run::{
         FsPane,
+        populate_rg::{BufItem, flush_rg_buffer, process_rg_line},
         state::{InitialQueryShouldNotAbort, TOAST, TlsStore},
     },
-    utils::text::{extract_rg_line_no_path, parse_rg_line, scrub_text_styles, text_to_lines},
+    utils::text::{extract_rg_line_no_path, scrub_text_styles, text_to_lines},
 };
 use crate::{
     db::{DbSortOrder, DbTable},
@@ -109,8 +117,12 @@ impl FsPane {
                             injector.push(item)?;
                             anyhow::Ok(())
                         },
-                        complete.clone(),
-                        || GLOBAL::send_mm(RenderCommand::QuitEmpty),
+                        move |count| {
+                            if count == Some(0) {
+                                GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                            }
+                            complete.store(true, Ordering::SeqCst);
+                        },
                     ),
                     Some(Ok(script)) => {
                         // Script runs per item asynchronously
@@ -154,8 +166,12 @@ impl FsPane {
                                 });
                                 Ok(())
                             },
-                            _complete.clone(),
-                            || GLOBAL::send_mm(RenderCommand::QuitEmpty),
+                            move |count| {
+                                if count == Some(0) {
+                                    GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                                }
+                                _complete.store(true, Ordering::SeqCst);
+                            },
                         )
                     }
                     Some(Err(script)) => map_reader_batch(
@@ -213,8 +229,12 @@ impl FsPane {
                             injector.push(item)?;
                             anyhow::Ok(())
                         },
-                        complete.clone(),
-                        || GLOBAL::send_mm(RenderCommand::QuitEmpty),
+                        move |count| {
+                            if count == Some(0) {
+                                GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                            }
+                            complete.store(true, Ordering::SeqCst);
+                        },
                     ),
                     Some(Ok(script)) => {
                         // Script runs per item asynchronously
@@ -258,8 +278,12 @@ impl FsPane {
                                 });
                                 Ok(())
                             },
-                            _complete.clone(),
-                            || GLOBAL::send_mm(RenderCommand::QuitEmpty),
+                            move |count| {
+                                if count == Some(0) {
+                                    GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                                }
+                                _complete.store(true, Ordering::SeqCst);
+                            },
                         )
                     }
                     Some(Err(script)) => map_reader_batch(
@@ -302,6 +326,7 @@ impl FsPane {
                 let abort_empty =
                     STACK::len() == 1 && TlsStore::get::<InitialQueryShouldNotAbort>().is_none();
 
+                let _complete = complete.clone();
                 map_reader(
                     stdout,
                     move |line| {
@@ -310,13 +335,15 @@ impl FsPane {
 
                         if push { injector.push(item) } else { Ok(()) }
                     },
-                    complete.clone(),
-                    move || {
-                        if abort_empty {
-                            GLOBAL::send_mm(RenderCommand::QuitEmpty);
-                        } else if toast_on_empty {
-                            TOAST::toast_empty();
+                    move |count| {
+                        if count == Some(0) {
+                            if abort_empty {
+                                GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                            } else if toast_on_empty {
+                                TOAST::toast_empty();
+                            }
                         }
+                        _complete.store(true, Ordering::SeqCst);
                     },
                 )
             }
@@ -404,38 +431,15 @@ impl FsPane {
                 // haven't yet tested multiline
                 // possible extensions: seperate items for each context block, parsing blocks for line numbers
 
+                let _complete = complete.clone();
                 if *one_line {
-                    map_reader(
+                    map_reader_rg(
                         stdout,
-                        move |line| {
-                            let failed_to_parse = |e| {
-                                log::error!("ParseError: {e}: {line}");
-                                anyhow::Ok(())
-                            };
-                            let mut text =
-                                unwrap!(line.as_bytes().into_text(); |e| failed_to_parse(e));
-                            if text.lines.is_empty() {
-                                return failed_to_parse("empty".into());
-                            }
-                            let (path, data, mut text) = unwrap!(parse_rg_line(text.lines.remove(0), ':'); failed_to_parse("failed to split".into()));
-                            // skip empty lines
-                            if text.lines.iter().all(|l| l.spans.is_empty()) {
-                                return Ok(());
-                            }
-                            scrub_text_styles(&mut text);
-
-                            let mut item = PathItem::new(path, &cwd);
-                            item.cmd = Some(data);
-                            item.tail = text;
-
-                            injector.push(item).cast()
-                        },
+                        *context,
+                        &cwd,
+                        injector,
+                        toast_on_empty,
                         complete.clone(),
-                        move || {
-                            if toast_on_empty {
-                                TOAST::toast_empty();
-                            }
-                        },
                     )
                 } else {
                     let mut current_path = String::new();
@@ -486,11 +490,13 @@ impl FsPane {
                                 anyhow::Ok(())
                             }
                         },
-                        complete.clone(),
-                        move || {
-                            if toast_on_empty {
-                                TOAST::toast_empty();
+                        move |count| {
+                            if count == Some(0) {
+                                if toast_on_empty {
+                                    TOAST::toast_empty();
+                                }
                             }
+                            _complete.store(true, Ordering::SeqCst);
                         },
                     )
                 }
@@ -639,16 +645,77 @@ impl FsPane {
 pub fn map_reader<E: matchmaker::SSS + Display>(
     reader: impl Read + matchmaker::SSS,
     f: impl FnMut(String) -> Result<(), E> + SSS,
-    complete: Arc<AtomicBool>,
-    on_empty: impl FnOnce() + SSS,
+    complete: impl FnOnce(Option<usize>) + SSS,
 ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
     spawn_blocking(move || {
         let count = map_reader_lines::<true, E>(reader, f)._elog();
-        match count {
-            Some(0) => on_empty(),
-            _ => {}
+        complete(count);
+        log::info!("Command completed");
+        anyhow::Ok(())
+    })
+}
+
+pub fn map_reader_rg(
+    reader: impl Read + matchmaker::SSS + 'static,
+    context: [usize; 2],
+    cwd: &Path,
+    injector: FsInjector,
+    toast_on_empty: bool,
+    complete: Arc<AtomicBool>,
+) -> tokio::task::JoinHandle<anyhow::Result<()>> {
+    let cwd = cwd.to_path_buf();
+    spawn_blocking(move || {
+        let buffer = RefCell::new(VecDeque::<BufItem>::with_capacity(
+            context[0] + context[1] + 1,
+        ));
+
+        let count = map_reader_lines::<true, anyhow::Error>(reader, |line| {
+            let failed_to_parse = |e| {
+                log::error!("ParseError: {e}: {line}");
+                Ok(())
+            };
+
+            let mut text = unwrap!(line.as_bytes().into_text(); |e| failed_to_parse(e));
+
+            if text.lines.is_empty() {
+                return failed_to_parse("empty".into());
+            }
+
+            if text
+                .lines
+                .first()
+                .and_then(|s| s.spans.first().map(|x| x.content.as_str()))
+                == Some("--".into())
+            {
+                let mut buf = buffer.borrow_mut();
+                flush_rg_buffer(context, &cwd, &mut buf, |item| {
+                    let _ = injector.push(item);
+                });
+                return Ok(());
+            }
+
+            let mut buf = buffer.borrow_mut();
+            process_rg_line(text.lines.remove(0), context, &cwd, &mut buf, |item| {
+                let _ = injector.push(item);
+            })?;
+
+            Ok(())
+        })
+        ._elog();
+
+        if count == Some(0) {
+            if toast_on_empty {
+                TOAST::toast_empty();
+            }
+        } else {
+            let mut buf = buffer.borrow_mut();
+            flush_rg_buffer(context, &cwd, &mut buf, |item| {
+                let _ = injector.push(item);
+            });
         }
+
         complete.store(true, Ordering::SeqCst);
+
         log::info!("Command completed");
         anyhow::Ok(())
     })

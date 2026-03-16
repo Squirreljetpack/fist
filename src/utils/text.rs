@@ -183,87 +183,89 @@ pub fn spans_to_owned(spans: Vec<Span<'_>>) -> Vec<Span<'static>> {
 
 pub fn parse_rg_line(
     line: Line,
-    field_match_seperator: char,
+    match_sep: char,
+    ctx_sep: char,
 ) -> Option<(String, String, Text)> {
     let mut state: usize = 0;
     let mut path = String::new();
-    let mut line_num = String::new();
-    let mut col_num = String::new();
+    let mut loc = String::new();
     let mut content_spans: Vec<Span> = Vec::new();
+    let mut sep = '\0';
 
     for span in line.spans {
         let content = span.content.as_ref();
 
-        // If we're already in the Content state, just preserve the span
         if state == 3 {
             content_spans.push(span);
             continue;
         }
 
+        let bytes = content.as_bytes();
         let mut current_pos = 0;
-        let chars: Vec<char> = content.chars().collect();
 
-        while current_pos < chars.len() {
-            let c = chars[current_pos];
+        while current_pos < bytes.len() {
+            let c = bytes[current_pos] as char;
 
             match state {
                 0 => {
-                    // Path State
-                    if c == field_match_seperator {
+                    if c == match_sep || c == ctx_sep {
+                        sep = c;
                         state = 1;
                     } else {
                         path.push(c);
                     }
                 }
                 1 => {
-                    // Line Num State
-                    if c == field_match_seperator {
-                        state = 2;
-                    } else if c.is_ascii_digit() {
-                        line_num.push(c);
+                    if c == sep {
+                        loc.push(c);
+                        if sep == ctx_sep {
+                            state = 3;
+                            let remaining = &content[current_pos + 1..];
+                            if !remaining.is_empty() {
+                                content_spans.push(Span::styled(remaining.to_string(), span.style));
+                            }
+                            break;
+                        } else {
+                            state = 2;
+                        }
+                    } else if bytes[current_pos].is_ascii_digit() {
+                        loc.push(c);
                     } else {
-                        // Not a digit? This wasn't a line number.
-                        // Treat the previous field_match_seperator as part of the path and reset.
-                        path.push(field_match_seperator);
-                        path.push_str(&line_num);
+                        path.push(sep);
+                        path.push_str(&loc);
                         path.push(c);
-                        line_num.clear();
+                        loc.clear();
                         state = 0;
                     }
                 }
                 2 => {
-                    // Col Num State
-                    if c == field_match_seperator {
+                    if c == sep {
+                        loc.push(c);
                         state = 3;
-                        // Grab everything left in this specific span
-                        let remaining: String = chars[current_pos + 1..].iter().collect();
+                        let remaining = &content[current_pos + 1..];
                         if !remaining.is_empty() {
-                            content_spans.push(Span::styled(remaining, span.style));
+                            content_spans.push(Span::styled(remaining.to_string(), span.style));
                         }
-                        break; // Move to next span or exit loop
-                    } else if c.is_ascii_digit() {
-                        col_num.push(c);
+                        break;
+                    } else if bytes[current_pos].is_ascii_digit() {
+                        loc.push(c);
                     } else {
-                        // Not a digit? Reset to path state
-                        path.push(field_match_seperator);
-                        path.push_str(&line_num);
-                        path.push(field_match_seperator);
-                        path.push_str(&col_num);
+                        path.push(sep);
+                        path.push_str(&loc);
                         path.push(c);
-                        line_num.clear();
-                        col_num.clear();
+                        loc.clear();
                         state = 0;
                     }
                 }
                 _ => unreachable!(),
             }
+
             current_pos += 1;
         }
     }
 
     if state == 3 {
-        let middle = format!("{}:{}", line_num, col_num);
-        Some((path, middle, Text::from(Line::from(content_spans))))
+        Some((path, loc, Text::from(Line::from(content_spans))))
     } else {
         None
     }
