@@ -83,12 +83,12 @@ __fist_dir_widget() {
     [ -n "$line" ] || { zle push-line && zle accept-line; return 1; }
     if [ -d "$line" ]; then
       cd "$line"
-    else
+    elif [ -f "$line" ]; then
       dir="$(dirname "$line")" && [ -d "$dir" ] && cd "$dir" &&
       LBUFFER="${LBUFFER%% *} '$(basename "$line")' " ||
       { zle push-line && zle accept-line; return 1; }
     fi
-    { zle push-line && zle accept-line; return; }
+    { zle push-line && zle accept-line; }
   }
 }
 __fist_file_widget() {
@@ -104,7 +104,7 @@ __fist_file_widget() {
     fi
   done <<< "$results"
 
-  { zle push-line && zle accept-line; return 1; }
+  { zle push-line && zle accept-line; }
 }
 __fist_rg_widget() {
   emulate -L zsh
@@ -118,7 +118,7 @@ __fist_rg_widget() {
     fi
   done <<< "$results"
 
-  { zle push-line && zle accept-line; return 1; }
+  { zle push-line && zle accept-line; }
 }
 
 zle -N __fist_dir_widget

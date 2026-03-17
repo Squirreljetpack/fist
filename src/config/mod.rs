@@ -280,7 +280,10 @@ impl Config {
             }
         }
 
-        self.global.mm.fullscreen |= cli.fullscreen;
+        if let Some(r) = cli.fullscreen {
+            self.global.mm.fullscreen = true;
+            self.global.mm.reverse = r.map(|s| !s);
+        }
         if cli.alt_accept {
             self.global.interface.alt_accept = !self.global.interface.alt_accept
         }

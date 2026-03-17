@@ -1,15 +1,20 @@
+use cba::bath::__root;
 use matchmaker::{
     action::Action,
     bindmap,
     binds::{BindMap, BindMapExt, key},
 };
 
-use crate::lessfilter::Preset;
+use crate::{cli::paths::__home, lessfilter::Preset};
 use fist_types::When;
 
 use super::FsAction;
 
 pub fn default_binds() -> BindMap<FsAction> {
+    let mut jump = vec![__home().into()];
+    if let Some(p) = __root() {
+        jump.push(p);
+    }
     let mut fs = bindmap!(
         // Nav
         // ----------------------------------
@@ -31,16 +36,16 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(alt-z) => FsAction::Redo,
         key!(alt-a), key!(alt-shift-a) => FsAction::App,
         key!(ctrl-shift-'z') => FsAction::Redo,
-        key!(ctrl-'/') => FsAction::Jump("".into(), None),
+        key!(ctrl-'/') => FsAction::Jump(jump),
 
         // Display
         // ----------------------------------
-        key!(ctrl-t) => FsAction::Stash,
+        key!(ctrl-t) => FsAction::ShowStash,
         key!(alt-shift-t) => FsAction::ClearStash(None),
         key!(alt-shift-s) => FsAction::ClearStash(Some(true)), // clear custom
-        key!(ctrl-e) => FsAction::Menu,
+        key!(ctrl-e) => FsAction::ShowMenu,
         // -- filters --
-        key!(ctrl-i) => FsAction::Filters,
+        key!(ctrl-i) => FsAction::ShowFilters,
         key!(ctrl-d) => FsAction::FsToggle,
         key!(alt-h), key!(ctrl-s) => FsAction::ToggleHidden,
 

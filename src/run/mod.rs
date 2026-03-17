@@ -12,6 +12,7 @@ pub use start::*;
 pub mod action;
 pub use action::FsAction;
 mod populate;
+mod populate_rg;
 
 // globals
 mod pane;

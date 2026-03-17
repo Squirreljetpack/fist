@@ -86,7 +86,7 @@ pub fn handle(
         }
     };
 
-    let rl = rule.len();
+    let rl = rule.len().saturating_sub(1);
 
     for (i, action) in rule.iter().enumerate() {
         log::debug!("Action: {action:?}");
@@ -99,6 +99,7 @@ pub fn handle(
             let script = format_path(template, &AbsPath::new(path.clone()));
 
             let mut cmd = Command::from_script(&script).with_args(args.drain(..));
+            log::trace!("spawning custom: {script}");
 
             if !no_exec && i == rl {
                 cmd.stdin(maybe_tty()).stdout(maybe_tty())._exec();

@@ -142,6 +142,9 @@ pub struct RgPaneSettings {
     /// Whether to search fixed strings by default. This can be overridden on the command line.
     pub fixed_strings: bool,
 
+    /// Append a "'" to the query start to prevent splitting it into multiple patterns by whitespace
+    pub preserve_whitespace: bool,
+
     /// Template to display when searching with ripgrep
     pub rg_status_template: String,
     /// Template to display when filtering with fs

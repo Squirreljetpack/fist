@@ -1,8 +1,8 @@
 use std::{fs::OpenOptions, io::Write, path::PathBuf, process::exit};
 
 use cba::{
-    _ibog,
-    bait::ResultExt,
+    _dbg, _ibog,
+    bait::{OptionExt, ResultExt},
     bo::{load_type_or_default, write_str},
     bog::{self, BogOkExt},
     ebog,
@@ -73,6 +73,7 @@ async fn main() {
         init_logger(verbosity, cfg.log_path(), cfg.misc.append_mode_logging);
     }
 
+    _dbg!(&cfg);
     match handle_subcommand(cli, cfg).await {
         Ok(()) => (),
         Err(CliError::Handled) => exit(1),
@@ -200,7 +201,10 @@ fn dump_config(
     } else {
         // if piped: dump the current cfg
         let contents = toml::to_string_pretty(&cfg).expect("failed to serialize to TOML");
-        std::io::stdout().write_all(contents.as_bytes())._ebog();
+        std::io::stdout()
+            .write_all(contents.as_bytes())
+            .ok()
+            .or_exit();
 
         #[cfg(debug_assertions)]
         {

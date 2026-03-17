@@ -344,7 +344,7 @@ impl Overlay for StashOverlay {
                 }
 
                 Action::Custom(f) => match f {
-                    FsAction::Menu => {
+                    FsAction::ShowMenu => {
                         self.enter_edit();
                     }
                     FsAction::Undo => {

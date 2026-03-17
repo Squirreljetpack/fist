@@ -20,9 +20,9 @@ _fs() {
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '--help[]' \
 '-V[Print version]' \
@@ -45,10 +45,10 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--list[]' \
 '--help[initial query]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '*::files -- files to open:_default' \
 && ret=0
@@ -62,10 +62,10 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--list[]' \
 '--help[initial query]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '*::files -- files to open:_default' \
 && ret=0
@@ -85,9 +85,9 @@ none\:""))' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--help[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 && ret=0
 ;;
@@ -106,10 +106,10 @@ none\:""))' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--cd[print the first match]' \
 '--help[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '*::query -- initial query:_default' \
 && ret=0
@@ -132,12 +132,12 @@ size\:"Not always supported"))' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--cd[print the first match]' \
 '--no-read[Never stream input from stdin]' \
 '--list[]' \
 '--help[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '*::paths -- Paths to search in. Searches the current directory if none specified (and not otherwise configured):_default' \
 && ret=0
@@ -160,12 +160,12 @@ size\:"Not always supported"))' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--cd[print the first match]' \
 '--no-read[Never stream input from stdin]' \
 '--list[]' \
 '--help[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '*::paths -- Paths to search in. Searches the current directory if none specified (and not otherwise configured):_default' \
 && ret=0
@@ -196,7 +196,9 @@ size\:"Not always supported"))' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--preserve-whitespace[Prepend '\'' to query start]' \
 '-i[]' \
 '--ignore-case[]' \
 '-s[]' \
@@ -209,7 +211,6 @@ size\:"Not always supported"))' \
 '--no-heading[]' \
 '--list[]' \
 '--help[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '*::patterns -- Patterns to search (`rg -e`):_default' \
 && ret=0
@@ -240,7 +241,9 @@ size\:"Not always supported"))' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--preserve-whitespace[Prepend '\'' to query start]' \
 '-i[]' \
 '--ignore-case[]' \
 '-s[]' \
@@ -253,7 +256,6 @@ size\:"Not always supported"))' \
 '--no-heading[]' \
 '--list[]' \
 '--help[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '*::patterns -- Patterns to search (`rg -e`):_default' \
 && ret=0
@@ -265,9 +267,9 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--help[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '::args:_default' \
 ":: :_fs__:tool_commands" \
@@ -287,8 +289,8 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 && ret=0
 ;;
@@ -299,8 +301,8 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -328,9 +330,9 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--aliases[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 && ret=0
 ;;
@@ -344,10 +346,10 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--no-exec[]' \
 '--tty[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 ':preset:((preview\:"For the f\:ist preview pane"
 display\:"For terminal display"
@@ -370,9 +372,9 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--reset[reset the database]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '*::paths -- path to bump:_files' \
 && ret=0
@@ -384,8 +386,8 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 && ret=0
 ;;
@@ -400,9 +402,9 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--help[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '::args:_default' \
 ":: :_fs__:tool_commands" \
@@ -422,8 +424,8 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 && ret=0
 ;;
@@ -434,8 +436,8 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -463,9 +465,9 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--aliases[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 && ret=0
 ;;
@@ -479,10 +481,10 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--no-exec[]' \
 '--tty[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 ':preset:((preview\:"For the f\:ist preview pane"
 display\:"For terminal display"
@@ -505,9 +507,9 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--reset[reset the database]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '*::paths -- path to bump:_files' \
 && ret=0
@@ -519,8 +521,8 @@ _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 && ret=0
 ;;
@@ -542,11 +544,11 @@ none\:""))' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[Start f\:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.]::FULLSCREEN:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '-m[Don'\''t print decorations]' \
 '--minimal[Don'\''t print decorations]' \
 '--help[]' \
-'--fullscreen[]' \
 '--alt-accept[]' \
 '::table -- history table to display:(apps files dirs)' \
 && ret=0

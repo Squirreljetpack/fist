@@ -122,8 +122,14 @@ Otherwise, this will OVERWRITE your main config."#
     #[arg(long, global = true, default_value_t)]
     pub style: ClapStyleOverride,
 
-    #[arg(long, global = true, default_value_t)]
-    pub fullscreen: bool,
+    #[arg(
+        long,
+        global = true,
+        num_args = 0..=1,
+         default_missing_value = "true",
+        help = r#"Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse."#
+    )]
+    pub fullscreen: Option<Option<bool>>,
 
     #[arg(long, global = true)]
     pub enter_prompt: Option<bool>,
@@ -158,7 +164,7 @@ pub enum SubCmd {
     #[command(name = ":fd", visible_aliases = ["::"])]
     Fd(DefaultCommand),
     #[command(name = ":rg", visible_aliases = [":"])]
-    Rg(RgCommand),
+    Rg(SearchCommand),
     #[command(name =  ":tool", visible_aliases = [":t"])]
     Tools(ToolsCmd),
     #[command(name = ":info")]
@@ -255,7 +261,7 @@ pub struct FilesCmd {
 
 /// Full text search
 #[derive(Debug, Parser, Default, Clone)]
-pub struct RgCommand {
+pub struct SearchCommand {
     #[command(flatten)]
     pub vis: PartialVisibility,
     #[arg(long)]
@@ -268,6 +274,9 @@ pub struct RgCommand {
     /// Patterns to search (`rg -e`).
     #[arg(value_name = "PATTERNS")]
     pub patterns: Vec<String>,
+    /// Prepend ' to query start
+    #[arg(long)]
+    pub preserve_whitespace: bool,
 
     /// Args passed on verbatim to rg.
     #[arg(last = true, value_name = "RG_ARGS")]

@@ -84,8 +84,8 @@ impl FsMatchmaker {
             let template = state.payload();
             if !template.is_empty() {
                 // User reload event: create a custom pane
-                if let Some(t) = state.current_raw() {
-                    let script = path_formatter(t, template);
+                if let Some(item) = state.current_raw() {
+                    let script = path_formatter(item, template);
                     log::debug!("Reloading: {script}");
                     let (shell, arg) = &*SHELL;
                     let command = (
