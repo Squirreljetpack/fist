@@ -1,16 +1,13 @@
 # Perf
 
 with a lot of items, ui gets laggy, where is the blocking?
+Arc str is probably faster for context: check
 
 # nnn
 
 - Create, list, extract (to), mount (FUSE based) archives
 - Stack browser
 - remote mounts
-
-# Search
-
-- in one_line maintain context to stuff
 
 # Lessfilter (lowpri)
 

@@ -72,14 +72,14 @@ pub enum FsAction {
     // Display
     // ----------------------------------
     /// Display current filters.
-    Filters,
+    ShowFilters,
     /// Display the current stack.
-    Stash,
+    ShowStash,
     /// Clear the stack.
     ClearStash(Option<bool>), // 1: if false, clear only non_custom, if true, clear only custom
 
     /// Show available actions on the current item(s).
-    Menu,
+    ShowMenu,
     /// Toggle directory/file visibility.
     /// In [`FsPane::Files`], [`FsPane::Folders`], [`FsPane::Launch`], [`FsPane::Rg`], this toggles their sort order.
     FsToggle,
@@ -286,22 +286,25 @@ pub fn fsaction_aliaser(
             }
 
             //  ------------- Overlay aliases --------------
-            FsAction::Stash | FsAction::Filters | FsAction::Confirm | FsAction::Menu
+            FsAction::ShowStash
+            | FsAction::ShowFilters
+            | FsAction::Confirm
+            | FsAction::ShowMenu
                 if state.overlay_index().is_some() =>
             {
                 acs![fa]
             }
-            FsAction::Stash => {
+            FsAction::ShowStash => {
                 acs![Action::Overlay(0)]
             }
-            FsAction::Filters => {
+            FsAction::ShowFilters => {
                 acs![Action::Overlay(1)]
             }
             FsAction::Confirm => {
                 acs![Action::Overlay(2)]
             }
             // todo: matchmaker needs to support activating the overlay ourselves so that the activated item is aligned
-            FsAction::Menu => {
+            FsAction::ShowMenu => {
                 if let Some(p) = state.current_item() {
                     TlsStore::set_input_bar(None, MenuTarget::Item(p.clone()));
                     acs![Action::Overlay(3)]
@@ -1093,8 +1096,8 @@ enum_from_str_display! {
     units:
     Advance, Parent, Find, Search, History, App,
     Undo, Redo, Push,
-    Filters, Stash,
-    Menu, FsToggle, ToggleHidden,
+    ShowFilters, ShowStash,
+    ShowMenu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir,
     Backup, Trash;
 

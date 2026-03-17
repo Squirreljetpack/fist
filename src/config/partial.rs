@@ -6,7 +6,7 @@ use {crate::run::FsPane, matchmaker::config::PartialRenderConfig};
 #[serde(default, deny_unknown_fields)]
 pub struct MatchmakerOverrides {
     pub fullscreen: bool,
-    pub reverse: bool, // unimplemented
+    pub reverse: Option<bool>, // unimplemented
 }
 
 #[cfg(feature = "mm_overrides")]

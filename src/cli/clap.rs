@@ -122,8 +122,14 @@ Otherwise, this will OVERWRITE your main config."#
     #[arg(long, global = true, default_value_t)]
     pub style: ClapStyleOverride,
 
-    #[arg(long, global = true, default_value_t)]
-    pub fullscreen: bool,
+    #[arg(
+        long,
+        global = true,
+        num_args = 0..=1,
+         default_missing_value = "true",
+        help = r#"Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse."#
+    )]
+    pub fullscreen: Option<Option<bool>>,
 
     #[arg(long, global = true)]
     pub enter_prompt: Option<bool>,

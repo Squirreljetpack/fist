@@ -1,0 +1,106 @@
+   Compiling fist v0.0.3 (/home/archr/gh/_fzs/fist)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.72s
+     Running `target/debug/fs scan --apply`
+[src/cli/clap.rs:61:17] err = ErrorInner {
+    kind: UnknownArgument,
+    context: FlatMap {
+        keys: [
+            InvalidArg,
+            Usage,
+            Suggested,
+        ],
+        values: [
+            String(
+                "--apply",
+            ),
+            StyledStr(
+                StyledStr(
+                    "\u{1b}[1m\u{1b}[4mUsage:\u{1b}[0m fs [OPTIONS] [PATHS]... [PATTERN] [-- <FD_ARGS>...]",
+                ),
+            ),
+            StyledStrs(
+                [
+                    StyledStr(
+                        "to pass '\u{1b}[33m--apply\u{1b}[0m' as a value, use '\u{1b}[32m-- --apply\u{1b}[0m'",
+                    ),
+                ],
+            ),
+        ],
+    },
+    message: None,
+    source: None,
+    help_flag: Some(
+        "--help",
+    ),
+    styles: Styles {
+        header: Style {
+            fg: None,
+            bg: None,
+            underline: None,
+            effects: Effects(BOLD | UNDERLINE),
+        },
+        error: Style {
+            fg: Some(
+                Ansi(
+                    Red,
+                ),
+            ),
+            bg: None,
+            underline: None,
+            effects: Effects(BOLD),
+        },
+        usage: Style {
+            fg: None,
+            bg: None,
+            underline: None,
+            effects: Effects(BOLD | UNDERLINE),
+        },
+        literal: Style {
+            fg: None,
+            bg: None,
+            underline: None,
+            effects: Effects(BOLD),
+        },
+        placeholder: Style {
+            fg: None,
+            bg: None,
+            underline: None,
+            effects: Effects(),
+        },
+        valid: Style {
+            fg: Some(
+                Ansi(
+                    Green,
+                ),
+            ),
+            bg: None,
+            underline: None,
+            effects: Effects(),
+        },
+        invalid: Style {
+            fg: Some(
+                Ansi(
+                    Yellow,
+                ),
+            ),
+            bg: None,
+            underline: None,
+            effects: Effects(),
+        },
+        context: Style {
+            fg: None,
+            bg: None,
+            underline: None,
+            effects: Effects(),
+        },
+        context_value: None,
+    },
+    color_when: Auto,
+    color_help_when: Auto,
+    backtrace: None,
+}
+error: unrecognized subcommand 'scan'
+
+Usage: fs [OPTIONS] <COMMAND>
+
+For more information, try '--help'.

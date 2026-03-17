@@ -26,9 +26,9 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
             [CompletionResult]::new('-V', '-V ', [CompletionResultType]::ParameterName, 'Print version')
@@ -54,10 +54,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'initial query')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -69,10 +69,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'initial query')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -86,9 +86,9 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -102,10 +102,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -123,12 +123,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Never stream input from stdin')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -146,12 +146,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Never stream input from stdin')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -177,6 +177,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--preserve-whitespace', '--preserve-whitespace', [CompletionResultType]::ParameterName, 'Prepend '' to query start')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'i')
@@ -191,7 +192,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--no-heading', '--no-heading', [CompletionResultType]::ParameterName, 'no-heading')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -217,6 +217,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--preserve-whitespace', '--preserve-whitespace', [CompletionResultType]::ParameterName, 'Prepend '' to query start')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'i')
@@ -231,7 +232,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--no-heading', '--no-heading', [CompletionResultType]::ParameterName, 'no-heading')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -241,9 +241,9 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             [CompletionResult]::new('colors', 'colors', [CompletionResultType]::ParameterValue, 'colors')
             [CompletionResult]::new('liza', 'liza', [CompletionResultType]::ParameterValue, 'List directory (eza wrapper)')
@@ -259,9 +259,9 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             [CompletionResult]::new('colors', 'colors', [CompletionResultType]::ParameterValue, 'colors')
             [CompletionResult]::new('liza', 'liza', [CompletionResultType]::ParameterValue, 'List directory (eza wrapper)')
@@ -277,8 +277,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -288,8 +288,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -299,8 +299,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -310,8 +310,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -337,9 +337,9 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--aliases', '--aliases', [CompletionResultType]::ParameterName, 'aliases')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -365,9 +365,9 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--aliases', '--aliases', [CompletionResultType]::ParameterName, 'aliases')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -380,10 +380,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--no-exec', '--no-exec', [CompletionResultType]::ParameterName, 'no-exec')
             [CompletionResult]::new('--tty', '--tty', [CompletionResultType]::ParameterName, 'tty')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -396,10 +396,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--no-exec', '--no-exec', [CompletionResultType]::ParameterName, 'no-exec')
             [CompletionResult]::new('--tty', '--tty', [CompletionResultType]::ParameterName, 'tty')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -413,9 +413,9 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--reset', '--reset', [CompletionResultType]::ParameterName, 'reset the database')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -429,9 +429,9 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--reset', '--reset', [CompletionResultType]::ParameterName, 'reset the database')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -441,8 +441,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -452,8 +452,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -466,11 +466,11 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('-m', '-m', [CompletionResultType]::ParameterName, 'Don''t print decorations')
             [CompletionResult]::new('--minimal', '--minimal', [CompletionResultType]::ParameterName, 'Don''t print decorations')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }

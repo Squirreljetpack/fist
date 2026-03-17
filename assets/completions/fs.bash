@@ -100,6 +100,10 @@ _fs() {
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
                     return 0
                     ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
                 --enter-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
@@ -152,6 +156,10 @@ _fs() {
                     ;;
                 --style)
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
                 --enter-prompt)
@@ -224,6 +232,10 @@ _fs() {
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
                     return 0
                     ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
                 --enter-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
@@ -278,6 +290,10 @@ _fs() {
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
                     return 0
                     ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
                 --enter-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
@@ -328,6 +344,10 @@ _fs() {
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
                     return 0
                     ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
                 --enter-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
@@ -372,6 +392,10 @@ _fs() {
                     ;;
                 --style)
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
                 --enter-prompt)
@@ -476,6 +500,10 @@ _fs() {
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
                     return 0
                     ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
                 --enter-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
@@ -512,6 +540,10 @@ _fs() {
                     ;;
                 --style)
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
                 --enter-prompt)
@@ -568,6 +600,10 @@ _fs() {
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
                     return 0
                     ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
                 --enter-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
@@ -604,6 +640,10 @@ _fs() {
                     ;;
                 --style)
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
                 --enter-prompt)
@@ -656,6 +696,10 @@ _fs() {
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
                     return 0
                     ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
                 --enter-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
@@ -692,6 +736,10 @@ _fs() {
                     ;;
                 --style)
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
                 --enter-prompt)
@@ -796,6 +844,10 @@ _fs() {
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
                     return 0
                     ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
                 --enter-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
@@ -832,6 +884,10 @@ _fs() {
                     ;;
                 --style)
                     COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
                 --enter-prompt)

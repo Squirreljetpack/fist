@@ -1,4 +1,4 @@
-use cba::bo::load_type_or_default;
+use cba::{_dbg, bo::load_type_or_default};
 use matchmaker::{
     binds::BindMap,
     config::{
@@ -98,8 +98,8 @@ pub fn get_mm_cfg(
     results.horizontal_separator = Default::default();
     results.min_wrap_width = results.min_wrap_width.max(10);
     results.autoscroll.initial_preserved = 5;
-    if cfg.global.mm.reverse {
-        results.reverse = Some(true)
+    if cfg.global.mm.reverse.is_some() {
+        results.reverse = cfg.global.mm.reverse
     }
 
     *footer = DisplayConfig {
@@ -161,6 +161,7 @@ pub fn get_mm_cfg(
         mm_cfg.confirm.border = Ok(full)
     }
 
+    _dbg!(&mm_cfg);
     log::debug!("{mm_cfg:?}");
 
     mm_cfg
