@@ -1,10 +1,11 @@
 use super::*;
-use ratatui::text::Span;
 
 use std::{
+    collections::{HashMap, BTreeSet},
     ffi::OsString,
     fs::create_dir_all,
     path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+    process::Command,
     sync::atomic::Ordering,
 };
 
@@ -14,8 +15,8 @@ use cba::{
 };
 use fs_extra::{dir, file};
 
+use crate::config::ExecuteStrategy;
 use crate::{
-    abspath::AbsPath,
     run::{
         item::short_display,
         state::{GLOBAL, TASKS, TOAST},
@@ -23,13 +24,19 @@ use crate::{
     utils::text::ToastStyle,
 };
 
+pub fn stash_formatter(
+    src: &AbsPath,
+    dst: &OsString,
+    template: &str,
+) -> String {
+    // placeholder: create but don't implement
+    template
+        .replace("{1}", &src.to_string_lossy())
+        .replace("{2}", &dst.to_string_lossy())
+}
+
 impl StashItem {
-    // blocking
-    // on completion, change the status
-    pub fn transfer(
-        self,
-        custom_action_state: CustomStashActionActionState,
-    ) {
+    pub fn transfer(self) {
         log::debug!("Transferring: {self:?}");
 
         let Self {
@@ -41,20 +48,60 @@ impl StashItem {
 
         status.state.store(StashItemState::Started);
 
-        if matches!(kind, StashAction::Custom) {
-            match custom_action_state {
-                CustomStashActionActionState::Symln => match symlink(src, dst, true) {
-                    Ok(()) => {
-                        status.state.store(StashItemState::CompleteOk);
+        // determine strategy
+        let (strategy, is_builtin) = if kind == "copy" {
+            (ExecuteStrategy::Copy, true)
+        } else if kind == "cut" {
+            (ExecuteStrategy::Cut, true)
+        } else if kind == "symlink" {
+            (ExecuteStrategy::Symlink, true)
+        } else {
+            GLOBAL::with_cfg(|c| {
+                if let Some(mode) = c.stash.modes.get(kind) {
+                    (mode.strategy.clone(), false)
+                } else {
+                    (ExecuteStrategy::None, false)
+                }
+            })
+        };
+
+        if !is_builtin {
+            match strategy {
+                ExecuteStrategy::Symlink => {
+                    match symlink(src, dst, true) {
+                        Ok(()) => status.state.store(StashItemState::CompleteOk),
+                        Err(_) => status.state.store(StashItemState::CompleteErr),
                     }
-                    Err(_) => {
+                    return;
+                }
+                ExecuteStrategy::Command(template) => {
+                    let script = stash_formatter(src, dst, &template);
+                    let shell = if cfg!(windows) { "cmd" } else { "sh" };
+                    let arg = if cfg!(windows) { "/C" } else { "-c" };
+
+                    let success = Command::new(shell)
+                        .arg(arg)
+                        .arg(&script)
+                        .status()
+                        .is_ok_and(|s| s.success());
+
+                    if success {
+                        status.state.store(StashItemState::CompleteOk);
+                    } else {
                         status.state.store(StashItemState::CompleteErr);
                     }
-                },
-                _ => {}
+                    return;
+                }
+                ExecuteStrategy::None => {
+                    status.state.store(StashItemState::CompleteOk); // No-op
+                    return;
+                }
+                _ => {} // Fallback to builtin for Copy/Cut if misconfigured
             }
-            return;
         }
+
+        // Built-in logic (Copy/Cut)
+        let is_move = strategy == ExecuteStrategy::Cut;
 
         let StashItemStatus {
             state,
@@ -63,12 +110,10 @@ impl StashItem {
         } = status;
 
         let result = if src.is_dir() {
-            // options: todo
             let mut options = dir::CopyOptions::new().copy_inside(true);
             options.overwrite = true;
 
             let progress_handler = move |p: dir::TransitProcess| {
-                // store progress
                 let fraction = if p.total_bytes > 0 {
                     size.store(p.total_bytes, Ordering::Relaxed);
                     p.copied_bytes * 255 / p.total_bytes
@@ -76,25 +121,18 @@ impl StashItem {
                     0
                 };
                 progress.clone().store(fraction as u8, Ordering::Relaxed);
-
                 fs_extra::dir::TransitProcessResult::ContinueOrAbort
             };
 
-            match kind {
-                StashAction::Copy => dir::copy_with_progress(src, dst, &options, progress_handler),
-                StashAction::Move => {
-                    dir::move_dir_with_progress(src, dst, &options, progress_handler)
-                }
-                _ => {
-                    unreachable!()
-                }
+            if is_move {
+                dir::move_dir_with_progress(src, dst, &options, progress_handler)
+            } else {
+                dir::copy_with_progress(src, dst, &options, progress_handler)
             }
         } else {
-            // options: todo
             let options = file::CopyOptions::new().overwrite(true);
 
             let progress_handler = move |p: file::TransitProcess| {
-                // store progress
                 let fraction = if p.total_bytes > 0 {
                     size.store(p.total_bytes, Ordering::Relaxed);
                     p.copied_bytes * 255 / p.total_bytes
@@ -104,18 +142,14 @@ impl StashItem {
                 progress.clone().store(fraction as u8, Ordering::Relaxed);
             };
 
-            if true && let Some(parent) = std::path::Path::new(dst).parent() {
-                let _ = create_dir_all(parent); // error will be caught by copy
+            if let Some(parent) = std::path::Path::new(dst).parent() {
+                let _ = create_dir_all(parent);
             }
 
-            match kind {
-                StashAction::Copy => file::copy_with_progress(src, dst, &options, progress_handler),
-                StashAction::Move => {
-                    file::move_file_with_progress(src, dst, &options, progress_handler)
-                }
-                _ => {
-                    unreachable!()
-                }
+            if is_move {
+                file::move_file_with_progress(src, dst, &options, progress_handler)
+            } else {
+                file::copy_with_progress(src, dst, &options, progress_handler)
             }
         };
 
@@ -124,7 +158,7 @@ impl StashItem {
             state.store(StashItemState::CompleteErr);
             let display = short_display(src);
             TOAST::push(ToastStyle::Error, "Failed: ", [display]);
-            TOAST::push_notice(ToastStyle::Error, e.to_string());
+            TOAST::notice(ToastStyle::Error, e.to_string());
         } else {
             state.store(StashItemState::CompleteOk);
             let display = short_display(src);
@@ -135,41 +169,45 @@ impl StashItem {
 }
 
 impl STASH {
-    // call on overlay enable
     pub fn check_validity() {
-        MAIN_STASH.with_borrow(|s| {
-            for item in &s.0.stack {
-                if item.status.state.is_pending() && !item.src.exists() {
-                    item.status.state.store(StashItemState::PendingErr)
-                }
+        let state = STASH_STATE.lock().unwrap();
+        for item in &state.shared {
+            if item.status.state.is_pending() && !item.src.exists() {
+                item.status.state.store(StashItemState::PendingErr)
             }
-            log::debug!("stash validated.");
-        });
+        }
     }
 
-    /// spawns a queue to transfer all items
     pub fn transfer_all(
         base: AbsPath,
-        include_completed: bool, // not sure if we ever want this
+        include_completed: bool,
+        indices: Option<&BTreeSet<usize>>,
     ) {
-        let (queue, custom_action): (Vec<_>, _) = STASH::with_mut(|s| {
-            let (s, c) = (s.0, *s.1);
+        let (queue, batch_groups): (Vec<StashItem>, HashMap<String, Vec<StashItem>>) = {
+            let state = STASH_STATE.lock().unwrap();
+            let mut q = vec![];
+            let mut groups: HashMap<String, Vec<StashItem>> = HashMap::new();
 
-            if matches!(c, CustomStashActionActionState::App) {
-                return (vec![], c);
-            }
-
-            // queue and prepare tasks
-            let queue = s
-                .iter()
-                .cloned()
-                .filter_map(|mut item| {
-                    if item.is_custom() && matches!(c, CustomStashActionActionState::App) {
-                        return None;
+            for (i, item) in state.shared.iter().enumerate() {
+                if let Some(indices) = indices {
+                    if !indices.contains(&i) {
+                        continue;
                     }
-                    // normalize dest
+                }
+                let status = item.status.state.load();
+                let should_transfer = match status {
+                    StashItemState::Pending => true,
+                    StashItemState::CompleteErr | StashItemState::CompleteOk
+                        if include_completed =>
+                    {
+                        true
+                    }
+                    _ => false,
+                };
+
+                if should_transfer {
+                    let mut item = item.clone();
                     let mut base_dest: OsString = item.dst.abs(&base).into();
-                    // empty dest -> paste into current
                     if item.dst.to_string_lossy().ends_with(MAIN_SEPARATOR) || item.dst.is_empty() {
                         base_dest.push(MAIN_SEPARATOR_STR);
                     };
@@ -177,80 +215,42 @@ impl STASH {
                         auto_dest_for_src(&item.src, &base_dest, &c.fs.rename_policy)
                     })
                     .into();
-                    let ret = match item.status.state.load() {
-                        StashItemState::Pending => true,
-                        StashItemState::CompleteErr | StashItemState::CompleteOk
-                            if include_completed =>
-                        {
-                            true
-                        }
-                        _ => false,
-                    };
-                    ret.then_some(item)
-                })
-                .collect();
 
-            (queue, c)
-        });
+                    let is_batch = GLOBAL::with_cfg(|c| {
+                        c.stash.modes.get(&item.kind).map(|m| m.batch).unwrap_or(false)
+                    });
 
-        if !queue.is_empty() {
-            TOAST::push_msg(
-                Span::styled(
-                    format!("Starting {} items.", queue.len()),
-                    ToastStyle::Normal,
-                ),
-                true,
-            );
+                    if is_batch {
+                        groups.entry(item.kind.clone()).or_default().push(item);
+                    } else {
+                        q.push(item);
+                    }
+                }
+            }
+            (q, groups)
+        };
+
+        if !queue.is_empty() || !batch_groups.is_empty() {
+            let total = queue.len() + batch_groups.values().map(|v| v.len()).sum::<usize>();
+            TOAST::msg(format!("Starting {} items.", total), true);
 
             TASKS::spawn_blocking(move || {
+                for (kind, items) in batch_groups {
+                    for item in items {
+                        item.transfer();
+                    }
+                }
                 for item in queue {
-                    item.transfer(custom_action);
+                    item.transfer();
                 }
             });
         } else {
-            TOAST::push_msg(Span::styled("Stash is empty.", ToastStyle::Normal), true);
+            TOAST::msg("Stash is empty.", true);
         }
     }
 
-    pub fn clear_invalid_and_completed() {
-        MAIN_STASH.with_borrow_mut(|s| {
-            s.0.stack.retain(|item| {
-                !matches!(
-                    item.status.state.load(),
-                    StashItemState::CompleteOk
-                        | StashItemState::CompleteErr
-                        | StashItemState::PendingErr
-                )
-            });
-        });
-    }
-
     pub fn clear_completed() {
-        MAIN_STASH.with_borrow_mut(|s| {
-            s.0.stack.retain(|item| !item.status.state.is_complete());
-        });
-    }
-
-    pub fn clear(clear_custom_only: Option<bool>) {
-        STASH::retain(|item| {
-            let started = matches!(item.status.state.load(), StashItemState::Started);
-
-            started
-                || match clear_custom_only {
-                    None => false,
-                    Some(true) => !item.is_custom(),
-                    Some(false) => item.is_custom(),
-                }
-        });
-    }
-
-    pub fn retain<F>(mut f: F)
-    where
-        F: FnMut(&StashItem) -> bool,
-    {
-        MAIN_STASH.with(|cell| {
-            let mut s = cell.borrow_mut();
-            s.0.stack.retain(|item| f(item));
-        });
+        let mut state = STASH_STATE.lock().unwrap();
+        state.shared.retain(|item| !item.status.state.is_complete());
     }
 }

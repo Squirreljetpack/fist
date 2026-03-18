@@ -241,20 +241,8 @@ impl TOAST {
         GLOBAL::send_action(FsAction::set_footer(toast));
     }
 
-    /// Push a notice with the default prefix associated with the given style
-    pub fn push_notice(
-        style: ToastStyle,
-        msg: impl Into<std::borrow::Cow<'static, str>>,
-    ) {
-        let mut state = TOAST.lock().unwrap();
-        let prefix_span = Span::styled(format!("{style}: "), style);
-        state.push((prefix_span, ToastContent::Line(msg.into().into())));
-
-        let toast = make_toast(&state);
-        GLOBAL::send_action(FsAction::set_footer(toast));
-    }
     /// Push a pair of items a -> b, described by a prefix
-    pub fn push_pair(
+    pub fn pair(
         style: ToastStyle,
         prefix: &'static str,
         from: Span<'static>,
@@ -268,10 +256,23 @@ impl TOAST {
         GLOBAL::send_action(FsAction::set_footer(toast));
     }
 
+    /// Push a notice with the default prefix associated with the given style.
+    pub fn notice(
+        style: ToastStyle,
+        msg: impl Into<std::borrow::Cow<'static, str>>,
+    ) {
+        let mut state = TOAST.lock().unwrap();
+        let prefix_span = Span::styled(format!("{style}: "), style);
+        state.push((prefix_span, ToastContent::Line(msg.into().into())));
+
+        let toast = make_toast(&state);
+        GLOBAL::send_action(FsAction::set_footer(toast));
+    }
+
     /// Push a message with empty prefix.
     /// `replace = true` clears all previous messages of this type.
     /// Note: Style the spans, not the line
-    pub fn push_msg(
+    pub fn msg(
         line: impl Into<Line<'static>>,
         replace: bool,
     ) {
@@ -289,7 +290,7 @@ impl TOAST {
     }
 
     pub fn toast_empty() {
-        TOAST::push_msg(
+        TOAST::msg(
             Span::styled("No entries", Style::new().fg(Color::DarkGray).italic()),
             true,
         );

@@ -49,8 +49,8 @@ use crate::{
         FsPane,
         mm_config::get_mm_cfg,
         start,
-        stash::{CustomStashActionActionState, STASH},
-        state::{InitialRelativePathSetting, InitialPreserveWhitespaceInSearch, TlsStore},
+        stash::STASH,
+        state::{InitialPreserveWhitespaceInSearch, InitialRelativePathSetting, TlsStore},
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
@@ -85,11 +85,10 @@ async fn handle_open(
 
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
-        STASH::set_cas(CustomStashActionActionState::App);
+        STASH::set_exclusive("app".to_string());
         for path in cmd.files {
-            STASH::push_custom(AbsPath::new_unchecked(path));
+            STASH::stash("app", AbsPath::new_unchecked(path));
         }
-        TlsStore::set(CustomStashActionActionState::default());
 
         cfg.global.interface.no_multi_accept = true;
         let pane = FsPane::new_launch();

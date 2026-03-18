@@ -26,9 +26,11 @@ use fist_types::When;
 
 mod panes;
 mod partial;
+mod stash;
 mod styles;
 pub use panes::*;
 pub use partial::*;
+pub use stash::*;
 pub mod ui;
 use ui::StyleConfig;
 // ------ CONFIG ------
@@ -82,6 +84,8 @@ pub struct GlobalConfig {
 
     /// Configure behavior of filesystem actions.
     pub fs: FsConfig,
+
+    pub stash: StashLogicConfig,
 
     /// Configure behavior of the fd tool.
     /// This affects [FsAction::Find](`crate::run::FsAction::Find`) and the default subcommand.

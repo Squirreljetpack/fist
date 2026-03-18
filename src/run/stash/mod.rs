@@ -1,62 +1,40 @@
+mod exclusive_list;
 mod execute;
 mod status;
 pub use status::*;
 
-use std::{cell::RefCell, ffi::OsString, sync::Mutex};
+use std::{collections::BTreeSet, ffi::OsString, sync::LazyLock, sync::Mutex};
 
 use cba::bath::{PathExt, auto_dest_for_src};
+use indexmap::IndexMap;
 
 use crate::{
     abspath::AbsPath,
     cli::paths::__home,
-    run::state::{GLOBAL, TASKS, TlsStore},
+    run::{
+        stash::exclusive_list::ExclusiveList,
+        state::{GLOBAL, STACK, TASKS, TOAST},
+    },
+    utils::text::ToastStyle,
 };
-
-#[derive(Debug)]
-pub struct SimpleStack<T = StashItem> {
-    stack: Vec<T>, // not indexmap because need const
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, strum_macros::Display)]
-#[strum(serialize_all = "lowercase")]
-pub enum StashAction {
-    Copy,
-    Move,
-    Custom,
-}
 
 #[derive(Debug, Clone)]
 pub struct StashItem {
-    pub kind: StashAction,
+    pub kind: String,
     pub src: AbsPath,
     pub status: StashItemStatus,
     pub dst: OsString,
 }
 
 impl StashItem {
-    pub fn cp(path: AbsPath) -> Self {
+    pub fn new(
+        kind: String,
+        src: AbsPath,
+    ) -> Self {
         Self {
-            kind: StashAction::Copy,
-            status: StashItemStatus::new(&path),
-            src: path,
-            dst: Default::default(),
-        }
-    }
-
-    pub fn mv(path: AbsPath) -> Self {
-        Self {
-            kind: StashAction::Move,
-            status: StashItemStatus::new(&path),
-            src: path,
-            dst: Default::default(),
-        }
-    }
-
-    pub fn custom(path: AbsPath) -> Self {
-        Self {
-            kind: StashAction::Custom,
-            status: StashItemStatus::new(&path),
-            src: path,
+            kind,
+            status: StashItemStatus::new(&src),
+            src,
             dst: Default::default(),
         }
     }
@@ -64,245 +42,342 @@ impl StashItem {
     pub fn display(&self) -> String {
         self.src.display_short(__home())
     }
-
-    pub fn is_custom(&self) -> bool {
-        matches!(self.kind, StashAction::Custom)
-    }
 }
 
 // -------- GLOBAL ---------
 
-/// The state can be toggled in the overlay (TODO)
-#[derive(Debug, Default, Clone, Copy, strum_macros::Display)]
-#[strum(serialize_all = "lowercase")]
-pub enum CustomStashActionActionState {
-    /// Create a _relative_ symlink
-    #[default]
-    Symln,
-    Custom(usize),
-    // This is different from the other states in being exclusive. When in this state:
-    // - non-app actions (including custom-type) are not processed (transferred/cleared/etc.)
-    // - non-app actions are not displayed.
-    App,
+pub struct StashState {
+    pub shared: Vec<StashItem>,
+    pub exclusive: IndexMap<String, ExclusiveList>,
+    pub current_exclusive: String,
 }
-impl CustomStashActionActionState {
-    pub fn is_exclusive(&self) -> bool {
-        matches!(self, Self::App)
+
+impl StashState {
+    pub fn new() -> Self {
+        Self {
+            shared: Vec::new(),
+            exclusive: IndexMap::new(),
+            current_exclusive: "app".to_string(),
+        }
     }
 }
 
-impl CustomStashActionActionState {
-    pub fn cycle(
-        &mut self,
-        custom_max: usize,
-        forwards: bool,
-    ) {
-        *self = if forwards {
-            match *self {
-                Self::Symln => {
-                    if custom_max > 0 {
-                        Self::Custom(0)
-                    } else {
-                        Self::App
-                    }
-                }
-                Self::Custom(i) => {
-                    if i + 1 < custom_max {
-                        Self::Custom(i + 1)
-                    } else {
-                        Self::App
-                    }
-                }
-                Self::App => Self::Symln,
-            }
-        } else {
-            match *self {
-                Self::Symln => Self::App,
-                Self::Custom(i) => {
-                    if i > 0 {
-                        Self::Custom(i - 1)
-                    } else {
-                        Self::Symln
-                    }
-                }
-                Self::App => {
-                    if custom_max > 0 {
-                        Self::Custom(custom_max - 1)
-                    } else {
-                        Self::Symln
-                    }
-                }
-            }
-        };
-    }
-}
+pub static STASH_STATE: LazyLock<Mutex<StashState>> = LazyLock::new(|| {
+    Mutex::new(StashState {
+        shared: Vec::new(),
+        exclusive: IndexMap::new(),
+        current_exclusive: "app".to_string(),
+    })
+});
 
-// -------- GLOBAL ---------
-pub type AlternateStashItem = AbsPath;
-pub type CustomStashActionKey = String;
-thread_local! {
-    static MAIN_STASH: RefCell<(SimpleStack, CustomStashActionActionState, Vec<CustomStashActionKey>)> = const { RefCell::new((SimpleStack::new(), CustomStashActionActionState::Symln, Vec::new())) };
-    // note: we don't necessarily just want a path here
-    // note: we could support more exclusive stashes variants above which would also be stored here, which are also mututally exclusive
-    static ALTERNATE_STASH: RefCell<SimpleStack<AlternateStashItem>> = const { RefCell::new(SimpleStack::new()) };
-}
-pub static STASH_ACTION_HISTORY: Mutex<Vec<StashItem>> = const { Mutex::new(Vec::new()) };
+pub static STASH_ACTION_HISTORY: Mutex<Vec<StashItem>> = Mutex::new(Vec::new());
 
 pub struct STASH;
 
 impl STASH {
-    /// Do not push heterogenous item kinds
-    pub fn extend(items: impl IntoIterator<Item = StashItem>) {
-        let mut no_exclusive = false;
-        for item in items {
-            if !item.is_custom() {
-                no_exclusive = true
+    pub fn is_exclusive(kind: &str) -> bool {
+        if kind == "app" || kind == "revert" {
+            return true;
+        }
+        GLOBAL::with_cfg(|c| {
+            c.stash
+                .modes
+                .get(kind)
+                .map(|m| m.exclusive)
+                .unwrap_or(false)
+        })
+    }
+
+    pub fn has_target(kind: &str) -> bool {
+        GLOBAL::with_cfg(|c| c.stash.modes.get(kind).map(|m| m.target).unwrap_or(false))
+    }
+
+    pub fn is_unique(kind: &str) -> bool {
+        GLOBAL::with_cfg(|c| c.stash.modes.get(kind).map(|m| m.unique).unwrap_or(true))
+    }
+
+    // -----------------------------
+
+    pub fn current_exclusive() -> String {
+        STASH_STATE.lock().unwrap().current_exclusive.clone()
+    }
+
+    pub fn set_exclusive(kind: String) {
+        STASH_STATE.lock().unwrap().current_exclusive = kind;
+    }
+
+    pub fn cycle_exclusive(forwards: bool) {
+        let mut state = STASH_STATE.lock().unwrap();
+        let mut modes: Vec<String> = vec!["app".to_string(), "revert".to_string()];
+
+        for k in state.exclusive.keys() {
+            if k != "app" && k != "revert" {
+                modes.push(k.clone());
             }
-            MAIN_STASH.with_borrow_mut(|s| insert_once(&mut s.0.stack, item, false));
         }
-        if no_exclusive {
-            STASH::restore_to_nonexclusive_cas();
+
+        // Add from config if not present in state
+        GLOBAL::with_cfg(|c| {
+            for (k, m) in &c.stash.modes {
+                if m.exclusive && !modes.contains(k) {
+                    modes.push(k.clone());
+                }
+            }
+        });
+
+        if let Some(pos) = modes.iter().position(|m| *m == state.current_exclusive) {
+            let len = modes.len();
+            let next_pos = if forwards {
+                (pos + 1) % len
+            } else {
+                (pos + len - 1) % len
+            };
+            state.current_exclusive = modes[next_pos].clone();
+        } else {
+            state.current_exclusive = "app".to_string();
         }
     }
 
-    pub fn push_custom(path: AbsPath) {
-        if matches!(STASH::cas(), CustomStashActionActionState::App) {
-            ALTERNATE_STASH.with_borrow_mut(|s| insert_once(&mut s.stack, path, false))
-        } else {
-            MAIN_STASH.with_borrow_mut(|s| {
-                let item = StashItem::custom(path);
-                insert_once(&mut s.0.stack, item, false)
-            });
+    // -----------------------------------------
+
+    pub fn extend(
+        kind: &str,
+        items: impl IntoIterator<Item = AbsPath>,
+    ) {
+        let mut state = STASH_STATE.lock().unwrap();
+        let unique = STASH::is_unique(kind);
+        let exclusive = STASH::is_exclusive(kind);
+
+        for path in items {
+            if exclusive {
+                let list = state.exclusive.entry(kind.to_string()).or_insert_with(|| {
+                    if unique {
+                        ExclusiveList::Map(IndexMap::new())
+                    } else {
+                        ExclusiveList::Vec(Vec::new())
+                    }
+                });
+                if !unique || !list.iter_any(&path) {
+                    list.push(path, OsString::new());
+                } else if unique {
+                    if let Some(i) = list.position(&path) {
+                        list.remove(i);
+                    }
+                    list.push(path, OsString::new());
+                }
+            } else {
+                if !unique || !state.shared.iter().any(|s| s.src == path && s.kind == kind) {
+                    state.shared.push(StashItem::new(kind.to_string(), path));
+                } else if unique {
+                    if let Some(i) = state
+                        .shared
+                        .iter()
+                        .position(|s| s.src == path && s.kind == kind)
+                    {
+                        state.shared.remove(i);
+                    }
+                    state.shared.push(StashItem::new(kind.to_string(), path));
+                }
+            }
         }
     }
 
-    pub fn accept(index: usize) {
-        if matches!(STASH::cas(), CustomStashActionActionState::App) {
-            // todo
-        } else {
-            MAIN_STASH.with_borrow(|s| {
-                let mut item = s.0.stack[index].clone();
-                let custom_action = s.1;
+    pub fn stash(
+        kind: &str,
+        path: AbsPath,
+    ) {
+        STASH::extend(kind, std::iter::once(path));
+    }
 
-                item.dst = GLOBAL::with_cfg(|c| {
-                    auto_dest_for_src(&item.src, &item.dst, &c.fs.rename_policy)
+    // ------------- std ops ------------------
+
+    pub fn get(
+        exclusive: bool,
+        index: usize,
+    ) -> Option<(AbsPath, OsString)> {
+        let state = STASH_STATE.lock().unwrap();
+        if exclusive {
+            let kind = state.current_exclusive.clone();
+            state.exclusive.get(&kind).and_then(|list| list.get(index))
+        } else {
+            state
+                .shared
+                .get(index)
+                .map(|item| (item.src.clone(), item.dst.clone()))
+        }
+    }
+
+    pub fn update(
+        exclusive: bool,
+        index: usize,
+        path: Option<AbsPath>,
+        dst: Option<OsString>,
+    ) {
+        let mut state = STASH_STATE.lock().unwrap();
+
+        if exclusive {
+            let kind = STASH::current_exclusive();
+            if let Some(list) = state.exclusive.get_mut(&kind) {
+                list.update(index, path, dst);
+            }
+        } else {
+            if let Some(item) = state.shared.get_mut(index) {
+                if let Some(p) = path {
+                    item.src = p;
+                }
+                if let Some(d) = dst {
+                    item.dst = d;
+                }
+            }
+        }
+    }
+
+    pub fn swap(
+        exclusive: bool,
+        i: usize,
+        j: usize,
+    ) {
+        let mut state = STASH_STATE.lock().unwrap();
+        if exclusive {
+            let kind = state.current_exclusive.clone();
+            if let Some(list) = state.exclusive.get_mut(&kind) {
+                list.swap(i, j);
+            }
+        } else {
+            state.shared.swap(i, j);
+        }
+    }
+
+    pub fn remove(
+        exclusive: bool,
+        index: usize,
+    ) {
+        let mut state = STASH_STATE.lock().unwrap();
+        if exclusive {
+            let kind = STASH::current_exclusive();
+            if let Some(list) = state.exclusive.get_mut(&kind) {
+                list.remove(index);
+            }
+        } else {
+            if index < state.shared.len() {
+                state.shared.remove(index);
+            }
+        }
+    }
+
+    // ------------ execute -----------------
+
+    pub fn execute(
+        exclusive: bool,
+        index: usize,
+    ) {
+        if exclusive {
+            STASH::execute_exclusive(index);
+        } else {
+            STASH::execute_shared(index);
+        }
+    }
+
+    /// Execute with STACK::nav_cwd() as base
+    pub fn execute_all(
+        exclusive: bool,
+        indices: &BTreeSet<usize>,
+    ) {
+        if exclusive {
+            STASH::execute_exclusive_all(Some(indices));
+        } else if let Some(base) = STACK::nav_cwd() {
+            STASH::transfer_all(base, false, Some(indices));
+        } else {
+            TOAST::notice(
+                ToastStyle::Error,
+                "The stack must be executed in a Nav pane.",
+            );
+        }
+    }
+
+    pub fn execute_shared(index: usize) {
+        let state = STASH_STATE.lock().unwrap();
+        if let Some(item) = state.shared.get(index).cloned() {
+            let mut item = item;
+            item.dst =
+                GLOBAL::with_cfg(|c| auto_dest_for_src(&item.src, &item.dst, &c.fs.rename_policy))
+                    .into();
+            TASKS::spawn_blocking(move || item.transfer());
+        }
+    }
+
+    pub fn execute_exclusive(index: usize) {
+        STASH::execute_exclusive_all(Some(&BTreeSet::from([index])));
+    }
+
+    pub fn execute_exclusive_all(indices: Option<&BTreeSet<usize>>) {
+        let state = STASH_STATE.lock().unwrap();
+        let kind = state.current_exclusive.clone();
+        if let Some(list) = state.exclusive.get(&kind) {
+            let items: Vec<_> = list
+                .as_slice()
+                .into_iter()
+                .enumerate()
+                .filter(|(i, _)| indices.is_none_or(|ids: &BTreeSet<usize>| ids.contains(i)))
+                .map(|(_, (src, dst))| {
+                    let mut item = StashItem::new(kind.clone(), src);
+                    item.dst = dst;
+                    item.dst = GLOBAL::with_cfg(|c| {
+                        auto_dest_for_src(&item.src, &item.dst, &c.fs.rename_policy)
+                    })
+                    .into();
+                    item
                 })
-                .into();
-                TASKS::spawn_blocking(move || item.transfer(custom_action));
-            });
-        }
-    }
+                .collect();
 
-    pub fn remove(index: usize) {
-        if matches!(STASH::cas(), CustomStashActionActionState::App) {
-            ALTERNATE_STASH.with_borrow_mut(|s| s.stack.remove(index));
-        } else {
-            MAIN_STASH.with_borrow_mut(|s| s.0.stack.remove(index));
-        }
-    }
-
-    pub fn with<R>(f: impl FnOnce(&SimpleStack) -> R) -> R {
-        MAIN_STASH.with(|cell| f(&cell.borrow().0))
-    }
-
-    pub fn with_mut<R>(
-        f: impl FnOnce((&mut SimpleStack, &mut CustomStashActionActionState)) -> R
-    ) -> R {
-        MAIN_STASH.with(|cell| {
-            let mut borrow = cell.borrow_mut();
-            let (stack, state, ..) = &mut *borrow;
-            f((stack, state))
-        })
-    }
-
-    pub fn with_alternate<R>(f: impl FnOnce(&SimpleStack<AlternateStashItem>) -> R) -> R {
-        ALTERNATE_STASH.with(|cell| f(&cell.borrow()))
-    }
-
-    pub fn with_alternate_mut<R>(f: impl FnOnce(&mut SimpleStack<AlternateStashItem>) -> R) -> R {
-        ALTERNATE_STASH.with(|cell| f(&mut cell.borrow_mut()))
-    }
-
-    pub fn cas() -> CustomStashActionActionState {
-        MAIN_STASH.with(|cell| {
-            let borrow = cell.borrow();
-            borrow.1
-        })
-    }
-
-    pub fn restore_to_nonexclusive_cas() {
-        MAIN_STASH.with_borrow_mut(|cell| {
-            cell.1 = TlsStore::take().unwrap_or_default(); // always consume (?)
-            if cell.1.is_exclusive() {
-                cell.1 = Default::default()
+            if !items.is_empty() {
+                TASKS::spawn_blocking(move || {
+                    for item in items {
+                        item.transfer();
+                    }
+                });
             }
-            // if let Some(cas) = TlsStore::get() && !matches!(cas, CustomStashActionActionState::App)
-        });
-    }
-
-    pub fn set_cas(state: CustomStashActionActionState) {
-        log::trace!("set cas {state:?}");
-        MAIN_STASH.with(|cell| {
-            cell.borrow_mut().1 = state;
-        });
-    }
-
-    pub fn cycle_cas(forwards: bool) {
-        MAIN_STASH.with(|cell| {
-            let mut stash = cell.borrow_mut();
-            let l = stash.2.len();
-            stash.1.cycle(l, forwards);
-        });
-    }
-
-    pub fn stashed_apps() -> Vec<OsString> {
-        ALTERNATE_STASH.with(|cell| cell.borrow_mut().iter().map(|x| x.to_os_string()).collect())
-    }
-}
-
-// --------------------------------------------------------------
-
-impl<T> SimpleStack<T> {
-    pub const fn new() -> Self {
-        Self { stack: Vec::new() }
-    }
-}
-
-impl<T> std::ops::Deref for SimpleStack<T> {
-    type Target = Vec<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.stack
-    }
-}
-
-// helpers
-
-// pub fn toggle_insert<T: PartialEq>(
-//     list: &mut Vec<T>,
-//     item: T,
-// ) {
-//     if let Some(i) = list.iter().position(|x| *x == item) {
-//         list.remove(i);
-//     } else {
-//         list.push(item);
-//     }
-// }
-
-pub fn insert_once<T: PartialEq>(
-    list: &mut Vec<T>,
-    item: T,
-    stable: bool,
-) {
-    if stable {
-        if !list.contains(&item) {
-            list.push(item);
         }
-    } else {
-        if let Some(i) = list.iter().position(|x| *x == item) {
-            list.remove(i);
+    }
+
+    pub fn clear(kind: Option<&str>) {
+        let mut state = STASH_STATE.lock().unwrap();
+        let current_exclusive = state.current_exclusive.clone();
+        match kind {
+            None => state.shared.clear(),
+            Some("") => {
+                if let Some(x) = state.exclusive.get_mut(&current_exclusive) {
+                    x.clear()
+                }
+            }
+            Some(k) => {
+                if STASH::is_exclusive(k) {
+                    if let Some(s) = state.exclusive.get_mut(k) {
+                        s.clear()
+                    }
+                } else {
+                    state
+                        .shared
+                        .retain(|item| item.kind != k || item.status.state.is_started());
+                }
+            }
         }
-        list.push(item);
+    }
+
+    // --------------- other ----------------
+
+    pub fn stashed_apps() -> Vec<std::ffi::OsString> {
+        let state = STASH_STATE.lock().unwrap();
+        state
+            .exclusive
+            .get("app")
+            .map(|list| {
+                list.as_slice()
+                    .into_iter()
+                    .map(|(p, _)| p.to_os_string())
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 }
 
@@ -311,7 +386,7 @@ impl PartialEq for StashItem {
         &self,
         other: &Self,
     ) -> bool {
-        self.src == other.src
+        self.src == other.src && self.kind == other.kind
     }
 }
 

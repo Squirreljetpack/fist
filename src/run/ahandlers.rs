@@ -12,7 +12,7 @@ use crate::{
     aliases::MMState,
     run::{
         FsAction, FsPane,
-        stash::{CustomStashActionActionState, STASH},
+        stash::STASH,
         state::{FILTERS, GLOBAL, STACK, TOAST, TlsStore, ui::global_ui},
     },
     utils::formatter::format_prompt,
@@ -27,7 +27,7 @@ pub fn paste_handler(
             || state.picker_ui.results.cursor_disabled
             || state.overlay_index().is_some())
     {
-        STASH::transfer_all(c, false);
+        STASH::transfer_all(c, false, None);
         String::new()
     } else {
         content
@@ -271,9 +271,9 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
 
     if STACK::in_app() {
         TOAST::clear();
-        STASH::set_cas(CustomStashActionActionState::App);
-    } else if let Some(cas) = TlsStore::get() {
-        STASH::set_cas(cas);
+        STASH::set_exclusive("app".to_string());
+    } else if let Some(cas) = TlsStore::get::<String>() {
+        STASH::set_exclusive(cas);
     }
 
     fs_post_reload(state);

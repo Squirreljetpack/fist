@@ -51,4 +51,19 @@
 
     ### ACTIONS ####
 
+[stash.modes.backup]
+    exclusive = false
+    target = true
+    strategy = "copy"
+
+[stash.modes.work]
+    exclusive = true
+    target = false
+    strategy = "none"
+
+[stash.modes.scripts]
+    exclusive = true
+    target = true
+    strategy = { command = "echo {1} to {2}" }
+
 [actions]

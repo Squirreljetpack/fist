@@ -41,8 +41,9 @@ pub fn default_binds() -> BindMap<FsAction> {
         // Display
         // ----------------------------------
         key!(ctrl-t) => FsAction::ShowStash,
+        key!(ctrl-shift-e) => FsAction::ShowExclusiveStash,
         key!(alt-shift-t) => FsAction::ClearStash(None),
-        key!(alt-shift-s) => FsAction::ClearStash(Some(true)), // clear custom
+        key!(alt-shift-s) => FsAction::ClearStash(Some("copy".to_string())), // clear copy kind
         key!(ctrl-e) => FsAction::ShowMenu,
         // -- filters --
         key!(ctrl-i) => FsAction::ShowFilters,
@@ -54,7 +55,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-y) => FsAction::CopyPath,
         key!(delete) => FsAction::Trash,
         key!(shift-delete) => FsAction::Delete(false),
-
+        key!(ctrl-shift-r) => FsAction::Rename,
         key!(ctrl-v) => FsAction::Paste("".into()),
 
         // these behave the same on the prompt

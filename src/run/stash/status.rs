@@ -80,6 +80,10 @@ impl AtomicStashItemState {
     }
 
     #[inline]
+    pub fn is_started(&self) -> bool {
+        matches!(self.load(), StashItemState::Started)
+    }
+
     pub fn is_complete(&self) -> bool {
         matches!(
             self.load(),
