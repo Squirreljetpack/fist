@@ -77,6 +77,8 @@ pub struct TableSelection {
     pub exclusive: bool,
     // exclusive and shared have different table layouts
     pub path_dst_cols: [usize; 2],
+    pub available_w: u16,
+    pub initial_widths: Vec<u16>,
 }
 
 impl TableSelection {
@@ -88,12 +90,67 @@ impl TableSelection {
             exclusive,
             editing: None,
             path_dst_cols,
+            available_w: 0,
+            initial_widths: vec![],
         }
+    }
+
+    pub fn update_widths(
+        &mut self,
+        widths: &mut [u16],
+        border_width: u16,
+    ) -> OverlayEffect {
+        if let Some((_, col, input)) = &mut self.editing {
+            let val_width = input.inner.input.width() as u16 + 1;
+            let current_col_w = widths[*col];
+
+            if val_width != current_col_w {
+                if val_width > current_col_w {
+                    // Only grow if currently small (<= 16) and won't overflow
+                    if current_col_w <= 16 {
+                        let current_total: u16 = widths.iter().sum();
+                        if current_total < self.available_w {
+                            let diff =
+                                (val_width - current_col_w).min(self.available_w - current_total);
+                            widths[*col] += diff;
+                        }
+                    }
+                } else if val_width < current_col_w {
+                    let initial = self.initial_widths.get(*col).cloned().unwrap_or(16); // unwrap should be fine here
+                    widths[*col] = val_width.max(initial);
+                }
+
+                if widths[*col] != current_col_w {
+                    let new_total_w = widths.iter().sum::<u16>() + border_width;
+                    let input_width = widths[*col].saturating_sub(1);
+                    input.update_scroll(input_width);
+                    return OverlayEffect::UpdateArea(Some(new_total_w), None);
+                }
+            }
+            let input_width = widths[*col].saturating_sub(1);
+            input.update_scroll(input_width);
+        }
+        OverlayEffect::None
+    }
+
+    pub fn handle_input(
+        &mut self,
+        c: char,
+        widths: &mut [u16],
+        border_width: u16,
+    ) -> OverlayEffect {
+        if let Some((_, _, input)) = &mut self.editing {
+            input.handle_input(c);
+            return self.update_widths(widths, border_width);
+        }
+        OverlayEffect::None
     }
 
     pub fn handle_action(
         &mut self,
         action: &Action<FsAction>,
+        widths: &mut [u16],
+        border_width: u16,
     ) -> OverlayEffect {
         let len = if self.exclusive {
             let kind = STASH::current_exclusive();
@@ -131,8 +188,9 @@ impl TableSelection {
                 } else {
                     self.editing = None;
                 }
+                return OverlayEffect::None;
             }
-            return OverlayEffect::None;
+            return self.update_widths(widths, border_width);
         }
 
         match action {
@@ -195,18 +253,30 @@ impl TableSelection {
             Action::Custom(FsAction::ShowMenu) => {
                 if let Some(i) = self.state.selected() {
                     if let Some((p, _)) = STASH::get(self.exclusive, i) {
-                        let mut input = InputWidget::new(InputWidgetConfig::default());
-                        input.set_value(p.to_string_lossy().into_owned());
-                        self.editing = Some((i, self.path_dst_cols[0], input));
+                        let mut input = InputWidget::new(InputWidgetConfig {
+                            no_scroll_padding: true,
+                            ..Default::default()
+                        });
+                        let val = p.to_string_lossy().into_owned();
+                        input.set_value(val.clone());
+                        let col = self.path_dst_cols[0];
+                        self.editing = Some((i, col, input));
+                        return self.update_widths(widths, border_width);
                     }
                 }
             }
             Action::Custom(FsAction::Rename) => {
                 if let Some(i) = self.state.selected() {
                     if let Some((_, d)) = STASH::get(self.exclusive, i) {
-                        let mut input = InputWidget::new(InputWidgetConfig::default());
-                        input.set_value(d.to_string_lossy().into_owned());
-                        self.editing = Some((i, self.path_dst_cols[1], input));
+                        let mut input = InputWidget::new(InputWidgetConfig {
+                            no_scroll_padding: true,
+                            ..Default::default()
+                        });
+                        let val = d.to_string_lossy().into_owned();
+                        input.set_value(val.clone());
+                        let col = self.path_dst_cols[1];
+                        self.editing = Some((i, col, input));
+                        return self.update_widths(widths, border_width);
                     }
                 }
             }
@@ -229,17 +299,26 @@ impl TableSelection {
         widths: &[u16],
         border_left: u16,
         border_top: u16,
+        style: Style,
     ) {
         if let Some((row, col, input)) = &mut self.editing {
             let x_offset = widths[0..*col].iter().sum::<u16>() + border_left;
             let y_offset = (*row - self.state.offset()) as u16 + border_top + 1;
+
+            let input_width = widths[*col].saturating_sub(1);
+            let span = input.make_input(input_width, style);
+
             let input_area = Rect {
                 x: area.x + x_offset,
                 y: area.y + y_offset,
                 width: widths[*col],
                 height: 1,
             };
-            input.draw(frame, input_area);
+
+            frame.render_widget(Paragraph::new(Line::from(span)), input_area);
+
+            let pos = Position::new(input_area.x + input.inner.cursor_rel_offset(), input_area.y);
+            frame.set_cursor_position(pos);
         }
     }
 }
@@ -275,6 +354,10 @@ impl SharedStashOverlay {
         items: &[StashItem],
         available_ui_w: u16,
     ) {
+        if self.state.editing.is_some() {
+            return;
+        }
+
         let mut kind_w = self.headers[0].len() as u16 + 1;
         for item in items {
             kind_w = kind_w.max(item.kind.len() as u16 + 1);
@@ -305,6 +388,7 @@ impl SharedStashOverlay {
             .min(dst_w);
 
         self.widths = [kind_w, path_w, dst_w, size_w];
+        self.state.initial_widths = self.widths.to_vec();
     }
 }
 
@@ -327,9 +411,9 @@ impl Overlay for SharedStashOverlay {
         &mut self,
         c: char,
     ) -> OverlayEffect {
-        if let Some((_, _, input)) = &mut self.state.editing {
-            input.handle_input(c);
-            return OverlayEffect::None;
+        if self.state.editing.is_some() {
+            let border_w = self.border().width();
+            return self.state.handle_input(c, &mut self.widths, border_w);
         }
         match c {
             'q' => OverlayEffect::Disable,
@@ -342,10 +426,8 @@ impl Overlay for SharedStashOverlay {
         ui_area: &Rect,
     ) -> Result<Rect, [SizeHint; 2]> {
         let state = STASH_STATE.lock().unwrap();
-        self.save_widths(
-            &state.shared,
-            ui_area.width.saturating_sub(self.border().width()),
-        );
+        self.state.available_w = ui_area.width.saturating_sub(self.border().width());
+        self.save_widths(&state.shared, self.state.available_w);
         let width = self.widths.iter().sum::<u16>() + self.border().width();
         Err([width.into(), SizeHint::Min(self.border().height() + 4)])
     }
@@ -354,7 +436,8 @@ impl Overlay for SharedStashOverlay {
         &mut self,
         action: &Action<Self::A>,
     ) -> OverlayEffect {
-        self.state.handle_action(action)
+        let border_w = self.border().width();
+        self.state.handle_action(action, &mut self.widths, border_w)
     }
 
     fn draw(
@@ -429,6 +512,7 @@ impl Overlay for SharedStashOverlay {
             &self.widths,
             self.border().left(),
             self.border().top(),
+            self.config.editing_style.into(),
         );
     }
 }
@@ -473,9 +557,9 @@ impl Overlay for ExclusiveStashOverlay {
         &mut self,
         c: char,
     ) -> OverlayEffect {
-        if let Some((_, _, input)) = &mut self.state.editing {
-            input.handle_input(c);
-            return OverlayEffect::None;
+        if self.state.editing.is_some() {
+            let border_w = self.border().width();
+            return self.state.handle_input(c, &mut self.widths, border_w);
         }
         match c {
             'q' => OverlayEffect::Disable,
@@ -487,6 +571,12 @@ impl Overlay for ExclusiveStashOverlay {
         &mut self,
         ui_area: &Rect,
     ) -> Result<Rect, [SizeHint; 2]> {
+        self.state.available_w = ui_area.width.saturating_sub(self.border().width());
+        if self.state.editing.is_some() {
+            let width = self.widths.iter().sum::<u16>() + self.border().width();
+            return Err([width.into(), SizeHint::Min(self.border().height() + 4)]);
+        }
+
         let kind = STASH::current_exclusive();
         let target = STASH::has_target(&kind);
         let state = STASH_STATE.lock().unwrap();
@@ -510,6 +600,7 @@ impl Overlay for ExclusiveStashOverlay {
         } else {
             self.widths = vec![path_w];
         }
+        self.state.initial_widths = self.widths.to_vec();
 
         let width = self.widths.iter().sum::<u16>() + self.border().width();
         Err([width.into(), SizeHint::Min(self.border().height() + 4)])
@@ -519,7 +610,8 @@ impl Overlay for ExclusiveStashOverlay {
         &mut self,
         action: &Action<Self::A>,
     ) -> OverlayEffect {
-        self.state.handle_action(action)
+        let border_w = self.border().width();
+        self.state.handle_action(action, &mut self.widths, border_w)
     }
 
     fn draw(
@@ -601,6 +693,7 @@ impl Overlay for ExclusiveStashOverlay {
             &self.widths,
             self.border().left(),
             self.border().top(),
+            self.config.editing_style.into(),
         );
     }
 }

@@ -66,7 +66,7 @@ pub fn enter_prompt(
                     .add_modifier(Modifier::ITALIC),
             )
         } else {
-            let content = state.picker_ui.input.config.prompt.clone();
+            let content = state.picker_ui.query.config.prompt.clone();
             Line::styled(
                 content,
                 Style::default()
@@ -76,10 +76,10 @@ pub fn enter_prompt(
         };
         state.picker_ui.results.cursor_jump(0);
         state.stash_preview_visibility(Some(false));
-        state.picker_ui.input.set_prompt_line(prompt);
+        state.picker_ui.query.set_prompt_line(prompt);
     } else {
         state.stash_preview_visibility(None);
-        state.picker_ui.input.set_prompt(None);
+        state.picker_ui.query.set_prompt(None);
     }
     state.picker_ui.results.cursor_disabled = enter;
 
@@ -98,7 +98,7 @@ pub fn enter_dir_pane(
 
     // apply specific settings
     if STACK::with_current(FsPane::should_cancel_input_entering_dir) {
-        state.picker_ui.input.cancel();
+        state.picker_ui.query.cancel();
     }
 
     // always clear selections
@@ -137,9 +137,9 @@ pub fn fs_reload(
             ..
         } => {
             if *filtering {
-                input.0 = state.picker_ui.input.input.clone();
+                input.0 = state.picker_ui.query.input.clone();
             } else {
-                let p = split_whitespace_preserve_single_quotes(&state.picker_ui.input.input);
+                let p = split_whitespace_preserve_single_quotes(&state.picker_ui.query.input);
                 *patterns = if p.is_empty() && GLOBAL::with_cfg(|c| !c.rg.empty_start) {
                     vec_![""]
                 } else {
@@ -188,7 +188,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
     STACK::with_current(|pane| {
         GLOBAL::with_cfg(|c| {
             if let Some(p) = c.panes.prompt(pane) {
-                state.picker_ui.input.config.prompt = p
+                state.picker_ui.query.config.prompt = p
             };
 
             if let Some(p) = state.preview_ui {
@@ -217,7 +217,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
                         enter_prompt(state, true);
                     }
                     _ if !state.picker_ui.results.cursor_disabled => {
-                        state.picker_ui.input.set_prompt(None);
+                        state.picker_ui.query.set_prompt(None);
                     }
                     _ => {}
                 }
@@ -264,7 +264,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
     // input is nonempty only when called in [`FsAction::Undo`] and [`FsAction::Forward`].
     state
         .picker_ui
-        .input
+        .query
         .set(STACK::with_current(FsPane::get_input), u16::MAX);
     state.picker_ui.selector.clear();
     TOAST::clear_msgs();

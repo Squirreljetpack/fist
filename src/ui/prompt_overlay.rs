@@ -6,8 +6,9 @@ use matchmaker::{
     ui::{Overlay, OverlayEffect, SizeHint},
 };
 use ratatui::{
-    layout::Rect,
-    widgets::{Borders, Clear},
+    layout::{Position, Rect},
+    text::Line,
+    widgets::{Borders, Clear, Paragraph},
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -38,7 +39,7 @@ impl PromptOverlay {
     pub fn new(config: PromptConfig) -> Self {
         let input_config = InputWidgetConfig {
             border: config.border.clone(),
-            // ..Default::default()
+            ..Default::default()
         };
         Self {
             input: InputWidget::new(input_config),
@@ -104,7 +105,20 @@ impl Overlay for PromptOverlay {
         _area: Rect,
     ) {
         frame.render_widget(Clear, self.area);
-        self.input.draw(frame, self.area);
+
+        let input_width = self.area.width.saturating_sub(self.config.border.width());
+        let span = self.input.make_input(input_width, ratatui::style::Style::default());
+
+        frame.render_widget(
+            Paragraph::new(Line::from(span)).block(self.config.border.as_block()),
+            self.area,
+        );
+
+        let pos = Position::new(
+            self.area.x + self.config.border.left() + self.input.inner.cursor_rel_offset(),
+            self.area.y + self.config.border.top(),
+        );
+        frame.set_cursor_position(pos);
     }
 
     fn handle_action(

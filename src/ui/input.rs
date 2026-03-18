@@ -1,30 +1,27 @@
 use crate::run::action::FsAction;
-use matchmaker::{
-    action::Action,
-    config::{BorderSetting, InputConfig},
-    ui::InputUI,
-};
-use ratatui::layout::Rect;
+use matchmaker::config::StyleSetting;
+use matchmaker::{action::Action, config::BorderSetting, ui::InputUI};
+use ratatui::style::Style;
+use ratatui::text::Span;
 
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct InputWidgetConfig {
     pub border: BorderSetting,
+    pub no_scroll_padding: bool,
+    pub style: StyleSetting,
 }
 
 pub struct InputWidget {
     pub inner: InputUI,
+    pub config: InputWidgetConfig,
 }
 
 impl InputWidget {
     pub fn new(config: InputWidgetConfig) -> Self {
-        let inner_config = InputConfig {
-            border: config.border,
-            prompt: String::new(),
-            ..Default::default()
-        };
         Self {
-            inner: InputUI::new(inner_config),
+            inner: InputUI::new(),
+            config,
         }
     }
 
@@ -69,17 +66,21 @@ impl InputWidget {
         None
     }
 
-    pub fn draw(
+    pub fn make_input(
         &mut self,
-        frame: &mut matchmaker::ui::Frame<'_>,
-        area: Rect,
-    ) {
-        self.inner.update_width(area.width);
-        self.inner.scroll_to_cursor();
-        let para = self.inner.make_input();
-        frame.render_widget(para, area);
+        width: u16,
+        style: Style,
+    ) -> Span<'_> {
+        self.update_scroll(width);
+        Span::styled(self.inner.render(), style)
+    }
 
-        let pos = self.inner.cursor_offset(&area);
-        frame.set_cursor_position(pos);
+    pub fn update_scroll(
+        &mut self,
+        width: u16,
+    ) {
+        self.inner.width = width;
+        let padding = if self.config.no_scroll_padding { 0 } else { 2 };
+        self.inner.scroll_to_cursor(padding);
     }
 }

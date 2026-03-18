@@ -208,7 +208,7 @@ pub fn fsaction_aliaser(
             }
             FsAction::SaveInput => {
                 let (content, index) = (
-                    state.picker_ui.input.input.clone(),
+                    state.picker_ui.query.input.clone(),
                     state.picker_ui.results.index(),
                 );
                 log::debug!("Saved: {content}, {index}");
@@ -551,7 +551,7 @@ pub fn fsaction_handler(
                         &join_with_single_quotes(patterns)
                     };
 
-                    state.picker_ui.input.set(new_input.clone(), u16::MAX);
+                    state.picker_ui.query.set(new_input.clone(), u16::MAX);
 
                     true
                 }
@@ -968,9 +968,9 @@ pub fn fsaction_handler(
                             .fg(Color::Blue)
                             .add_modifier(Modifier::ITALIC),
                     );
-                    state.picker_ui.input.set_prompt_line(prompt);
+                    state.picker_ui.query.set_prompt_line(prompt);
                 } else {
-                    state.picker_ui.input.set_prompt(None);
+                    state.picker_ui.query.set_prompt(None);
                 }
             } else {
                 FILTERS::with_mut(|_sort, vis| {
@@ -987,15 +987,15 @@ pub fn fsaction_handler(
                         if vis.dirs {
                             state
                                 .picker_ui
-                                .input
+                                .query
                                 .set_prompt_line(Line::styled("d: ", prompt_main_style()));
                         } else if vis.files {
                             state
                                 .picker_ui
-                                .input
+                                .query
                                 .set_prompt_line(Line::styled("f: ", prompt_main_style()));
                         } else {
-                            state.picker_ui.input.set_prompt(None);
+                            state.picker_ui.query.set_prompt(None);
                         }
                     }
                 });

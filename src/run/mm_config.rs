@@ -83,7 +83,7 @@ pub fn get_mm_cfg(
     // Render display
     let RenderConfig {
         ui: _,
-        input: _,
+        query: _,
         results,
         status: _,
         preview,
