@@ -76,7 +76,7 @@ impl PathItem {
         }
     }
 
-    // q: can compiler know to skip the initial render invocation
+    // q: can compiler know to skip the initial render write
     pub fn override_rendered(
         &mut self,
         rendered: Text<'static>,
@@ -152,7 +152,7 @@ fn render(
     cwd: &Path,
 ) -> Text<'static> {
     let full_path = path;
-    let cfg = &global_ui().path;
+    let cfg = global_ui().path.clone();
     // let ft = FileType::get(path);
 
     if cfg.relative

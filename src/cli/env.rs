@@ -22,11 +22,12 @@ pub struct EnvOpts {
     /// - "display":
     /// - "display-batch": This script is run on `panes.settings.display_script_batch_size` items at once. Each item provides 2 arguments: its full path, and the tail
     ///
-    /// Strongly recommended to supply "display-batch" for performance.
+    /// Strongly recommended to use "display-batch" for performance.
     pub display: Option<Result<String, String>>,
     pub delim: Option<char>,
     pub output_separator: Option<String>,
     pub output_template: Option<String>,
+    pub delimiter: Option<char>,
 }
 
 impl EnvOpts {

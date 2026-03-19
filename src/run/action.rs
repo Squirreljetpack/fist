@@ -24,7 +24,7 @@ use crate::{
         pane::FsPane,
         stash::STASH,
         state::{
-            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, InitialQueryShouldNotAbort, STACK,
+            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, ShouldNotAbortOnEmpty, STACK,
             TASKS, TOAST, TlsStore, context::ActionContext,
         },
     },
@@ -494,7 +494,7 @@ pub fn fsaction_handler(
                 FILTERS::visibility(),
             );
 
-            TlsStore::set(InitialQueryShouldNotAbort {});
+            TlsStore::set(ShouldNotAbortOnEmpty {});
 
             // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
             // todo: there is a problem

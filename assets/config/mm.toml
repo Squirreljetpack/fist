@@ -26,6 +26,3 @@
 
 [preview]
     wrap = true
-
-[overlay]
-    border = { type = "Rounded", color = "darkGrey", padding = 1 }

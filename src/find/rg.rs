@@ -97,6 +97,7 @@ pub fn build_rg_args(
     } else {
         "--heading"
     },
+    "--null",
     "--hyperlink-format="
     ]);
 

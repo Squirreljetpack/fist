@@ -1,10 +1,7 @@
 # Perf
 
 with a lot of items, ui gets laggy, where is the blocking?
-Arc str is probably faster for context: check this
-Arc str for render storage?
-
-( fs .; )  63.56s user 12.48s system 359% cpu 21.143 total # to 350k
+Arc str is probably faster for context: check
 
 # nnn
 
@@ -25,6 +22,7 @@ Arc str for render storage?
 - Low pri
   - rle_matcher is not perfect because it doesn't support expressing fallback conditions
   - prettier + tmp file formatting isn't hard but maybe out of scope?
+
 Image rendering
 
 - lowpri
@@ -63,6 +61,8 @@ transparent advance into compressed files
 - better per-pane filters: fd/rg probably wants to toggle --follow (in own pane probably), not sure about anything else
 - does visibility apply to history panes? if so, --all should disable filtering out the nonexistant entries
 
+- toggleable executable filter
+
 # Disk
 
 - Spawn a thread to build a size tree data structure (mutex). On completion, send a message to reload to the pane. Nav pane checks if current directory is available in the size tree and mutex is unlocked, otherwise fires off another task and doesn't reload.
@@ -73,7 +73,6 @@ transparent advance into compressed files
 - More filters (mtime or sth)
 - Syncopated sorting?
 - Cli structs should be partial to merge into visibility?
-- toggleable executable filter
 
 # Menu overlay
 
