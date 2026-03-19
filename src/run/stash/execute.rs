@@ -211,7 +211,7 @@ impl STASH {
                     })
                     .into();
 
-                    let is_batch = STASH::get_mode(&item.kind).batch;
+                    let is_batch = state.get_mode(&item.kind).batch;
 
                     if is_batch {
                         groups.entry(item.kind.clone()).or_default().push(item);

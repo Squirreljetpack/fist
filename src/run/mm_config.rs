@@ -88,7 +88,7 @@ pub fn get_mm_cfg(
         ui: _,
         query: _,
         results,
-        status: _,
+        status,
         preview,
         footer,
         header: _,
@@ -98,16 +98,19 @@ pub fn get_mm_cfg(
     results.multi_prefix = results.multi_prefix.chars().next().unwrap_or('▌').into(); // single width
     results.right_align_last = true;
     results.stacked_columns = false;
-    results.horizontal_separator = Default::default();
+    results.separator = Default::default();
     results.min_wrap_width = results.min_wrap_width.max(10);
     results.autoscroll.initial_preserved = 5;
     if cfg.global.mm.reverse.is_some() {
         results.reverse = cfg.global.mm.reverse
     }
 
+    if status.template.is_empty() {
+        status.template = r#"\m/\t"#.to_string();
+    }
+
     *footer = DisplayConfig {
-        modifier: Default::default(),
-        fg: Default::default(),
+        style: Default::default(),
         wrap: true,
         row_connection: RowConnectionStyle::Full,
         ..Default::default()

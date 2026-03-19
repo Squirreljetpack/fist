@@ -412,7 +412,7 @@ async fn handle_default(
                     if !matches!(db_filter.refind, RetryStrat::Search) && !cmd.list {
                         return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
                     } else {
-                        ibog!("Searching from `fs :dir` due to `refind = Search`");
+                        ibog!("Started `fs :dir` due to `refind = Search`");
                         let sort = cmd.sort.unwrap_or(if nav_pane {
                             cfg.global.panes.nav.default_sort
                         } else {

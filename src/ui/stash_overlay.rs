@@ -570,7 +570,7 @@ impl Overlay for ScratchOverlay {
 
         let state = STASH_STATE.lock().unwrap();
         let (kind, list) = &state.scratch[state.current_scratch];
-        let target = STASH::has_target(kind);
+        let target = state.has_target(kind);
         let items = list.as_slice();
 
         let mut path_w = 16u16;

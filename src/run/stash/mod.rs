@@ -63,6 +63,47 @@ impl StashState {
             modes: Vec::new(),
         }
     }
+
+    pub fn get_mode(
+        &self,
+        kind: &str,
+    ) -> StashMode {
+        self.modes
+            .iter()
+            .find(|(k, _)| k == kind)
+            .map(|(_, m)| m.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn is_scratch(
+        &self,
+        kind: &str,
+    ) -> bool {
+        if kind == "app" || kind == "revert" {
+            return true;
+        }
+        self.get_mode(kind).scratch
+    }
+
+    pub fn has_target(
+        &self,
+        kind: &str,
+    ) -> bool {
+        if kind == "app" {
+            return false;
+        }
+        if kind == "copy" || kind == "cut" || kind == "symlink" || kind == "revert" {
+            return false;
+        }
+        self.get_mode(kind).target
+    }
+
+    pub fn is_unique(
+        &self,
+        kind: &str,
+    ) -> bool {
+        self.get_mode(kind).unique.is_true()
+    }
 }
 
 pub static STASH_STATE: Mutex<StashState> = Mutex::new(StashState::new());
@@ -100,34 +141,19 @@ impl STASH {
 
     /// Does not retrieve mode for builtins
     pub fn get_mode(kind: &str) -> StashMode {
-        let state = STASH_STATE.lock().unwrap();
-        state
-            .modes
-            .iter()
-            .find(|(k, _)| k == kind)
-            .map(|(_, m)| m.clone())
-            .unwrap_or_default()
+        STASH_STATE.lock().unwrap().get_mode(kind)
     }
 
     pub fn is_scratch(kind: &str) -> bool {
-        if kind == "app" || kind == "revert" {
-            return true;
-        }
-        STASH::get_mode(kind).scratch
+        STASH_STATE.lock().unwrap().is_scratch(kind)
     }
 
     pub fn has_target(kind: &str) -> bool {
-        if kind == "app" {
-            return false;
-        }
-        if kind == "copy" || kind == "cut" || kind == "symlink" || kind == "revert" {
-            return false;
-        }
-        STASH::get_mode(kind).target
+        STASH_STATE.lock().unwrap().has_target(kind)
     }
 
     pub fn is_unique(kind: &str) -> bool {
-        STASH::get_mode(kind).unique.is_true()
+        STASH_STATE.lock().unwrap().is_unique(kind)
     }
 
     // -----------------------------
@@ -179,7 +205,7 @@ impl STASH {
         items: impl IntoIterator<Item = AbsPath>,
     ) {
         let mut state = STASH_STATE.lock().unwrap();
-        let mode = STASH::get_mode(kind);
+        let mode = state.get_mode(kind);
 
         for path in items {
             if mode.scratch {
@@ -312,11 +338,10 @@ impl STASH {
         scratch: bool,
         index: usize,
     ) {
-        let state = STASH_STATE.lock().unwrap();
-
         if scratch {
             STASH::execute_all_scratch_impl(Some(&BTreeSet::from([index])));
         } else {
+            let state = STASH_STATE.lock().unwrap();
             if let Some(item) = state.shared.get(index).cloned() {
                 let mut item = item;
                 item.dst = GLOBAL::with_cfg(|c| {
@@ -356,11 +381,9 @@ impl STASH {
                 let idx = state.current_scratch;
                 state.scratch[idx].1.clear()
             }
-            Some(k) if STASH::is_scratch(k) => {
-                if STASH::is_scratch(k) {
-                    if let Some((_, list)) = state.scratch.iter_mut().find(|(kind, _)| kind == k) {
-                        list.clear()
-                    }
+            Some(k) if state.is_scratch(k) => {
+                if let Some((_, list)) = state.scratch.iter_mut().find(|(kind, _)| kind == k) {
+                    list.clear()
                 }
             }
             _ => {

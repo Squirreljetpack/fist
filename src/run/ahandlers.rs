@@ -43,7 +43,7 @@ pub fn enter_prompt(
     if let Some(dim) = GLOBAL::with_cfg(|c| c.interface.dim_prompt) {
         let should_dim = enter ^ !dim;
 
-        let mods = &mut state.picker_ui.results.config.modifier;
+        let mods = &mut state.picker_ui.results.config.style.modifier;
         let border_mods = &mut state.picker_ui.results.config.border.modifier;
 
         if should_dim {
@@ -300,10 +300,10 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
 
                 if !*one_line {
                     // todo: where to add a place to configure this? pane/ui/other?
-                    r.config.horizontal_separator = mm.horizontal_separator;
+                    r.config.separator = mm.horizontal_separator;
                     r.config.stacked_columns = true;
                 } else {
-                    r.config.horizontal_separator = Default::default();
+                    r.config.separator = Default::default();
                     r.config.stacked_columns = false;
                 }
 
@@ -346,7 +346,7 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
                 {
                     let r = &mut state.picker_ui.results;
                     // todo: save and restore
-                    r.config.horizontal_separator = Default::default();
+                    r.config.separator = Default::default();
                     r.config.stacked_columns = false;
                     r.set_status_line(None);
                 }
