@@ -36,7 +36,7 @@ use crate::{
         confirm_overlay::ConfirmOverlay,
         filters_overlay::FilterOverlay,
         menu_overlay::MenuOverlay,
-        stash_overlay::{ExclusiveStashOverlay, SharedStashOverlay},
+        stash_overlay::{ScratchOverlay, StashOverlay},
     },
     watcher::FsWatcher,
 };
@@ -118,6 +118,7 @@ pub async fn start(
         render,
         binds,
         stash,
+        scratch,
         filters,
         prompt,
         menu,
@@ -172,8 +173,8 @@ pub async fn start(
         .hidden_columns(vec![false, false, true])
         .matcher(MATCHER_CONFIG)
         .overlay_config(overlay)
-        .overlay(SharedStashOverlay::new(stash.clone()))
-        .overlay(ExclusiveStashOverlay::new(stash))
+        .overlay(StashOverlay::new(stash.clone()))
+        .overlay(ScratchOverlay::new(stash))
         .overlay(FilterOverlay::new(filters))
         .overlay(ConfirmOverlay::new(confirm))
         .overlay(MenuOverlay::new(menu, prompt, cfg.actions));
@@ -189,7 +190,9 @@ pub async fn start(
         *guard = Some(DbFilter::new(&cfg.history));
     }
     // init global
-    GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane, bind_tx);
+    GLOBAL::init(
+        cfg.global, cfg.stash, render_tx, watcher_tx, db_pool, pane, bind_tx,
+    );
     clipboard::init(cfg.misc.clipboard_delay_ms);
     crate::spawn::init_spawn_with(cfg.misc.spawn_with);
     global_ui_init(cfg.styles);

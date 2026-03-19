@@ -1,9 +1,9 @@
-mod exclusive_list;
 mod execute;
+mod scratch_list;
 mod status;
 pub use status::*;
 
-use std::{collections::BTreeSet, ffi::OsString, sync::LazyLock, sync::Mutex};
+use std::{collections::BTreeSet, ffi::OsString, sync::Mutex};
 
 use cba::bath::{PathExt, auto_dest_for_src};
 use indexmap::IndexMap;
@@ -11,8 +11,9 @@ use indexmap::IndexMap;
 use crate::{
     abspath::AbsPath,
     cli::paths::__home,
+    config::{StashAddRule, StashMode},
     run::{
-        stash::exclusive_list::ExclusiveList,
+        stash::scratch_list::ScratchList,
         state::{GLOBAL, STACK, TASKS, TOAST},
     },
     utils::text::ToastStyle,
@@ -48,93 +49,126 @@ impl StashItem {
 
 pub struct StashState {
     pub shared: Vec<StashItem>,
-    pub exclusive: IndexMap<String, ExclusiveList>,
-    pub current_exclusive: String,
+    pub scratch: Vec<(String, ScratchList)>,
+    pub current_scratch: usize,
+    pub modes: Vec<(String, StashMode)>,
 }
 
 impl StashState {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             shared: Vec::new(),
-            exclusive: IndexMap::new(),
-            current_exclusive: "app".to_string(),
+            scratch: Vec::new(),
+            current_scratch: 0,
+            modes: Vec::new(),
         }
     }
 }
 
-pub static STASH_STATE: LazyLock<Mutex<StashState>> = LazyLock::new(|| {
-    Mutex::new(StashState {
-        shared: Vec::new(),
-        exclusive: IndexMap::new(),
-        current_exclusive: "app".to_string(),
-    })
-});
+pub static STASH_STATE: Mutex<StashState> = Mutex::new(StashState::new());
 
 pub static STASH_ACTION_HISTORY: Mutex<Vec<StashItem>> = Mutex::new(Vec::new());
 
+pub static STASH_BUILTINS: [&str; 6] = ["app", "copy", "paste", "cut", "revert", "symlink"];
 pub struct STASH;
 
 impl STASH {
-    pub fn is_exclusive(kind: &str) -> bool {
+    pub fn init(modes: Vec<(String, StashMode)>) {
+        let mut state = STASH_STATE.lock().unwrap();
+        state.modes = modes;
+
+        // Ensure app and revert are always present and at index 0 and 1
+        state.scratch = vec![
+            ("app".to_string(), ScratchList::Map(IndexMap::new())),
+            ("revert".to_string(), ScratchList::Map(IndexMap::new())),
+        ];
+
+        let modes_clone = state.modes.clone();
+        for (kind, mode) in &modes_clone {
+            if mode.scratch && kind != "app" && kind != "revert" {
+                state.scratch.push((
+                    kind.clone(),
+                    match mode.unique {
+                        StashAddRule::False => ScratchList::Vec(Vec::new(), 0),
+                        StashAddRule::True => ScratchList::Map(IndexMap::new()),
+                        StashAddRule::Limit(n) => ScratchList::Vec(Vec::new(), n),
+                    },
+                ));
+            }
+        }
+    }
+
+    /// Does not retrieve mode for builtins
+    pub fn get_mode(kind: &str) -> StashMode {
+        let state = STASH_STATE.lock().unwrap();
+        state
+            .modes
+            .iter()
+            .find(|(k, _)| k == kind)
+            .map(|(_, m)| m.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn is_scratch(kind: &str) -> bool {
         if kind == "app" || kind == "revert" {
             return true;
         }
-        GLOBAL::with_cfg(|c| {
-            c.stash
-                .modes
-                .get(kind)
-                .map(|m| m.exclusive)
-                .unwrap_or(false)
-        })
+        STASH::get_mode(kind).scratch
     }
 
     pub fn has_target(kind: &str) -> bool {
-        GLOBAL::with_cfg(|c| c.stash.modes.get(kind).map(|m| m.target).unwrap_or(false))
+        if kind == "app" {
+            return false;
+        }
+        if kind == "copy" || kind == "cut" || kind == "symlink" || kind == "revert" {
+            return false;
+        }
+        STASH::get_mode(kind).target
     }
 
     pub fn is_unique(kind: &str) -> bool {
-        GLOBAL::with_cfg(|c| c.stash.modes.get(kind).map(|m| m.unique).unwrap_or(true))
+        STASH::get_mode(kind).unique.is_true()
     }
 
     // -----------------------------
 
-    pub fn current_exclusive() -> String {
-        STASH_STATE.lock().unwrap().current_exclusive.clone()
+    pub fn current_scratch() -> String {
+        let state = STASH_STATE.lock().unwrap();
+        state.scratch[state.current_scratch].0.clone()
     }
 
-    pub fn set_exclusive(kind: String) {
-        STASH_STATE.lock().unwrap().current_exclusive = kind;
+    pub fn scratch_title() -> String {
+        let state = STASH_STATE.lock().unwrap();
+        let val = &state.scratch[state.current_scratch].0;
+        if val == "app" {
+            "App (To open)".to_string()
+        } else {
+            val.clone()
+        }
     }
 
-    pub fn cycle_exclusive(forwards: bool) {
+    pub fn set_scratch(kind: &str) -> bool {
         let mut state = STASH_STATE.lock().unwrap();
-        let mut modes: Vec<String> = vec!["app".to_string(), "revert".to_string()];
+        if let Some(pos) = state.scratch.iter().position(|(k, _)| k == kind) {
+            state.current_scratch = pos;
+            true
+        } else {
+            false
+        }
+    }
 
-        for k in state.exclusive.keys() {
-            if k != "app" && k != "revert" {
-                modes.push(k.clone());
-            }
+    pub fn cycle_scratch(forwards: bool) {
+        let mut state = STASH_STATE.lock().unwrap();
+
+        let len = state.scratch.len();
+        if len == 0 {
+            return;
         }
 
-        // Add from config if not present in state
-        GLOBAL::with_cfg(|c| {
-            for (k, m) in &c.stash.modes {
-                if m.exclusive && !modes.contains(k) {
-                    modes.push(k.clone());
-                }
-            }
-        });
-
-        if let Some(pos) = modes.iter().position(|m| *m == state.current_exclusive) {
-            let len = modes.len();
-            let next_pos = if forwards {
-                (pos + 1) % len
-            } else {
-                (pos + len - 1) % len
-            };
-            state.current_exclusive = modes[next_pos].clone();
+        if forwards {
+            state.current_scratch = (state.current_scratch + 1) % len;
         } else {
-            state.current_exclusive = "app".to_string();
+            state.current_scratch = (state.current_scratch + len - 1) % len;
         }
     }
 
@@ -145,38 +179,52 @@ impl STASH {
         items: impl IntoIterator<Item = AbsPath>,
     ) {
         let mut state = STASH_STATE.lock().unwrap();
-        let unique = STASH::is_unique(kind);
-        let exclusive = STASH::is_exclusive(kind);
+        let mode = STASH::get_mode(kind);
 
         for path in items {
-            if exclusive {
-                let list = state.exclusive.entry(kind.to_string()).or_insert_with(|| {
-                    if unique {
-                        ExclusiveList::Map(IndexMap::new())
-                    } else {
-                        ExclusiveList::Vec(Vec::new())
-                    }
-                });
-                if !unique || !list.iter_any(&path) {
-                    list.push(path, OsString::new());
-                } else if unique {
-                    if let Some(i) = list.position(&path) {
-                        list.remove(i);
-                    }
-                    list.push(path, OsString::new());
-                }
+            if mode.scratch {
+                let list = if let Some(pos) = state.scratch.iter().position(|(k, _)| k == kind) {
+                    &mut state.scratch[pos].1
+                } else {
+                    state.scratch.push((
+                        kind.to_string(),
+                        match mode.unique {
+                            StashAddRule::False => ScratchList::Vec(Vec::new(), 0),
+                            StashAddRule::True => ScratchList::Map(IndexMap::new()),
+                            StashAddRule::Limit(n) => ScratchList::Vec(Vec::new(), n),
+                        },
+                    ));
+                    &mut state.scratch.last_mut().unwrap().1
+                };
+                list.push(path, OsString::new());
             } else {
-                if !unique || !state.shared.iter().any(|s| s.src == path && s.kind == kind) {
-                    state.shared.push(StashItem::new(kind.to_string(), path));
-                } else if unique {
-                    if let Some(i) = state
-                        .shared
-                        .iter()
-                        .position(|s| s.src == path && s.kind == kind)
-                    {
-                        state.shared.remove(i);
+                match mode.unique {
+                    StashAddRule::False => {
+                        state.shared.push(StashItem::new(kind.to_string(), path));
                     }
-                    state.shared.push(StashItem::new(kind.to_string(), path));
+                    StashAddRule::True => {
+                        if !state.shared.iter().any(|s| s.src == path && s.kind == kind) {
+                            state.shared.push(StashItem::new(kind.to_string(), path));
+                        }
+                    }
+                    StashAddRule::Limit(n) => {
+                        if let Some(i) = state
+                            .shared
+                            .iter()
+                            .position(|s| s.src == path && s.kind == kind)
+                        {
+                            state.shared.remove(i);
+                            state.shared.push(StashItem::new(kind.to_string(), path));
+                        } else {
+                            let count = state.shared.iter().filter(|s| s.kind == kind).count();
+                            if count >= n as usize && n > 0 {
+                                if let Some(i) = state.shared.iter().rposition(|s| s.kind == kind) {
+                                    state.shared.remove(i);
+                                }
+                            }
+                            state.shared.push(StashItem::new(kind.to_string(), path));
+                        }
+                    }
                 }
             }
         }
@@ -192,13 +240,12 @@ impl STASH {
     // ------------- std ops ------------------
 
     pub fn get(
-        exclusive: bool,
+        scratch: bool,
         index: usize,
     ) -> Option<(AbsPath, OsString)> {
         let state = STASH_STATE.lock().unwrap();
-        if exclusive {
-            let kind = state.current_exclusive.clone();
-            state.exclusive.get(&kind).and_then(|list| list.get(index))
+        if scratch {
+            state.scratch[state.current_scratch].1.get(index)
         } else {
             state
                 .shared
@@ -208,18 +255,16 @@ impl STASH {
     }
 
     pub fn update(
-        exclusive: bool,
+        scratch: bool,
         index: usize,
         path: Option<AbsPath>,
         dst: Option<OsString>,
     ) {
         let mut state = STASH_STATE.lock().unwrap();
 
-        if exclusive {
-            let kind = STASH::current_exclusive();
-            if let Some(list) = state.exclusive.get_mut(&kind) {
-                list.update(index, path, dst);
-            }
+        if scratch {
+            let idx = state.current_scratch;
+            state.scratch[idx].1.update(index, path, dst);
         } else {
             if let Some(item) = state.shared.get_mut(index) {
                 if let Some(p) = path {
@@ -233,31 +278,27 @@ impl STASH {
     }
 
     pub fn swap(
-        exclusive: bool,
+        scratch: bool,
         i: usize,
         j: usize,
     ) {
         let mut state = STASH_STATE.lock().unwrap();
-        if exclusive {
-            let kind = state.current_exclusive.clone();
-            if let Some(list) = state.exclusive.get_mut(&kind) {
-                list.swap(i, j);
-            }
+        if scratch {
+            let idx = state.current_scratch;
+            state.scratch[idx].1.swap(i, j);
         } else {
             state.shared.swap(i, j);
         }
     }
 
     pub fn remove(
-        exclusive: bool,
+        scratch: bool,
         index: usize,
     ) {
         let mut state = STASH_STATE.lock().unwrap();
-        if exclusive {
-            let kind = STASH::current_exclusive();
-            if let Some(list) = state.exclusive.get_mut(&kind) {
-                list.remove(index);
-            }
+        if scratch {
+            let idx = state.current_scratch;
+            state.scratch[idx].1.remove(index);
         } else {
             if index < state.shared.len() {
                 state.shared.remove(index);
@@ -268,25 +309,34 @@ impl STASH {
     // ------------ execute -----------------
 
     pub fn execute(
-        exclusive: bool,
+        scratch: bool,
         index: usize,
     ) {
-        if exclusive {
-            STASH::execute_exclusive(index);
+        let state = STASH_STATE.lock().unwrap();
+
+        if scratch {
+            STASH::execute_all_scratch_impl(Some(&BTreeSet::from([index])));
         } else {
-            STASH::execute_shared(index);
+            if let Some(item) = state.shared.get(index).cloned() {
+                let mut item = item;
+                item.dst = GLOBAL::with_cfg(|c| {
+                    auto_dest_for_src(&item.src, &item.dst, &c.fs.rename_policy)
+                })
+                .into();
+                TASKS::spawn_blocking(move || item.execute());
+            }
         }
     }
 
     /// Execute with STACK::nav_cwd() as base
     pub fn execute_all(
-        exclusive: bool,
+        scratch: bool,
         indices: &BTreeSet<usize>,
     ) {
-        if exclusive {
-            STASH::execute_exclusive_all(Some(indices));
+        if scratch {
+            STASH::execute_all_scratch_impl(Some(indices));
         } else if let Some(base) = STACK::nav_cwd() {
-            STASH::transfer_all(base, false, Some(indices));
+            STASH::execute_all_impl(base, false, Some(indices));
         } else {
             TOAST::notice(
                 ToastStyle::Error,
@@ -295,89 +345,51 @@ impl STASH {
         }
     }
 
-    pub fn execute_shared(index: usize) {
-        let state = STASH_STATE.lock().unwrap();
-        if let Some(item) = state.shared.get(index).cloned() {
-            let mut item = item;
-            item.dst =
-                GLOBAL::with_cfg(|c| auto_dest_for_src(&item.src, &item.dst, &c.fs.rename_policy))
-                    .into();
-            TASKS::spawn_blocking(move || item.transfer());
-        }
-    }
+    // ------------- clear --------------
 
-    pub fn execute_exclusive(index: usize) {
-        STASH::execute_exclusive_all(Some(&BTreeSet::from([index])));
-    }
-
-    pub fn execute_exclusive_all(indices: Option<&BTreeSet<usize>>) {
-        let state = STASH_STATE.lock().unwrap();
-        let kind = state.current_exclusive.clone();
-        if let Some(list) = state.exclusive.get(&kind) {
-            let items: Vec<_> = list
-                .as_slice()
-                .into_iter()
-                .enumerate()
-                .filter(|(i, _)| indices.is_none_or(|ids: &BTreeSet<usize>| ids.contains(i)))
-                .map(|(_, (src, dst))| {
-                    let mut item = StashItem::new(kind.clone(), src);
-                    item.dst = dst;
-                    item.dst = GLOBAL::with_cfg(|c| {
-                        auto_dest_for_src(&item.src, &item.dst, &c.fs.rename_policy)
-                    })
-                    .into();
-                    item
-                })
-                .collect();
-
-            if !items.is_empty() {
-                TASKS::spawn_blocking(move || {
-                    for item in items {
-                        item.transfer();
+    /// Clear items that are not in progress
+    pub fn clear(kind: Option<&str>) {
+        let mut state = STASH_STATE.lock().unwrap();
+        match kind {
+            None => state.shared.clear(),
+            Some("") => {
+                let idx = state.current_scratch;
+                state.scratch[idx].1.clear()
+            }
+            Some(k) if STASH::is_scratch(k) => {
+                if STASH::is_scratch(k) {
+                    if let Some((_, list)) = state.scratch.iter_mut().find(|(kind, _)| kind == k) {
+                        list.clear()
                     }
+                }
+            }
+            _ => {
+                state.shared.retain(|item| {
+                    kind.is_some_and(|k| k != item.kind) || item.status.state.is_started()
                 });
             }
         }
     }
 
-    pub fn clear(kind: Option<&str>) {
+    /// Clear shared items that are complete
+    pub fn clear_completed_shared() {
         let mut state = STASH_STATE.lock().unwrap();
-        let current_exclusive = state.current_exclusive.clone();
-        match kind {
-            None => state.shared.clear(),
-            Some("") => {
-                if let Some(x) = state.exclusive.get_mut(&current_exclusive) {
-                    x.clear()
-                }
-            }
-            Some(k) => {
-                if STASH::is_exclusive(k) {
-                    if let Some(s) = state.exclusive.get_mut(k) {
-                        s.clear()
-                    }
-                } else {
-                    state
-                        .shared
-                        .retain(|item| item.kind != k || item.status.state.is_started());
-                }
-            }
-        }
+        state.shared.retain(|item| !item.status.state.is_complete());
+    }
+    pub fn clear_completed_scratch() {
+        // todo: state tracking for the scratch stash
     }
 
     // --------------- other ----------------
 
     pub fn stashed_apps() -> Vec<std::ffi::OsString> {
         let state = STASH_STATE.lock().unwrap();
-        state
-            .exclusive
-            .get("app")
-            .map(|list| {
-                list.as_slice()
-                    .into_iter()
-                    .map(|(p, _)| p.to_os_string())
-                    .collect()
-            })
-            .unwrap_or_default()
+        state.scratch[0]
+            .1
+            .as_slice()
+            .into_iter()
+            .map(|(p, _)| p.to_os_string())
+            .collect()
     }
 }
 

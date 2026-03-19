@@ -69,6 +69,10 @@ pub struct Config {
     /// Custom actions which appear in the menu
     #[serde(default)]
     pub actions: MenuActions,
+
+    /// Custom stash modes
+    #[serde(default)]
+    pub stash: StashLogicConfig,
 }
 
 impl Default for Config {
@@ -84,8 +88,6 @@ pub struct GlobalConfig {
 
     /// Configure behavior of filesystem actions.
     pub fs: FsConfig,
-
-    pub stash: StashLogicConfig,
 
     /// Configure behavior of the fd tool.
     /// This affects [FsAction::Find](`crate::run::FsAction::Find`) and the default subcommand.

@@ -17,7 +17,7 @@
     show_preview         = 20
     preview_layout_index = 1
 
-    one_line         = true
+    one_line           = true
     default_visibility = { ignore = true }
     default_sort       = "none"
     search_empty_query = true
@@ -52,18 +52,18 @@
     ### ACTIONS ####
 
 [stash.modes.backup]
-    exclusive = false
-    target = true
+    scratch  = false
+    target   = true
     strategy = "copy"
 
 [stash.modes.work]
-    exclusive = true
-    target = false
+    scratch  = true
+    target   = false
     strategy = "none"
 
 [stash.modes.scripts]
-    exclusive = true
-    target = true
+    scratch  = true
+    target   = true
     strategy = { command = "echo {1} to {2}" }
 
 [actions]

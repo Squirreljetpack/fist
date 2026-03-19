@@ -4,29 +4,39 @@ use indexmap::IndexMap;
 
 use crate::abspath::AbsPath;
 
-pub enum ExclusiveList {
-    Vec(Vec<(AbsPath, OsString)>),
+pub enum ScratchList {
+    Vec(Vec<(AbsPath, OsString)>, u8),
     Map(IndexMap<AbsPath, OsString>),
 }
 
-impl ExclusiveList {
+impl ScratchList {
     pub fn push(
         &mut self,
         path: AbsPath,
         dst: OsString,
     ) {
         match self {
-            ExclusiveList::Vec(v) => v.push((path, dst)),
-            ExclusiveList::Map(m) => {
-                m.insert(path, dst);
+            ScratchList::Vec(v, limit) => {
+                let limit = *limit as usize;
+                if limit > 0 && v.len() >= limit {
+                    v[limit - 1] = (path, dst);
+                } else {
+                    v.push((path, dst));
+                }
+            }
+            ScratchList::Map(m) => {
+                // True rule: if exists, do not add
+                if !m.contains_key(&path) {
+                    m.insert(path, dst);
+                }
             }
         }
     }
 
     pub fn len(&self) -> usize {
         match self {
-            ExclusiveList::Vec(v) => v.len(),
-            ExclusiveList::Map(m) => m.len(),
+            ScratchList::Vec(v, _) => v.len(),
+            ScratchList::Map(m) => m.len(),
         }
     }
 
@@ -39,16 +49,15 @@ impl ExclusiveList {
         index: usize,
     ) -> Option<(AbsPath, OsString)> {
         match self {
-            ExclusiveList::Vec(v) => v.get(index).cloned(),
-            ExclusiveList::Map(m) => m.get_index(index).map(|(p, d)| (p.clone(), d.clone())),
+            ScratchList::Vec(v, _) => v.get(index).cloned(),
+            ScratchList::Map(m) => m.get_index(index).map(|(p, d)| (p.clone(), d.clone())),
         }
     }
 
-    // no retain because no progress
     pub fn clear(&mut self) {
         match self {
-            ExclusiveList::Vec(v) => v.clear(),
-            ExclusiveList::Map(m) => m.clear(),
+            ScratchList::Vec(v, _) => v.clear(),
+            ScratchList::Map(m) => m.clear(),
         }
     }
 
@@ -59,7 +68,7 @@ impl ExclusiveList {
         new_dst: Option<OsString>,
     ) {
         match self {
-            ExclusiveList::Vec(v) => {
+            ScratchList::Vec(v, _) => {
                 if let Some((p, d)) = v.get_mut(index) {
                     if let Some(p_new) = new_path {
                         *p = p_new;
@@ -69,7 +78,7 @@ impl ExclusiveList {
                     }
                 }
             }
-            ExclusiveList::Map(m) => {
+            ScratchList::Map(m) => {
                 if let Some((mut p, mut d)) =
                     m.get_index(index).map(|(p, d)| (p.clone(), d.clone()))
                 {
@@ -91,12 +100,12 @@ impl ExclusiveList {
         index: usize,
     ) {
         match self {
-            ExclusiveList::Vec(v) => {
+            ScratchList::Vec(v, _) => {
                 if index < v.len() {
                     v.remove(index);
                 }
             }
-            ExclusiveList::Map(m) => {
+            ScratchList::Map(m) => {
                 if index < m.len() {
                     m.shift_remove_index(index);
                 }
@@ -110,15 +119,15 @@ impl ExclusiveList {
         j: usize,
     ) {
         match self {
-            ExclusiveList::Vec(v) => v.swap(i, j),
-            ExclusiveList::Map(m) => m.swap_indices(i, j),
+            ScratchList::Vec(v, _) => v.swap(i, j),
+            ScratchList::Map(m) => m.swap_indices(i, j),
         }
     }
 
     pub fn as_slice(&self) -> Vec<(AbsPath, OsString)> {
         match self {
-            ExclusiveList::Vec(v) => v.clone(),
-            ExclusiveList::Map(m) => m.iter().map(|(p, d)| (p.clone(), d.clone())).collect(),
+            ScratchList::Vec(v, _) => v.clone(),
+            ScratchList::Map(m) => m.iter().map(|(p, d)| (p.clone(), d.clone())).collect(),
         }
     }
 
@@ -127,8 +136,8 @@ impl ExclusiveList {
         path: &AbsPath,
     ) -> bool {
         match self {
-            ExclusiveList::Vec(v) => v.iter().any(|(p, _)| p == path),
-            ExclusiveList::Map(m) => m.contains_key(path),
+            ScratchList::Vec(v, _) => v.iter().any(|(p, _)| p == path),
+            ScratchList::Map(m) => m.contains_key(path),
         }
     }
 
@@ -137,8 +146,8 @@ impl ExclusiveList {
         path: &AbsPath,
     ) -> Option<usize> {
         match self {
-            ExclusiveList::Vec(v) => v.iter().position(|(p, _)| p == path),
-            ExclusiveList::Map(m) => m.get_index_of(path),
+            ScratchList::Vec(v, _) => v.iter().position(|(p, _)| p == path),
+            ScratchList::Map(m) => m.get_index_of(path),
         }
     }
 }

@@ -1,7 +1,7 @@
 use super::*;
 
 use std::{
-    collections::{HashMap, BTreeSet},
+    collections::{BTreeSet, HashMap},
     ffi::OsString,
     fs::create_dir_all,
     path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
@@ -36,7 +36,7 @@ pub fn stash_formatter(
 }
 
 impl StashItem {
-    pub fn transfer(self) {
+    pub fn execute(self) {
         log::debug!("Transferring: {self:?}");
 
         let Self {
@@ -56,13 +56,8 @@ impl StashItem {
         } else if kind == "symlink" {
             (ExecuteStrategy::Symlink, true)
         } else {
-            GLOBAL::with_cfg(|c| {
-                if let Some(mode) = c.stash.modes.get(kind) {
-                    (mode.strategy.clone(), false)
-                } else {
-                    (ExecuteStrategy::None, false)
-                }
-            })
+            let mode = STASH::get_mode(kind);
+            (mode.strategy, false)
         };
 
         if !is_builtin {
@@ -178,7 +173,7 @@ impl STASH {
         }
     }
 
-    pub fn transfer_all(
+    pub fn execute_all_impl(
         base: AbsPath,
         include_completed: bool,
         indices: Option<&BTreeSet<usize>>,
@@ -216,9 +211,7 @@ impl STASH {
                     })
                     .into();
 
-                    let is_batch = GLOBAL::with_cfg(|c| {
-                        c.stash.modes.get(&item.kind).map(|m| m.batch).unwrap_or(false)
-                    });
+                    let is_batch = STASH::get_mode(&item.kind).batch;
 
                     if is_batch {
                         groups.entry(item.kind.clone()).or_default().push(item);
@@ -237,11 +230,11 @@ impl STASH {
             TASKS::spawn_blocking(move || {
                 for (kind, items) in batch_groups {
                     for item in items {
-                        item.transfer();
+                        item.execute();
                     }
                 }
                 for item in queue {
-                    item.transfer();
+                    item.execute();
                 }
             });
         } else {
@@ -249,8 +242,33 @@ impl STASH {
         }
     }
 
-    pub fn clear_completed() {
-        let mut state = STASH_STATE.lock().unwrap();
-        state.shared.retain(|item| !item.status.state.is_complete());
+    pub fn execute_all_scratch_impl(indices: Option<&BTreeSet<usize>>) {
+        let state = STASH_STATE.lock().unwrap();
+        let idx = state.current_scratch;
+        let (kind, list) = &state.scratch[idx];
+        let kind = kind.clone();
+        let items: Vec<_> = list
+            .as_slice()
+            .into_iter()
+            .enumerate()
+            .filter(|(i, _)| indices.is_none_or(|ids: &BTreeSet<usize>| ids.contains(i)))
+            .map(|(_, (src, dst))| {
+                let mut item = StashItem::new(kind.clone(), src);
+                item.dst = dst;
+                item.dst = GLOBAL::with_cfg(|c| {
+                    auto_dest_for_src(&item.src, &item.dst, &c.fs.rename_policy)
+                })
+                .into();
+                item
+            })
+            .collect();
+
+        if !items.is_empty() {
+            TASKS::spawn_blocking(move || {
+                for item in items {
+                    item.execute();
+                }
+            });
+        }
     }
 }

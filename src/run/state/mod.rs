@@ -37,6 +37,8 @@ pub static DB_FILTER: tokio::sync::Mutex<Option<DbFilter>> =
 pub mod GLOBAL {
     use matchmaker::{event::BindSender, message::BindDirective};
 
+    use crate::config::StashLogicConfig;
+
     use super::*;
     thread_local! {
         static CONFIG: RefCell<Option<GlobalConfig>> = const { RefCell::new(None) };
@@ -50,6 +52,7 @@ pub mod GLOBAL {
     /// DB_FILTER needs to be initialized seperately with async
     pub fn init(
         cfg: GlobalConfig,
+        stash_cfg: StashLogicConfig,
         render_tx: RenderSender<FsAction>,
         watcher_tx: WatcherSender,
         db_pool: Pool,
@@ -75,6 +78,8 @@ pub mod GLOBAL {
         };
         debug!("Initial filters: {sort}, {visibility:?}");
         FILTERS::set(sort, visibility);
+
+        crate::run::stash::STASH::init(stash_cfg.modes.clone());
 
         CONFIG.with(|c| *c.borrow_mut() = Some(cfg));
         *RENDER_TX.lock().unwrap() = Some(render_tx);

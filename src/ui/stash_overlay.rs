@@ -74,20 +74,20 @@ pub struct TableSelection {
     pub selected: BTreeSet<usize>,
     pub editing: Option<(usize, usize, InputWidget)>,
 
-    pub exclusive: bool,
-    // exclusive and shared have different table layouts
+    pub scratch: bool,
+    // exclusive and shared have different columns for src/dst
     pub path_dst_cols: [usize; 2],
     pub available_w: u16,
     pub initial_widths: Vec<u16>,
 }
 
 impl TableSelection {
-    pub fn new(exclusive: bool) -> Self {
-        let path_dst_cols = if exclusive { [0, 1] } else { [1, 2] };
+    pub fn new(scratch: bool) -> Self {
+        let path_dst_cols = if scratch { [0, 1] } else { [1, 2] };
         Self {
             state: TableState::new(),
             selected: BTreeSet::new(),
-            exclusive,
+            scratch,
             editing: None,
             path_dst_cols,
             available_w: 0,
@@ -152,15 +152,9 @@ impl TableSelection {
         widths: &mut [u16],
         border_width: u16,
     ) -> OverlayEffect {
-        let len = if self.exclusive {
-            let kind = STASH::current_exclusive();
-            STASH_STATE
-                .lock()
-                .unwrap()
-                .exclusive
-                .get(&kind)
-                .map(|v| v.len())
-                .unwrap_or(0)
+        let len = if self.scratch {
+            let state = STASH_STATE.lock().unwrap();
+            state.scratch[state.current_scratch].1.len()
         } else {
             STASH_STATE.lock().unwrap().shared.len()
         };
@@ -175,14 +169,14 @@ impl TableSelection {
                     if *col == self.path_dst_cols[0] {
                         let path = AbsPath::new_unchecked(std::path::PathBuf::from(value));
                         if std::fs::symlink_metadata(&path).is_ok() {
-                            STASH::update(self.exclusive, *row, Some(path), None);
+                            STASH::update(self.scratch, *row, Some(path), None);
                             self.editing = None;
                         } else {
                             TOAST::notice(ToastStyle::Error, "Path does not exist");
                         }
                     } else {
                         // dst was updated
-                        STASH::update(self.exclusive, *row, None, Some(value.into()));
+                        STASH::update(self.scratch, *row, None, Some(value.into()));
                         self.editing = None;
                     }
                 } else {
@@ -224,7 +218,7 @@ impl TableSelection {
             Action::PreviewUp(_) => {
                 if let Some(i) = self.state.selected() {
                     if i > 0 {
-                        STASH::swap(self.exclusive, i, i - 1);
+                        STASH::swap(self.scratch, i, i - 1);
                         self.state.select(Some(i - 1));
                     }
                 }
@@ -232,27 +226,27 @@ impl TableSelection {
             Action::PreviewDown(_) => {
                 if let Some(i) = self.state.selected() {
                     if i + 1 < len {
-                        STASH::swap(self.exclusive, i, i + 1);
+                        STASH::swap(self.scratch, i, i + 1);
                         self.state.select(Some(i + 1));
                     }
                 }
             }
             Action::DeleteChar | Action::Custom(FsAction::Trash | FsAction::Delete(_)) => {
                 if let Some(i) = self.state.selected() {
-                    STASH::remove(self.exclusive, i);
+                    STASH::remove(self.scratch, i);
                 }
             }
             Action::Accept => {
                 if !self.selected.is_empty() {
-                    STASH::execute_all(self.exclusive, &self.selected);
+                    STASH::execute_all(self.scratch, &self.selected);
                     self.selected.clear();
                 } else if let Some(i) = self.state.selected() {
-                    STASH::execute(self.exclusive, i);
+                    STASH::execute(self.scratch, i);
                 }
             }
             Action::Custom(FsAction::ShowMenu) => {
                 if let Some(i) = self.state.selected() {
-                    if let Some((p, _)) = STASH::get(self.exclusive, i) {
+                    if let Some((p, _)) = STASH::get(self.scratch, i) {
                         let mut input = InputWidget::new(InputWidgetConfig {
                             no_scroll_padding: true,
                             ..Default::default()
@@ -267,7 +261,7 @@ impl TableSelection {
             }
             Action::Custom(FsAction::Rename) => {
                 if let Some(i) = self.state.selected() {
-                    if let Some((_, d)) = STASH::get(self.exclusive, i) {
+                    if let Some((_, d)) = STASH::get(self.scratch, i) {
                         let mut input = InputWidget::new(InputWidgetConfig {
                             no_scroll_padding: true,
                             ..Default::default()
@@ -280,11 +274,11 @@ impl TableSelection {
                     }
                 }
             }
-            Action::Custom(FsAction::Undo) if self.exclusive => {
-                STASH::cycle_exclusive(false);
+            Action::Custom(FsAction::Undo) if self.scratch => {
+                STASH::cycle_scratch(false);
             }
-            Action::Custom(FsAction::Redo) if self.exclusive => {
-                STASH::cycle_exclusive(true);
+            Action::Custom(FsAction::Redo) if self.scratch => {
+                STASH::cycle_scratch(true);
             }
             Action::Quit(_) => return OverlayEffect::Disable,
             _ => {}
@@ -323,14 +317,14 @@ impl TableSelection {
     }
 }
 
-pub struct SharedStashOverlay {
+pub struct StashOverlay {
     state: TableSelection,
     config: StashConfig,
     widths: [u16; 4],
     headers: [String; 4],
 }
 
-impl SharedStashOverlay {
+impl StashOverlay {
     pub fn new(config: StashConfig) -> Self {
         Self {
             state: TableSelection::new(false),
@@ -392,7 +386,7 @@ impl SharedStashOverlay {
     }
 }
 
-impl Overlay for SharedStashOverlay {
+impl Overlay for StashOverlay {
     type A = FsAction;
 
     fn on_enable(
@@ -404,7 +398,7 @@ impl Overlay for SharedStashOverlay {
     }
 
     fn on_disable(&mut self) {
-        STASH::clear_completed();
+        STASH::clear_completed_shared();
     }
 
     fn handle_input(
@@ -517,21 +511,17 @@ impl Overlay for SharedStashOverlay {
     }
 }
 
-pub struct ExclusiveStashOverlay {
+pub struct ScratchOverlay {
     state: TableSelection,
     config: StashConfig,
     widths: Vec<u16>,
 }
 
-impl ExclusiveStashOverlay {
+impl ScratchOverlay {
     pub fn new(config: StashConfig) -> Self {
-        let mut border = config.border.clone();
-        if let Ok(b) = &mut border {
-            b.title = "Exclusive Stash".into();
-        }
         Self {
             state: TableSelection::new(true),
-            config: StashConfig { border, ..config },
+            config,
             widths: Vec::new(),
         }
     }
@@ -541,7 +531,7 @@ impl ExclusiveStashOverlay {
     }
 }
 
-impl Overlay for ExclusiveStashOverlay {
+impl Overlay for ScratchOverlay {
     type A = FsAction;
 
     fn on_enable(
@@ -549,6 +539,7 @@ impl Overlay for ExclusiveStashOverlay {
         _area: &Rect,
     ) {
         self.state.state.select(Some(0));
+        self.config.border.as_mut().unwrap().title = STASH::scratch_title();
     }
 
     fn on_disable(&mut self) {}
@@ -577,14 +568,10 @@ impl Overlay for ExclusiveStashOverlay {
             return Err([width.into(), SizeHint::Min(self.border().height() + 4)]);
         }
 
-        let kind = STASH::current_exclusive();
-        let target = STASH::has_target(&kind);
         let state = STASH_STATE.lock().unwrap();
-        let items = state
-            .exclusive
-            .get(&kind)
-            .map(|v| v.as_slice())
-            .unwrap_or_default();
+        let (kind, list) = &state.scratch[state.current_scratch];
+        let target = STASH::has_target(kind);
+        let items = list.as_slice();
 
         let mut path_w = 16u16;
         for (p, _) in &items {
@@ -619,13 +606,8 @@ impl Overlay for ExclusiveStashOverlay {
         frame: &mut matchmaker::ui::Frame<'_>,
         area: Rect,
     ) {
-        let kind = STASH::current_exclusive();
         let state = STASH_STATE.lock().unwrap();
-        let items = state
-            .exclusive
-            .get(&kind)
-            .map(|v| v.as_slice())
-            .unwrap_or_default();
+        let items = state.scratch[state.current_scratch].1.as_slice();
 
         if items.is_empty() {
             frame.render_widget(Clear, area);

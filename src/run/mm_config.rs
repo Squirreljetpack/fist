@@ -8,6 +8,7 @@ use matchmaker::{
     nucleo::nucleo,
 };
 use matchmaker_partial::Apply;
+use ratatui::style::Modifier;
 use std::path::Path;
 
 use super::{FsAction, binds::default_binds};
@@ -40,6 +41,8 @@ pub struct MMConfig {
     // overlays
     #[serde(default)]
     pub stash: StashConfig,
+    #[serde(default)]
+    pub scratch: StashConfig,
     #[serde(default)]
     pub filters: FiltersConfig,
     #[serde(default)]
@@ -155,8 +158,16 @@ pub fn get_mm_cfg(
         full.apply(p);
         mm_cfg.stash.border = Ok(full)
     }
+    if let Err(p) = mm_cfg.scratch.border {
+        let mut full = mm_cfg.overlay.border.clone();
+        full.apply(p);
+        mm_cfg.scratch.border = Ok(full)
+    }
     if let Err(p) = mm_cfg.confirm.border {
         let mut full = mm_cfg.overlay.border.clone();
+        if p.modifier.is_none() {
+            full.modifier = Modifier::ITALIC
+        }
         full.apply(p);
         mm_cfg.confirm.border = Ok(full)
     }

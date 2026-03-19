@@ -24,7 +24,7 @@ use crate::{
         pane::FsPane,
         stash::STASH,
         state::{
-            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, ShouldNotAbortOnEmpty, STACK,
+            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, ShouldNotAbortOnEmpty,
             TASKS, TOAST, TlsStore, context::ActionContext,
         },
     },
@@ -81,7 +81,7 @@ pub enum FsAction {
     CycleStash(bool),
     SwitchStash(String),
     Stash(String),
-    ShowExclusiveStash,
+    ShowScratch,
 
     /// Show available actions on the current item(s).
     ShowMenu,
@@ -294,7 +294,7 @@ pub fn fsaction_aliaser(
 
             //  ------------- Overlay aliases --------------
             FsAction::ShowStash
-            | FsAction::ShowExclusiveStash
+            | FsAction::ShowScratch
             | FsAction::ShowFilters
             | FsAction::Confirm
             | FsAction::ShowMenu
@@ -305,7 +305,7 @@ pub fn fsaction_aliaser(
             FsAction::ShowStash => {
                 acs![Action::Overlay(0)]
             }
-            FsAction::ShowExclusiveStash => {
+            FsAction::ShowScratch => {
                 acs![Action::Overlay(1)]
             }
             FsAction::ShowFilters => {
@@ -608,7 +608,7 @@ pub fn fsaction_handler(
             let (content, index) = state.get_content_and_index();
             STACK::save_input(content, index);
 
-            TlsStore::set(STASH::current_exclusive());
+            TlsStore::set(STASH::current_scratch());
 
             let pane = FsPane::new_launch();
             if STACK::set_or_push(pane) {
@@ -776,7 +776,7 @@ pub fn fsaction_handler(
         FsAction::Stash(mode) => {
             let mut toast_vec = vec![];
             let mode = if mode.is_empty() {
-                STASH::current_exclusive()
+                STASH::current_scratch()
             } else {
                 mode
             };
@@ -803,18 +803,18 @@ pub fn fsaction_handler(
         }
 
         FsAction::CycleStash(forwards) => {
-            STASH::cycle_exclusive(forwards);
+            STASH::cycle_scratch(forwards);
             TOAST::notice(
                 ToastStyle::Normal,
-                format!("EStash: {}", STASH::current_exclusive()),
+                format!("Scratch: {}", STASH::current_scratch()),
             );
         }
         FsAction::SwitchStash(s) => {
-            // todo!();
-            // TOAST::push_notice(
-            //     ToastStyle::Normal,
-            //     format!("EStash: {}", STASH::current_exclusive()),
-            // );
+            if STASH::set_scratch(&s) {
+                TOAST::notice(ToastStyle::Info, format!("Scratch: {s}"));
+            } else {
+                TOAST::notice(ToastStyle::Error, format!("No such Scratch: {s}"));
+            }
         }
 
         FsAction::Backup => {
@@ -941,7 +941,7 @@ pub fn fsaction_handler(
                 }
                 AbsPath::new_unchecked(dest_base)
             };
-            STASH::transfer_all(base, false, None);
+            STASH::execute_all_impl(base, false, None);
         }
         FsAction::ClearStash(x) => {
             STASH::clear(x.as_deref());
@@ -1156,7 +1156,7 @@ enum_from_str_display! {
     units:
     Advance, Parent, Find, Search, History, App,
     Undo, Redo, Push,
-    ShowFilters, ShowStash, ShowExclusiveStash,
+    ShowFilters, ShowStash, ShowScratch,
     ShowMenu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir, Rename,
     Backup, Trash;

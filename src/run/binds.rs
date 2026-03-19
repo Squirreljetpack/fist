@@ -41,7 +41,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         // Display
         // ----------------------------------
         key!(ctrl-t) => FsAction::ShowStash,
-        key!(ctrl-shift-e) => FsAction::ShowExclusiveStash,
+        key!(ctrl-shift-s), key!(shift-cmd-s) => FsAction::ShowScratch,
         key!(alt-shift-t) => FsAction::ClearStash(None),
         key!(alt-shift-s) => FsAction::ClearStash(Some("copy".to_string())), // clear copy kind
         key!(ctrl-e) => FsAction::ShowMenu,
