@@ -206,21 +206,26 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
             if let Some(enter) = c.panes.enter_prompt(pane) {
                 // this hides the preview if needed
                 enter_prompt(state, enter);
+            } else if state.picker_ui.results.cursor_disabled {
+                // rebuild for cwd
+                enter_prompt(state, true)
             } else {
-                match pane {
-                    FsPane::Find { input, .. }
-                    | FsPane::Search { input, .. }
-                    | FsPane::Files { input, .. }
-                    | FsPane::Folders { input, .. }
-                        if input.0.is_empty() =>
-                    {
-                        enter_prompt(state, true);
-                    }
-                    _ if !state.picker_ui.results.cursor_disabled => {
-                        state.picker_ui.query.set_prompt(None);
-                    }
-                    _ => {}
-                }
+                state.picker_ui.query.set_prompt(None);
+
+                // match pane {
+                //     FsPane::Find { input, .. }
+                //     | FsPane::Search { input, .. }
+                //     | FsPane::Files { input, .. }
+                //     | FsPane::Folders { input, .. }
+                //         if input.0.is_empty() =>
+                //     {
+                //         enter_prompt(state, true);
+                //     }
+                //     _ if !state.picker_ui.results.cursor_disabled => {
+                //         state.picker_ui.query.set_prompt(None);
+                //     }
+                //     _ => {}
+                // }
             }
 
             #[cfg(feature = "mm_overrides")]
