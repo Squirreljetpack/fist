@@ -12,7 +12,7 @@ use crate::{
     aliases::MMState,
     run::{
         FsAction, FsPane,
-        stash::{CustomStashActionActionState, STASH},
+        stash::STASH,
         state::{FILTERS, GLOBAL, STACK, TOAST, TlsStore, ui::global_ui},
     },
     utils::formatter::format_prompt,
@@ -27,7 +27,7 @@ pub fn paste_handler(
             || state.picker_ui.results.cursor_disabled
             || state.overlay_index().is_some())
     {
-        STASH::transfer_all(c, false);
+        STASH::execute_all_impl(c, false, None);
         String::new()
     } else {
         content
@@ -43,7 +43,7 @@ pub fn enter_prompt(
     if let Some(dim) = GLOBAL::with_cfg(|c| c.interface.dim_prompt) {
         let should_dim = enter ^ !dim;
 
-        let mods = &mut state.picker_ui.results.config.modifier;
+        let mods = &mut state.picker_ui.results.config.style.modifier;
         let border_mods = &mut state.picker_ui.results.config.border.modifier;
 
         if should_dim {
@@ -66,7 +66,7 @@ pub fn enter_prompt(
                     .add_modifier(Modifier::ITALIC),
             )
         } else {
-            let content = state.picker_ui.input.config.prompt.clone();
+            let content = state.picker_ui.query.config.prompt.clone();
             Line::styled(
                 content,
                 Style::default()
@@ -76,10 +76,10 @@ pub fn enter_prompt(
         };
         state.picker_ui.results.cursor_jump(0);
         state.stash_preview_visibility(Some(false));
-        state.picker_ui.input.set_prompt_line(prompt);
+        state.picker_ui.query.set_prompt_line(prompt);
     } else {
         state.stash_preview_visibility(None);
-        state.picker_ui.input.set_prompt(None);
+        state.picker_ui.query.set_prompt(None);
     }
     state.picker_ui.results.cursor_disabled = enter;
 
@@ -98,7 +98,7 @@ pub fn enter_dir_pane(
 
     // apply specific settings
     if STACK::with_current(FsPane::should_cancel_input_entering_dir) {
-        state.picker_ui.input.cancel();
+        state.picker_ui.query.cancel();
     }
 
     // always clear selections
@@ -137,9 +137,9 @@ pub fn fs_reload(
             ..
         } => {
             if *filtering {
-                input.0 = state.picker_ui.input.input.clone();
+                input.0 = state.picker_ui.query.input.clone();
             } else {
-                let p = split_whitespace_preserve_single_quotes(&state.picker_ui.input.input);
+                let p = split_whitespace_preserve_single_quotes(&state.picker_ui.query.input);
                 *patterns = if p.is_empty() && GLOBAL::with_cfg(|c| !c.rg.empty_start) {
                     vec_![""]
                 } else {
@@ -188,7 +188,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
     STACK::with_current(|pane| {
         GLOBAL::with_cfg(|c| {
             if let Some(p) = c.panes.prompt(pane) {
-                state.picker_ui.input.config.prompt = p
+                state.picker_ui.query.config.prompt = p
             };
 
             if let Some(p) = state.preview_ui {
@@ -206,21 +206,26 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
             if let Some(enter) = c.panes.enter_prompt(pane) {
                 // this hides the preview if needed
                 enter_prompt(state, enter);
+            } else if state.picker_ui.results.cursor_disabled {
+                // rebuild for cwd
+                enter_prompt(state, true)
             } else {
-                match pane {
-                    FsPane::Find { input, .. }
-                    | FsPane::Search { input, .. }
-                    | FsPane::Files { input, .. }
-                    | FsPane::Folders { input, .. }
-                        if input.0.is_empty() =>
-                    {
-                        enter_prompt(state, true);
-                    }
-                    _ if !state.picker_ui.results.cursor_disabled => {
-                        state.picker_ui.input.set_prompt(None);
-                    }
-                    _ => {}
-                }
+                state.picker_ui.query.set_prompt(None);
+
+                // match pane {
+                //     FsPane::Find { input, .. }
+                //     | FsPane::Search { input, .. }
+                //     | FsPane::Files { input, .. }
+                //     | FsPane::Folders { input, .. }
+                //         if input.0.is_empty() =>
+                //     {
+                //         enter_prompt(state, true);
+                //     }
+                //     _ if !state.picker_ui.results.cursor_disabled => {
+                //         state.picker_ui.query.set_prompt(None);
+                //     }
+                //     _ => {}
+                // }
             }
 
             #[cfg(feature = "mm_overrides")]
@@ -264,16 +269,16 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
     // input is nonempty only when called in [`FsAction::Undo`] and [`FsAction::Forward`].
     state
         .picker_ui
-        .input
+        .query
         .set(STACK::with_current(FsPane::get_input), u16::MAX);
     state.picker_ui.selector.clear();
     TOAST::clear_msgs();
 
     if STACK::in_app() {
         TOAST::clear();
-        STASH::set_cas(CustomStashActionActionState::App);
-    } else if let Some(cas) = TlsStore::get() {
-        STASH::set_cas(cas);
+        STASH::set_scratch("app");
+    } else if let Some(cas) = TlsStore::get::<String>() {
+        STASH::set_scratch(&cas);
     }
 
     fs_post_reload(state);
@@ -300,10 +305,10 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
 
                 if !*one_line {
                     // todo: where to add a place to configure this? pane/ui/other?
-                    r.config.horizontal_separator = mm.horizontal_separator;
+                    r.config.separator = mm.horizontal_separator;
                     r.config.stacked_columns = true;
                 } else {
-                    r.config.horizontal_separator = Default::default();
+                    r.config.separator = Default::default();
                     r.config.stacked_columns = false;
                 }
 
@@ -346,7 +351,7 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
                 {
                     let r = &mut state.picker_ui.results;
                     // todo: save and restore
-                    r.config.horizontal_separator = Default::default();
+                    r.config.separator = Default::default();
                     r.config.stacked_columns = false;
                     r.set_status_line(None);
                 }

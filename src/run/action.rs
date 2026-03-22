@@ -22,9 +22,9 @@ use crate::{
         ahandlers::{enter_dir_pane, enter_prompt, fs_reload},
         item::short_display,
         pane::FsPane,
-        stash::{STASH, StashItem},
+        stash::STASH,
         state::{
-            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, InitialQueryShouldNotAbort, STACK,
+            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, ShouldNotAbortOnEmpty,
             TASKS, TOAST, TlsStore, context::ActionContext,
         },
     },
@@ -76,7 +76,12 @@ pub enum FsAction {
     /// Display the current stack.
     ShowStash,
     /// Clear the stack.
-    ClearStash(Option<bool>), // 1: if false, clear only non_custom, if true, clear only custom
+    ClearStash(Option<String>), // if empty, clear shared. if name, clear specific kind.
+
+    CycleStash(bool),
+    SwitchStash(String),
+    Stash(String),
+    ShowScratch,
 
     /// Show available actions on the current item(s).
     ShowMenu,
@@ -100,6 +105,8 @@ pub enum FsAction {
     New,
     /// Create a new directory. (todo)
     NewDir,
+    /// Rename a file or directory.
+    Rename,
 
     /// Save the file to the backup directory. (todo)
     Backup,
@@ -201,7 +208,7 @@ pub fn fsaction_aliaser(
             }
             FsAction::SaveInput => {
                 let (content, index) = (
-                    state.picker_ui.input.input.clone(),
+                    state.picker_ui.query.input.clone(),
                     state.picker_ui.results.index(),
                 );
                 log::debug!("Saved: {content}, {index}");
@@ -287,6 +294,7 @@ pub fn fsaction_aliaser(
 
             //  ------------- Overlay aliases --------------
             FsAction::ShowStash
+            | FsAction::ShowScratch
             | FsAction::ShowFilters
             | FsAction::Confirm
             | FsAction::ShowMenu
@@ -297,20 +305,23 @@ pub fn fsaction_aliaser(
             FsAction::ShowStash => {
                 acs![Action::Overlay(0)]
             }
-            FsAction::ShowFilters => {
+            FsAction::ShowScratch => {
                 acs![Action::Overlay(1)]
             }
-            FsAction::Confirm => {
+            FsAction::ShowFilters => {
                 acs![Action::Overlay(2)]
+            }
+            FsAction::Confirm => {
+                acs![Action::Overlay(3)]
             }
             // todo: matchmaker needs to support activating the overlay ourselves so that the activated item is aligned
             FsAction::ShowMenu => {
                 if let Some(p) = state.current_item() {
                     TlsStore::set_input_bar(None, MenuTarget::Item(p.clone()));
-                    acs![Action::Overlay(3)]
+                    acs![Action::Overlay(4)]
                 } else if let Some(cwd) = STACK::cwd() {
                     TlsStore::set_input_bar(None, MenuTarget::Cwd(cwd));
-                    acs![Action::Overlay(3)]
+                    acs![Action::Overlay(4)]
                 } else {
                     acs![]
                 }
@@ -325,10 +336,10 @@ pub fn fsaction_aliaser(
                 if let Some(p) = state.current_raw() {
                     let p = p.path._parent();
                     TlsStore::set_input_bar(Some(PromptKind::NewDir), MenuTarget::Cwd(p));
-                    acs![Action::Overlay(2)]
+                    acs![Action::Overlay(3)]
                 } else if let Some(cwd) = STACK::nav_cwd() {
                     TlsStore::set_input_bar(Some(PromptKind::NewDir), MenuTarget::Cwd(cwd));
-                    acs![Action::Overlay(2)]
+                    acs![Action::Overlay(3)]
                 } else {
                     acs![]
                 }
@@ -454,7 +465,7 @@ pub fn fsaction_aliaser(
             Action::Reload(s)
                 if s.is_empty() && STACK::with_current(|c| matches!(c, FsPane::Stream { .. })) =>
             {
-                TOAST::push_msg("Cannot reload streams", false);
+                TOAST::msg("Cannot reload streams", false);
                 acs![]
             }
             _ => acs![a],
@@ -483,7 +494,7 @@ pub fn fsaction_handler(
                 FILTERS::visibility(),
             );
 
-            TlsStore::set(InitialQueryShouldNotAbort {});
+            TlsStore::set(ShouldNotAbortOnEmpty {});
 
             // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
             // todo: there is a problem
@@ -540,7 +551,7 @@ pub fn fsaction_handler(
                         &join_with_single_quotes(patterns)
                     };
 
-                    state.picker_ui.input.set(new_input.clone(), u16::MAX);
+                    state.picker_ui.query.set(new_input.clone(), u16::MAX);
 
                     true
                 }
@@ -597,7 +608,7 @@ pub fn fsaction_handler(
             let (content, index) = state.get_content_and_index();
             STACK::save_input(content, index);
 
-            TlsStore::set(STASH::cas());
+            TlsStore::set(STASH::current_scratch());
 
             let pane = FsPane::new_launch();
             if STACK::set_or_push(pane) {
@@ -655,7 +666,7 @@ pub fn fsaction_handler(
                     enter_dir_pane(state, abs_target);
                 }
             } else {
-                TOAST::push_msg(
+                TOAST::msg(
                     vec![
                         Span::styled(target_path.to_string_lossy().to_string(), Color::Red),
                         Span::raw(" is not a valid directory!"),
@@ -714,12 +725,13 @@ pub fn fsaction_handler(
         FsAction::Cut => {
             let mut toast_vec = vec![];
             let mut cb_vec = vec![];
-            STASH::extend(state.map_selected_to_vec(|s| {
+            let items = state.map_selected_to_vec(|s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
-                StashItem::mv(s.path.clone())
-            }));
-            if !toast_vec.is_empty() {
+                s.path.clone()
+            });
+            if !items.is_empty() {
+                STASH::extend("cut", items);
                 TOAST::push(ToastStyle::Normal, "Cut: ", toast_vec);
                 copy_files(cb_vec, false);
             };
@@ -727,12 +739,13 @@ pub fn fsaction_handler(
         FsAction::Copy => {
             let mut toast_vec = vec![];
             let mut cb_vec = vec![];
-            STASH::extend(state.map_selected_to_vec(|s| {
+            let items = state.map_selected_to_vec(|s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
-                StashItem::cp(s.path.clone())
-            }));
-            if !toast_vec.is_empty() {
+                s.path.clone()
+            });
+            if !items.is_empty() {
+                STASH::extend("copy", items);
                 TOAST::push(ToastStyle::Normal, "Copied: ", toast_vec);
                 copy_files(cb_vec, false);
             };
@@ -743,18 +756,65 @@ pub fn fsaction_handler(
             let mut toast_vec = vec![];
 
             if !in_prompt {
-                state.map_selected_to_vec(|s| {
+                let items = state.map_selected_to_vec(|s| {
                     toast_vec.push(short_display(&s.path));
-                    STASH::push_custom(s.path.clone());
+                    s.path.clone()
                 });
+                if !items.is_empty() {
+                    STASH::extend("copy", items);
+                }
             } else if let Some(p) = STACK::cwd() {
                 toast_vec.push(short_display(&p));
-                STASH::push_custom(p);
+                STASH::stash("copy", p);
             };
 
             if !toast_vec.is_empty() {
                 TOAST::push(ToastStyle::Normal, "Stashed: ", toast_vec);
             };
+        }
+
+        FsAction::Stash(mode) => {
+            let mut toast_vec = vec![];
+            let mode = if mode.is_empty() {
+                STASH::current_scratch()
+            } else {
+                mode
+            };
+            if !in_prompt {
+                let items = state.map_selected_to_vec(|s| {
+                    toast_vec.push(short_display(&s.path));
+                    s.path.clone()
+                });
+                if !items.is_empty() {
+                    STASH::extend(&mode, items);
+                }
+            } else if let Some(p) = STACK::cwd() {
+                toast_vec.push(short_display(&p));
+                STASH::stash(&mode, p);
+            };
+            if !toast_vec.is_empty() {
+                let mut line = Line::from(vec![Span::styled(
+                    format!("Stashed ({}): ", mode),
+                    ToastStyle::Normal,
+                )]);
+                line.spans.extend(toast_vec);
+                TOAST::msg(line, false);
+            };
+        }
+
+        FsAction::CycleStash(forwards) => {
+            STASH::cycle_scratch(forwards);
+            TOAST::notice(
+                ToastStyle::Normal,
+                format!("Scratch: {}", STASH::current_scratch()),
+            );
+        }
+        FsAction::SwitchStash(s) => {
+            if STASH::set_scratch(&s) {
+                TOAST::notice(ToastStyle::Info, format!("Scratch: {s}"));
+            } else {
+                TOAST::notice(ToastStyle::Error, format!("No such Scratch: {s}"));
+            }
         }
 
         FsAction::Backup => {
@@ -868,12 +928,12 @@ pub fn fsaction_handler(
                 if let Some(c) = STACK::nav_cwd() {
                     c
                 } else {
-                    TOAST::push_notice(ToastStyle::Normal, "No current directory.");
+                    TOAST::notice(ToastStyle::Normal, "No current directory.");
                     return;
                 }
             } else {
                 if !dest_base.is_absolute() {
-                    TOAST::push_notice(
+                    TOAST::notice(
                         ToastStyle::Error,
                         format!("{} is not absolute.", dest_base.to_string_lossy()),
                     );
@@ -881,12 +941,12 @@ pub fn fsaction_handler(
                 }
                 AbsPath::new_unchecked(dest_base)
             };
-            STASH::transfer_all(base, false);
+            STASH::execute_all_impl(base, false, None);
         }
         FsAction::ClearStash(x) => {
-            STASH::clear(x);
+            STASH::clear(x.as_deref());
 
-            TOAST::push_notice(ToastStyle::Normal, "Stack cleared");
+            TOAST::notice(ToastStyle::Normal, "Stack cleared");
         }
         // filters
         FsAction::FsToggle => {
@@ -908,9 +968,9 @@ pub fn fsaction_handler(
                             .fg(Color::Blue)
                             .add_modifier(Modifier::ITALIC),
                     );
-                    state.picker_ui.input.set_prompt_line(prompt);
+                    state.picker_ui.query.set_prompt_line(prompt);
                 } else {
-                    state.picker_ui.input.set_prompt(None);
+                    state.picker_ui.query.set_prompt(None);
                 }
             } else {
                 FILTERS::with_mut(|_sort, vis| {
@@ -927,15 +987,15 @@ pub fn fsaction_handler(
                         if vis.dirs {
                             state
                                 .picker_ui
-                                .input
+                                .query
                                 .set_prompt_line(Line::styled("d: ", prompt_main_style()));
                         } else if vis.files {
                             state
                                 .picker_ui
-                                .input
+                                .query
                                 .set_prompt_line(Line::styled("f: ", prompt_main_style()));
                         } else {
-                            state.picker_ui.input.set_prompt(None);
+                            state.picker_ui.query.set_prompt(None);
                         }
                     }
                 });
@@ -947,10 +1007,10 @@ pub fn fsaction_handler(
                 let style = Style::new().add_modifier(Modifier::DIM).italic();
                 if vis.hidden || vis.all() {
                     vis.set_default();
-                    TOAST::push_msg(Span::styled("Default filters", style), true);
+                    TOAST::msg(Span::styled("Default filters", style), true);
                 } else {
                     vis.hidden = true;
-                    TOAST::push_msg(Span::styled("Showing hidden", style), true);
+                    TOAST::msg(Span::styled("Showing hidden", style), true);
                 }
             });
             FILTERS::refilter();
@@ -1096,16 +1156,16 @@ enum_from_str_display! {
     units:
     Advance, Parent, Find, Search, History, App,
     Undo, Redo, Push,
-    ShowFilters, ShowStash,
+    ShowFilters, ShowStash, ShowScratch,
     ShowMenu, FsToggle, ToggleHidden,
-    Cut, Copy, CopyPath, New, NewDir,
+    Cut, Copy, CopyPath, New, NewDir, Rename,
     Backup, Trash;
 
     tuples:
-    AutoJump;
+    AutoJump, SwitchStash;
 
     defaults:
-    (Delete, false)
+    (Delete, false), (Stash, String::new()), (CycleStash, true)
     ;
     options:
     ClearStash

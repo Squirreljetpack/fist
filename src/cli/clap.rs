@@ -127,7 +127,7 @@ Otherwise, this will OVERWRITE your main config."#
         global = true,
         num_args = 0..=1,
          default_missing_value = "true",
-        help = r#"Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse."#
+        help = r#"Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false)."#
     )]
     pub fullscreen: Option<Option<bool>>,
 

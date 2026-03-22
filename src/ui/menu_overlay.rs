@@ -3,7 +3,7 @@ use crate::{
     run::{
         action::FsAction,
         item::short_display,
-        stash::{CustomStashActionActionState, STASH, StashItem},
+        stash::STASH,
         state::{GLOBAL, STACK, TOAST, TlsStore},
     },
     spawn::{menu_action::MenuActions, open_wrapped},
@@ -111,11 +111,17 @@ impl MenuItem {
         match self {
             MenuItem::New => Ok((PromptKind::New, None)),
             MenuItem::Rename => Ok((PromptKind::Rename, Some(path.to_string_lossy().into()))),
-            MenuItem::Cut | MenuItem::Copy => {
+            MenuItem::Cut => {
                 TOAST::push(ToastStyle::Normal, "Cut: ", [short_display(&path)]);
-                STASH::extend(vec![StashItem::mv(path)]);
+                STASH::extend("cut", vec![path]);
                 Err(false)
             }
+            MenuItem::Copy => {
+                TOAST::push(ToastStyle::Normal, "Copied: ", [short_display(&path)]);
+                STASH::extend("copy", vec![path]);
+                Err(false)
+            }
+
             MenuItem::Trash => {
                 match trash::delete(&path) {
                     Ok(()) => TOAST::push(ToastStyle::Success, "Trashed: ", [short_display(&path)]),
@@ -145,8 +151,7 @@ impl MenuItem {
                 Err(false)
             }
             MenuItem::OpenWith => {
-                STASH::set_cas(CustomStashActionActionState::App);
-                STASH::push_custom(path);
+                STASH::stash("app", path);
                 GLOBAL::send_action(FsAction::App);
                 Err(false)
             }

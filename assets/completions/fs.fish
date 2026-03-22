@@ -34,7 +34,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_needs_command" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_needs_command" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_needs_command" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -64,7 +64,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :open" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :open" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :open" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -82,7 +82,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :o" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :o" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :o" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -107,7 +107,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :file" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :file" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :file" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -131,7 +131,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :dir" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :dir" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -163,7 +163,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :fd" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -197,7 +197,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand ::" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand ::" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -237,7 +237,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :rg" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -282,7 +282,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -306,7 +306,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -328,7 +328,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -343,7 +343,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -374,7 +374,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -393,7 +393,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -412,7 +412,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -428,7 +428,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -443,7 +443,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter bump types" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -465,7 +465,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -480,7 +480,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -511,7 +511,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -530,7 +530,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -549,7 +549,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -565,7 +565,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l enter-prompt -r -f -a "true\t''
 false\t''"
@@ -586,7 +586,7 @@ colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :info" -l fullscreen -d 'Start f:ist in fullscreen. Takes a value true/false to override whether results should be displayed in reverse.' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :info" -l fullscreen -d 'Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false).' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :info" -l enter-prompt -r -f -a "true\t''
 false\t''"

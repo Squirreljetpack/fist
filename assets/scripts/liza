@@ -114,7 +114,7 @@ for param; do
         P)
           =true
           ;;
-        [1-9T])
+        [0-9T])
           [[ $letter == T ]] && parsed=(-T) || parsed+=(-T -L $letter)
           ;;
         h)

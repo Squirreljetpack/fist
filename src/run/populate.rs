@@ -15,19 +15,14 @@ use ansi_to_tui::IntoText;
 use anyhow::bail;
 use cba::{
     bait::ResultExt,
-    bo::{MapReaderError, map_reader_lines},
+    bo::{MapReaderError, map_chunks, map_reader_lines, read_to_chunks},
     bog::BogOkExt,
     bring::StrExt,
     broc::{CommandExt, display_sh_prog_and_args},
     bs::sort_by_mtime,
     unwrap,
 };
-use matchmaker::{
-    SSS,
-    message::RenderCommand,
-    nucleo::{Render, injector::Injector},
-    preview::AppendOnly,
-};
+use matchmaker::{SSS, message::RenderCommand, nucleo::injector::Injector, preview::AppendOnly};
 use ratatui::text::Text;
 use tokio::task::spawn_blocking;
 
@@ -39,7 +34,7 @@ use crate::{
     run::{
         FsPane,
         populate_rg::{BufItem, flush_rg_buffer, process_rg_line},
-        state::{InitialQueryShouldNotAbort, TOAST, TlsStore},
+        state::{ShouldNotAbortOnEmpty, TOAST, TlsStore},
     },
     utils::text::{extract_rg_line_no_path, scrub_text_styles, text_to_lines},
 };
@@ -109,6 +104,7 @@ impl FsPane {
                 match display_script {
                     None => map_reader(
                         stdout,
+                        EnvOpts::with_env(|c| c.delimiter),
                         move |line| {
                             let item = PathItem::new_from_split(line.split_delim(delim), &cwd);
                             if let Some(stored) = &stored {
@@ -128,6 +124,7 @@ impl FsPane {
                         // Script runs per item asynchronously
                         map_reader(
                             stdout,
+                            EnvOpts::with_env(|c| c.delimiter),
                             move |line| {
                                 if complete.load(Ordering::SeqCst) {
                                     bail!("Canceled");
@@ -221,6 +218,7 @@ impl FsPane {
                 match display_script {
                     None => map_reader(
                         stdout,
+                        EnvOpts::with_env(|c| c.delimiter),
                         move |line| {
                             let item = PathItem::new_from_split(line.split_delim(delim), &cwd);
                             if let Some(stored) = &stored {
@@ -240,6 +238,7 @@ impl FsPane {
                         // Script runs per item asynchronously
                         map_reader(
                             stdout,
+                            EnvOpts::with_env(|c| c.delimiter),
                             move |line| {
                                 if complete.load(Ordering::SeqCst) {
                                     bail!("Canceled");
@@ -324,11 +323,12 @@ impl FsPane {
                     ._ebog()?;
 
                 let abort_empty =
-                    STACK::len() == 1 && TlsStore::get::<InitialQueryShouldNotAbort>().is_none();
+                    STACK::len() == 1 && TlsStore::get::<ShouldNotAbortOnEmpty>().is_none();
 
                 let _complete = complete.clone();
                 map_reader(
                     stdout,
+                    Some('\0'),
                     move |line| {
                         let item = PathItem::new(line, &cwd);
                         let push = vis.post_fd_filter(&item.path);
@@ -449,6 +449,7 @@ impl FsPane {
 
                     map_reader(
                         stdout,
+                        Some('\0'),
                         move |line| {
                             if current_path.is_empty() {
                                 // rg emits ansi resets if we enable color
@@ -644,17 +645,25 @@ impl FsPane {
 
 pub fn map_reader<E: matchmaker::SSS + Display>(
     reader: impl Read + matchmaker::SSS,
+    delimiter: Option<char>,
     f: impl FnMut(String) -> Result<(), E> + SSS,
     complete: impl FnOnce(Option<usize>) + SSS,
 ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
     spawn_blocking(move || {
-        let count = map_reader_lines::<true, E>(reader, f)._elog();
+        let count = if let Some(c) = delimiter {
+            map_chunks::<true, E>(read_to_chunks(reader, '\0'), f)
+        } else {
+            map_reader_lines::<true, E>(reader, f)
+        }
+        ._elog();
+
         complete(count);
         log::info!("Command completed");
         anyhow::Ok(())
     })
 }
 
+// todo: lowpri: rg --null adds null byte after filepaths
 pub fn map_reader_rg(
     reader: impl Read + matchmaker::SSS + 'static,
     context: [usize; 2],
@@ -669,29 +678,39 @@ pub fn map_reader_rg(
             context[0] + context[1] + 1,
         ));
 
+        let mut path_buffer = String::new();
+
         let count = map_reader_lines::<true, anyhow::Error>(reader, |line| {
             let failed_to_parse = |e| {
                 log::error!("ParseError: {e}: {line}");
                 Ok(())
             };
 
+            if !line.contains('\0') {
+                if line == "--" {
+                    let mut buf = buffer.borrow_mut();
+                    flush_rg_buffer(context, &cwd, &mut buf, |item| {
+                        let _ = injector.push(item);
+                    });
+                    return Ok(());
+                }
+                path_buffer.push_str(&line);
+                path_buffer.push('\n');
+                return Ok(());
+            }
+
+            let line = if path_buffer.is_empty() {
+                line.clone()
+            } else {
+                let full = format!("{}{}", path_buffer, line);
+                path_buffer.clear();
+                full
+            };
+
             let mut text = unwrap!(line.as_bytes().into_text(); |e| failed_to_parse(e));
 
             if text.lines.is_empty() {
                 return failed_to_parse("empty".into());
-            }
-
-            if text
-                .lines
-                .first()
-                .and_then(|s| s.spans.first().map(|x| x.content.as_str()))
-                == Some("--".into())
-            {
-                let mut buf = buffer.borrow_mut();
-                flush_rg_buffer(context, &cwd, &mut buf, |item| {
-                    let _ = injector.push(item);
-                });
-                return Ok(());
             }
 
             let mut buf = buffer.borrow_mut();
@@ -721,6 +740,7 @@ pub fn map_reader_rg(
     })
 }
 
+// todo: also support delimiter
 pub fn map_reader_batch(
     reader: impl Read + matchmaker::SSS,
     complete: Arc<AtomicBool>,

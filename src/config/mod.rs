@@ -26,9 +26,11 @@ use fist_types::When;
 
 mod panes;
 mod partial;
+mod stash;
 mod styles;
 pub use panes::*;
 pub use partial::*;
+pub use stash::*;
 pub mod ui;
 use ui::StyleConfig;
 // ------ CONFIG ------
@@ -67,6 +69,10 @@ pub struct Config {
     /// Custom actions which appear in the menu
     #[serde(default)]
     pub actions: MenuActions,
+
+    /// Custom stash modes
+    #[serde(default)]
+    pub stash: StashLogicConfig,
 }
 
 impl Default for Config {

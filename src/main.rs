@@ -18,6 +18,9 @@ use fist::{
 };
 use matchmaker::MatchError;
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
     let cli = Cli::parse_custom();
