@@ -190,7 +190,6 @@ pub fn parse_rg_line(
     let mut path = String::new();
     let mut loc = String::new();
     let mut content_spans: Vec<Span> = Vec::new();
-    let mut sep = '\0';
 
     for span in line.spans {
         let content = span.content.as_ref();
@@ -208,56 +207,46 @@ pub fn parse_rg_line(
 
             match state {
                 0 => {
-                    if c == match_sep || c == ctx_sep {
-                        sep = c;
+                    if c == '\0' {
                         state = 1;
                     } else {
                         path.push(c);
                     }
                 }
                 1 => {
-                    if c == sep {
+                    if c == match_sep || c == ctx_sep {
                         loc.push(c);
-                        if sep == ctx_sep {
+                        if c == ctx_sep {
                             state = 3;
-                            let remaining = &content[current_pos + 1..];
-                            if !remaining.is_empty() {
-                                content_spans.push(Span::styled(remaining.to_string(), span.style));
-                            }
-                            break;
                         } else {
                             state = 2;
                         }
                     } else if bytes[current_pos].is_ascii_digit() {
                         loc.push(c);
                     } else {
-                        path.push(sep);
-                        path.push_str(&loc);
-                        path.push(c);
-                        loc.clear();
-                        state = 0;
+                        return None;
                     }
                 }
                 2 => {
-                    if c == sep {
+                    if c == match_sep {
                         loc.push(c);
                         state = 3;
-                        let remaining = &content[current_pos + 1..];
-                        if !remaining.is_empty() {
-                            content_spans.push(Span::styled(remaining.to_string(), span.style));
-                        }
-                        break;
                     } else if bytes[current_pos].is_ascii_digit() {
                         loc.push(c);
                     } else {
-                        path.push(sep);
-                        path.push_str(&loc);
-                        path.push(c);
-                        loc.clear();
-                        state = 0;
+                        return None; // always expect column after row index
+                        // state = 3; // --column
                     }
                 }
                 _ => unreachable!(),
+            }
+
+            if state == 3 {
+                let remaining = &content[current_pos + 1..];
+                if !remaining.is_empty() {
+                    content_spans.push(Span::styled(remaining.to_string(), span.style));
+                }
+                break;
             }
 
             current_pos += 1;

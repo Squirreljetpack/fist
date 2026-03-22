@@ -3,7 +3,6 @@ use std::{ffi::OsString, sync::Arc};
 use cba::{bog::BogOkExt, bring::StrExt, prints, unwrap};
 use matchmaker::{
     MatchError, MatchResultExt, Matchmaker, PickOptions, RenderFn, Selector,
-    binds::display_binds,
     config::{PreviewerConfig, RenderConfig, TerminalConfig},
     event::EventLoop,
     message::Event,
@@ -34,8 +33,10 @@ use crate::{
     },
     spawn::{Program, open_wrapped},
     ui::{
-        confirm_overlay::ConfirmOverlay, filters_overlay::FilterOverlay, menu_overlay::MenuOverlay,
-        stash_overlay::StashOverlay,
+        confirm_overlay::ConfirmOverlay,
+        filters_overlay::FilterOverlay,
+        menu_overlay::MenuOverlay,
+        stash_overlay::{ScratchOverlay, StashOverlay},
     },
     watcher::FsWatcher,
 };
@@ -117,6 +118,7 @@ pub async fn start(
         render,
         binds,
         stash,
+        scratch,
         filters,
         prompt,
         menu,
@@ -149,9 +151,7 @@ pub async fn start(
     );
 
     // init previewer
-    let previewer_config = PreviewerConfig::default();
-    let help_str = display_binds(&binds, Some(&previewer_config.help_colors));
-    let previewer = make_previewer(&mut mm, previewer_config);
+    let previewer = make_previewer(&mut mm, PreviewerConfig::default());
 
     let event_loop = EventLoop::with_binds(binds).with_tick_rate(tick_rate);
     let bind_tx = event_loop.bind_controller();
@@ -173,7 +173,8 @@ pub async fn start(
         .hidden_columns(vec![false, false, true])
         .matcher(MATCHER_CONFIG)
         .overlay_config(overlay)
-        .overlay(StashOverlay::new(stash))
+        .overlay(StashOverlay::new(stash.clone()))
+        .overlay(ScratchOverlay::new(stash))
         .overlay(FilterOverlay::new(filters))
         .overlay(ConfirmOverlay::new(confirm))
         .overlay(MenuOverlay::new(menu, prompt, cfg.actions));
@@ -188,9 +189,10 @@ pub async fn start(
         let mut guard = DB_FILTER.lock().await;
         *guard = Some(DbFilter::new(&cfg.history));
     }
-
     // init global
-    GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane, bind_tx);
+    GLOBAL::init(
+        cfg.global, cfg.stash, render_tx, watcher_tx, db_pool, pane, bind_tx,
+    );
     clipboard::init(cfg.misc.clipboard_delay_ms);
     crate::spawn::init_spawn_with(cfg.misc.spawn_with);
     global_ui_init(cfg.styles);

@@ -49,8 +49,8 @@ use crate::{
         FsPane,
         mm_config::get_mm_cfg,
         start,
-        stash::{CustomStashActionActionState, STASH},
-        state::{InitialRelativePathSetting, InitialPreserveWhitespaceInSearch, TlsStore},
+        stash::STASH,
+        state::{InitialPreserveWhitespaceInSearch, InitialRelativePathSetting, TlsStore},
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
@@ -85,11 +85,10 @@ async fn handle_open(
 
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
-        STASH::set_cas(CustomStashActionActionState::App);
+        STASH::set_scratch("app");
         for path in cmd.files {
-            STASH::push_custom(AbsPath::new_unchecked(path));
+            STASH::stash("app", AbsPath::new_unchecked(path));
         }
-        TlsStore::set(CustomStashActionActionState::default());
 
         cfg.global.interface.no_multi_accept = true;
         let pane = FsPane::new_launch();
@@ -413,7 +412,7 @@ async fn handle_default(
                     if !matches!(db_filter.refind, RetryStrat::Search) && !cmd.list {
                         return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
                     } else {
-                        ibog!("Searching from `fs :dir` due to `refind = Search`");
+                        ibog!("Started `fs :dir` due to `refind = Search`");
                         let sort = cmd.sort.unwrap_or(if nav_pane {
                             cfg.global.panes.nav.default_sort
                         } else {

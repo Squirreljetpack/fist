@@ -8,6 +8,7 @@ use matchmaker::{
     nucleo::nucleo,
 };
 use matchmaker_partial::Apply;
+use ratatui::style::Modifier;
 use std::path::Path;
 
 use super::{FsAction, binds::default_binds};
@@ -40,6 +41,8 @@ pub struct MMConfig {
     // overlays
     #[serde(default)]
     pub stash: StashConfig,
+    #[serde(default)]
+    pub scratch: StashConfig,
     #[serde(default)]
     pub filters: FiltersConfig,
     #[serde(default)]
@@ -83,9 +86,9 @@ pub fn get_mm_cfg(
     // Render display
     let RenderConfig {
         ui: _,
-        input: _,
+        query: _,
         results,
-        status: _,
+        status,
         preview,
         footer,
         header: _,
@@ -95,16 +98,19 @@ pub fn get_mm_cfg(
     results.multi_prefix = results.multi_prefix.chars().next().unwrap_or('▌').into(); // single width
     results.right_align_last = true;
     results.stacked_columns = false;
-    results.horizontal_separator = Default::default();
+    results.separator = Default::default();
     results.min_wrap_width = results.min_wrap_width.max(10);
     results.autoscroll.initial_preserved = 5;
     if cfg.global.mm.reverse.is_some() {
         results.reverse = cfg.global.mm.reverse
     }
 
+    if status.template.is_empty() {
+        status.template = r#"\m/\t"#.to_string();
+    }
+
     *footer = DisplayConfig {
-        modifier: Default::default(),
-        fg: Default::default(),
+        style: Default::default(),
         wrap: true,
         row_connection: RowConnectionStyle::Full,
         ..Default::default()
@@ -155,8 +161,16 @@ pub fn get_mm_cfg(
         full.apply(p);
         mm_cfg.stash.border = Ok(full)
     }
+    if let Err(p) = mm_cfg.scratch.border {
+        let mut full = mm_cfg.overlay.border.clone();
+        full.apply(p);
+        mm_cfg.scratch.border = Ok(full)
+    }
     if let Err(p) = mm_cfg.confirm.border {
         let mut full = mm_cfg.overlay.border.clone();
+        if p.modifier.is_none() {
+            full.modifier = Modifier::ITALIC
+        }
         full.apply(p);
         mm_cfg.confirm.border = Ok(full)
     }

@@ -13,7 +13,7 @@
 
 [workspace.dependencies]
     fist-types = { version = "0.0.*", path = "fist-types" }
-    cli_boilerplate_automation = { version = "0.0.*", features = [
+    cli_boilerplate_automation = { version = "0.*", features = [
         "bring",
         "serde",
     ] }
@@ -92,7 +92,8 @@
     mime_guess            = "2.0.5"
     charset-normalizer-rs = { version = "1.1.0" }
     anymap                = "0.12.1"
-atoi = "2.0.0"
+    atoi                  = "2.0.0"
+    mimalloc = { version = "*", features = ["v3"] }
 
 [dev-dependencies]
     tempfile = "3.25.0"

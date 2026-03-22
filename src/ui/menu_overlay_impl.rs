@@ -64,7 +64,8 @@ impl MenuOverlay {
         match prompt {
             PromptKind::New => {
                 let current_item_parent = self.target_parent();
-                let input_path = Path::new(&self.prompt.input);
+                let input = self.prompt.input.value();
+                let input_path = Path::new(&input);
                 let dest = auto_dest(input_path, &current_item_parent); // replaced if input is absolute
                 let dest_slice = [dest];
 
@@ -91,7 +92,8 @@ impl MenuOverlay {
             }
             PromptKind::NewDir => {
                 let current_item_parent = self.target_parent();
-                let input_path = Path::new(&self.prompt.input);
+                let input = self.prompt.input.value();
+                let input_path = Path::new(&input);
                 let dest = AbsPath::new_unchecked(input_path.abs(current_item_parent));
 
                 TASKS::spawn(async move {
@@ -115,8 +117,12 @@ impl MenuOverlay {
                     return OverlayEffect::None;
                 }
                 let dest = AbsPath::new_unchecked(
-                    auto_dest_for_src(&old_path, &self.prompt.input, &RenamePolicy::default())
-                        .abs(old_path.parent().unwrap()),
+                    auto_dest_for_src(
+                        &old_path,
+                        self.prompt.input.value(),
+                        &RenamePolicy::default(),
+                    )
+                    .abs(old_path.parent().unwrap()),
                 );
 
                 if dest == old_path {
@@ -126,7 +132,7 @@ impl MenuOverlay {
                         match rename(&old_path, &dest).await {
                             Ok(_) => {
                                 let new_display = dest.to_string_lossy().to_string().into();
-                                TOAST::push_pair(
+                                TOAST::pair(
                                     ToastStyle::Success,
                                     "Renamed: ",
                                     short_display(&old_path),

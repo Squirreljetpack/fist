@@ -15,7 +15,7 @@ thread_local! {
 pub struct ExecuteHandlerShouldProcessParent;
 
 #[derive(Debug, Clone)]
-pub struct InitialQueryShouldNotAbort;
+pub struct ShouldNotAbortOnEmpty;
 
 #[derive(Clone, Debug)]
 pub struct InitialRelativePathSetting(pub bool);
