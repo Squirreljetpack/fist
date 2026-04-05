@@ -53,16 +53,16 @@ impl Default for StashConfig {
             column_spacing: 2,
             cell: Default::default(),
             current_style: StyleSetting {
-                bg: Color::Black,
+                bg: Some(Color::Black),
                 ..Default::default()
             },
             selected_style: StyleSetting {
-                fg: Color::Yellow,
+                fg: Some(Color::Yellow),
                 ..Default::default()
             },
             editing_row_style: Default::default(),
             editing_style: StyleSetting {
-                bg: Color::Black,
+                bg: Some(Color::Black),
                 ..Default::default()
             },
         }

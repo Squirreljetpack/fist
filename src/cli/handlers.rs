@@ -2,7 +2,7 @@
 use cba::{
     bait::{MaybeExt, TransformExt},
     bath::PathExt,
-    bo::map_reader_lines,
+    bo::{map_chunks, read_to_chunks},
     broc::CommandExt,
     bs::sort_by_mtime,
     ibog, wbog,
@@ -213,8 +213,13 @@ async fn handle_rg(
         let output_separator =
             EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
 
-        let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
-            let path = PathBuf::from(line);
+        let _ = map_chunks::<true, CliError>(read_to_chunks(stdout, '\0'), move |line| {
+            let path = if cfg.misc.list_absolute_paths {
+                __cwd().join(PathBuf::from(line))
+            } else {
+                PathBuf::from(line)
+            };
+
             let push = vis.post_fd_filter(&path);
 
             if push {
@@ -556,8 +561,12 @@ async fn handle_default(
             let output_separator =
                 EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
 
-            let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
-                let path = PathBuf::from(line);
+            let _ = map_chunks::<true, CliError>(read_to_chunks(stdout, '\0'), move |line| {
+                let path = if cfg.misc.list_absolute_paths {
+                    __cwd().join(PathBuf::from(line))
+                } else {
+                    PathBuf::from(line)
+                };
                 let push = vis.post_fd_filter(&path);
 
                 if push {
