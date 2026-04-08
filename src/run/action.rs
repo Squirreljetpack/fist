@@ -33,7 +33,7 @@ use crate::{
         confirm_overlay::ConfirmPrompt,
         menu_overlay::{MenuTarget, PromptKind},
     },
-    utils::text::ToastStyle,
+    utils::{text::ToastStyle, trash::trash},
 };
 use fist_types::When;
 use fist_types::filters::SortOrder;
@@ -829,7 +829,7 @@ pub fn fsaction_handler(
             // not heavy computationally, but still blocking...
             TASKS::spawn_blocking(|| {
                 for path in items {
-                    match trash::delete(&path) {
+                    match trash(&path) {
                         Ok(()) => {
                             TOAST::push(ToastStyle::Success, "Trashed: ", [short_display(&path)]);
                         }
