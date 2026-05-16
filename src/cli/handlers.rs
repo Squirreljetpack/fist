@@ -57,7 +57,7 @@ use crate::{
     utils::{colors::display_ratatui_styles, formatter::format_path, path::paths_base},
 };
 use fist_types::filetypes::{FileType, FileTypeArg};
-use fist_types::filters::{SortOrder, Visibility};
+use fist_types::filters::SortOrder;
 
 pub async fn handle_subcommand(
     cli: Cli,
@@ -171,7 +171,7 @@ async fn handle_rg(
     mut cmd: SearchCommand,
     mut cfg: Config,
 ) -> Result<(), CliError> {
-    let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.search.default_visibility);
+    let vis = cmd.vis.into(cfg.global.panes.search.default_visibility);
 
     let sort = cmd.sort.unwrap_or(
         cfg.global
@@ -377,7 +377,11 @@ async fn handle_default(
             TlsStore::set(cfg.styles.path.relative);
             cfg.styles.path.relative = false;
         };
-        FsPane::new_stream(AbsPath::new_unchecked(__cwd()), cmd.vis.into(), true)
+        FsPane::new_stream(
+            AbsPath::new_unchecked(__cwd()),
+            cmd.vis.into(Some(Default::default())),
+            true,
+        )
     } else if cmd.cd {
         if !cmd.fd.is_empty() && !cmd.paths.is_empty() {
             wbog!(
@@ -466,7 +470,7 @@ async fn handle_default(
         };
 
         if nav_pane {
-            let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.nav.default_visibility);
+            let vis = cmd.vis.into(cfg.global.panes.nav.default_visibility);
 
             FsPane::new_nav(
                 cwd,
@@ -490,10 +494,6 @@ async fn handle_default(
         || !cmd.vis.is_default()
         || !cmd.fd.is_empty()
     {
-        if cmd.vis.is_default() {
-            cmd.vis = cfg.global.panes.find.default_visibility
-        }
-
         // pattern specified
         let cwd = if cmd.paths.len() == 1 {
             is_default_dir = true;
@@ -541,8 +541,8 @@ async fn handle_default(
 
         if cmd.list {
             // mirror new_fd behavior
-            let mut vis =
-                Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.find.default_visibility);
+
+            let mut vis = cmd.vis.into(cfg.global.panes.find.default_visibility);
             if cmd.vis.hidden.is_none() && auto_enable_hidden(&cmd.paths) {
                 vis.hidden = true;
             }
@@ -585,7 +585,7 @@ async fn handle_default(
         )
     } else {
         let DefaultCommand { sort, .. } = cmd;
-        let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.nav.default_visibility);
+        let vis = cmd.vis.into(cfg.global.panes.nav.default_visibility);
 
         if cmd.list {
             let iter = list_dir(__cwd(), vis, 1); // cwd is abs so we can add results as unchecked
@@ -617,7 +617,6 @@ async fn handle_default(
             return Ok(());
         };
 
-        let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.nav.default_visibility);
         FsPane::new_nav(
             AbsPath::new_unchecked(__cwd()),
             vis,

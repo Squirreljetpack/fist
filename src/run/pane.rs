@@ -142,10 +142,10 @@ impl FsPane {
     pub fn new_fd_from_command(
         cmd: DefaultCommand,
         is_default_dir: bool,
-        default_visibility: PartialVisibility,
+        default_visibility: Option<PartialVisibility>,
         cwd: AbsPath,
     ) -> Self {
-        let mut vis = Visibility::from_cmd_or_cfg(cmd.vis, default_visibility);
+        let mut vis = cmd.vis.into(default_visibility);
         if cmd.vis.hidden.is_none() && auto_enable_hidden(&cmd.paths) {
             vis.hidden = true;
         }

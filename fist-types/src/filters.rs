@@ -232,9 +232,31 @@ impl PartialVisibility {
     pub fn is_default(&self) -> bool {
         *self == Self::default()
     }
-    pub fn into(self) -> Visibility {
+    pub fn into(
+        mut self,
+        cfg: Option<Self>,
+    ) -> Visibility {
         let mut vis = Visibility::default();
-        vis.apply(self);
+
+        if self.is_default() {
+            if let Some(cfg) = cfg {
+                vis.apply(cfg);
+            } else if super::git::in_git_repo(std::env::current_dir().ok()) {
+                vis.hidden = true;
+                vis.ignore = true;
+            };
+        } else {
+            if self.hidden.is_none() && self.ignore.is_none() {
+                if let Some(cfg) = cfg {
+                    self.hidden = cfg.hidden;
+                    self.ignore = cfg.ignore;
+                } else if super::git::in_git_repo(std::env::current_dir().ok()) {
+                    vis.hidden = true;
+                    vis.ignore = true;
+                };
+            }
+            vis.apply(self);
+        }
         vis
     }
 }
@@ -263,21 +285,6 @@ impl Visibility {
             self.no_follow = v;
         }
         *self = self.validated();
-    }
-
-    pub fn from_cmd_or_cfg(
-        cmd: PartialVisibility,
-        cfg: PartialVisibility,
-    ) -> Self {
-        let mut vis = Self::default();
-
-        if cmd.is_default() {
-            vis.apply(cfg);
-        } else {
-            vis.apply(cmd);
-        }
-
-        vis
     }
 }
 

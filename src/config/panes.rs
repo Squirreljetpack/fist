@@ -100,8 +100,9 @@ pub struct FdPaneSettings {
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
-    /// Default visibility when no visibility is specified.
-    pub default_visibility: PartialVisibility,
+    /// Default visibility.
+    /// - When None: show hidden files and hide ignored files when inside a git repository and the inverse otherwise
+    pub default_visibility: Option<PartialVisibility>,
     /// When leaving the fd pane, untoggle the `only show directories` visibility filter.
     pub on_leave_unset_dirs_only: bool,
 }
@@ -133,7 +134,9 @@ pub struct RgPaneSettings {
     pub preview_layout_index: u8,
     // ----------------------------
     /// Initial visibility when entering the rg pane.
-    pub default_visibility: PartialVisibility,
+    ///
+    /// - When None: show hidden files and hide ignored files when inside a git repository and the inverse otherwise
+    pub default_visibility: Option<PartialVisibility>,
     /// Initial sort entering the rg pane.
     pub default_sort: Option<SortOrder>,
     #[serde(alias = "no_heading")]
@@ -156,11 +159,6 @@ pub struct RgPaneSettings {
 
 // impl Default for RgPaneSettings {
 //     fn default() -> Self {
-//         let default_visibility = PartialVisibility {
-//             ignore: Some(true),
-//             ..Default::default()
-//         };
-
 //         Self {
 //             prompt: None,
 //             enter_prompt: Some(true),
@@ -169,7 +167,7 @@ pub struct RgPaneSettings {
 
 //             one_line: true,
 //             fixed_strings: false,
-//             default_visibility,
+//             default_visibility: None,
 //             default_sort: Some(SortOrder::none),
 //             search_empty_query: true,
 
@@ -193,8 +191,9 @@ pub struct NavPaneSettings {
 
     // ----------------------------
     pub default_sort: SortOrder,
-    /// Default visibility when no visibility is specified.
-    pub default_visibility: PartialVisibility,
+    /// Default visibility.
+    /// - When None: show hidden files and hide ignored files when inside a git repository and the inverse otherwise
+    pub default_visibility: Option<PartialVisibility>,
 }
 
 impl Default for NavPaneSettings {
@@ -296,9 +295,9 @@ impl PanesConfig {
             | FsPane::Apps { .. }
             | FsPane::Files { .. }
             | FsPane::Folders { .. } => None,
-            FsPane::Find { .. } => Some(self.find.default_visibility),
-            FsPane::Nav { .. } => Some(self.nav.default_visibility),
-            FsPane::Search { .. } => Some(self.search.default_visibility),
+            FsPane::Find { .. } => self.find.default_visibility,
+            FsPane::Nav { .. } => self.nav.default_visibility,
+            FsPane::Search { .. } => self.search.default_visibility,
         }
     }
 

@@ -1,4 +1,5 @@
 use cba::{bring::split::split_whitespace_preserve_single_quotes, vec_};
+use fist_types::git::in_git_repo;
 use matchmaker::{
     acs,
     message::{BindDirective, Event},
@@ -106,8 +107,31 @@ pub fn enter_dir_pane(
     TOAST::clear_msgs();
 
     // start pane
-    let is_new = STACK::nav_cwd().is_none();
-    let pane = FsPane::new_nav(path, FILTERS::visibility(), FILTERS::sort());
+    let old = STACK::nav_cwd();
+    let is_new = old.is_none();
+
+    // apply smart git visibility on entering a git repo
+    let mut vis = FILTERS::visibility();
+    if GLOBAL::with_cfg(|c| c.panes.nav.default_visibility.is_none()) {
+        match (
+            in_git_repo(old.map(|x| x.inner())),
+            in_git_repo(Some(path.inner())),
+        ) {
+            (false, true) => {
+                vis.hidden = true;
+                vis.ignore = true;
+            }
+
+            (true, false) => {
+                vis.hidden = false;
+                vis.ignore = false;
+            }
+
+            _ => {}
+        }
+    }
+
+    let pane = FsPane::new_nav(path, vis, FILTERS::sort());
     STACK::push(pane);
     fs_reload(state, is_new);
 }

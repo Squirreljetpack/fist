@@ -313,9 +313,9 @@ pub mod APP {
 
 // -------------------------------------------
 pub mod TASKS {
-    use std::{cell::RefCell, time::Duration};
+    use std::cell::RefCell;
 
-    use cba::{_ibog, dbog, wbog};
+    use cba::{dbog, ebog, wbog};
     use tokio::{self, task::JoinSet};
 
     thread_local! {
@@ -344,57 +344,62 @@ pub mod TASKS {
         warn_secs: u64,
         max_secs: u64,
     ) {
+        use tokio::time::{self, Duration};
+
         let mut join_set = TASKS.with(|tasks| std::mem::take(&mut *tasks.borrow_mut()));
 
-        if !join_set.is_empty() {
-            dbog!("Waiting on {} tasks.", join_set.len());
+        if join_set.is_empty() {
+            return;
         }
 
-        let mut remaining = 0;
+        dbog!("Waiting on {} tasks.", join_set.len());
 
-        let max = tokio::time::sleep(Duration::from_secs(max_secs));
-        tokio::pin!(max);
+        let warn_deadline = time::sleep(Duration::from_secs(warn_secs));
+        tokio::pin!(warn_deadline);
 
-        let start = tokio::time::Instant::now();
-
-        let mut warn = tokio::time::interval_at(
-            start + Duration::from_secs(warn_secs),
-            Duration::from_secs(warn_secs),
-        );
+        let max_deadline = time::sleep(Duration::from_secs(max_secs));
+        tokio::pin!(max_deadline);
 
         loop {
             tokio::select! {
+                // task completed
                 res = join_set.join_next() => {
-                    if res.is_none() {
-                        break;
+                    match res {
+                        Some(_) => {
+                            warn_deadline
+                                .as_mut()
+                                .reset(time::Instant::now() + Duration::from_secs(warn_secs));
+
+                            if join_set.is_empty() {
+                                return;
+                            }
+                        }
+                        None => return,
                     }
                 }
 
-                _ = warn.tick() => {
-                    if remaining == 0 {
+                _ = &mut warn_deadline => {
+                    if !join_set.is_empty() {
                         wbog!(
-                            "Waiting on {} task(s). (Press ctrl-c to exit).",
+                            "Still waiting on {} task(s). (Press Ctrl-C to exit).",
                             join_set.len()
                         );
-                    } else if join_set.len() != remaining {
-                        _ibog!(
-                            "{} task(s) remaining.",
-                            join_set.len()
-                        );
+
+                        warn_deadline
+                            .as_mut()
+                            .reset(time::Instant::now() + Duration::from_secs(warn_secs));
                     }
-                    remaining = join_set.len()
                 }
 
-                _ = &mut max => {
-                    wbog!(
-                        "Timeout";
-                        "{} task(s) aborted.",
+                _ = &mut max_deadline => {
+                    ebog!(
+                        "Shutdown timeout reached. Aborting {} task(s).",
                         join_set.len()
                     );
-                    break;
+
+                    join_set.shutdown().await;
+                    return;
                 }
-
-
             }
         }
     }

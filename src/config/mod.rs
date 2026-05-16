@@ -119,7 +119,6 @@ pub struct MiscConfig {
     pub output_template: Option<String>,
     /// The seperator used between calls to [FsAction::Print]
     pub output_separator: String,
-
     pub list_absolute_paths: bool,
 }
 
