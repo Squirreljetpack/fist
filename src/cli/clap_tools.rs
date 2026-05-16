@@ -44,7 +44,7 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("-F --style=colors --enter-prompt=false"))]
     pub dir_widget_args: String,
     /// Arguments passed to `fs ::` when file widget is invoked
-    #[arg(long, default_value_t = String::from("--alt-accept -f --style=icon-colors --enter-prompt=false  -- .."))]
+    #[arg(long, default_value_t = String::from("--alt-accept -f --style=icon-colors --enter-prompt=false -hI  -- .."))]
     pub file_widget_args: String,
     /// Arguments passed to `fs :` when rg widget is invoked
     #[arg(long, default_value_t = String::from("-1 --fullscreen --style=colors --preserve-whitespace"))]

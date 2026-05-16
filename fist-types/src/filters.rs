@@ -129,7 +129,6 @@ impl Visibility {
         if all {
             *self = Visibility {
                 all: true,
-                hidden: false,
                 dirs: self.dirs,
                 no_follow: self.no_follow,
                 ..Default::default()
