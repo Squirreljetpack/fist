@@ -423,7 +423,7 @@ async fn handle_default(
                     } else {
                         ibog!("Started `fs :dir` due to `refind = Search`");
                         let sort = cmd.sort.unwrap_or(if nav_pane {
-                            cfg.global.panes.nav.default_sort
+                            cfg.global.panes.nav.default_sort.unwrap_or_default()
                         } else {
                             Default::default()
                         });
@@ -475,7 +475,8 @@ async fn handle_default(
             FsPane::new_nav(
                 cwd,
                 vis,
-                cmd.sort.unwrap_or(cfg.global.panes.nav.default_sort),
+                cmd.sort
+                    .unwrap_or(cfg.global.panes.nav.default_sort.unwrap_or_default()),
             )
         } else
         // interactively search the best match
@@ -620,7 +621,7 @@ async fn handle_default(
         FsPane::new_nav(
             AbsPath::new_unchecked(__cwd()),
             vis,
-            sort.unwrap_or(cfg.global.panes.nav.default_sort),
+            sort.unwrap_or(cfg.global.panes.nav.default_sort.unwrap_or_default()),
         )
     };
 

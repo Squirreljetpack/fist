@@ -315,7 +315,7 @@ pub mod APP {
 pub mod TASKS {
     use std::cell::RefCell;
 
-    use cba::{dbog, ebog, wbog};
+    use cba::{dbog, ebog, ibog, wbog};
     use tokio::{self, task::JoinSet};
 
     thread_local! {
@@ -341,6 +341,7 @@ pub mod TASKS {
     }
 
     pub async fn shutdown(
+        initial_warn_ms: u64,
         warn_secs: u64,
         max_secs: u64,
     ) {
@@ -352,9 +353,11 @@ pub mod TASKS {
             return;
         }
 
+        let mut warned = false;
+
         dbog!("Waiting on {} tasks.", join_set.len());
 
-        let warn_deadline = time::sleep(Duration::from_secs(warn_secs));
+        let warn_deadline = time::sleep(Duration::from_millis(initial_warn_ms));
         tokio::pin!(warn_deadline);
 
         let max_deadline = time::sleep(Duration::from_secs(max_secs));
@@ -367,27 +370,35 @@ pub mod TASKS {
                     match res {
                         Some(_) => {
                             warn_deadline
-                                .as_mut()
-                                .reset(time::Instant::now() + Duration::from_secs(warn_secs));
+                            .as_mut()
+                            .reset(time::Instant::now() + Duration::from_secs(warn_secs));
 
                             if join_set.is_empty() {
                                 return;
                             }
                         }
-                        None => return,
+                        None => {
+                            if warned {
+                                ibog!(
+                                    "All tasks finished"
+                                );
+                            }
+                            return
+                        },
                     }
                 }
 
                 _ = &mut warn_deadline => {
                     if !join_set.is_empty() {
                         wbog!(
-                            "Still waiting on {} task(s). (Press Ctrl-C to exit).",
+                            "Waiting on {} task(s). (Press Ctrl-C to exit).",
                             join_set.len()
                         );
+                        warned = true;
 
                         warn_deadline
-                            .as_mut()
-                            .reset(time::Instant::now() + Duration::from_secs(warn_secs));
+                        .as_mut()
+                        .reset(time::Instant::now() + Duration::from_secs(warn_secs));
                     }
                 }
 

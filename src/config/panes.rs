@@ -9,6 +9,8 @@ use matchmaker::config::ShowCondition;
 pub struct PanesSettings {
     pub display_script_simultaneous_count: usize,
     pub display_script_batch_size: usize,
+    /// Change the sorting method to the new default when changing to a new pane type
+    pub apply_default_sort: bool,
 }
 
 impl Default for PanesSettings {
@@ -16,6 +18,7 @@ impl Default for PanesSettings {
         Self {
             display_script_simultaneous_count: 15,
             display_script_batch_size: 1000,
+            apply_default_sort: true,
         }
     }
 }
@@ -190,7 +193,7 @@ pub struct NavPaneSettings {
     pub preview_layout_index: u8,
 
     // ----------------------------
-    pub default_sort: SortOrder,
+    pub default_sort: Option<SortOrder>,
     /// Default visibility.
     /// - When None: show hidden files and hide ignored files when inside a git repository and the inverse otherwise
     pub default_visibility: Option<PartialVisibility>,
@@ -204,7 +207,7 @@ impl Default for NavPaneSettings {
             show_preview: Some(ShowCondition::Free(50)),
             preview_layout_index: 0,
 
-            default_sort: SortOrder::mtime,
+            default_sort: Some(SortOrder::mtime),
             default_visibility: Default::default(),
         }
     }
@@ -298,6 +301,18 @@ impl PanesConfig {
             FsPane::Find { .. } => self.find.default_visibility,
             FsPane::Nav { .. } => self.nav.default_visibility,
             FsPane::Search { .. } => self.search.default_visibility,
+        }
+    }
+
+    pub fn default_sort(
+        &self,
+        pane: &FsPane,
+    ) -> Option<SortOrder> {
+        match pane {
+            // todo: lowpri: maybe we aggregate more than just apps later, and add visibility
+            FsPane::Nav { .. } => self.nav.default_sort,
+            FsPane::Search { .. } => self.search.default_sort,
+            _ => None,
         }
     }
 

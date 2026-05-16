@@ -111,6 +111,7 @@ pub fn enter_dir_pane(
     let is_new = old.is_none();
 
     // apply smart git visibility on entering a git repo
+    // default_vis is_some is handled seperately in fs_reload
     let mut vis = FILTERS::visibility();
     if GLOBAL::with_cfg(|c| c.panes.nav.default_visibility.is_none()) {
         match (
@@ -141,19 +142,52 @@ pub fn fs_reload(
     is_new: bool,
 ) {
     if is_new {
-        // clear worker entries
-        state
-            .picker_ui
-            .worker
-            .set_stability(STACK::with_current(FsPane::stability_threshold));
+        // apply vis/sort changes
+        STACK::with_current_mut(|pane| {
+            GLOBAL::with_cfg(|c| {
+                if let Some(pv) = c.panes.default_visibility(pane)
+                    && let Some(v) = pane.vis_mut()
+                {
+                    v.apply(pv);
+                }
+                let new_sort = c.panes.default_sort(pane);
+                match pane {
+                    FsPane::Custom { sort, vis, .. }
+                    | FsPane::Stream { sort, vis, .. }
+                    | FsPane::Find { sort, vis, .. }
+                    | FsPane::Search { sort, vis, .. }
+                    | FsPane::Nav { sort, vis, .. } => {
+                        if c.panes.settings.apply_default_sort
+                            && let Some(new_sort) = new_sort
+                        {
+                            *sort = new_sort;
+                        }
+
+                        // update to prevent reload
+                        FILTERS::set(*sort, *vis);
+                    }
+                    FsPane::Files { sort, .. }
+                    | FsPane::Folders { sort, .. }
+                    | FsPane::Apps { sort, .. } => {
+                        // logically we should add configurable default but i don't think anything besides frecency is desirable [for the default]
+                    }
+                }
+            })
+        });
     }
 
+    // set stability after sort is updated
+    // clear worker entries
+    state
+        .picker_ui
+        .worker
+        .set_stability(STACK::with_current(FsPane::stability_threshold));
     state.restart_worker();
 
     let injector = IndexedInjector::new_globally_indexed(state.injector());
 
-    #[allow(warnings)]
     STACK::with_current_mut(|p| match p {
+        // (always) inform search pane from query
         FsPane::Search {
             filtering,
             patterns,
@@ -180,14 +214,6 @@ pub fn fs_reload(
     TlsStore::maybe_set(STACK::take_maybe_index());
 
     if is_new {
-        STACK::with_current_mut(|pane| {
-            if let Some(pv) = GLOBAL::with_cfg(|c| c.panes.default_visibility(pane))
-                && let Some(v) = pane.vis_mut()
-            {
-                v.apply(pv);
-            }
-        });
-
         fs_post_reload_new(state);
     } else {
         if !state.picker_ui.results.cursor_disabled {

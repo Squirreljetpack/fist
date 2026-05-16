@@ -207,7 +207,7 @@ pub async fn start(
     // print before errors
     print_handle.map_to_vec(|s| prints!(s));
 
-    TASKS::shutdown(1, 3000).await;
+    TASKS::shutdown(1000, 10, 3000).await;
     if STACK::in_app() {
         match ret.first().abort() {
             Ok(prog) => {
