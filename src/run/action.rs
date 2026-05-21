@@ -725,7 +725,7 @@ pub fn fsaction_handler(
         FsAction::Cut => {
             let mut toast_vec = vec![];
             let mut cb_vec = vec![];
-            let items = state.map_selected_to_vec(|s| {
+            let items = state.map_selected_to_vec(|_i, s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
                 s.path.clone()
@@ -739,7 +739,7 @@ pub fn fsaction_handler(
         FsAction::Copy => {
             let mut toast_vec = vec![];
             let mut cb_vec = vec![];
-            let items = state.map_selected_to_vec(|s| {
+            let items = state.map_selected_to_vec(|_, s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
                 s.path.clone()
@@ -756,7 +756,7 @@ pub fn fsaction_handler(
             let mut toast_vec = vec![];
 
             if !in_prompt {
-                let items = state.map_selected_to_vec(|s| {
+                let items = state.map_selected_to_vec(|_, s| {
                     toast_vec.push(short_display(&s.path));
                     s.path.clone()
                 });
@@ -781,7 +781,7 @@ pub fn fsaction_handler(
                 mode
             };
             if !in_prompt {
-                let items = state.map_selected_to_vec(|s| {
+                let items = state.map_selected_to_vec(|_, s| {
                     toast_vec.push(short_display(&s.path));
                     s.path.clone()
                 });
@@ -823,7 +823,7 @@ pub fn fsaction_handler(
 
         FsAction::Trash => {
             let mut items = vec![];
-            state.map_selected_to_vec(|s| {
+            state.map_selected_to_vec(|_, s| {
                 items.push(s.path.inner());
             });
             // not heavy computationally, but still blocking...
@@ -847,7 +847,7 @@ pub fn fsaction_handler(
         }
         FsAction::Delete(no_confirm) => {
             let mut items = vec![];
-            state.map_selected_to_vec(|s| {
+            state.map_selected_to_vec(|_, s| {
                 items.push(s.path.inner());
             });
 
@@ -916,7 +916,7 @@ pub fn fsaction_handler(
         FsAction::Confirm => {}
         FsAction::CopyPath => {
             let paths = if !in_prompt {
-                state.map_selected_to_vec(|s| s.path.inner())
+                state.map_selected_to_vec(|_, s| s.path.inner())
             } else {
                 STACK::cwd().map(PathBuf::from).into_iter().collect()
             };
@@ -1130,7 +1130,7 @@ pub fn fsaction_handler(
                     }
                 } else {
                     // print selected
-                    let v = state.map_selected_to_vec(|item| {
+                    let v = state.map_selected_to_vec(|_, item| {
                         GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
 
                         let s = item.display().to_string();

@@ -116,6 +116,7 @@
 [lints.clippy]
     new_without_default   = "allow"
     collapsible_if        = "allow"
+    collapsible_match     = "allow"
     single_match          = "allow"
     uninlined_format_args = "allow"
     too_many_arguments    = "allow"

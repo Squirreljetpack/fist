@@ -115,7 +115,7 @@ impl FsPane {
                         },
                         move |count| {
                             if count == Some(0) {
-                                GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                                GLOBAL::send_mm(RenderCommand::NoMatch);
                             }
                             complete.store(true, Ordering::SeqCst);
                         },
@@ -165,7 +165,7 @@ impl FsPane {
                             },
                             move |count| {
                                 if count == Some(0) {
-                                    GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                                    GLOBAL::send_mm(RenderCommand::NoMatch);
                                 }
                                 _complete.store(true, Ordering::SeqCst);
                             },
@@ -174,7 +174,7 @@ impl FsPane {
                     Some(Err(script)) => map_reader_batch(
                         stdout,
                         complete.clone(),
-                        || GLOBAL::send_mm(RenderCommand::QuitEmpty),
+                        || GLOBAL::send_mm(RenderCommand::NoMatch),
                         script.clone(),
                         cwd,
                         stored.clone(),
@@ -229,7 +229,7 @@ impl FsPane {
                         },
                         move |count| {
                             if count == Some(0) {
-                                GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                                GLOBAL::send_mm(RenderCommand::NoMatch);
                             }
                             complete.store(true, Ordering::SeqCst);
                         },
@@ -279,7 +279,7 @@ impl FsPane {
                             },
                             move |count| {
                                 if count == Some(0) {
-                                    GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                                    GLOBAL::send_mm(RenderCommand::NoMatch);
                                 }
                                 _complete.store(true, Ordering::SeqCst);
                             },
@@ -288,7 +288,7 @@ impl FsPane {
                     Some(Err(script)) => map_reader_batch(
                         stdout,
                         complete.clone(),
-                        || GLOBAL::send_mm(RenderCommand::QuitEmpty),
+                        || GLOBAL::send_mm(RenderCommand::NoMatch),
                         script.clone(),
                         cwd,
                         stored.clone(),
@@ -338,7 +338,7 @@ impl FsPane {
                     move |count| {
                         if count == Some(0) {
                             if abort_empty {
-                                GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                                GLOBAL::send_mm(RenderCommand::NoMatch);
                             } else if toast_on_empty {
                                 TOAST::toast_empty();
                             }
