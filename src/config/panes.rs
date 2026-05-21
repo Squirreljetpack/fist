@@ -91,7 +91,7 @@ pub struct PaneSettings {
 //     }
 // }
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FdPaneSettings {
     /// Input prompt
@@ -108,21 +108,27 @@ pub struct FdPaneSettings {
     pub default_visibility: Option<PartialVisibility>,
     /// When leaving the fd pane, untoggle the `only show directories` visibility filter.
     pub on_leave_unset_dirs_only: bool,
+    /// If the number of items added is less than this threshold, enable the directory watcher to auto-refresh the pane on changes.
+    pub max_refresh_items_threshold: usize,
+    /// If the execution time is less than this threshold (in milliseconds), enable the directory watcher to auto-refresh the pane on changes.
+    #[serde(with = "crate::watcher::serde_duration_ms")]
+    pub max_refresh_execution_time_threshold: std::time::Duration,
 }
 
-// impl Default for FdPaneSettings {
-//     fn default() -> Self {
-//         Self {
-//             prompt: None,
-//             show_preview: Some(ShowCondition::Free(60)),
-//             enter_prompt: None,
-//             preview_layout_index: 0,
-
-//             default_visibility: Default::default(),
-//             on_leave_unset_dirs_only: false,
-//         }
-//     }
-// }
+impl Default for FdPaneSettings {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            show_preview: None,
+            enter_prompt: None,
+            preview_layout_index: 0,
+            default_visibility: None,
+            on_leave_unset_dirs_only: false,
+            max_refresh_items_threshold: 20000,
+            max_refresh_execution_time_threshold: std::time::Duration::from_millis(400), // a generous default threshold to be sure it's working
+        }
+    }
+}
 
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]

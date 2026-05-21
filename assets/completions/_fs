@@ -272,7 +272,7 @@ _arguments "${_arguments_options[@]}" : \
 '--help[]' \
 '--alt-accept[]' \
 '::args:_default' \
-":: :_fs__:tool_commands" \
+":: :_fs__subcmd__:tool_commands" \
 "*::: :->:tool" \
 && ret=0
 
@@ -407,7 +407,7 @@ _arguments "${_arguments_options[@]}" : \
 '--help[]' \
 '--alt-accept[]' \
 '::args:_default' \
-":: :_fs__:tool_commands" \
+":: :_fs__subcmd__:tool_commands" \
 "*::: :->:tool" \
 && ret=0
 
@@ -575,38 +575,38 @@ _fs_commands() {
     )
     _describe -t commands 'fs commands' commands "$@"
 }
-(( $+functions[_fs__:dir_commands] )) ||
-_fs__:dir_commands() {
+(( $+functions[_fs__subcmd__:dir_commands] )) ||
+_fs__subcmd__:dir_commands() {
     local commands; commands=()
     _describe -t commands 'fs :dir commands' commands "$@"
 }
-(( $+functions[_fs__:fd_commands] )) ||
-_fs__:fd_commands() {
+(( $+functions[_fs__subcmd__:fd_commands] )) ||
+_fs__subcmd__:fd_commands() {
     local commands; commands=()
     _describe -t commands 'fs :fd commands' commands "$@"
 }
-(( $+functions[_fs__:file_commands] )) ||
-_fs__:file_commands() {
+(( $+functions[_fs__subcmd__:file_commands] )) ||
+_fs__subcmd__:file_commands() {
     local commands; commands=()
     _describe -t commands 'fs :file commands' commands "$@"
 }
-(( $+functions[_fs__:info_commands] )) ||
-_fs__:info_commands() {
+(( $+functions[_fs__subcmd__:info_commands] )) ||
+_fs__subcmd__:info_commands() {
     local commands; commands=()
     _describe -t commands 'fs :info commands' commands "$@"
 }
-(( $+functions[_fs__:open_commands] )) ||
-_fs__:open_commands() {
+(( $+functions[_fs__subcmd__:open_commands] )) ||
+_fs__subcmd__:open_commands() {
     local commands; commands=()
     _describe -t commands 'fs :open commands' commands "$@"
 }
-(( $+functions[_fs__:rg_commands] )) ||
-_fs__:rg_commands() {
+(( $+functions[_fs__subcmd__:rg_commands] )) ||
+_fs__subcmd__:rg_commands() {
     local commands; commands=()
     _describe -t commands 'fs :rg commands' commands "$@"
 }
-(( $+functions[_fs__:tool_commands] )) ||
-_fs__:tool_commands() {
+(( $+functions[_fs__subcmd__:tool_commands] )) ||
+_fs__subcmd__:tool_commands() {
     local commands; commands=(
 'colors:' \
 'liza:List directory (eza wrapper)' \
@@ -617,33 +617,33 @@ _fs__:tool_commands() {
     )
     _describe -t commands 'fs :tool commands' commands "$@"
 }
-(( $+functions[_fs__:tool__bump_commands] )) ||
-_fs__:tool__bump_commands() {
+(( $+functions[_fs__subcmd__:tool__subcmd__bump_commands] )) ||
+_fs__subcmd__:tool__subcmd__bump_commands() {
     local commands; commands=()
     _describe -t commands 'fs :tool bump commands' commands "$@"
 }
-(( $+functions[_fs__:tool__colors_commands] )) ||
-_fs__:tool__colors_commands() {
+(( $+functions[_fs__subcmd__:tool__subcmd__colors_commands] )) ||
+_fs__subcmd__:tool__subcmd__colors_commands() {
     local commands; commands=()
     _describe -t commands 'fs :tool colors commands' commands "$@"
 }
-(( $+functions[_fs__:tool__lessfilter_commands] )) ||
-_fs__:tool__lessfilter_commands() {
+(( $+functions[_fs__subcmd__:tool__subcmd__lessfilter_commands] )) ||
+_fs__subcmd__:tool__subcmd__lessfilter_commands() {
     local commands; commands=()
     _describe -t commands 'fs :tool lessfilter commands' commands "$@"
 }
-(( $+functions[_fs__:tool__liza_commands] )) ||
-_fs__:tool__liza_commands() {
+(( $+functions[_fs__subcmd__:tool__subcmd__liza_commands] )) ||
+_fs__subcmd__:tool__subcmd__liza_commands() {
     local commands; commands=()
     _describe -t commands 'fs :tool liza commands' commands "$@"
 }
-(( $+functions[_fs__:tool__shell_commands] )) ||
-_fs__:tool__shell_commands() {
+(( $+functions[_fs__subcmd__:tool__subcmd__shell_commands] )) ||
+_fs__subcmd__:tool__subcmd__shell_commands() {
     local commands; commands=()
     _describe -t commands 'fs :tool shell commands' commands "$@"
 }
-(( $+functions[_fs__:tool__types_commands] )) ||
-_fs__:tool__types_commands() {
+(( $+functions[_fs__subcmd__:tool__subcmd__types_commands] )) ||
+_fs__subcmd__:tool__subcmd__types_commands() {
     local commands; commands=()
     _describe -t commands 'fs :tool types commands' commands "$@"
 }

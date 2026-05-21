@@ -17,55 +17,55 @@ _fs() {
                 cmd="fs"
                 ;;
             fs,:)
-                cmd="fs__:rg"
+                cmd="fs__subcmd__:rg"
                 ;;
             fs,::)
-                cmd="fs__:fd"
+                cmd="fs__subcmd__:fd"
                 ;;
             fs,:dir)
-                cmd="fs__:dir"
+                cmd="fs__subcmd__:dir"
                 ;;
             fs,:fd)
-                cmd="fs__:fd"
+                cmd="fs__subcmd__:fd"
                 ;;
             fs,:file)
-                cmd="fs__:file"
+                cmd="fs__subcmd__:file"
                 ;;
             fs,:info)
-                cmd="fs__:info"
+                cmd="fs__subcmd__:info"
                 ;;
             fs,:o)
-                cmd="fs__:open"
+                cmd="fs__subcmd__:open"
                 ;;
             fs,:open)
-                cmd="fs__:open"
+                cmd="fs__subcmd__:open"
                 ;;
             fs,:rg)
-                cmd="fs__:rg"
+                cmd="fs__subcmd__:rg"
                 ;;
             fs,:t)
-                cmd="fs__:tool"
+                cmd="fs__subcmd__:tool"
                 ;;
             fs,:tool)
-                cmd="fs__:tool"
+                cmd="fs__subcmd__:tool"
                 ;;
-            fs__:tool,bump)
-                cmd="fs__:tool__bump"
+            fs__subcmd__:tool,bump)
+                cmd="fs__subcmd__:tool__subcmd__bump"
                 ;;
-            fs__:tool,colors)
-                cmd="fs__:tool__colors"
+            fs__subcmd__:tool,colors)
+                cmd="fs__subcmd__:tool__subcmd__colors"
                 ;;
-            fs__:tool,lessfilter)
-                cmd="fs__:tool__lessfilter"
+            fs__subcmd__:tool,lessfilter)
+                cmd="fs__subcmd__:tool__subcmd__lessfilter"
                 ;;
-            fs__:tool,liza)
-                cmd="fs__:tool__liza"
+            fs__subcmd__:tool,liza)
+                cmd="fs__subcmd__:tool__subcmd__liza"
                 ;;
-            fs__:tool,shell)
-                cmd="fs__:tool__shell"
+            fs__subcmd__:tool,shell)
+                cmd="fs__subcmd__:tool__subcmd__shell"
                 ;;
-            fs__:tool,types)
-                cmd="fs__:tool__types"
+            fs__subcmd__:tool,types)
+                cmd="fs__subcmd__:tool__subcmd__types"
                 ;;
             *)
                 ;;
@@ -115,7 +115,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:dir)
+        fs__subcmd__:dir)
             opts="-l --sort --list --cd --initial-input --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept [QUERY]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -173,7 +173,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:fd)
+        fs__subcmd__:fd)
             opts="-h -I -a -F -f -t --sort --cd --types --no-read --list --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept [PATHS]... [FD_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -247,7 +247,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:file)
+        fs__subcmd__:file)
             opts="-l --sort --list --query --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -305,7 +305,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:info)
+        fs__subcmd__:info)
             opts="-l -m --sort --limit --minimal --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept apps files dirs"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -359,7 +359,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:open)
+        fs__subcmd__:open)
             opts="-w --with --list --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept [FILES]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -409,7 +409,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:rg)
+        fs__subcmd__:rg)
             opts="-h -I -a -F -f -p -i -s -S -A -B -C -1 --sort --path --preserve-whitespace --ignore-case --case-sensitive --smart-case --after-context --before-context --context --one-line --no-fixed-strings --filtering --no-heading --list --query --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept [PATTERNS]... [RG_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -515,7 +515,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:tool)
+        fs__subcmd__:tool)
             opts="--help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept [ARGS]... colors liza shell lessfilter bump types"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -557,7 +557,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:tool__bump)
+        fs__subcmd__:tool__subcmd__bump)
             opts="-g -c --glob --count --reset --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept [PATHS]... apps files dirs"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -615,7 +615,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:tool__colors)
+        fs__subcmd__:tool__subcmd__colors)
             opts="--verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -657,7 +657,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:tool__lessfilter)
+        fs__subcmd__:tool__subcmd__lessfilter)
             opts="-a --arg --no-exec --tty --header --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept preview display extended info open alternate edit [PATHS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -711,7 +711,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:tool__liza)
+        fs__subcmd__:tool__subcmd__liza)
             opts="--verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept [ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -753,7 +753,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:tool__shell)
+        fs__subcmd__:tool__subcmd__shell)
             opts="--z-name --z-dot-args --z-slash-args --z-dir-args --open-name --open-cmd --dir-widget-bind --file-widget-bind --rg-widget-bind --file-open-cmd --rg-open-cmd --dir-widget-args --file-widget-args --rg-widget-args --aliases --nav-name --shell --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -859,7 +859,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__:tool__types)
+        fs__subcmd__:tool__subcmd__types)
             opts="--verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )

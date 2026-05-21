@@ -42,11 +42,11 @@ pub mod GLOBAL {
     use super::*;
     thread_local! {
         static CONFIG: RefCell<Option<GlobalConfig>> = const { RefCell::new(None) };
-        static WATCHER_TX: RefCell<Option<WatcherSender>> = const { RefCell::new(None) };
         static DB: RefCell<Option<Pool>> = const { RefCell::new(None) };
         static BIND_TX: RefCell<Option<BindSender<FsAction>>> = const { RefCell::new(None) };
     }
     static RENDER_TX: Mutex<Option<RenderSender<FsAction>>> = const { Mutex::new(None) };
+    static WATCHER_TX: Mutex<Option<WatcherSender>> = const { Mutex::new(None) };
 
     /// All global methods can be called iff this has been called
     /// DB_FILTER needs to be initialized seperately with async
@@ -83,7 +83,7 @@ pub mod GLOBAL {
 
         CONFIG.with(|c| *c.borrow_mut() = Some(cfg));
         *RENDER_TX.lock().unwrap() = Some(render_tx);
-        WATCHER_TX.with(|tx| *tx.borrow_mut() = Some(watcher_tx));
+        *WATCHER_TX.lock().unwrap() = Some(watcher_tx);
         DB.with(|d| *d.borrow_mut() = Some(db_pool));
         BIND_TX.with(|d| *d.borrow_mut() = Some(bind_tx));
         STACK::init(pane);
@@ -109,17 +109,13 @@ pub mod GLOBAL {
     pub fn send_mm(msg: matchmaker::message::RenderCommand<FsAction>) {
         let guard = RENDER_TX.lock().unwrap();
         let tx = guard.as_ref().expect("render tx missing");
-
-        tx.send(msg)._elog();
     }
 
     /// must be called in initializing thread
     pub fn send_watcher(msg: WatcherMessage) {
-        WATCHER_TX.with(|tx| {
-            let guard = tx.borrow();
-            let tx = guard.as_ref().expect("watcher tx missing");
-            tx.send(msg)._elog();
-        });
+        let guard = WATCHER_TX.lock().unwrap();
+        let tx = guard.as_ref().expect("render tx missing");
+        tx.send(msg)._elog();
     }
     pub fn send_bind(msg: BindDirective<FsAction>) {
         BIND_TX.with(|tx| {

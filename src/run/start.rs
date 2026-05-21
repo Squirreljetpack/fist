@@ -223,7 +223,7 @@ pub async fn start(
         }
     } else {
         match ret {
-            Ok(lines) if lines.is_empty() => Err(MatchError::NoMatch.into()),
+            Ok(lines) if lines.is_empty() => Ok(()),
             Ok(lines) => {
                 set_envs(&lines);
 
