@@ -499,7 +499,7 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "cli_boilerplate_automation"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "anstream 0.6.21",
  "anstyle",
@@ -2228,8 +2228,6 @@ dependencies = [
 [[package]]
 name = "matchmaker-partial"
 version = "0.0.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57fe6172d5300d29235ba1f2ca6d3d73fe9955c4cf32c128c0c461a0fc0479d3"
 dependencies = [
  "serde",
  "thiserror 2.0.18",
@@ -2238,8 +2236,6 @@ dependencies = [
 [[package]]
 name = "matchmaker-partial-macros"
 version = "0.0.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e977d41d9444b32b50cbe0fac2dbe1b35983257ac0d8eef82131bc3acffc034c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3360,9 +3356,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.149"
+version = "1.0.150"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83fc039473c5595ace860d8c4fafa220ff474b3fc6bfdb4293327f1a37e94d86"
+checksum = "e8014e44b4736ed0538adeecded0fce2a272f22dc9578a7eb6b2d9993c74cfb9"
 dependencies = [
  "itoa",
  "memchr",

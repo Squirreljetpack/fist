@@ -53,7 +53,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         // file actions
         // ----------------------------------
         key!(ctrl-y) => FsAction::CopyPath,
-        key!(delete) => FsAction::Trash,
+        key!(delete) => FsAction::Trash(true),
         key!(shift-delete) => FsAction::Delete(false),
         key!(ctrl-shift-r) => FsAction::Rename,
         key!(ctrl-v) => FsAction::Paste("".into()),
@@ -113,7 +113,7 @@ pub fn default_binds() -> BindMap<FsAction> {
     // cmd+backspace is traditional for trash on mac
     #[cfg(target_os = "macos")]
     let ext = bindmap!(
-        key!(ctrl-h), key!(cmd-backspace) => FsAction::Trash,
+        key!(ctrl-h), key!(cmd-backspace) => FsAction::Trash(false),
         key!(alt-backspace) => Action::DeleteWord,
         key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete(false),
     );

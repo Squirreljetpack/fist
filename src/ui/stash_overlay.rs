@@ -231,7 +231,7 @@ impl TableSelection {
                     }
                 }
             }
-            Action::DeleteChar | Action::Custom(FsAction::Trash | FsAction::Delete(_)) => {
+            Action::DeleteChar | Action::Custom(FsAction::Trash(_) | FsAction::Delete(_)) => {
                 if let Some(i) = self.state.selected() {
                     STASH::remove(self.scratch, i);
                 }

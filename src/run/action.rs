@@ -111,7 +111,7 @@ pub enum FsAction {
     /// Save the file to the backup directory. (todo)
     Backup,
     /// Delete the file using system trash.
-    Trash,
+    Trash(bool),
     /// Permanently delete the file.
     Delete(bool),
     /// Internal confirmation action.
@@ -281,7 +281,7 @@ pub fn fsaction_aliaser(
                     acs![Action::Custom(fa)]
                 }
             }
-            FsAction::Trash => {
+            FsAction::Trash(no_confirm) => {
                 // if raw_input {
                 //     acs![Action::DeleteWord]
                 // } else
@@ -821,11 +821,50 @@ pub fn fsaction_handler(
             // todo: impl using custom stash + some kind of db-based kv store
         }
 
-        FsAction::Trash => {
+        FsAction::Trash(no_confirm) => {
             let mut items = vec![];
             state.map_selected_to_vec(|_, s| {
                 items.push(s.path.inner());
             });
+
+            if items.is_empty() {
+                return;
+            }
+
+            if !no_confirm {
+                let prompt = if items.len() == 1 {
+                    Line::from_iter([
+                        Span::styled("Trash", Color::Red),
+                        Span::raw(format!(
+                            " {}?",
+                            short_display(&AbsPath::new_unchecked(&items[0]))
+                        )),
+                    ])
+                } else {
+                    Line::from_iter([
+                        Span::styled("Trash", Color::Red),
+                        Span::raw(format!(" {} items?", items.len())),
+                    ])
+                };
+
+                TlsStore::set(ConfirmPrompt {
+                    prompt,
+                    options: vec![("Yes", 0), ("No", 0)],
+                    option_handler: Box::new(|idx| {
+                        if idx == 0 {
+                            GLOBAL::send_action(FsAction::Trash(true));
+                        }
+                    }),
+                    content: None,
+                    content_above: false,
+                    title_in_border: false,
+                    cursor: 0, // Default to Yes
+                    scroll: 0,
+                });
+                GLOBAL::send_action(FsAction::Confirm);
+                return;
+            }
+
             // not heavy computationally, but still blocking...
             TASKS::spawn_blocking(|| {
                 for path in items {
@@ -1159,13 +1198,13 @@ enum_from_str_display! {
     ShowFilters, ShowStash, ShowScratch,
     ShowMenu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir, Rename,
-    Backup, Trash;
+    Backup;
 
     tuples:
     AutoJump, SwitchStash;
 
     defaults:
-    (Delete, false), (Stash, String::new()), (CycleStash, true)
+    (Delete, false), (Trash, false), (Stash, String::new()), (CycleStash, true)
     ;
     options:
     ClearStash

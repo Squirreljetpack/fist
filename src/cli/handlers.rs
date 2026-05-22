@@ -657,7 +657,8 @@ async fn handle_tools(
         }
         SubTool::ShowBinds => {
             let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-            let help_str = matchmaker::binds::display_binds(&mm_cfg.binds, None, true);
+            let help_str =
+                matchmaker::binds::display_binds(&mm_cfg.binds, None, true, Some(['[', ']']));
             prints!(help_str.to_string());
             Ok(())
         }
