@@ -125,6 +125,7 @@ pub async fn start(
         confirm,
         tui,
         overlay,
+        help: _,
     } = mm_cfg;
     log::debug!("cfg: {cfg:?}");
 

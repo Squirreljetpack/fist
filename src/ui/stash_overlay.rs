@@ -334,7 +334,7 @@ impl StashOverlay {
                 "Kind".pad(1, 0),
                 "Source".pad(1, 1),
                 "To".pad(1, 1),
-                "Size".pad(0, 1),
+                "Progress".pad(0, 1),
             ],
         }
     }

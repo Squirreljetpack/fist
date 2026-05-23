@@ -201,7 +201,6 @@ else
       exit
       ;;
     d|dir(|s))
-      pager+=(-n)
       page $eza_def -T --only-dirs --total-size --no-permissions --no-user $params # https://superuser.com/questions/1039003/linux-how-does-file-modification-time-affect-directory-modification-time-and-di
       ;;
     f|flatten)
@@ -209,7 +208,7 @@ else
       [[ -z $pargs ]] && pargs=(.)
       for p in $pargs; do
         ! [[ -d $p ]] && dirs+=($p) ||
-        for d in $p/*; do [[ -r $d ]] && dirs+=($d) || print -u2 -- "'$d': Permission denied" ; done
+        for d in $p/*; do [[ -r $d ]] && dirs+=(${d#\.\/}) || print -u2 -- "'$d': Permission denied" ; done
       done
 
       $eza_def $user $params $dirs

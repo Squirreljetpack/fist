@@ -126,8 +126,8 @@ Otherwise, this will OVERWRITE your main config."#
         long,
         global = true,
         num_args = 0..=1,
-         default_missing_value = "true",
-        help = r#"Start f:ist in fullscreen. Optionally, the orientation of the results can be given also be given here (true/false)."#
+        default_missing_value = "true",
+        value_name = "ORIENTATION"
     )]
     pub fullscreen: Option<Option<bool>>,
 

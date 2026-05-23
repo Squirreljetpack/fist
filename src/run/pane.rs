@@ -298,18 +298,18 @@ impl FsPane {
                     if matches!(sort, SortOrder::none) {
                         0
                     } else {
-                        5
+                        40
                     }
                 } else {
                     u32::MAX
                 }
             }
-            FsPane::Custom { .. } | FsPane::Stream { .. } => 5, // maybe
+            FsPane::Custom { .. } | FsPane::Stream { .. } => 40, // maybe
             FsPane::Nav { sort, .. } | FsPane::Find { sort, .. } => {
                 if matches!(sort, SortOrder::none) {
                     0
                 } else {
-                    5
+                    40
                 }
             }
         }

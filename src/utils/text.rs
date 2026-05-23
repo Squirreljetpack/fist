@@ -324,3 +324,7 @@ pub fn extract_rg_line_no_path(
 
     false
 }
+
+pub fn is_empty(text: &Text<'_>) -> bool {
+    text.lines.iter().all(|l| l.spans.is_empty())
+}

@@ -348,6 +348,8 @@ impl FsPane {
                             }
                         }
 
+                        // lowpri: theoretically this should be immune to triggering after pane changes
+                        // as push would Err but we should have a test 
                         if let Some(c) = count
                             && ({ c == 0 || c < threshold } && {
                                 time_threshold.is_zero() || start_time.elapsed() < time_threshold
