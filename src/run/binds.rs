@@ -53,7 +53,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         // file actions
         // ----------------------------------
         key!(ctrl-y) => FsAction::CopyPath,
-        key!(delete) => FsAction::Trash,
+        key!(delete) => FsAction::Trash(true),
         key!(shift-delete) => FsAction::Delete(false),
         key!(ctrl-shift-r) => FsAction::Rename,
         key!(ctrl-v) => FsAction::Paste("".into()),
@@ -81,6 +81,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-q), key!(ctrl-'.')  => FsAction::new_lessfilter(Preset::Edit, false),
         key!(ctrl-enter) => FsAction::new_lessfilter(Preset::Open, false),
         // A free preset for the user to decide what to do with
+        // This can be used to open a *file* with $VISUAL
         key!(alt-8) => FsAction::new_lessfilter(Preset::Alternate, true),
         // Maximize preview
         // true => display the output in a pager
@@ -113,7 +114,7 @@ pub fn default_binds() -> BindMap<FsAction> {
     // cmd+backspace is traditional for trash on mac
     #[cfg(target_os = "macos")]
     let ext = bindmap!(
-        key!(ctrl-h), key!(cmd-backspace) => FsAction::Trash,
+        key!(ctrl-h), key!(cmd-backspace) => FsAction::Trash(false),
         key!(alt-backspace) => Action::DeleteWord,
         key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete(false),
     );

@@ -53,16 +53,16 @@ impl Default for StashConfig {
             column_spacing: 2,
             cell: Default::default(),
             current_style: StyleSetting {
-                bg: Color::Black,
+                bg: Some(Color::Black),
                 ..Default::default()
             },
             selected_style: StyleSetting {
-                fg: Color::Yellow,
+                fg: Some(Color::Yellow),
                 ..Default::default()
             },
             editing_row_style: Default::default(),
             editing_style: StyleSetting {
-                bg: Color::Black,
+                bg: Some(Color::Black),
                 ..Default::default()
             },
         }
@@ -231,7 +231,7 @@ impl TableSelection {
                     }
                 }
             }
-            Action::DeleteChar | Action::Custom(FsAction::Trash | FsAction::Delete(_)) => {
+            Action::DeleteChar | Action::Custom(FsAction::Trash(_) | FsAction::Delete(_)) => {
                 if let Some(i) = self.state.selected() {
                     STASH::remove(self.scratch, i);
                 }
@@ -334,7 +334,7 @@ impl StashOverlay {
                 "Kind".pad(1, 0),
                 "Source".pad(1, 1),
                 "To".pad(1, 1),
-                "Size".pad(0, 1),
+                "Progress".pad(0, 1),
             ],
         }
     }

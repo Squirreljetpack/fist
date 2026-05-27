@@ -9,6 +9,8 @@ use matchmaker::config::ShowCondition;
 pub struct PanesSettings {
     pub display_script_simultaneous_count: usize,
     pub display_script_batch_size: usize,
+    /// Change the sorting method to the new default when changing to a new pane type
+    pub apply_default_sort: bool,
 }
 
 impl Default for PanesSettings {
@@ -16,6 +18,7 @@ impl Default for PanesSettings {
         Self {
             display_script_simultaneous_count: 15,
             display_script_batch_size: 1000,
+            apply_default_sort: true,
         }
     }
 }
@@ -88,7 +91,7 @@ pub struct PaneSettings {
 //     }
 // }
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FdPaneSettings {
     /// Input prompt
@@ -100,25 +103,32 @@ pub struct FdPaneSettings {
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
-    /// Default visibility when no visibility is specified.
-    pub default_visibility: PartialVisibility,
+    /// Default visibility.
+    /// - When None: show hidden files and hide ignored files when inside a git repository and the inverse otherwise
+    pub default_visibility: Option<PartialVisibility>,
     /// When leaving the fd pane, untoggle the `only show directories` visibility filter.
     pub on_leave_unset_dirs_only: bool,
+    /// If the number of items added is less than this threshold, enable the directory watcher to auto-refresh the pane on changes.
+    pub max_refresh_items_threshold: usize,
+    /// If the execution time is less than this threshold (in milliseconds), enable the directory watcher to auto-refresh the pane on changes.
+    #[serde(with = "crate::watcher::serde_duration_ms")]
+    pub max_refresh_execution_time_threshold: std::time::Duration,
 }
 
-// impl Default for FdPaneSettings {
-//     fn default() -> Self {
-//         Self {
-//             prompt: None,
-//             show_preview: Some(ShowCondition::Free(60)),
-//             enter_prompt: None,
-//             preview_layout_index: 0,
-
-//             default_visibility: Default::default(),
-//             on_leave_unset_dirs_only: false,
-//         }
-//     }
-// }
+impl Default for FdPaneSettings {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            show_preview: None,
+            enter_prompt: None,
+            preview_layout_index: 0,
+            default_visibility: None,
+            on_leave_unset_dirs_only: false,
+            max_refresh_items_threshold: 20000,
+            max_refresh_execution_time_threshold: std::time::Duration::from_millis(400), // a generous default threshold to be sure it's working
+        }
+    }
+}
 
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -133,7 +143,9 @@ pub struct RgPaneSettings {
     pub preview_layout_index: u8,
     // ----------------------------
     /// Initial visibility when entering the rg pane.
-    pub default_visibility: PartialVisibility,
+    ///
+    /// - When None: show hidden files and hide ignored files when inside a git repository and the inverse otherwise
+    pub default_visibility: Option<PartialVisibility>,
     /// Initial sort entering the rg pane.
     pub default_sort: Option<SortOrder>,
     #[serde(alias = "no_heading")]
@@ -156,11 +168,6 @@ pub struct RgPaneSettings {
 
 // impl Default for RgPaneSettings {
 //     fn default() -> Self {
-//         let default_visibility = PartialVisibility {
-//             ignore: Some(true),
-//             ..Default::default()
-//         };
-
 //         Self {
 //             prompt: None,
 //             enter_prompt: Some(true),
@@ -169,7 +176,7 @@ pub struct RgPaneSettings {
 
 //             one_line: true,
 //             fixed_strings: false,
-//             default_visibility,
+//             default_visibility: None,
 //             default_sort: Some(SortOrder::none),
 //             search_empty_query: true,
 
@@ -192,9 +199,10 @@ pub struct NavPaneSettings {
     pub preview_layout_index: u8,
 
     // ----------------------------
-    pub default_sort: SortOrder,
-    /// Default visibility when no visibility is specified.
-    pub default_visibility: PartialVisibility,
+    pub default_sort: Option<SortOrder>,
+    /// Default visibility.
+    /// - When None: show hidden files and hide ignored files when inside a git repository and the inverse otherwise
+    pub default_visibility: Option<PartialVisibility>,
 }
 
 impl Default for NavPaneSettings {
@@ -205,7 +213,7 @@ impl Default for NavPaneSettings {
             show_preview: Some(ShowCondition::Free(50)),
             preview_layout_index: 0,
 
-            default_sort: SortOrder::mtime,
+            default_sort: Some(SortOrder::mtime),
             default_visibility: Default::default(),
         }
     }
@@ -296,9 +304,21 @@ impl PanesConfig {
             | FsPane::Apps { .. }
             | FsPane::Files { .. }
             | FsPane::Folders { .. } => None,
-            FsPane::Find { .. } => Some(self.find.default_visibility),
-            FsPane::Nav { .. } => Some(self.nav.default_visibility),
-            FsPane::Search { .. } => Some(self.search.default_visibility),
+            FsPane::Find { .. } => self.find.default_visibility,
+            FsPane::Nav { .. } => self.nav.default_visibility,
+            FsPane::Search { .. } => self.search.default_visibility,
+        }
+    }
+
+    pub fn default_sort(
+        &self,
+        pane: &FsPane,
+    ) -> Option<SortOrder> {
+        match pane {
+            // todo: lowpri: maybe we aggregate more than just apps later, and add visibility
+            FsPane::Nav { .. } => self.nav.default_sort,
+            FsPane::Search { .. } => self.search.default_sort,
+            _ => None,
         }
     }
 

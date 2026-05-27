@@ -54,9 +54,9 @@ impl Default for HistoryConfig {
         Self {
             exclude: Default::default(),
             show_missing: Default::default(),
-            missing_expiry: TtlDays(7),
+            missing_expiry: TtlDays(30),
             resolve_symlinks: Default::default(),
-            atime_expiry: TtlDays(999),
+            atime_expiry: TtlDays(720),
             base_dir: Default::default(),
             refind: Default::default(),
             case_sensitive: Default::default(),

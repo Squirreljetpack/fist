@@ -2,7 +2,7 @@
 use cba::{
     bait::{MaybeExt, TransformExt},
     bath::PathExt,
-    bo::map_reader_lines,
+    bo::{map_chunks, read_to_chunks},
     broc::CommandExt,
     bs::sort_by_mtime,
     ibog, wbog,
@@ -57,7 +57,7 @@ use crate::{
     utils::{colors::display_ratatui_styles, formatter::format_path, path::paths_base},
 };
 use fist_types::filetypes::{FileType, FileTypeArg};
-use fist_types::filters::{SortOrder, Visibility};
+use fist_types::filters::SortOrder;
 
 pub async fn handle_subcommand(
     cli: Cli,
@@ -171,7 +171,7 @@ async fn handle_rg(
     mut cmd: SearchCommand,
     mut cfg: Config,
 ) -> Result<(), CliError> {
-    let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.search.default_visibility);
+    let vis = cmd.vis.into(cfg.global.panes.search.default_visibility);
 
     let sort = cmd.sort.unwrap_or(
         cfg.global
@@ -213,8 +213,13 @@ async fn handle_rg(
         let output_separator =
             EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
 
-        let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
-            let path = PathBuf::from(line);
+        let _ = map_chunks::<true, CliError>(read_to_chunks(stdout, '\0'), move |line| {
+            let path = if cfg.misc.list_absolute_paths {
+                __cwd().join(PathBuf::from(line))
+            } else {
+                PathBuf::from(line)
+            };
+
             let push = vis.post_fd_filter(&path);
 
             if push {
@@ -372,7 +377,11 @@ async fn handle_default(
             TlsStore::set(cfg.styles.path.relative);
             cfg.styles.path.relative = false;
         };
-        FsPane::new_stream(AbsPath::new_unchecked(__cwd()), cmd.vis.into(), true)
+        FsPane::new_stream(
+            AbsPath::new_unchecked(__cwd()),
+            cmd.vis.into(Some(Default::default())),
+            true,
+        )
     } else if cmd.cd {
         if !cmd.fd.is_empty() && !cmd.paths.is_empty() {
             wbog!(
@@ -414,7 +423,7 @@ async fn handle_default(
                     } else {
                         ibog!("Started `fs :dir` due to `refind = Search`");
                         let sort = cmd.sort.unwrap_or(if nav_pane {
-                            cfg.global.panes.nav.default_sort
+                            cfg.global.panes.nav.default_sort.unwrap_or_default()
                         } else {
                             Default::default()
                         });
@@ -461,12 +470,13 @@ async fn handle_default(
         };
 
         if nav_pane {
-            let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.nav.default_visibility);
+            let vis = cmd.vis.into(cfg.global.panes.nav.default_visibility);
 
             FsPane::new_nav(
                 cwd,
                 vis,
-                cmd.sort.unwrap_or(cfg.global.panes.nav.default_sort),
+                cmd.sort
+                    .unwrap_or(cfg.global.panes.nav.default_sort.unwrap_or_default()),
             )
         } else
         // interactively search the best match
@@ -485,10 +495,6 @@ async fn handle_default(
         || !cmd.vis.is_default()
         || !cmd.fd.is_empty()
     {
-        if cmd.vis.is_default() {
-            cmd.vis = cfg.global.panes.find.default_visibility
-        }
-
         // pattern specified
         let cwd = if cmd.paths.len() == 1 {
             is_default_dir = true;
@@ -536,8 +542,8 @@ async fn handle_default(
 
         if cmd.list {
             // mirror new_fd behavior
-            let mut vis =
-                Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.find.default_visibility);
+
+            let mut vis = cmd.vis.into(cfg.global.panes.find.default_visibility);
             if cmd.vis.hidden.is_none() && auto_enable_hidden(&cmd.paths) {
                 vis.hidden = true;
             }
@@ -556,8 +562,12 @@ async fn handle_default(
             let output_separator =
                 EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
 
-            let _ = map_reader_lines::<true, CliError>(stdout, move |line| {
-                let path = PathBuf::from(line);
+            let _ = map_chunks::<true, CliError>(read_to_chunks(stdout, '\0'), move |line| {
+                let path = if cfg.misc.list_absolute_paths {
+                    __cwd().join(PathBuf::from(line))
+                } else {
+                    PathBuf::from(line)
+                };
                 let push = vis.post_fd_filter(&path);
 
                 if push {
@@ -576,7 +586,7 @@ async fn handle_default(
         )
     } else {
         let DefaultCommand { sort, .. } = cmd;
-        let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.nav.default_visibility);
+        let vis = cmd.vis.into(cfg.global.panes.nav.default_visibility);
 
         if cmd.list {
             let iter = list_dir(__cwd(), vis, 1); // cwd is abs so we can add results as unchecked
@@ -608,11 +618,10 @@ async fn handle_default(
             return Ok(());
         };
 
-        let vis = Visibility::from_cmd_or_cfg(cmd.vis, cfg.global.panes.nav.default_visibility);
         FsPane::new_nav(
             AbsPath::new_unchecked(__cwd()),
             vis,
-            sort.unwrap_or(cfg.global.panes.nav.default_sort),
+            sort.unwrap_or(cfg.global.panes.nav.default_sort.unwrap_or_default()),
         )
     };
 
@@ -648,7 +657,8 @@ async fn handle_tools(
         }
         SubTool::ShowBinds => {
             let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-            let help_str = matchmaker::binds::display_binds(&mm_cfg.binds, None);
+
+            let help_str = matchmaker::binds::display_binds(&mm_cfg.binds, &mm_cfg.help);
             prints!(help_str.to_string());
             Ok(())
         }

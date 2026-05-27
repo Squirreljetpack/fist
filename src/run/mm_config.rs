@@ -2,8 +2,8 @@ use cba::{_dbg, bo::load_type_or_default};
 use matchmaker::{
     binds::BindMap,
     config::{
-        DisplayConfig, OverlayConfig, Percentage, PreviewSetting, RenderConfig, RowConnectionStyle,
-        TerminalConfig, TerminalLayoutSettings,
+        DisplayConfig, HelpDisplayConfig, OverlayConfig, Percentage, PreviewSetting, RenderConfig,
+        RowConnectionStyle, TerminalConfig, TerminalLayoutSettings,
     },
     nucleo::nucleo,
 };
@@ -54,9 +54,19 @@ pub struct MMConfig {
     #[serde(default)]
     pub tui: TerminalConfig,
 
+    #[serde(default = "default_help_config")]
+    pub help: HelpDisplayConfig,
+
     // binds
     #[serde(default)]
     pub binds: BindMap<FsAction>,
+}
+
+fn default_help_config() -> HelpDisplayConfig {
+    HelpDisplayConfig {
+        colors: None,
+        ..Default::default()
+    }
 }
 
 impl Default for MMConfig {

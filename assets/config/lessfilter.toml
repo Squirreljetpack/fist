@@ -66,6 +66,8 @@
 
   # the 'la' alias
   extended = [
+    # [ [ "rainfrog" ], [ "application/vnd.sqlite3" ] ],
+    # [ [ ["fx"], [ ".yml", ".json", ".jsonl", ".yaml", ".jsonh" ] ],
   ]
 
   # the 'll' alias
@@ -80,7 +82,10 @@
   open = [  ] #  Metadata, Image, Text, Extract all defer to fs: open in this preset and the next
 
   alternate = [
-    [ [ "none" ], [ "*/*" ] ],
+    [ 
+    # [ "code" ], [ "*/*" ]
+    [ "none" ], [ "*/*" ]
+    ],
   ]
 
 [actions]
@@ -99,3 +104,6 @@ done
 '''
 
   mediainfo = 'mediainfo {}'
+  # code = 'code --add {}'
+  # rainfrog = 'rainfrog --url "sqlite://{.}?mode=ro"'
+  # fx = 'fx {}'

@@ -125,6 +125,7 @@ pub async fn start(
         confirm,
         tui,
         overlay,
+        help: _,
     } = mm_cfg;
     log::debug!("cfg: {cfg:?}");
 
@@ -207,7 +208,7 @@ pub async fn start(
     // print before errors
     print_handle.map_to_vec(|s| prints!(s));
 
-    TASKS::shutdown(1, 3000).await;
+    TASKS::shutdown(1000, 10, 3000).await;
     if STACK::in_app() {
         match ret.first().abort() {
             Ok(prog) => {
@@ -223,7 +224,7 @@ pub async fn start(
         }
     } else {
         match ret {
-            Ok(lines) if lines.is_empty() => Err(MatchError::NoMatch.into()),
+            Ok(lines) if lines.is_empty() => Ok(()),
             Ok(lines) => {
                 set_envs(&lines);
 
