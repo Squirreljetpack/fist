@@ -20,7 +20,7 @@ cargo install bat fd-find eza ripgrep
 Optionally, setup shell integration:
 ```
 # Only zsh support for now
-echo "\neval$(fs :tool shell)" >> ~/.zshrc # or whatever the startup file of your respective shell is.
+echo "\neval $(fs :tool shell)" >> ~/.zshrc # or whatever the startup file of your respective shell is.
 ```
 
 Call as:

@@ -142,10 +142,10 @@ impl FsPane {
     pub fn new_fd_from_command(
         cmd: DefaultCommand,
         is_default_dir: bool,
-        default_visibility: PartialVisibility,
+        default_visibility: Option<PartialVisibility>,
         cwd: AbsPath,
     ) -> Self {
-        let mut vis = Visibility::from_cmd_or_cfg(cmd.vis, default_visibility);
+        let mut vis = cmd.vis.into(default_visibility);
         if cmd.vis.hidden.is_none() && auto_enable_hidden(&cmd.paths) {
             vis.hidden = true;
         }
@@ -298,18 +298,18 @@ impl FsPane {
                     if matches!(sort, SortOrder::none) {
                         0
                     } else {
-                        5
+                        40
                     }
                 } else {
                     u32::MAX
                 }
             }
-            FsPane::Custom { .. } | FsPane::Stream { .. } => 5, // maybe
+            FsPane::Custom { .. } | FsPane::Stream { .. } => 40, // maybe
             FsPane::Nav { sort, .. } | FsPane::Find { sort, .. } => {
                 if matches!(sort, SortOrder::none) {
                     0
                 } else {
-                    5
+                    40
                 }
             }
         }

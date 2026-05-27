@@ -149,7 +149,7 @@ impl FsWatcher {
 
 // ----------- SERDE ----------------------
 
-mod serde_duration_ms {
+pub mod serde_duration_ms {
     use serde::{Deserialize, Deserializer, Serializer};
     use std::time::Duration;
 

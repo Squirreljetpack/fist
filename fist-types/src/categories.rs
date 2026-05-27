@@ -182,6 +182,7 @@ impl FileCategory {
             "s" | "src" | "code" => Source,
             "conf" | "cfg" => Configuration,
             "txt" => Text,
+            "doc" => Document,
 
             // new variants
             "db" => Database,

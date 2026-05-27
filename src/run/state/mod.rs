@@ -42,11 +42,11 @@ pub mod GLOBAL {
     use super::*;
     thread_local! {
         static CONFIG: RefCell<Option<GlobalConfig>> = const { RefCell::new(None) };
-        static WATCHER_TX: RefCell<Option<WatcherSender>> = const { RefCell::new(None) };
         static DB: RefCell<Option<Pool>> = const { RefCell::new(None) };
         static BIND_TX: RefCell<Option<BindSender<FsAction>>> = const { RefCell::new(None) };
     }
     static RENDER_TX: Mutex<Option<RenderSender<FsAction>>> = const { Mutex::new(None) };
+    static WATCHER_TX: Mutex<Option<WatcherSender>> = const { Mutex::new(None) };
 
     /// All global methods can be called iff this has been called
     /// DB_FILTER needs to be initialized seperately with async
@@ -83,7 +83,7 @@ pub mod GLOBAL {
 
         CONFIG.with(|c| *c.borrow_mut() = Some(cfg));
         *RENDER_TX.lock().unwrap() = Some(render_tx);
-        WATCHER_TX.with(|tx| *tx.borrow_mut() = Some(watcher_tx));
+        *WATCHER_TX.lock().unwrap() = Some(watcher_tx);
         DB.with(|d| *d.borrow_mut() = Some(db_pool));
         BIND_TX.with(|d| *d.borrow_mut() = Some(bind_tx));
         STACK::init(pane);
@@ -109,17 +109,13 @@ pub mod GLOBAL {
     pub fn send_mm(msg: matchmaker::message::RenderCommand<FsAction>) {
         let guard = RENDER_TX.lock().unwrap();
         let tx = guard.as_ref().expect("render tx missing");
-
-        tx.send(msg)._elog();
     }
 
     /// must be called in initializing thread
     pub fn send_watcher(msg: WatcherMessage) {
-        WATCHER_TX.with(|tx| {
-            let guard = tx.borrow();
-            let tx = guard.as_ref().expect("watcher tx missing");
-            tx.send(msg)._elog();
-        });
+        let guard = WATCHER_TX.lock().unwrap();
+        let tx = guard.as_ref().expect("render tx missing");
+        tx.send(msg)._elog();
     }
     pub fn send_bind(msg: BindDirective<FsAction>) {
         BIND_TX.with(|tx| {
@@ -313,9 +309,9 @@ pub mod APP {
 
 // -------------------------------------------
 pub mod TASKS {
-    use std::{cell::RefCell, time::Duration};
+    use std::cell::RefCell;
 
-    use cba::{_ibog, dbog, wbog};
+    use cba::{dbog, ebog, ibog, wbog};
     use tokio::{self, task::JoinSet};
 
     thread_local! {
@@ -341,60 +337,76 @@ pub mod TASKS {
     }
 
     pub async fn shutdown(
+        initial_warn_ms: u64,
         warn_secs: u64,
         max_secs: u64,
     ) {
+        use tokio::time::{self, Duration};
+
         let mut join_set = TASKS.with(|tasks| std::mem::take(&mut *tasks.borrow_mut()));
 
-        if !join_set.is_empty() {
-            dbog!("Waiting on {} tasks.", join_set.len());
+        if join_set.is_empty() {
+            return;
         }
 
-        let mut remaining = 0;
+        let mut warned = false;
 
-        let max = tokio::time::sleep(Duration::from_secs(max_secs));
-        tokio::pin!(max);
+        dbog!("Waiting on {} tasks.", join_set.len());
 
-        let start = tokio::time::Instant::now();
+        let warn_deadline = time::sleep(Duration::from_millis(initial_warn_ms));
+        tokio::pin!(warn_deadline);
 
-        let mut warn = tokio::time::interval_at(
-            start + Duration::from_secs(warn_secs),
-            Duration::from_secs(warn_secs),
-        );
+        let max_deadline = time::sleep(Duration::from_secs(max_secs));
+        tokio::pin!(max_deadline);
 
         loop {
             tokio::select! {
+                // task completed
                 res = join_set.join_next() => {
-                    if res.is_none() {
-                        break;
+                    match res {
+                        Some(_) => {
+                            warn_deadline
+                            .as_mut()
+                            .reset(time::Instant::now() + Duration::from_secs(warn_secs));
+
+                            if join_set.is_empty() {
+                                return;
+                            }
+                        }
+                        None => {
+                            if warned {
+                                ibog!(
+                                    "All tasks finished"
+                                );
+                            }
+                            return
+                        },
                     }
                 }
 
-                _ = warn.tick() => {
-                    if remaining == 0 {
+                _ = &mut warn_deadline => {
+                    if !join_set.is_empty() {
                         wbog!(
-                            "Waiting on {} task(s). (Press ctrl-c to exit).",
+                            "Waiting on {} task(s). (Press Ctrl-C to exit).",
                             join_set.len()
                         );
-                    } else if join_set.len() != remaining {
-                        _ibog!(
-                            "{} task(s) remaining.",
-                            join_set.len()
-                        );
+                        warned = true;
+
+                        warn_deadline
+                        .as_mut()
+                        .reset(time::Instant::now() + Duration::from_secs(warn_secs));
                     }
-                    remaining = join_set.len()
                 }
 
-                _ = &mut max => {
-                    wbog!(
-                        "Timeout";
-                        "{} task(s) aborted.",
+                _ = &mut max_deadline => {
+                    ebog!(
+                        "Shutdown timeout reached. Aborting {} task(s).",
                         join_set.len()
                     );
-                    break;
+
+                    join_set.shutdown().await;
+                    return;
                 }
-
-
             }
         }
     }

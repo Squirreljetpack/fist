@@ -84,8 +84,9 @@ __fist_dir_widget() {
     if [ -d "$line" ]; then
       cd "$line"
     elif [ -f "$line" ]; then
-      dir="$(dirname "$line")" && [ -d "$dir" ] && cd "$dir" &&
-      LBUFFER="${LBUFFER%% *} '$(basename "$line")' " ||
+      read -r LBUFFER <<< "$LBUFFER"
+      dir="$(dirname -- "$line")" && [ -d "$dir" ] && cd "$dir" &&
+      LBUFFER="${LBUFFER% } '${line:t}' " ||
       { zle push-line && zle accept-line; return 1; }
     fi
     { zle push-line && zle accept-line; }
@@ -98,9 +99,10 @@ __fist_file_widget() {
 
   results="$(FS_OPTS="opener=[$${FILEW_CMD}] $FS_OPTS" $${BINARY_PATH} :: --no-read $${FILEW_ARGS})" || { zle push-line && zle accept-line; return 1; }
 
+  read -r LBUFFER <<< "$LBUFFER"
   while IFS= read -r line; do
     if [ -n "$line" ]; then
-      LBUFFER="${LBUFFER%% *} '$line' "
+      LBUFFER="${LBUFFER% } '$line' "
     fi
   done <<< "$results"
 
@@ -112,9 +114,10 @@ __fist_rg_widget() {
 
   results="$(FS_OPTS="opener=[$${RGW_CMD}] $FS_OPTS" $${BINARY_PATH} :rg $${RGW_ARGS})" || { zle push-line && zle accept-line; return 1; }
 
+  read -r LBUFFER <<< "$LBUFFER"
   while IFS= read -r line; do
     if [ -n "$line" ]; then
-      LBUFFER="${LBUFFER%% *} '$line' "
+      LBUFFER="${LBUFFER% } '$line' "
     fi
   done <<< "$results"
 

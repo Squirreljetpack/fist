@@ -18,7 +18,9 @@ use std::process::{Command, Stdio};
 
 use crate::cli::clap_tools::LessfilterCommand;
 use crate::lessfilter::env::line_column;
-use crate::lessfilter::helpers::{extract, is_header, is_metadata, show_header, show_metadata};
+use crate::lessfilter::helpers::{
+    extract, is_header, is_metadata, show_header, show_simple_metadata,
+};
 use crate::utils::formatter::format_path;
 use crate::{
     abspath::AbsPath,
@@ -127,7 +129,7 @@ pub fn handle(
                     }
                     true
                 } else if is_metadata(&prog) {
-                    paths.iter().all(|p| show_metadata(p, i == 0))
+                    paths.iter().all(|p| show_simple_metadata(p, pi == 0))
                 } else {
                     // Handle singleton execution
                     if !no_exec && Some(pi) == pl && i == rl {

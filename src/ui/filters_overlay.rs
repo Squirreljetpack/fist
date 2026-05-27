@@ -154,7 +154,14 @@ impl FilterOverlay {
         let dirs_label = if STACK::in_rg() {
             Default::default()
         } else {
-            (bold_indices("Dirs", [0], self.item_style()), Some(vis.dirs))
+            if vis.files {
+                (
+                    bold_indices("files (D)", [7], self.item_style()),
+                    Some(vis.files),
+                )
+            } else {
+                (bold_indices("Dirs", [0], self.item_style()), Some(vis.dirs))
+            }
         };
         let mut ret = vec![
             (hidden_label, Some(vis.hidden || vis.hidden_only)),
@@ -337,7 +344,13 @@ impl FilterOverlay {
                             }
                         }
                         1 => vis.ignore = !vis.ignore,
-                        2 => vis.dirs = !vis.dirs,
+                        2 => {
+                            if vis.files {
+                                vis.files = !vis.files;
+                            } else {
+                                vis.dirs = !vis.dirs
+                            }
+                        }
                         3 => vis.toggle_all(),
                         _ => {}
                     }
@@ -418,7 +431,11 @@ impl Overlay for FilterOverlay {
                         }
                         'd' | 'D' => {
                             if !STACK::in_rg() {
-                                vis.dirs = !vis.dirs
+                                if vis.files {
+                                    vis.files = !vis.files
+                                } else {
+                                    vis.dirs = !vis.dirs
+                                }
                             }
                         }
                         'I' => vis.ignore = !vis.ignore,

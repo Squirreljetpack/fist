@@ -115,7 +115,7 @@ impl FsPane {
                         },
                         move |count| {
                             if count == Some(0) {
-                                GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                                GLOBAL::send_mm(RenderCommand::NoMatch);
                             }
                             complete.store(true, Ordering::SeqCst);
                         },
@@ -165,7 +165,7 @@ impl FsPane {
                             },
                             move |count| {
                                 if count == Some(0) {
-                                    GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                                    GLOBAL::send_mm(RenderCommand::NoMatch);
                                 }
                                 _complete.store(true, Ordering::SeqCst);
                             },
@@ -174,7 +174,7 @@ impl FsPane {
                     Some(Err(script)) => map_reader_batch(
                         stdout,
                         complete.clone(),
-                        || GLOBAL::send_mm(RenderCommand::QuitEmpty),
+                        || GLOBAL::send_mm(RenderCommand::NoMatch),
                         script.clone(),
                         cwd,
                         stored.clone(),
@@ -229,7 +229,7 @@ impl FsPane {
                         },
                         move |count| {
                             if count == Some(0) {
-                                GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                                GLOBAL::send_mm(RenderCommand::NoMatch);
                             }
                             complete.store(true, Ordering::SeqCst);
                         },
@@ -279,7 +279,7 @@ impl FsPane {
                             },
                             move |count| {
                                 if count == Some(0) {
-                                    GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                                    GLOBAL::send_mm(RenderCommand::NoMatch);
                                 }
                                 _complete.store(true, Ordering::SeqCst);
                             },
@@ -288,7 +288,7 @@ impl FsPane {
                     Some(Err(script)) => map_reader_batch(
                         stdout,
                         complete.clone(),
-                        || GLOBAL::send_mm(RenderCommand::QuitEmpty),
+                        || GLOBAL::send_mm(RenderCommand::NoMatch),
                         script.clone(),
                         cwd,
                         stored.clone(),
@@ -312,6 +312,9 @@ impl FsPane {
             } => {
                 let vis = *vis;
                 let cwd = cwd.clone();
+                let threshold = cfg.panes.find.max_refresh_items_threshold;
+                let time_threshold = cfg.panes.find.max_refresh_execution_time_threshold;
+                let start_time = std::time::Instant::now();
                 let (prog, args) = ("fd", build_fd_args(vis, types, paths, fd_args, &cfg.fd));
 
                 log::info!("spawning: {}", display_sh_prog_and_args(prog, &args));
@@ -326,6 +329,7 @@ impl FsPane {
                     STACK::len() == 1 && TlsStore::get::<ShouldNotAbortOnEmpty>().is_none();
 
                 let _complete = complete.clone();
+                let _cwd = cwd.clone();
                 map_reader(
                     stdout,
                     Some('\0'),
@@ -338,11 +342,25 @@ impl FsPane {
                     move |count| {
                         if count == Some(0) {
                             if abort_empty {
-                                GLOBAL::send_mm(RenderCommand::QuitEmpty);
+                                GLOBAL::send_mm(RenderCommand::NoMatch);
                             } else if toast_on_empty {
                                 TOAST::toast_empty();
                             }
                         }
+
+                        // lowpri: theoretically this should be immune to triggering after pane changes
+                        // as push would Err but we should have a test 
+                        if let Some(c) = count
+                            && ({ c == 0 || c < threshold } && {
+                                time_threshold.is_zero() || start_time.elapsed() < time_threshold
+                            })
+                        {
+                            GLOBAL::send_watcher(crate::watcher::WatcherMessage::Switch(
+                                _cwd.inner(),
+                                notify::RecursiveMode::Recursive,
+                            ));
+                        }
+
                         _complete.store(true, Ordering::SeqCst);
                     },
                 )

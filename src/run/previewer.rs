@@ -1,15 +1,13 @@
-use cba::env_vars;
+use crate::{
+    aliases::MMState,
+    run::{FsMatchmaker, dhandlers::path_formatter, state::STACK},
+};
+use cba::{env_vars, unwrap};
 use log::warn;
 use matchmaker::{
     config::PreviewerConfig,
     message::Event,
     preview::previewer::{PreviewMessage, Previewer},
-};
-use ratatui::text::Text;
-
-use crate::{
-    aliases::MMState,
-    run::{FsMatchmaker, dhandlers::path_formatter, state::STACK},
 };
 
 /// Causes the program to display a preview of the active result.
@@ -25,19 +23,17 @@ pub fn make_previewer(
     // preview handler
     mm.register_event_handler(Event::CursorChange | Event::PreviewChange, move |state: &mut MMState<'_, '_>, _e| {
         if state.preview_visible() &&
-        let Some(t) = state.current_raw() &&
+        let Some(item) = state.current_raw() &&
         let m = state.preview_payload() &&
         !m.is_empty()
         {
-            let cmd = path_formatter(t, m);
+            let cmd = path_formatter(item, m);
 
             // unwrap allowed by visible
             let index = state.preview_ui.as_ref().unwrap().config.initial.index.as_ref();
 
             let target = if STACK::in_rg() {
-                state.current_raw().and_then(|item| {
-                    state.picker_ui.worker.format_with(item, "3").and_then(|t| atoi::atoi(t.as_bytes()))
-                })
+                state.picker_ui.worker.format_with(item, "3").and_then(|t| atoi::atoi(t.as_bytes()))
             } else {
                 None
             };
@@ -66,12 +62,33 @@ pub fn make_previewer(
 
     mm.register_event_handler(Event::PreviewSet, move |state, _event| {
         if state.preview_visible() {
-            let msg = if let Some(m) = state.preview_set_payload() {
-                let m = Text::from(m);
-
-                PreviewMessage::Set(m)
-            } else {
-                PreviewMessage::Unset
+            let payload = state.preview_set_payload();
+            log::trace!("Recieved PreviewSet: {payload:?}");
+            let msg = match payload {
+                Some(Err(m)) => {
+                    // let m = if is_empty(&m) && !help_str.lines.is_empty() {
+                    //     help_str.clone()
+                    // } else {
+                    //     m
+                    // };
+                    PreviewMessage::Set(m)
+                }
+                None => PreviewMessage::Unset,
+                Some(Ok(template)) => {
+                    let item = unwrap!(state.current_raw());
+                    let cmd = path_formatter(item, &template);
+                    if cmd.is_empty() {
+                        PreviewMessage::Stop
+                    } else {
+                        let mut envs = state.make_env_vars();
+                        let extra = env_vars!(
+                            "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),
+                            "LINES" => state.previewer_area().map_or("0".to_string(), |r| r.height.to_string()),
+                        );
+                        envs.extend(extra);
+                        PreviewMessage::Run(cmd, envs)
+                    }
+                }
             };
 
             if tx.send(msg.clone()).is_err() {

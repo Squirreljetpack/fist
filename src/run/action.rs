@@ -33,7 +33,7 @@ use crate::{
         confirm_overlay::ConfirmPrompt,
         menu_overlay::{MenuTarget, PromptKind},
     },
-    utils::text::ToastStyle,
+    utils::{text::ToastStyle, trash::trash},
 };
 use fist_types::When;
 use fist_types::filters::SortOrder;
@@ -111,7 +111,7 @@ pub enum FsAction {
     /// Save the file to the backup directory. (todo)
     Backup,
     /// Delete the file using system trash.
-    Trash,
+    Trash(bool),
     /// Permanently delete the file.
     Delete(bool),
     /// Internal confirmation action.
@@ -281,7 +281,7 @@ pub fn fsaction_aliaser(
                     acs![Action::Custom(fa)]
                 }
             }
-            FsAction::Trash => {
+            FsAction::Trash(no_confirm) => {
                 // if raw_input {
                 //     acs![Action::DeleteWord]
                 // } else
@@ -725,7 +725,7 @@ pub fn fsaction_handler(
         FsAction::Cut => {
             let mut toast_vec = vec![];
             let mut cb_vec = vec![];
-            let items = state.map_selected_to_vec(|s| {
+            let items = state.map_selected_to_vec(|_i, s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
                 s.path.clone()
@@ -739,7 +739,7 @@ pub fn fsaction_handler(
         FsAction::Copy => {
             let mut toast_vec = vec![];
             let mut cb_vec = vec![];
-            let items = state.map_selected_to_vec(|s| {
+            let items = state.map_selected_to_vec(|_, s| {
                 toast_vec.push(short_display(&s.path));
                 cb_vec.push(s.path.inner());
                 s.path.clone()
@@ -756,7 +756,7 @@ pub fn fsaction_handler(
             let mut toast_vec = vec![];
 
             if !in_prompt {
-                let items = state.map_selected_to_vec(|s| {
+                let items = state.map_selected_to_vec(|_, s| {
                     toast_vec.push(short_display(&s.path));
                     s.path.clone()
                 });
@@ -781,7 +781,7 @@ pub fn fsaction_handler(
                 mode
             };
             if !in_prompt {
-                let items = state.map_selected_to_vec(|s| {
+                let items = state.map_selected_to_vec(|_, s| {
                     toast_vec.push(short_display(&s.path));
                     s.path.clone()
                 });
@@ -821,15 +821,54 @@ pub fn fsaction_handler(
             // todo: impl using custom stash + some kind of db-based kv store
         }
 
-        FsAction::Trash => {
+        FsAction::Trash(no_confirm) => {
             let mut items = vec![];
-            state.map_selected_to_vec(|s| {
+            state.map_selected_to_vec(|_, s| {
                 items.push(s.path.inner());
             });
+
+            if items.is_empty() {
+                return;
+            }
+
+            if !no_confirm {
+                let prompt = if items.len() == 1 {
+                    Line::from_iter([
+                        Span::styled("Trash", Color::Red),
+                        Span::raw(format!(
+                            " {}?",
+                            short_display(&AbsPath::new_unchecked(&items[0]))
+                        )),
+                    ])
+                } else {
+                    Line::from_iter([
+                        Span::styled("Trash", Color::Red),
+                        Span::raw(format!(" {} items?", items.len())),
+                    ])
+                };
+
+                TlsStore::set(ConfirmPrompt {
+                    prompt,
+                    options: vec![("Yes", 0), ("No", 0)],
+                    option_handler: Box::new(|idx| {
+                        if idx == 0 {
+                            GLOBAL::send_action(FsAction::Trash(true));
+                        }
+                    }),
+                    content: None,
+                    content_above: false,
+                    title_in_border: false,
+                    cursor: 0, // Default to Yes
+                    scroll: 0,
+                });
+                GLOBAL::send_action(FsAction::Confirm);
+                return;
+            }
+
             // not heavy computationally, but still blocking...
             TASKS::spawn_blocking(|| {
                 for path in items {
-                    match trash::delete(&path) {
+                    match trash(&path) {
                         Ok(()) => {
                             TOAST::push(ToastStyle::Success, "Trashed: ", [short_display(&path)]);
                         }
@@ -847,7 +886,7 @@ pub fn fsaction_handler(
         }
         FsAction::Delete(no_confirm) => {
             let mut items = vec![];
-            state.map_selected_to_vec(|s| {
+            state.map_selected_to_vec(|_, s| {
                 items.push(s.path.inner());
             });
 
@@ -916,7 +955,7 @@ pub fn fsaction_handler(
         FsAction::Confirm => {}
         FsAction::CopyPath => {
             let paths = if !in_prompt {
-                state.map_selected_to_vec(|s| s.path.inner())
+                state.map_selected_to_vec(|_, s| s.path.inner())
             } else {
                 STACK::cwd().map(PathBuf::from).into_iter().collect()
             };
@@ -1053,10 +1092,29 @@ pub fn fsaction_handler(
             if paging {
                 // we need to use the renderer because the first pass of renderer won't render when it sees it is being piped
                 if let Some(pp) = text_renderer_path().shell_quote() {
+                    // Match the special code to its corresponding environment variable setting
+                    let env_var = match special {
+                        1 => Some("PG_LANG=ini"),
+                        _ => None,
+                    };
+
                     #[cfg(windows)]
-                    template.push_str(&format!(" | cmd /c \"set PG_LANG=ini && {pp}\" > CON"));
+                    {
+                        if let Some(env) = env_var {
+                            template.push_str(&format!(" | cmd /c \"set {env} && {pp}\" > CON"));
+                        } else {
+                            template.push_str(&format!(" | cmd /c \"{pp}\" > CON"));
+                        }
+                    }
+
                     #[cfg(unix)]
-                    template.push_str(&format!(" | PG_LANG=ini {pp} > /dev/tty"));
+                    {
+                        if let Some(env) = env_var {
+                            template.push_str(&format!(" | {env} {pp} > /dev/tty"));
+                        } else {
+                            template.push_str(&format!(" | {pp} > /dev/tty"));
+                        }
+                    }
                 } else {
                     wbog!(
                         "Pager path could not be decoded, please check your installation's cache directory."
@@ -1130,7 +1188,7 @@ pub fn fsaction_handler(
                     }
                 } else {
                     // print selected
-                    let v = state.map_selected_to_vec(|item| {
+                    let v = state.map_selected_to_vec(|_, item| {
                         GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
 
                         let s = item.display().to_string();
@@ -1159,13 +1217,13 @@ enum_from_str_display! {
     ShowFilters, ShowStash, ShowScratch,
     ShowMenu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir, Rename,
-    Backup, Trash;
+    Backup;
 
     tuples:
     AutoJump, SwitchStash;
 
     defaults:
-    (Delete, false), (Stash, String::new()), (CycleStash, true)
+    (Delete, false), (Trash, false), (Stash, String::new()), (CycleStash, true)
     ;
     options:
     ClearStash

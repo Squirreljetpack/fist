@@ -206,6 +206,7 @@ pub fn build_fd_args(
         ret.push(p.clone());
     }
     ret.push("--color=never".into());
+    // null separator
     ret.push("--print0".into());
 
     ret.append(&mut extra_args);

@@ -3,6 +3,7 @@ mod categories_phf;
 pub mod filetypes;
 pub mod filters;
 mod ft_arg;
+pub mod git;
 pub mod icons;
 
 pub use categories::FileCategory;
