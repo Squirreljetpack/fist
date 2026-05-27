@@ -45,7 +45,7 @@ pub fn show_header(path: &Path) {
 }
 
 // todo: in-house file -bL
-pub fn show_metadata(
+pub fn show_simple_metadata(
     path: &Path,
     first: bool,
 ) -> bool {
@@ -86,8 +86,8 @@ pub fn show_metadata(
                             .header_formatter(|s, _| s.dim().italic().to_string())
                             .cell_formatter(|s, _| s.dim().italic().to_string());
 
-                        if ret.is_some() || !first {
-                            println!("\n");
+                        if ret.is_some() {
+                            println!();
                         }
                         table.print()._elog();
                     }
@@ -103,6 +103,7 @@ pub fn show_metadata(
         }
     } else {
         let mut cmd = Command::new(current_exe());
+
         cmd.args([
             ":tool", "liza", ":l", //"--no-header",
             "--",

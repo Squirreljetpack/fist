@@ -118,7 +118,13 @@ impl Action {
                     ],
                     [true, false, false],
                 ),
-                Preset::Info => (arr![simple_metadata(path)], [true, false, false]),
+                Preset::Info => (
+                    arr![
+                        vec_![: current_exe(), ":tool", "liza", ":l", path],
+                        simple_metadata(path)
+                    ],
+                    [true, false, false],
+                ),
                 Preset::Edit => (arr![infer_editor(path)], [true, true, false]),
 
                 Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
@@ -151,24 +157,40 @@ impl Action {
                 }
             },
 
+            // this action is basically just simple_metadata except for extended
+            // where we show stats (+ metadata if file)
             Action::Metadata => match preset {
                 Preset::Extended => (
-                    arr![simple_header(path), simple_metadata(path)],
-                    [true, false, false],
+                    // show file stats in addition to metadata like Info
+                    if path.is_file() {
+                        arr![
+                            vec_![: current_exe(), ":tool", "liza", ":l", path],
+                            simple_metadata(path)
+                        ]
+                    } else {
+                        // not a file => skip the metadata
+                        // altho simple_metadata = stats if !file, that's just a coincidence and semantically it only makes sense to show stats
+                        arr![vec_![: current_exe(), ":tool", "liza", ":l", path]]
+                    },
+                    [true, false, true],
                 ),
-                // todo: change this
                 Preset::Info => (
-                    arr![
-                        vec_![: current_exe(), ":tool", "liza", ":l", path],
-                        simple_metadata(path)
-                    ],
+                    // preset info should display size
+                    if path.is_file() {
+                        arr![
+                            vec_![: current_exe(), ":tool", "liza", ":l", path],
+                            simple_metadata(path)
+                        ]
+                    } else {
+                        arr![vec_![: current_exe(), ":tool", "liza", ":l", path]]
+                    },
                     [true, false, true],
                 ),
                 Preset::Edit => (
                     arr![vec_![: show_error_path(), "No handler configured."]],
                     [true, false, false],
                 ),
-                _ => (arr![simple_metadata(path)], [true, false, false]),
+                _ => (arr![simple_metadata(path)], [true, false, true]),
             },
 
             Action::Open => (

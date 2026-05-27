@@ -34,22 +34,24 @@ less_opts=()
 # [[ $SCROLL_LINE =~ ^[0-9]+$ ]] && less_opts+=(+$SCROLL_LINE) # Uncomment this to listen for scroll offsets from the previewer
 
 
-
 [[ -n $PG_LESS ]] && LESS+=" $PG_LESS"
 opts+=($@)
 
 bat -p $opts | {
+    line=
 	IFS= read -r line
     if [ $? -eq 0 ] || [[ -n "$line" ]]; then
         {
-            echo "$line"
+            printf '%s\n' "$line"
             cat
-        } |
-        if [[ $PG_FORCE_TTY == true ]]; then
-            LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p less -R $less_opts > /dev/tty
-        else
-            LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p less -R $less_opts
-        fi
+        } | {
+            export LESSUTFCHARDEF=E000-F8FF:p,F0000-FFFFD:p,100000-10FFFD:p
+            if [[ $PG_FORCE_TTY == true ]]; then
+                less -R $less_opts > /dev/tty
+            else
+                less -R $less_opts
+            fi
+        }
     fi
 }
 

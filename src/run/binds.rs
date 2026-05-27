@@ -81,6 +81,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-q), key!(ctrl-'.')  => FsAction::new_lessfilter(Preset::Edit, false),
         key!(ctrl-enter) => FsAction::new_lessfilter(Preset::Open, false),
         // A free preset for the user to decide what to do with
+        // This can be used to open a *file* with $VISUAL
         key!(alt-8) => FsAction::new_lessfilter(Preset::Alternate, true),
         // Maximize preview
         // true => display the output in a pager

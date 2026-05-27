@@ -1092,10 +1092,29 @@ pub fn fsaction_handler(
             if paging {
                 // we need to use the renderer because the first pass of renderer won't render when it sees it is being piped
                 if let Some(pp) = text_renderer_path().shell_quote() {
+                    // Match the special code to its corresponding environment variable setting
+                    let env_var = match special {
+                        1 => Some("PG_LANG=ini"),
+                        _ => None,
+                    };
+
                     #[cfg(windows)]
-                    template.push_str(&format!(" | cmd /c \"set PG_LANG=ini && {pp}\" > CON"));
+                    {
+                        if let Some(env) = env_var {
+                            template.push_str(&format!(" | cmd /c \"set {env} && {pp}\" > CON"));
+                        } else {
+                            template.push_str(&format!(" | cmd /c \"{pp}\" > CON"));
+                        }
+                    }
+
                     #[cfg(unix)]
-                    template.push_str(&format!(" | PG_LANG=ini {pp} > /dev/tty"));
+                    {
+                        if let Some(env) = env_var {
+                            template.push_str(&format!(" | {env} {pp} > /dev/tty"));
+                        } else {
+                            template.push_str(&format!(" | {pp} > /dev/tty"));
+                        }
+                    }
                 } else {
                     wbog!(
                         "Pager path could not be decoded, please check your installation's cache directory."
