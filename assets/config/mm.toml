@@ -3,6 +3,9 @@
     min        = 10
     max        = 25
 
+[results]
+    wrap = true
+
 [[preview.layout]]
     side       = "right"
     percentage = 40

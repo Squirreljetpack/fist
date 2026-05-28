@@ -61,17 +61,16 @@ async fn main() {
     check(&cfg);
 
     // skip tool logging when not in append mode (mainly lessfilter)
-    if !cfg.misc.append_mode_logging
-        && (std::env::var("MM_IN_APP").as_deref() == Ok("true")
-            || matches!(
-                cli.subcommand,
-                SubCmd::Tools(ToolsCmd { tool: Some(_), .. }) | SubCmd::Open(_)
-            ))
-    {
-        // skip
+
+    let (log_path, append) = if matches!(
+        cli.subcommand,
+        SubCmd::Tools(ToolsCmd { tool: Some(_), .. }) | SubCmd::Open(_)
+    ) {
+        (cfg.tools_log_path(), cfg.misc.append_mode_logging)
     } else {
-        init_logger(verbosity, cfg.log_path(), cfg.misc.append_mode_logging);
-    }
+        (cfg.log_path(), cfg.misc.tools_append_mode_logging)
+    };
+    init_logger(verbosity, log_path, append);
 
     _dbg!(&cfg);
     match handle_subcommand(cli, cfg).await {

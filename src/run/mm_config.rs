@@ -109,7 +109,7 @@ pub fn get_mm_cfg(
     results.right_align_last = true;
     results.stacked_columns = false;
     results.separator = Default::default();
-    results.min_wrap_width = results.min_wrap_width.max(10);
+    results.min_width = results.min_width.max(10);
     results.autoscroll.initial_preserved = 5;
     if cfg.global.mm.reverse.is_some() {
         results.reverse = cfg.global.mm.reverse

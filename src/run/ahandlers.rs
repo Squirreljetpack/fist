@@ -76,7 +76,13 @@ pub fn enter_prompt(
             )
         };
         state.picker_ui.results.cursor_jump(0);
-        state.stash_preview_visibility(Some(false));
+        if let Some(p) = state.preview_ui
+            && p.is_vertical()
+        {
+            state.stash_preview_visibility(Some(false));
+        } else {
+            // dim preview?
+        }
         state.picker_ui.query.set_prompt_line(prompt);
     } else {
         state.stash_preview_visibility(None);

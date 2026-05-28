@@ -113,6 +113,8 @@ pub struct MiscConfig {
     pub clipboard_delay_ms: u64,
     /// Overwrite or append logs on application start.
     pub append_mode_logging: bool,
+    /// Overwrite or append tool logs on application start.
+    pub tools_append_mode_logging: bool,
     /// Pass the spawning command to this instead of invoking it directly.
     pub spawn_with: Vec<String>,
     /// The default output fromat when calling [FsAction::Print]
@@ -127,6 +129,7 @@ impl Default for MiscConfig {
         Self {
             clipboard_delay_ms: 20,
             append_mode_logging: false,
+            tools_append_mode_logging: false,
             spawn_with: Vec::new(),
             output_template: None,
             output_separator: "\n".into(),
@@ -312,6 +315,9 @@ impl Config {
     }
     pub fn log_path(&self) -> PathBuf {
         self.state_dir.join(format!("{BINARY_FULL}.log"))
+    }
+    pub fn tools_log_path(&self) -> PathBuf {
+        self.state_dir.join(format!("{BINARY_FULL}.tools.log"))
     }
 
     pub fn check_dirs_or_exit(&self) {
