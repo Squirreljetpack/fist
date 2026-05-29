@@ -5,6 +5,7 @@
 
 [results]
     wrap = true
+    scroll_wrap = true
 
 [[preview.layout]]
     side       = "right"
@@ -29,3 +30,4 @@
 
 [preview]
     wrap = true
+    scroll_wrap = true

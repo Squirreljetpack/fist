@@ -16,7 +16,7 @@ use crate::{
 
 use matchmaker::{
     action::Action,
-    config::{BorderSetting, PartialBorderSetting},
+    config::{BorderSetting, PartialBorderSetting, StyleSetting},
     ui::{Overlay, OverlayEffect, SizeHint},
 };
 use ratatui::{
@@ -30,8 +30,8 @@ const MAX_ITEM_WIDTH: u16 = 9;
 pub struct MenuConfig {
     #[serde(with = "border_result")]
     pub border: Result<BorderSetting, PartialBorderSetting>,
-    pub item_fg: Color,
-    pub item_modifier: Modifier,
+    pub item_style: StyleSetting,
+    pub current_style: StyleSetting,
 }
 
 impl Default for MenuConfig {
@@ -44,8 +44,12 @@ impl Default for MenuConfig {
         };
         Self {
             border: Err(border),
-            item_fg: Default::default(),
-            item_modifier: Default::default(),
+            item_style: Default::default(),
+            current_style: StyleSetting {
+                fg: None,
+                bg: Some(Color::Black),
+                modifier: Modifier::BOLD,
+            },
         }
     }
 }
@@ -85,9 +89,7 @@ impl MenuItem {
         &self,
         menu_config: &MenuConfig,
     ) -> Line<'static> {
-        let style = Style::new()
-            .add_modifier(menu_config.item_modifier)
-            .fg(menu_config.item_fg);
+        let style = menu_config.item_style.into();
 
         match self {
             MenuItem::New => Line::from(bold_indices("new", [0], style)),
@@ -216,11 +218,7 @@ impl MenuOverlay {
                 let mut line = item.line(&self.config);
 
                 if idx == self.cursor {
-                    line = line.patch_style(
-                        Style::default()
-                            .bg(Color::Black)
-                            .add_modifier(Modifier::BOLD),
-                    )
+                    line = line.style(self.config.current_style)
                 }
                 Some(line)
             })

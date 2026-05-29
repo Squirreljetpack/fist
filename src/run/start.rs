@@ -168,6 +168,28 @@ pub async fn start(
             fs_post_reload_new(state);
             if let Some(enter) = enter_prompt {
                 ahandlers::enter_prompt(state, enter);
+            };
+            // kind of ugly but should reduce confusion
+            if !state.picker_ui.results.cursor_disabled {
+                crate::run::state::FILTERS::with_mut(|_sort, vis| {
+                    if vis.dirs {
+                        state
+                            .picker_ui
+                            .query
+                            .set_prompt_line(ratatui::text::Line::styled(
+                                "d: ",
+                                crate::run::action::prompt_main_style(),
+                            ));
+                    } else if vis.files {
+                        state
+                            .picker_ui
+                            .query
+                            .set_prompt_line(ratatui::text::Line::styled(
+                                "f: ",
+                                crate::run::action::prompt_main_style(),
+                            ));
+                    }
+                })
             }
         })
         .paste_handler(paste_handler)

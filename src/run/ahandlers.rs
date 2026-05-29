@@ -40,6 +40,7 @@ pub fn enter_prompt(
     state: &mut MMState<'_, '_>,
     enter: bool,
 ) {
+    log::trace!("ep: {enter}");
     // unfortunately, dim is kinda weak/can make things brighter, but we still want some indication
     if let Some(dim) = GLOBAL::with_cfg(|c| c.interface.dim_prompt) {
         let should_dim = enter ^ !dim;
