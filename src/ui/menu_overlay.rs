@@ -16,8 +16,8 @@ use crate::{
 
 use matchmaker::{
     action::Action,
-    config::{BorderSetting, PartialBorderSetting, StyleSetting},
-    ui::{Overlay, OverlayEffect, SizeHint},
+    config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting, StyleSetting},
+    ui::{Overlay, OverlayEffect, utils},
 };
 use ratatui::{
     prelude::*,
@@ -173,6 +173,7 @@ pub struct MenuOverlay {
     /// See [TEMP::set_input_bar]
     pub target: MenuTarget,
     pub items: Vec<MenuItem>,
+    pub area: Rect,
 }
 
 pub static MENU_ITEMS: [MenuItem; 8] = [
@@ -199,6 +200,7 @@ impl MenuOverlay {
             prompt: PromptOverlay::new(prompt_config),
             target: Default::default(),
             items: MENU_ITEMS.to_vec(),
+            area: Rect::default(),
         }
     }
 
@@ -232,7 +234,7 @@ impl MenuOverlay {
         extra_title: Option<String>,
     ) {
         self.prompt_kind = Some(prompt);
-        self.prompt.config.border.title = match extra_title {
+        self.prompt.input.config.border.title = match extra_title {
             Some(s) => format!("{}: {}", prompt, s),
             None => prompt.to_string(),
         };
@@ -356,24 +358,28 @@ impl Overlay for MenuOverlay {
     fn area(
         &mut self,
         ui_area: &Rect,
-    ) -> Result<Rect, [SizeHint; 2]> {
-        let _ = self.prompt.area(ui_area);
-        Err([
-            (MAX_ITEM_WIDTH + self.border().width()).into(),
-            (self.items.len() as u16 + self.border().height()).into(),
-        ])
+        layout: &OverlayLayoutSettings,
+    ) {
+        self.prompt.area(ui_area, layout);
+        self.area = utils::default_area(
+            [
+                (MAX_ITEM_WIDTH + self.border().width()).into(),
+                (self.items.len() as u16 + self.border().height()).into(),
+            ],
+            layout,
+            ui_area,
+        );
     }
 
     fn draw(
         &mut self,
         frame: &mut matchmaker::ui::Frame,
-        mut area: matchmaker::ui::Rect,
     ) {
         if self.prompt_kind.is_some() {
-            self.prompt.draw(frame, Rect::default());
+            self.prompt.draw(frame);
         } else {
-            frame.render_widget(Clear, area);
-            frame.render_widget(self.make_widget(), area);
+            frame.render_widget(Clear, self.area);
+            frame.render_widget(self.make_widget(), self.area);
         }
     }
 }

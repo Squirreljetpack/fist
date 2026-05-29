@@ -149,3 +149,6 @@
 
 [patch.crates-io]
     nucleo = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }
+    matchmaker-lib = { path = "../matchmaker/matchmaker-lib" }
+    matchmaker-partial = { path = "../matchmaker/matchmaker-partial" }
+    matchmaker-partial-macros = { path = "../matchmaker/matchmaker-partial-macros" }

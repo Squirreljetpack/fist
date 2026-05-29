@@ -4,14 +4,25 @@ use matchmaker::{action::Action, config::BorderSetting, ui::InputUI};
 use ratatui::style::Style;
 use ratatui::text::Span;
 
-#[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct InputWidgetConfig {
     pub border: BorderSetting,
-    pub no_scroll_padding: bool,
+    pub scroll_padding: usize,
     pub style: StyleSetting,
 }
 
+impl Default for InputWidgetConfig {
+    fn default() -> Self {
+        Self {
+            scroll_padding: 3, // easier to see when editing cells
+            border: Default::default(),
+            style: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct InputWidget {
     pub inner: InputUI,
     pub config: InputWidgetConfig,
@@ -66,21 +77,22 @@ impl InputWidget {
         None
     }
 
-    pub fn make_input(
+    pub fn update_width(
         &mut self,
-        width: u16,
+        ui_width: u16,
+    ) {
+        self.inner.width = ui_width.saturating_sub(self.config.border.width())
+    }
+
+    // call scroll_to_cursor first
+    pub fn make_input(
+        &self,
         style: Style,
     ) -> Span<'_> {
-        self.update_scroll(width);
         Span::styled(self.inner.render(), style)
     }
 
-    pub fn update_scroll(
-        &mut self,
-        width: u16,
-    ) {
-        self.inner.width = width;
-        let padding = if self.config.no_scroll_padding { 0 } else { 2 };
-        self.inner.scroll_to_cursor(padding);
+    pub fn scroll_to_cursor(&mut self) {
+        self.inner.scroll_to_cursor(self.config.scroll_padding);
     }
 }

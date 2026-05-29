@@ -4,8 +4,8 @@ use crate::utils::serde::border_result;
 use cba::bait::TransformExt;
 use matchmaker::{
     action::Action,
-    config::{BorderSetting, PartialBorderSetting},
-    ui::{Overlay, OverlayEffect, SizeHint},
+    config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting},
+    ui::{Overlay, OverlayEffect, SizeHint, utils},
 };
 use ratatui::{
     prelude::*,
@@ -99,6 +99,7 @@ pub struct ConfirmResult(pub bool);
 pub struct ConfirmOverlay {
     pub config: ConfirmConfig,
     pub prompt: ConfirmPrompt,
+    pub area: Rect,
 }
 
 impl ConfirmOverlay {
@@ -106,6 +107,7 @@ impl ConfirmOverlay {
         Self {
             config,
             prompt: ConfirmPrompt::default(),
+            area: Rect::default(),
         }
     }
 
@@ -196,7 +198,8 @@ impl Overlay for ConfirmOverlay {
     fn area(
         &mut self,
         ui_area: &Rect,
-    ) -> Result<Rect, [SizeHint; 2]> {
+        layout: &OverlayLayoutSettings,
+    ) {
         let has_title = !self.prompt.title_in_border;
         let has_content = self.prompt.content.is_some();
         let title_h = has_title as u16;
@@ -242,14 +245,14 @@ impl Overlay for ConfirmOverlay {
             (title_h + options_h + num_gaps + self.border().height()).into()
         };
 
-        Err([width.into(), height])
+        self.area = utils::default_area([width.into(), height], layout, ui_area);
     }
 
     fn draw(
         &mut self,
         frame: &mut matchmaker::ui::Frame,
-        area: Rect,
     ) {
+        let area = self.area;
         // 1. Initial Setup & Clearing
         frame.render_widget(Clear, area);
         let block = if !self.prompt.title_in_border {

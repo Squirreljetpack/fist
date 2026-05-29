@@ -335,11 +335,11 @@ pub fn fsaction_aliaser(
                 // no support for creating outside of nav
                 if let Some(p) = state.current_raw() {
                     let p = p.path._parent();
-                    TlsStore::set_input_bar(Some(PromptKind::NewDir), MenuTarget::Cwd(p));
-                    acs![Action::Overlay(3)]
+                    TlsStore::set_input_bar(Some(PromptKind::New), MenuTarget::Cwd(p));
+                    acs![Action::Overlay(4)]
                 } else if let Some(cwd) = STACK::nav_cwd() {
-                    TlsStore::set_input_bar(Some(PromptKind::NewDir), MenuTarget::Cwd(cwd));
-                    acs![Action::Overlay(3)]
+                    TlsStore::set_input_bar(Some(PromptKind::New), MenuTarget::Cwd(cwd));
+                    acs![Action::Overlay(4)]
                 } else {
                     acs![]
                 }
