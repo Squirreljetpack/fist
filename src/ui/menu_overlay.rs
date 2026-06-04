@@ -4,7 +4,7 @@ use crate::{
         action::FsAction,
         item::short_display,
         stash::STASH,
-        state::{GLOBAL, STACK, TOAST, TlsStore},
+        state::{GLOBAL, STACK, TOAST, STORE},
     },
     spawn::{menu_action::MenuActions, open_wrapped},
     ui::prompt_overlay::{PromptConfig, PromptOverlay},
@@ -304,8 +304,8 @@ impl Overlay for MenuOverlay {
     ) {
         self.cursor = 0;
         self.prompt_kind = None;
-        let p = TlsStore::take();
-        let target: MenuTarget = TlsStore::take().unwrap_or_default();
+        let p = STORE::take();
+        let target: MenuTarget = STORE::take().unwrap_or_default();
 
         if let Some(p) = p {
             self.set_prompt(p, target.title());

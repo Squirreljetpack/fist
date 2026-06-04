@@ -34,7 +34,7 @@ use crate::{
     run::{
         FsPane,
         populate_rg::{BufItem, flush_rg_buffer, process_rg_line},
-        state::{ShouldNotAbortOnEmpty, TOAST, TlsStore},
+        state::{STORE, ShouldNotAbortOnEmpty, TOAST},
     },
     utils::text::{extract_rg_line_no_path, scrub_text_styles, text_to_lines},
 };
@@ -329,7 +329,7 @@ impl FsPane {
                 TASKS::register_child(TaskId::Populate, child);
 
                 let abort_empty =
-                    STACK::len() == 1 && TlsStore::get::<ShouldNotAbortOnEmpty>().is_none();
+                    STACK::len() == 1 && STORE::get::<ShouldNotAbortOnEmpty>().is_none();
 
                 let _complete = complete.clone();
                 let _cwd = cwd.clone();
@@ -385,6 +385,7 @@ impl FsPane {
                 //
                 filtering: _,
                 input: _,
+                is_initial,
             } => {
                 let vis = *vis;
                 let cwd = cwd.clone();
@@ -403,6 +404,7 @@ impl FsPane {
                         &cfg.rg,
                     ),
                 );
+                let toast_on_empty = toast_on_empty && is_initial.take();
 
                 log::info!("spawning: {}", display_sh_prog_and_args(prog, &args));
 

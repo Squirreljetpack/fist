@@ -14,7 +14,7 @@ use crate::{
     find::fd::auto_enable_hidden,
     run::{
         item::PathItem,
-        state::{GLOBAL, InitialPreserveWhitespaceInSearch, TlsStore},
+        state::{GLOBAL, InitialPreserveWhitespaceInSearch, STORE},
     },
 };
 use fist_types::{
@@ -23,6 +23,7 @@ use fist_types::{
     filters::{PartialVisibility, SortOrder, Visibility},
 };
 
+/// PartialEq is defined by discriminant
 #[derive(Debug, Clone)]
 pub enum FsPane {
     Custom {
@@ -74,6 +75,7 @@ pub enum FsPane {
 
         rg: Vec<OsString>,
         complete: Arc<AtomicBool>,
+        is_initial: std::cell::RefCell<bool>,
     },
     Files {
         sort: DbSortOrder,
@@ -224,6 +226,7 @@ impl FsPane {
 
             rg,
             complete: Default::default(),
+            is_initial: true.into(),
         }
     }
 
@@ -341,9 +344,11 @@ impl FsPane {
                 } else {
                     let mut s = join_with_single_quotes(patterns);
                     if GLOBAL::with_cfg(|c| c.panes.search.preserve_whitespace)
-                        || TlsStore::take::<InitialPreserveWhitespaceInSearch>().is_some()
+                        || STORE::take::<InitialPreserveWhitespaceInSearch>().is_some()
                     {
-                        s.push_str(" '");
+                        if !s.starts_with('\'') && !s.chars().any(|c| c.is_whitespace()) {
+                            s.insert(0, '\'');
+                        }
                     };
                     s
                 }

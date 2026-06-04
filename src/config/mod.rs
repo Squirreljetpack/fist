@@ -162,7 +162,8 @@ pub struct InterfaceConfig {
     pub toast_on_empty: bool,
     /// If [AutoJump](`crate::run::FsAction::AutoJump`) should accept or advance
     pub autojump_advance: bool,
-    pub dim_prompt: Option<bool>,
+    pub dim_prompt: bool,
+    pub dim_status: bool,
 }
 
 impl Default for InterfaceConfig {
@@ -175,7 +176,8 @@ impl Default for InterfaceConfig {
             cwd_prompt: "{} ".into(),
             toast_on_empty: true,
             autojump_advance: false,
-            dim_prompt: Some(true),
+            dim_prompt: false,
+            dim_status: true
         }
     }
 }

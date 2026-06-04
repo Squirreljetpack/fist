@@ -14,7 +14,7 @@ use crate::{
     run::{
         FsAction, FsPane,
         stash::STASH,
-        state::{FILTERS, GLOBAL, STACK, TOAST, TlsStore, ui::global_ui},
+        state::{FILTERS, GLOBAL, STACK, STORE, TOAST, ui::global_ui},
     },
     utils::formatter::format_prompt,
 };
@@ -42,19 +42,20 @@ pub fn enter_prompt(
 ) {
     log::trace!("ep: {enter}");
     // unfortunately, dim is kinda weak/can make things brighter, but we still want some indication
-    if let Some(dim) = GLOBAL::with_cfg(|c| c.interface.dim_prompt) {
-        let should_dim = enter ^ !dim;
-
+    if GLOBAL::with_cfg(|c| c.interface.dim_prompt) {
         let mods = &mut state.picker_ui.results.config.style.modifier;
         let border_mods = &mut state.picker_ui.results.config.border.modifier;
 
-        if should_dim {
+        if enter {
             *mods |= Modifier::DIM;
             *border_mods |= Modifier::DIM;
         } else {
             mods.remove(Modifier::DIM);
             border_mods.remove(Modifier::DIM);
         }
+    }
+    if GLOBAL::with_cfg(|c| c.interface.dim_status) {
+        state.picker_ui.status.dim(enter)
     }
     // set prompt
     if enter {
@@ -193,32 +194,39 @@ pub fn fs_reload(
 
     let injector = IndexedInjector::new_globally_indexed(state.injector());
 
+    // if !is_new, update state from UI
+    // if new, update UI from state: the creator needs ensure the state is correct on creation.
+    // (post_reload_new will match UI to state).
     STACK::with_current_mut(|p| match p {
         // (always) inform search pane from query
         FsPane::Search {
             filtering,
             patterns,
             input,
+            is_initial,
             ..
         } => {
-            if *filtering {
-                input.0 = state.picker_ui.query.input.clone();
-            } else {
-                let p = split_whitespace_preserve_single_quotes(&state.picker_ui.query.input);
-                *patterns = if p.is_empty() && GLOBAL::with_cfg(|c| !c.rg.empty_start) {
-                    vec_![""]
+            if !is_new && !is_initial.take() {
+                if *filtering {
+                    input.0 = state.picker_ui.query.input.clone(); // input is saved anyway
                 } else {
-                    p
+                    let p = split_whitespace_preserve_single_quotes(&state.picker_ui.query.input);
+                    *patterns = if p.is_empty() && GLOBAL::with_cfg(|c| !c.rg.empty_start) {
+                        vec_![""]
+                    } else {
+                        p
+                    };
                 };
-            };
+            }
         }
         _ => {}
     });
 
     STACK::populate(injector, || {});
+
     // stash the saved index to restore it once synced
-    // This is invoked only through FsAction::Undo/Redo/Restart
-    TlsStore::maybe_set(STACK::take_maybe_index());
+    // The index is only saved through FsAction::Undo/Redo/Restart, see [`STACK::save_input`]
+    STORE::maybe_set(STACK::take_maybe_index());
 
     if is_new {
         fs_post_reload_new(state);
@@ -324,6 +332,9 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
     // Set input from pane, clear selections
     // ----
     // input is nonempty only when called in [`FsAction::Undo`] and [`FsAction::Forward`].
+
+    // if new, update ui from rg state
+    // post_reload will set the styling
     state
         .picker_ui
         .query
@@ -334,7 +345,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
     if STACK::in_app() {
         TOAST::clear();
         STASH::set_scratch("app");
-    } else if let Some(cas) = TlsStore::get::<String>() {
+    } else if let Some(cas) = STORE::get::<String>() {
         STASH::set_scratch(&cas);
     }
 
@@ -357,6 +368,7 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
                     p.config.initial.index = Some("3".to_string().into())
                 }
                 let r = &mut state.picker_ui.results;
+                let s = &mut state.picker_ui.status;
                 let mm = &global_ui().matchmaker;
                 r.config.right_align_last = false;
 
@@ -383,8 +395,8 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
                     }
                     t
                 });
-                r.set_status_line(Some(status));
-                r.status_config.show = true;
+                s.set(Some(status));
+                s.status_config.show = true;
 
                 if f {
                     GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()));
@@ -410,7 +422,8 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
                     // todo: save and restore
                     r.config.separator = Default::default();
                     r.config.stacked_columns = false;
-                    r.set_status_line(None);
+
+                    state.picker_ui.status.set(None);
                 }
 
                 state.filtering = true;

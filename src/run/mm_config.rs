@@ -111,6 +111,7 @@ pub fn get_mm_cfg(
     results.separator = Default::default();
     results.min_width = results.min_width.max(10);
     results.autoscroll.initial_preserved = 2;
+    
     if cfg.global.mm.reverse.is_some() {
         results.reverse = cfg.global.mm.reverse
     }

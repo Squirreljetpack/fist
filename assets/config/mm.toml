@@ -6,6 +6,7 @@
 [results]
     wrap = true
     scroll_wrap = true
+    row_connection = "Disjoint"
 
 [[preview.layout]]
     side       = "right"

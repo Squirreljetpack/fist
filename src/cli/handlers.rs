@@ -50,7 +50,7 @@ use crate::{
         mm_config::get_mm_cfg,
         start,
         stash::STASH,
-        state::{InitialPreserveWhitespaceInSearch, InitialRelativePathSetting, TlsStore},
+        state::{InitialPreserveWhitespaceInSearch, InitialRelativePathSetting, STORE},
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
@@ -236,7 +236,7 @@ async fn handle_rg(
 
     let pool = Pool::new(cfg.db_path()).await?;
     if cmd.preserve_whitespace {
-        TlsStore::set(InitialPreserveWhitespaceInSearch);
+        STORE::set(InitialPreserveWhitespaceInSearch);
     }
 
     let pane = FsPane::new_rg_full(
@@ -293,7 +293,7 @@ async fn handle_dirs(
         // fallback to interactive if no match
         cfg.global.interface.alt_accept = true;
         cfg.global.interface.no_multi_accept = true;
-        TlsStore::set(InitialRelativePathSetting(cfg.styles.path.relative));
+        STORE::set(InitialRelativePathSetting(cfg.styles.path.relative));
         cfg.styles.path.relative = false;
     } else if let Some(all) = cmd.list {
         let mut conn = pool.get_conn(DbTable::dirs).await?;
@@ -379,7 +379,7 @@ async fn handle_default(
             cfg.history.show_missing = false;
 
             // stream can only occur as the first pane, this ensures paths are not modified in display
-            TlsStore::set(cfg.styles.path.relative);
+            STORE::set(cfg.styles.path.relative);
             cfg.styles.path.relative = false;
         };
         FsPane::new_stream(

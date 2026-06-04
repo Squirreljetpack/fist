@@ -1,5 +1,5 @@
 use crate::run::action::FsAction;
-use crate::run::state::TlsStore;
+use crate::run::state::STORE;
 use crate::utils::serde::border_result;
 use cba::bait::TransformExt;
 use matchmaker::{
@@ -82,7 +82,7 @@ impl Default for ConfirmPrompt {
             prompt: Line::from("Confirm?"),
             options: vec![("Yes", 0), ("No", 0)],
             option_handler: Box::new(|idx| {
-                TlsStore::set(ConfirmResult(idx == 0));
+                STORE::set(ConfirmResult(idx == 0));
             }),
             content: None,
             content_above: false,
@@ -136,7 +136,7 @@ impl Overlay for ConfirmOverlay {
         &mut self,
         _area: &Rect,
     ) {
-        if let Some(prompt) = TlsStore::take::<ConfirmPrompt>() {
+        if let Some(prompt) = STORE::take::<ConfirmPrompt>() {
             self.prompt = prompt;
         } else {
             self.prompt = ConfirmPrompt::default();
