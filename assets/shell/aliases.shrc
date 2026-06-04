@@ -11,7 +11,7 @@ ll() { fs :tool lessfilter info     "${@:-.}"; }
 
 # edit
 n()  {
-  if (($#)) && [ -f "$1" ]; then
+  if (($#)) && [ -e "$1" ]; then
     fs :tool lessfilter edit "$@"
   else
     $EDITOR "$@"

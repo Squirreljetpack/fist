@@ -124,22 +124,26 @@ fn count_file<P: AsRef<Path>>(path: P) -> Result<[usize; 3], MapReaderError<Stri
     let mut lines = 0usize;
     let mut in_word = false;
 
-    map_reader_lines::<true, _>(file, |line| {
-        lines += 1;
+    map_reader_lines(
+        file,
+        |line| {
+            lines += 1;
 
-        for c in line.chars() {
-            chars += 1;
-            if c.is_whitespace() {
-                in_word = false;
-            } else if !in_word {
-                in_word = true;
-                words += 1;
+            for c in line.chars() {
+                chars += 1;
+                if c.is_whitespace() {
+                    in_word = false;
+                } else if !in_word {
+                    in_word = true;
+                    words += 1;
+                }
             }
-        }
 
-        in_word = false;
-        Ok(())
-    })?;
+            in_word = false;
+            Ok(())
+        },
+        true,
+    )?;
 
     Ok([chars, words, lines])
 }
@@ -283,7 +287,7 @@ pub fn extract(path: &Path) -> bool {
         return false;
     }
 
-    let Some(kreuzberg) = Command::new("kreuzberg")
+    let Some((_child, kreuzberg)) = Command::new("kreuzberg")
         .args(["extract", "--output-format=plain"])
         .arg(path)
         .stdout(Stdio::piped())

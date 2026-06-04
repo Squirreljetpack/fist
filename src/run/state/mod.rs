@@ -109,6 +109,8 @@ pub mod GLOBAL {
     pub fn send_mm(msg: matchmaker::message::RenderCommand<FsAction>) {
         let guard = RENDER_TX.lock().unwrap();
         let tx = guard.as_ref().expect("render tx missing");
+
+        tx.send(msg)._elog();
     }
 
     /// must be called in initializing thread
@@ -310,12 +312,94 @@ pub mod APP {
 // -------------------------------------------
 pub mod TASKS {
     use std::cell::RefCell;
+    use std::collections::BTreeMap;
+    use std::ops::RangeBounds;
+    use std::sync::Mutex;
 
-    use cba::{dbog, ebog, ibog, wbog};
+    use cba::{_wbog, dbog, ebog, ibog, wbog};
     use tokio::{self, task::JoinSet};
 
     thread_local! {
         static TASKS: RefCell<JoinSet<()>> = RefCell::new(JoinSet::new());
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum TaskId {
+        Populate = 0,
+        Lessfilter = 3,
+        Batch = 32,
+    }
+
+    static JOBS: Mutex<BTreeMap<u8, Vec<std::process::Child>>> = Mutex::new(BTreeMap::new());
+    static ZOMBIES: Mutex<Vec<std::process::Child>> = Mutex::new(Vec::new());
+
+    /// Register a child process for tracking.
+    /// If id < 32, any existing processes for this ID will be killed and moved to ZOMBIES.
+    /// If id >= 32, the child is appended to the existing list for that ID.
+    pub fn register_child(
+        id: TaskId,
+        child: std::process::Child,
+    ) {
+        let mut jobs = JOBS.lock().unwrap();
+        let id_u8 = id as u8;
+
+        if id_u8 < 32 {
+            if let Some(old_vec) = jobs.insert(id_u8, vec![child]) {
+                let mut zombies = ZOMBIES.lock().unwrap();
+                for mut old in old_vec {
+                    let _ = old.kill();
+                    zombies.push(old);
+                }
+            }
+        } else {
+            jobs.entry(id_u8).or_default().push(child);
+        }
+    }
+
+    /// Kill all processes associated with a specific TaskId.
+    pub fn kill_child(id: TaskId) {
+        let mut jobs = JOBS.lock().unwrap();
+        if let Some(old_vec) = jobs.remove(&(id as u8)) {
+            let mut zombies = ZOMBIES.lock().unwrap();
+            for mut old in old_vec {
+                let _ = old.kill();
+                zombies.push(old);
+            }
+        }
+    }
+
+    /// Kill all processes whose IDs fall within the given range.
+    pub fn kill_children(range: impl RangeBounds<u8>) {
+        let mut jobs = JOBS.lock().unwrap();
+        let mut zombies = ZOMBIES.lock().unwrap();
+
+        let keys: Vec<u8> = jobs
+            .keys()
+            .filter(|&&id| range.contains(&id))
+            .copied()
+            .collect();
+        for k in keys {
+            if let Some(old_vec) = jobs.remove(&k) {
+                for mut old in old_vec {
+                    let _ = old.kill();
+                    zombies.push(old);
+                }
+            }
+        }
+    }
+
+    /// Clean up exited processes from JOBS and ZOMBIES.
+    /// Returns the number of processes still in the ZOMBIES list.
+    pub fn prune_children() -> usize {
+        if let Ok(mut jobs) = JOBS.lock() {
+            for v in jobs.values_mut() {
+                v.retain_mut(|c| matches!(c.try_wait(), Ok(None)));
+            }
+            jobs.retain(|_, v| !v.is_empty());
+        }
+        let mut zombies = ZOMBIES.lock().unwrap();
+        zombies.retain_mut(|c| matches!(c.try_wait(), Ok(None)));
+        zombies.len()
     }
 
     pub fn spawn<F>(fut: F)
@@ -343,9 +427,14 @@ pub mod TASKS {
     ) {
         use tokio::time::{self, Duration};
 
+        kill_children(..);
+
         let mut join_set = TASKS.with(|tasks| std::mem::take(&mut *tasks.borrow_mut()));
 
         if join_set.is_empty() {
+            if prune_children() > 0 {
+                _wbog!("Some background processes are still terminating...");
+            }
             return;
         }
 
@@ -370,6 +459,9 @@ pub mod TASKS {
                             .reset(time::Instant::now() + Duration::from_secs(warn_secs));
 
                             if join_set.is_empty() {
+                                if prune_children() > 0 {
+                                    _wbog!("Some background processes are still terminating...");
+                                }
                                 return;
                             }
                         }
@@ -378,6 +470,9 @@ pub mod TASKS {
                                 ibog!(
                                     "All tasks finished"
                                 );
+                            }
+                            if prune_children() > 0 {
+                                _wbog!("Some background processes are still terminating...");
                             }
                             return
                         },
@@ -405,6 +500,9 @@ pub mod TASKS {
                     );
 
                     join_set.shutdown().await;
+                    if prune_children() > 0 {
+                        _wbog!("Some background processes are still terminating...");
+                    }
                     return;
                 }
             }

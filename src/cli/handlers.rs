@@ -204,7 +204,7 @@ async fn handle_rg(
             ),
         );
 
-        let stdout = match Command::new(prog).args(args).spawn_piped()._ebog() {
+        let (_child, stdout) = match Command::new(prog).args(args).spawn_piped()._ebog() {
             Some(s) => s,
             None => return Err(CliError::Handled),
         };
@@ -213,20 +213,24 @@ async fn handle_rg(
         let output_separator =
             EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
 
-        let _ = map_chunks::<true, CliError>(read_to_chunks(stdout, '\0'), move |line| {
-            let path = if cfg.misc.list_absolute_paths {
-                __cwd().join(PathBuf::from(line))
-            } else {
-                PathBuf::from(line)
-            };
+        let _ = map_chunks::<CliError>(
+            read_to_chunks(stdout, '\0'),
+            move |line| {
+                let path = if cfg.misc.list_absolute_paths {
+                    __cwd().join(PathBuf::from(line))
+                } else {
+                    PathBuf::from(line)
+                };
 
-            let push = vis.post_fd_filter(&path);
+                let push = vis.post_fd_filter(&path);
 
-            if push {
-                print(&path, &template, &output_separator)
-            }
-            Ok(())
-        });
+                if push {
+                    print(&path, &template, &output_separator)
+                }
+                Ok(())
+            },
+            true,
+        );
         return Ok(());
     };
 
@@ -330,6 +334,7 @@ async fn handle_dirs(
     start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
 }
 
+#[allow(unused)] // is_default_dir is not read
 async fn handle_default(
     cli: CliOpts,
     mut cmd: DefaultCommand,
@@ -481,12 +486,7 @@ async fn handle_default(
         } else
         // interactively search the best match
         {
-            FsPane::new_fd_from_command(
-                cmd,
-                is_default_dir,
-                cfg.global.panes.find.default_visibility,
-                cwd,
-            )
+            FsPane::new_fd_from_command(cmd, cfg.global.panes.find.default_visibility, cwd)
         }
     } else if
     // any fd arg is specified
@@ -553,7 +553,7 @@ async fn handle_default(
                 build_fd_args(vis, &cmd.types, &cmd.paths, &cmd.fd, &cfg.global.fd),
             );
 
-            let stdout = match Command::new(prog).args(args).spawn_piped()._ebog() {
+            let (_child, stdout) = match Command::new(prog).args(args).spawn_piped()._ebog() {
                 Some(s) => s,
                 None => return Err(CliError::Handled),
             };
@@ -562,28 +562,27 @@ async fn handle_default(
             let output_separator =
                 EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
 
-            let _ = map_chunks::<true, CliError>(read_to_chunks(stdout, '\0'), move |line| {
-                let path = if cfg.misc.list_absolute_paths {
-                    __cwd().join(PathBuf::from(line))
-                } else {
-                    PathBuf::from(line)
-                };
-                let push = vis.post_fd_filter(&path);
+            let _ = map_chunks::<CliError>(
+                read_to_chunks(stdout, '\0'),
+                move |line| {
+                    let path = if cfg.misc.list_absolute_paths {
+                        __cwd().join(PathBuf::from(line))
+                    } else {
+                        PathBuf::from(line)
+                    };
+                    let push = vis.post_fd_filter(&path);
 
-                if push {
-                    print(&path, &template, &output_separator)
-                }
-                Ok(())
-            });
+                    if push {
+                        print(&path, &template, &output_separator)
+                    }
+                    Ok(())
+                },
+                true,
+            );
             return Ok(());
         };
 
-        FsPane::new_fd_from_command(
-            cmd,
-            is_default_dir,
-            cfg.global.panes.find.default_visibility,
-            cwd,
-        )
+        FsPane::new_fd_from_command(cmd, cfg.global.panes.find.default_visibility, cwd)
     } else {
         let DefaultCommand { sort, .. } = cmd;
         let vis = cmd.vis.into(cfg.global.panes.nav.default_visibility);

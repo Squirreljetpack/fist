@@ -142,7 +142,6 @@ impl FsMatchmaker {
                 && let Some(p) = state.current_raw()
             {
                 let cmd = path_formatter(p, template);
-                let path = p.inner.path.clone();
                 // lowpri: can't reliably do this as we immediately exec, tho i wonder if db can get corrupted this way;
                 // GLOBAL::db().bump(path.is_dir(), path);
 

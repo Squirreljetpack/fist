@@ -141,7 +141,6 @@ impl FsPane {
     // auto_enable hidden: when not explicit in cli
     pub fn new_fd_from_command(
         cmd: DefaultCommand,
-        is_default_dir: bool,
         default_visibility: Option<PartialVisibility>,
         cwd: AbsPath,
     ) -> Self {

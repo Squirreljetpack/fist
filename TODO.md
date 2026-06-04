@@ -74,6 +74,7 @@ transparent advance into compressed files
 - Syncopated sorting?
 - Cli structs should be partial to merge into visibility?
 - toggleable executable filter
+- only UTF-8 paths are processed from command output (fd, rg, custom)
 
 # Menu overlay
 
@@ -157,6 +158,7 @@ Possible Conditions:
 - PaneSettings: prompt and show_preview are effectively partial, but not sure if we should just generalize that to supporting partial RenderConfig overrides. The size is bounded so it shouldn't be too bad?
 - Also, note that undo/redo won't save state changes caused by pane change overrides
 - maybe pane prompts should not be configurable
+
 
 # Plugins
 - Custom panes as wasm?

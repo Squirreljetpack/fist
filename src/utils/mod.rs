@@ -5,6 +5,7 @@ pub mod serde;
 pub mod string;
 pub mod text;
 pub mod trash;
+mod types;
 
 #[macro_export]
 macro_rules! arr {

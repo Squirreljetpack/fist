@@ -45,9 +45,10 @@ use crate::{
         FsAction,
         item::PathItem,
         start::FsInjector,
-        state::{APP, GLOBAL, STACK},
+        state::{APP, GLOBAL, STACK, TASKS},
     },
 };
+use TASKS::TaskId;
 use fist_types::filters::{SortOrder, Visibility};
 
 // todo: when do we need be able to restart after STOP
@@ -91,11 +92,12 @@ impl FsPane {
 
                 log::info!("spawning: {}", display_sh_prog_and_args(prog, args));
 
-                let stdout = Command::new(prog)
+                let (child, stdout) = Command::new(prog)
                     .args(args)
                     .current_dir(&cwd)
                     .spawn_piped()
                     ._ebog()?;
+                TASKS::register_child(TaskId::Populate, child);
 
                 let sem = Arc::new(tokio::sync::Semaphore::new(GLOBAL::with_cfg(|c| {
                     c.panes.settings.display_script_simultaneous_count
@@ -319,11 +321,12 @@ impl FsPane {
 
                 log::info!("spawning: {}", display_sh_prog_and_args(prog, &args));
 
-                let stdout = Command::new(prog)
+                let (child, stdout) = Command::new(prog)
                     .args(args)
                     .current_dir(&cwd)
                     .spawn_piped()
                     ._ebog()?;
+                TASKS::register_child(TaskId::Populate, child);
 
                 let abort_empty =
                     STACK::len() == 1 && TlsStore::get::<ShouldNotAbortOnEmpty>().is_none();
@@ -349,7 +352,7 @@ impl FsPane {
                         }
 
                         // lowpri: theoretically this should be immune to triggering after pane changes
-                        // as push would Err but we should have a test 
+                        // as push would Err but we should have a test
                         if let Some(c) = count
                             && ({ c == 0 || c < threshold } && {
                                 time_threshold.is_zero() || start_time.elapsed() < time_threshold
@@ -380,8 +383,8 @@ impl FsPane {
                 complete,
                 fixed_strings,
                 //
-                filtering,
-                input,
+                filtering: _,
+                input: _,
             } => {
                 let vis = *vis;
                 let cwd = cwd.clone();
@@ -403,11 +406,12 @@ impl FsPane {
 
                 log::info!("spawning: {}", display_sh_prog_and_args(prog, &args));
 
-                let stdout = Command::new(prog)
+                let (child, stdout) = Command::new(prog)
                     .args(args)
                     .current_dir(&cwd)
                     .spawn_piped()
                     ._ebog()?;
+                TASKS::register_child(TaskId::Populate, child);
 
                 // Example output of rg 'command' --column --case-sensitive -C 2
                 // src/components/settings/ClamshellMicrophoneSelector.tsx
@@ -669,9 +673,9 @@ pub fn map_reader<E: matchmaker::SSS + Display>(
 ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
     spawn_blocking(move || {
         let count = if let Some(c) = delimiter {
-            map_chunks::<true, E>(read_to_chunks(reader, '\0'), f)
+            map_chunks::<E>(read_to_chunks(reader, c), f, true)
         } else {
-            map_reader_lines::<true, E>(reader, f)
+            map_reader_lines::<E>(reader, f, true)
         }
         ._elog();
 
@@ -698,46 +702,50 @@ pub fn map_reader_rg(
 
         let mut path_buffer = String::new();
 
-        let count = map_reader_lines::<true, anyhow::Error>(reader, |line| {
-            let failed_to_parse = |e| {
-                log::error!("ParseError: {e}: {line}");
-                Ok(())
-            };
+        let count = map_reader_lines::<anyhow::Error>(
+            reader,
+            |line| {
+                let failed_to_parse = |e| {
+                    log::error!("ParseError: {e}: {line}");
+                    Ok(())
+                };
 
-            if !line.contains('\0') {
-                if line == "--" {
-                    let mut buf = buffer.borrow_mut();
-                    flush_rg_buffer(context, &cwd, &mut buf, |item| {
-                        let _ = injector.push(item);
-                    });
+                if !line.contains('\0') {
+                    if line == "--" {
+                        let mut buf = buffer.borrow_mut();
+                        flush_rg_buffer(context, &cwd, &mut buf, |item| {
+                            let _ = injector.push(item);
+                        });
+                        return Ok(());
+                    }
+                    path_buffer.push_str(&line);
+                    path_buffer.push('\n');
                     return Ok(());
                 }
-                path_buffer.push_str(&line);
-                path_buffer.push('\n');
-                return Ok(());
-            }
 
-            let line = if path_buffer.is_empty() {
-                line.clone()
-            } else {
-                let full = format!("{}{}", path_buffer, line);
-                path_buffer.clear();
-                full
-            };
+                let line = if path_buffer.is_empty() {
+                    line.clone()
+                } else {
+                    let full = format!("{}{}", path_buffer, line);
+                    path_buffer.clear();
+                    full
+                };
 
-            let mut text = unwrap!(line.as_bytes().into_text(); |e| failed_to_parse(e));
+                let mut text = unwrap!(line.as_bytes().into_text(); |e| failed_to_parse(e));
 
-            if text.lines.is_empty() {
-                return failed_to_parse("empty".into());
-            }
+                if text.lines.is_empty() {
+                    return failed_to_parse("empty".into());
+                }
 
-            let mut buf = buffer.borrow_mut();
-            process_rg_line(text.lines.remove(0), context, &cwd, &mut buf, |item| {
-                let _ = injector.push(item);
-            })?;
+                let mut buf = buffer.borrow_mut();
+                process_rg_line(text.lines.remove(0), context, &cwd, &mut buf, |item| {
+                    let _ = injector.push(item);
+                })?;
 
-            Ok(())
-        })
+                Ok(())
+            },
+            true,
+        )
         ._elog();
 
         if count == Some(0) {
@@ -775,7 +783,7 @@ pub fn map_reader_batch(
     let _complete = complete.clone();
 
     spawn_blocking(move || {
-        let count = map_reader_lines::<true, _>(reader, |line| {
+        let count = map_reader_lines(reader, |line| {
             if complete.load(Ordering::SeqCst) {
                 bail!("Canceled");
             }
@@ -793,15 +801,16 @@ pub fn map_reader_batch(
 
                 // the maybe better would be to use tokio::spawn + spawn_piped_tokio, but then we need an async read version of map_reader_lines
                 tokio::task::spawn_blocking(move || {
-                    if let Some(stdout) = Command::from_script(&script)
+                    if let Some((child, stdout)) = Command::from_script(&script)
                     .args(batch.iter().flatten())
                     .current_dir(&cwd)
                     .spawn_piped()
                     ._ebog()
                     {
+                        TASKS::register_child(TaskId::Batch, child);
                         let mut batch_iter = batch.into_iter();
 
-                        match map_reader_lines::<true, ()>(stdout, move |line| {
+                        match map_reader_lines(stdout, move |line| {
                             let [p1, p2] = unwrap!(batch_iter.next(), ());
                             {
                                 let mut item =
@@ -820,7 +829,7 @@ pub fn map_reader_batch(
                                 .push(item)
                                 .map_err(|_| _complete.store(true, Ordering::SeqCst))
                             }
-                        }) {
+                        }, true) {
                             Ok(n) if n < batch_count => {
                                 log::warn!(
                                     "{} items missing after processing display-batch", batch_count - n
@@ -845,37 +854,43 @@ pub fn map_reader_batch(
             }
 
             Ok(())
-        })._elog();
+        }, true)._elog();
+
         if !batch_collect.is_empty() && !complete.load(Ordering::SeqCst) {
             let batch = batch_collect;
             let batch_count = batch.len();
             let _complete = complete.clone();
 
-            if let Some(stdout) = Command::from_script(&script)
+            if let Some((child, stdout)) = Command::from_script(&script)
                 .args(batch.iter().flatten())
                 .current_dir(&cwd)
                 .spawn_piped()
                 ._ebog()
             {
+                TASKS::register_child(TaskId::Batch, child);
                 let mut batch_iter = batch.into_iter();
 
-                match map_reader_lines::<true, ()>(stdout, move |line| {
-                    let [p1, p2] = unwrap!(batch_iter.next(), ());
-                    {
-                        let mut item = PathItem::new_from_split([&p1, &p2], &cwd);
+                match map_reader_lines(
+                    stdout,
+                    move |line| {
+                        let [p1, p2] = unwrap!(batch_iter.next(), ());
+                        {
+                            let mut item = PathItem::new_from_split([&p1, &p2], &cwd);
 
-                        if let Ok(rendered) = ansi_to_tui::IntoText::into_text(&line) {
-                            item.override_rendered(rendered);
-                        };
+                            if let Ok(rendered) = ansi_to_tui::IntoText::into_text(&line) {
+                                item.override_rendered(rendered);
+                            };
 
-                        if let Some(stored) = &stored {
-                            stored.push(item.clone());
-                        };
-                        injector
-                            .push(item)
-                            .map_err(|_| _complete.store(true, Ordering::SeqCst))
-                    }
-                }) {
+                            if let Some(stored) = &stored {
+                                stored.push(item.clone());
+                            };
+                            injector
+                                .push(item)
+                                .map_err(|_| _complete.store(true, Ordering::SeqCst))
+                        }
+                    },
+                    true,
+                ) {
                     Ok(n) if n < batch_count => {
                         log::warn!(
                             "{} items missing after processing display-batch",
@@ -905,6 +920,7 @@ pub fn map_reader_batch(
             Some(0) => on_empty(),
             _ => {}
         }
+        TASKS::kill_child(TaskId::Batch);
         complete.store(true, Ordering::SeqCst);
         log::info!("Command completed");
         anyhow::Ok(())

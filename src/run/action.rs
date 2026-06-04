@@ -272,20 +272,18 @@ pub fn fsaction_aliaser(
             }
             FsAction::Delete(no_confirm) => {
                 // probably not a good idea to put a delete action on the same key
-                // if raw_input {
-                //     acs![Action::DeleteWord]
-                // } else
-                if STACK::in_app() {
+                if raw_input && !no_confirm {
+                    acs![Action::DeleteWord]
+                } else if STACK::in_app() {
                     acs![]
                 } else {
                     acs![Action::Custom(fa)]
                 }
             }
             FsAction::Trash(no_confirm) => {
-                // if raw_input {
-                //     acs![Action::DeleteWord]
-                // } else
-                if STACK::in_app() {
+                if raw_input && !no_confirm {
+                    acs![Action::DeleteWord]
+                } else if STACK::in_app() {
                     acs![]
                 } else {
                     acs![Action::Custom(fa)]
@@ -600,7 +598,7 @@ pub fn fsaction_handler(
                     FILTERS::visibility(),
                     //
                     paths,
-                    String::new(),
+                    query,
                     patterns,
                     filtering,
                     //
@@ -1181,7 +1179,6 @@ pub fn fsaction_handler(
         }
 
         FsAction::AcceptPrint => {
-            let pool = GLOBAL::db();
             if in_prompt && let Some(p) = STACK::cwd() {
                 // print cwd
                 let s = p.to_string_lossy().to_string();
@@ -1200,7 +1197,7 @@ pub fn fsaction_handler(
                     }
                 } else {
                     // print selected
-                    let v = state.map_selected_to_vec(|_, item| {
+                    state.map_selected_to_vec(|_, item| {
                         GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
 
                         let s = item.display().to_string();

@@ -173,9 +173,9 @@ pub fn fs_reload(
                         // update to prevent reload
                         FILTERS::set(*sort, *vis);
                     }
-                    FsPane::Files { sort, .. }
-                    | FsPane::Folders { sort, .. }
-                    | FsPane::Apps { sort, .. } => {
+                    FsPane::Files { sort: _, .. }
+                    | FsPane::Folders { sort: _, .. }
+                    | FsPane::Apps { sort: _, .. } => {
                         // logically we should add configurable default but i don't think anything besides frecency is desirable [for the default]
                     }
                 }
