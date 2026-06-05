@@ -3,7 +3,7 @@ use fist_types::git::in_git_repo;
 use matchmaker::{
     acs,
     message::{BindDirective, Event},
-    nucleo::{Color, Modifier, Style, injector::IndexedInjector},
+    nucleo::{Modifier, injector::IndexedInjector},
     ui::StatusUI,
 };
 use ratatui::text::Line;
@@ -14,7 +14,10 @@ use crate::{
     run::{
         FsAction, FsPane,
         stash::STASH,
-        state::{FILTERS, GLOBAL, STACK, STORE, TOAST, ui::global_ui},
+        state::{
+            FILTERS, GLOBAL, STACK, STORE, TOAST,
+            ui::{global_ui, prompt_main_style},
+        },
     },
     utils::formatter::format_prompt,
 };
@@ -55,27 +58,17 @@ pub fn enter_prompt(
         }
     }
     if GLOBAL::with_cfg(|c| c.interface.dim_status) {
-        state.picker_ui.status.dim(enter)
+        state.picker_ui.status.dim = Some(enter)
     }
     // set prompt
     if enter {
         let prompt = if let Some(cwd) = STACK::cwd() {
             let content =
                 format_prompt(&GLOBAL::with_cfg(|c| c.interface.cwd_prompt.clone()), &cwd);
-            Line::styled(
-                content,
-                Style::default()
-                    .fg(Color::Blue)
-                    .add_modifier(Modifier::ITALIC),
-            )
+            Line::styled(content, prompt_main_style())
         } else {
             let content = state.picker_ui.query.config.prompt.clone();
-            Line::styled(
-                content,
-                Style::default()
-                    .fg(Color::Blue)
-                    .add_modifier(Modifier::ITALIC),
-            )
+            Line::styled(content, prompt_main_style())
         };
         state.picker_ui.results.cursor_jump(0);
         if let Some(p) = state.preview_ui

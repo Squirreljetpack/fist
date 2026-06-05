@@ -29,7 +29,11 @@ use crate::{
         pane::FsPane,
         previewer::make_previewer,
         stash::STASH,
-        state::{DB_FILTER, GLOBAL, STACK, TASKS, context::ActionContext, ui::global_ui_init},
+        state::{
+            DB_FILTER, GLOBAL, STACK, TASKS,
+            context::ActionContext,
+            ui::{global_ui_init, prompt_main_style},
+        },
     },
     spawn::{Program, open_wrapped},
     ui::{
@@ -178,7 +182,7 @@ pub async fn start(
                             .query
                             .set_prompt_line(ratatui::text::Line::styled(
                                 "d: ",
-                                crate::run::action::prompt_main_style(),
+                                prompt_main_style(),
                             ));
                     } else if vis.files {
                         state
@@ -186,7 +190,7 @@ pub async fn start(
                             .query
                             .set_prompt_line(ratatui::text::Line::styled(
                                 "f: ",
-                                crate::run::action::prompt_main_style(),
+                                prompt_main_style(),
                             ));
                     }
                 })

@@ -25,7 +25,7 @@ use crate::{
         stash::STASH,
         state::{
             ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, STORE,
-            ShouldNotAbortOnEmpty, TASKS, TOAST, context::ActionContext,
+            ShouldNotAbortOnEmpty, TASKS, TOAST, context::ActionContext, ui::prompt_main_style,
         },
     },
     spawn::open_wrapped,
@@ -1002,12 +1002,7 @@ pub fn fsaction_handler(
                 });
 
                 if !p_str.is_empty() {
-                    let prompt = Line::styled(
-                        p_str,
-                        Style::default()
-                            .fg(Color::Blue)
-                            .add_modifier(Modifier::ITALIC),
-                    );
+                    let prompt = Line::styled(p_str, prompt_main_style());
                     state.picker_ui.query.set_prompt_line(prompt);
                 } else {
                     state.picker_ui.query.set_prompt(None);
@@ -1418,9 +1413,3 @@ macro_rules! enum_from_str_display {
                 };
             }
 use enum_from_str_display;
-
-pub fn prompt_main_style() -> Style {
-    Style::default()
-        .fg(Color::Blue)
-        .add_modifier(Modifier::ITALIC)
-}
