@@ -146,7 +146,7 @@ impl FsPane {
         default_visibility: Option<PartialVisibility>,
         cwd: AbsPath,
     ) -> Self {
-        let mut vis = cmd.vis.into(default_visibility);
+        let mut vis = cmd.vis.into_resolved(default_visibility);
         if cmd.vis.hidden.is_none() && auto_enable_hidden(&cmd.paths) {
             vis.hidden = true;
         }

@@ -91,7 +91,7 @@ impl Action {
                 Preset::Extended => (
                     arr![
                         simple_header(path),
-                        vec_![: current_exe(), ":tool", "liza", "::nav", path]
+                        vec_![: current_exe(), ":tool", "liza", "::nav", ":a", path]
                     ],
                     [true, false, true],
                 ),
@@ -143,7 +143,6 @@ impl Action {
                     ],
                     [true, false, false],
                 ),
-                // todo: integrate mediainfo
                 Preset::Info => (
                     arr![simple_header(path), simple_metadata(path)],
                     [true, false, false],

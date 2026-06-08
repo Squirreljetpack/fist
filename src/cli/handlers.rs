@@ -171,7 +171,7 @@ async fn handle_rg(
     mut cmd: SearchCommand,
     mut cfg: Config,
 ) -> Result<(), CliError> {
-    let vis = cmd.vis.into(cfg.global.panes.search.default_visibility);
+    let vis = cmd.vis.into_resolved(cfg.global.panes.search.default_visibility);
 
     let sort = cmd.sort.unwrap_or(
         cfg.global
@@ -384,7 +384,7 @@ async fn handle_default(
         };
         FsPane::new_stream(
             AbsPath::new_unchecked(__cwd()),
-            cmd.vis.into(Some(Default::default())),
+            cmd.vis.into_resolved(Some(Default::default())),
             true,
         )
     } else if cmd.cd {
@@ -475,7 +475,7 @@ async fn handle_default(
         };
 
         if nav_pane {
-            let vis = cmd.vis.into(cfg.global.panes.nav.default_visibility);
+            let vis = cmd.vis.into_resolved(cfg.global.panes.nav.default_visibility);
 
             FsPane::new_nav(
                 cwd,
@@ -543,7 +543,7 @@ async fn handle_default(
         if cmd.list {
             // mirror new_fd behavior
 
-            let mut vis = cmd.vis.into(cfg.global.panes.find.default_visibility);
+            let mut vis = cmd.vis.into_resolved(cfg.global.panes.find.default_visibility);
             if cmd.vis.hidden.is_none() && auto_enable_hidden(&cmd.paths) {
                 vis.hidden = true;
             }
@@ -585,7 +585,7 @@ async fn handle_default(
         FsPane::new_fd_from_command(cmd, cfg.global.panes.find.default_visibility, cwd)
     } else {
         let DefaultCommand { sort, .. } = cmd;
-        let vis = cmd.vis.into(cfg.global.panes.nav.default_visibility);
+        let vis = cmd.vis.into_resolved(cfg.global.panes.nav.default_visibility);
 
         if cmd.list {
             let iter = list_dir(__cwd(), vis, 1); // cwd is abs so we can add results as unchecked

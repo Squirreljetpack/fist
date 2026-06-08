@@ -9,12 +9,17 @@ l()  { fs :tool lessfilter display  "${@:-.}"; }
 la() { fs :tool lessfilter extended "${@:-.}"; }
 ll() { fs :tool lessfilter info     "${@:-.}"; }
 
-# edit
-n()  {
-  if (($#)) && [ -e "$1" ]; then
+n() {
+  __n__editor=${EDITOR:-nano}
+
+  if ! command -v "${__n__editor%% *}" >/dev/null 2>&1; then
+    __n__editor=nano
+  fi
+
+  if [ "$#" -gt 0 ] && [ -e "$1" ]; then
     fs :tool lessfilter edit "$@"
   else
-    $EDITOR "$@"
+    $__n__editor "$@"
   fi
 }
 
