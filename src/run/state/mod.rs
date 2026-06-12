@@ -453,17 +453,24 @@ pub mod TASKS {
                 // task completed
                 res = join_set.join_next() => {
                     match res {
-                        Some(_) => {
-                            warn_deadline
-                            .as_mut()
-                            .reset(time::Instant::now() + Duration::from_secs(warn_secs));
-
+                        Some(_) => {            
                             if join_set.is_empty() {
-                                if prune_children() > 0 {
-                                    _wbog!("Some background processes are still terminating...");
-                                }
-                                return;
-                            }
+                                if warned {
+                                    ibog!(
+                                        "All tasks finished"
+                                    );
+                                };
+                                break
+                            } else {
+                                wbog!(
+                                    "Waiting on {} task(s). (Press Ctrl-C to exit).",
+                                    join_set.len()
+                                );
+                                
+                                warn_deadline
+                                .as_mut()
+                                .reset(time::Instant::now() + Duration::from_secs(warn_secs));
+                            };
                         }
                         None => {
                             if warned {
@@ -471,10 +478,7 @@ pub mod TASKS {
                                     "All tasks finished"
                                 );
                             }
-                            if prune_children() > 0 {
-                                _wbog!("Some background processes are still terminating...");
-                            }
-                            return
+                            break
                         },
                     }
                 }
@@ -500,12 +504,13 @@ pub mod TASKS {
                     );
 
                     join_set.shutdown().await;
-                    if prune_children() > 0 {
-                        _wbog!("Some background processes are still terminating...");
-                    }
-                    return;
+                    break;
                 }
             }
+        }
+
+        if prune_children() > 0 {
+            _wbog!("Some background processes are still terminating...");
         }
     }
 }

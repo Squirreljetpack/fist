@@ -76,6 +76,7 @@ transparent advance into compressed files
 - toggleable executable filter
 - only UTF-8 paths are processed from command output (fd, rg, custom)
 
+
 # Menu overlay
 
 Custom actions

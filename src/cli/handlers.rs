@@ -40,7 +40,7 @@ use crate::{
     },
     errors::{CliError, DbError},
     find::{
-        fd::{auto_enable_hidden, build_fd_args},
+        fd::{build_fd_args, last_query_starts_with_dot},
         rg::build_rg_args,
         walker::list_dir,
     },
@@ -171,7 +171,9 @@ async fn handle_rg(
     mut cmd: SearchCommand,
     mut cfg: Config,
 ) -> Result<(), CliError> {
-    let vis = cmd.vis.into_resolved(cfg.global.panes.search.default_visibility);
+    let vis = cmd
+        .vis
+        .into_resolved(cfg.global.panes.search.default_visibility);
 
     let sort = cmd.sort.unwrap_or(
         cfg.global
@@ -475,7 +477,9 @@ async fn handle_default(
         };
 
         if nav_pane {
-            let vis = cmd.vis.into_resolved(cfg.global.panes.nav.default_visibility);
+            let vis = cmd
+                .vis
+                .into_resolved(cfg.global.panes.nav.default_visibility);
 
             FsPane::new_nav(
                 cwd,
@@ -486,7 +490,12 @@ async fn handle_default(
         } else
         // interactively search the best match
         {
-            FsPane::new_fd_from_command(cmd, cfg.global.panes.find.default_visibility, cwd)
+            FsPane::new_fd_from_command(
+                cmd,
+                cfg.global.panes.find.default_visibility,
+                cfg.global.fd.dot_query_show_hidden,
+                cwd,
+            )
         }
     } else if
     // any fd arg is specified
@@ -543,8 +552,10 @@ async fn handle_default(
         if cmd.list {
             // mirror new_fd behavior
 
-            let mut vis = cmd.vis.into_resolved(cfg.global.panes.find.default_visibility);
-            if cmd.vis.hidden.is_none() && auto_enable_hidden(&cmd.paths) {
+            let mut vis = cmd
+                .vis
+                .into_resolved(cfg.global.panes.find.default_visibility);
+            if cmd.vis.hidden.is_none() && last_query_starts_with_dot(&cmd.paths) {
                 vis.hidden = true;
             }
 
@@ -582,10 +593,17 @@ async fn handle_default(
             return Ok(());
         };
 
-        FsPane::new_fd_from_command(cmd, cfg.global.panes.find.default_visibility, cwd)
+        FsPane::new_fd_from_command(
+            cmd,
+            cfg.global.panes.find.default_visibility,
+            cfg.global.fd.dot_query_show_hidden,
+            cwd,
+        )
     } else {
         let DefaultCommand { sort, .. } = cmd;
-        let vis = cmd.vis.into_resolved(cfg.global.panes.nav.default_visibility);
+        let vis = cmd
+            .vis
+            .into_resolved(cfg.global.panes.nav.default_visibility);
 
         if cmd.list {
             let iter = list_dir(__cwd(), vis, 1); // cwd is abs so we can add results as unchecked

@@ -177,7 +177,7 @@ impl Default for InterfaceConfig {
             toast_on_empty: true,
             autojump_advance: false,
             dim_prompt: false,
-            dim_status: true
+            dim_status: true,
         }
     }
 }
@@ -203,6 +203,11 @@ pub struct FdConfig {
     pub reduce_paths: bool,
     /// The set of arguments applied to the end of `fs ::` when no `fd_args` were given.
     pub default_args: Vec<String>,
+
+    /// - Auto: When the pattern for fs :: starts with a dot and is followed only by alphanumeric characters, and -h is not specified, include hidden files.
+    /// - Always: When query for fs :: starts with a dot and is followed only by alphanumeric characters, and -h/-I are not specified, include hidden/ignored files respectively.
+    /// - Never: No change.
+    pub dot_query_show_hidden: When,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

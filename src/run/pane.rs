@@ -11,7 +11,7 @@ use crate::{
     abspath::AbsPath,
     cli::DefaultCommand,
     db::DbSortOrder,
-    find::fd::auto_enable_hidden,
+    find::fd::last_query_starts_with_dot,
     run::{
         item::PathItem,
         state::{GLOBAL, InitialPreserveWhitespaceInSearch, STORE},
@@ -144,11 +144,18 @@ impl FsPane {
     pub fn new_fd_from_command(
         cmd: DefaultCommand,
         default_visibility: Option<PartialVisibility>,
+        dot_query_show_hidden: When,
         cwd: AbsPath,
     ) -> Self {
         let mut vis = cmd.vis.into_resolved(default_visibility);
-        if cmd.vis.hidden.is_none() && auto_enable_hidden(&cmd.paths) {
-            vis.hidden = true;
+
+        if last_query_starts_with_dot(&cmd.paths) && !dot_query_show_hidden.is_never() {
+            if cmd.vis.hidden.is_none() {
+                vis.hidden = true;
+            }
+            if cmd.vis.ignore.is_none() && dot_query_show_hidden.is_always() {
+                vis.ignore = false;
+            }
         }
 
         let DefaultCommand {
