@@ -79,6 +79,19 @@ pub const MATCHER_CONFIG: nucleo::Config = const { nucleo::Config::DEFAULT.match
 
 // -------------------------------------------------------------------------------------------
 
+pub fn get_mm_binds(path: &Path) -> (BindMap<FsAction>, HelpDisplayConfig) {
+    let mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
+    #[cfg(feature = "mm_overrides")]
+    if let Some(partial) = EnvOpts::get_mm_partial() {
+        mm_cfg.render.apply(partial);
+    }
+
+    let binds = default_binds();
+    default_binds().extend(mm_cfg.binds);
+
+    (binds, mm_cfg.help)
+}
+
 pub fn get_mm_cfg(
     path: &Path,
     cfg: &Config,
@@ -111,7 +124,7 @@ pub fn get_mm_cfg(
     results.separator = Default::default();
     results.min_width = results.min_width.max(10);
     results.autoscroll.initial_preserved = 2;
-    
+
     if cfg.global.mm.reverse.is_some() {
         results.reverse = cfg.global.mm.reverse
     }

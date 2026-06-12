@@ -47,7 +47,7 @@ use crate::{
     lessfilter::{self, LessfilterConfig},
     run::{
         FsPane,
-        mm_config::get_mm_cfg,
+        mm_config::{get_mm_binds, get_mm_cfg},
         start,
         stash::STASH,
         state::{InitialPreserveWhitespaceInSearch, InitialRelativePathSetting, STORE},
@@ -673,9 +673,9 @@ async fn handle_tools(
             Ok(())
         }
         SubTool::ShowBinds => {
-            let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
+            let (binds, help) = get_mm_binds(&cli.mm_config);
 
-            let help_str = matchmaker::binds::display_help(&mm_cfg.binds, &mm_cfg.help, None);
+            let help_str = matchmaker::binds::display_help(&binds, &help, None);
             prints!(help_str.to_string());
             Ok(())
         }

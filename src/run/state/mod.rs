@@ -462,14 +462,10 @@ pub mod TASKS {
                                 };
                                 break
                             } else {
-                                wbog!(
-                                    "Waiting on {} task(s). (Press Ctrl-C to exit).",
+                                _wbog!(
+                                    "Waiting on {} task(s).",
                                     join_set.len()
                                 );
-                                
-                                warn_deadline
-                                .as_mut()
-                                .reset(time::Instant::now() + Duration::from_secs(warn_secs));
                             };
                         }
                         None => {

@@ -49,7 +49,6 @@ async fn main() {
     }
 
     // load config
-
     let mut cfg: Config = load_type_or_default(config_path(), |s| toml::from_str(s));
     cfg.override_from(&cli.opts);
 
