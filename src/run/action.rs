@@ -125,6 +125,8 @@ pub enum FsAction {
         header: When,
         special: u8,
     },
+    /// Preview a file using a preset
+    LessfilterPreview(Preset, When),
     // Execute
     Execute(String, usize),
     // Nonbindable
@@ -357,7 +359,9 @@ pub fn fsaction_aliaser(
                     acs![]
                 }
             }
-
+            FsAction::LessfilterPreview(preset, header) => {
+                acs![Action::Preview(preset.to_command_string(header))]
+            }
             // FsAction::Category => {
             //     acs![Action::Overlay(3)]
             // }
@@ -1278,26 +1282,31 @@ macro_rules! enum_from_str_display {
                                             .iter()
                                             .map(|p| p.to_string_lossy())
                                             .collect::<Vec<_>>()
-                                            .join("|||")
+                                            .join("⦀")
                                         )
                                     }
                                 }
                                 SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | EnterPrompt(_) | Confirm => Ok(()), // internal
                                 Lessfilter { preset, paging, header: _, .. } => {
-                                    let mut preset = preset.to_string();
                                     if *paging {
-                                        preset.push('|')
-                                    };
-                                    write!(f, "Lessfilter({preset})")
+                                        write!(f, "LFPaged({preset})")
+                                    } else {
+                                        write!(f, "Lessfilter({preset})")
+                                    }
+
                                 },
                                 Execute(s, u) => {
                                     match u {
-                                        1 => write!(f, "ExecutePaged({})", s),
-                                        2 => write!(f, "ExecuteDetached({})", s),
-                                        3 => write!(f, "ExecuteSilent({})", s),
-                                        4 => write!(f, "ExecuteTTY({})", s),
+                                        1 => write!(f, "ExecPaged({})", s),
+                                        2 => write!(f, "ExecDetached({})", s),
+                                        3 => write!(f, "ExecSilent({})", s),
+                                        4 => write!(f, "ExecTTY({})", s),
                                         _ => write!(f, "Execute({})", s),
                                     }
+                                }
+
+                                LessfilterPreview(p, _) => {
+                                    write!(f, "LFPreview({p})")
                                 }
 
                                 /* ------------------------------------- */
@@ -1371,36 +1380,45 @@ macro_rules! enum_from_str_display {
                                     Ok(Self::Jump(paths))
                                 }
                                 "Lessfilter" => {
-                                    let mut paging = false;
-                                    let mut preset_str = data.ok_or_else(|| "Missing preset for Lessfilter")?;
-
-                                    if let Some(stripped) = preset_str.strip_suffix('|') {
-                                        preset_str = stripped;
-                                        paging = true;
-                                    }
-
-                                    let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for lessfilter: {preset_str}"))?;
+                                    let preset_str = data.ok_or_else(|| "Missing preset for Lessfilter")?;
+                                    let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for Lessfilter: {preset_str}"))?;
                                     let header = When::default();
-                                    Ok(Self::Lessfilter { preset, paging, header, special: Default::default() })
+                                    Ok(Self::Lessfilter { preset, paging: false, header, special: Default::default() })
+                                }
+                                "LFPaged" => {
+                                    let preset_str = data.ok_or_else(|| "Missing preset for LFPaged")?;
+                                    let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for LFPaged: {preset_str}"))?;
+                                    let header = When::default();
+                                    Ok(Self::Lessfilter { preset, paging: true, header, special: Default::default() })
+                                }
+                                "LFPreview" => {
+                                    let preset_str = data.ok_or_else(|| "Missing preset for LFPreview")?;
+                                    let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for LFPreview: {preset_str}"))?;
+                                    let header = When::default();
+                                    Ok(Self::LessfilterPreview ( preset, header ))
                                 }
                                 "Execute" => {
                                     let cmd = data.ok_or_else(|| "Missing command for Execute")?;
                                     Ok(Self::Execute(cmd.into(), 0))
                                 }
-                                "ExecutePaged" => {
-                                    let cmd = data.ok_or_else(|| "Missing command for ExecutePaged")?;
+                                "Exec" => {
+                                    let cmd = data.ok_or_else(|| "Missing command for Exec")?;
+                                    Ok(Self::Execute(cmd.into(), 0))
+                                }
+                                "ExecPaged" => {
+                                    let cmd = data.ok_or_else(|| "Missing command for ExecPaged")?;
                                     Ok(Self::Execute(cmd.into(), 1))
                                 }
-                                "ExecuteDetached" => {
-                                    let cmd = data.ok_or_else(|| "Missing command for ExecuteDetached")?;
+                                "ExecDetached" => {
+                                    let cmd = data.ok_or_else(|| "Missing command for ExecDetached")?;
                                     Ok(Self::Execute(cmd.into(), 2))
                                 }
-                                "ExecuteSilent" => {
-                                    let cmd = data.ok_or_else(|| "Missing command for ExecuteSilent")?;
+                                "ExecSilent" => {
+                                    let cmd = data.ok_or_else(|| "Missing command for ExecSilent")?;
                                     Ok(Self::Execute(cmd.into(), 3))
                                 }
-                                "ExecuteTTY" => {
-                                    let cmd = data.ok_or_else(|| "Missing command for ExecuteTTY")?;
+                                "ExecTTY" => {
+                                    let cmd = data.ok_or_else(|| "Missing command for ExecTTY")?;
                                     Ok(Self::Execute(cmd.into(), 4))
                                 }
 
