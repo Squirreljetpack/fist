@@ -1,12 +1,15 @@
 #!/bin/zsh
 # todo: completions
 # todo: make this available as a subtool
+setopt null_glob 2>/dev/null
+
 skip=false
 parsed=()
 long=()
 nlong=()
 args=()
 all=()
+pargs=()
 show=
 
 usage() {
@@ -53,7 +56,6 @@ if [[ $1 == --help ]]; then
 fi
 
 VERBOSE=false
-ALWAYS_PAGE=false
 
 # Intersect the excluded long columns.
 # The full negation is --no-permissions --no-filesize --no-user --no-time, any omitted fields are included.
@@ -146,7 +148,7 @@ for param; do
   elif $skip; then
     pargs+=($param)
   else
-    # leaky but best possible
+    # if any args are given, -- is required for pargs.
     if [[ -z $args && $param != -* ]]; then
       pargs+=($param)
       skip=true
@@ -183,7 +185,8 @@ if true; then
   (( idx )) && long[idx]=(--no-permissions --octal-permissions)
 fi
 
-params=($all $parsed $nlong $long $header $args $pargs)
+params=($all $parsed $nlong $long $header $args -- $pargs)
+pparams=($all $parsed $nlong $long $header $args)
 
 if [[ -z $show ]]; then
   $VERBOSE && print -u2 -- $eza_def $params
@@ -196,6 +199,7 @@ else
       ;;
 
     g|git)
+      $VERBOSE && print -u2 -- git ls-tree -r $args ${pargs[1]:-HEAD}
       git ls-tree -r --name-only ${pargs[1]:-HEAD} | tree --fromfile | tee >($=CLIPcmd)
       # git ls-files | $eza_def -T ${@} | tee ${=CLIPcmd}
       exit
@@ -205,13 +209,18 @@ else
       ;;
     f|flatten)
       # todo: generalize with -L n, improve files detection
+      dirs=()
       [[ -z $pargs ]] && pargs=(.)
       for p in $pargs; do
-        ! [[ -d $p ]] && dirs+=($p) ||
-        for d in $p/*; do [[ -r $d ]] && dirs+=(${d#\.\/}) || print -u2 -- "'$d': Permission denied" ; done
+        if [[ -d $p ]]; then
+          for d in $p/*; do [[ -r $d ]] && dirs+=(${d#\.\/}) || print -u2 -- "'$d': Permission denied" ; done
+        else
+          dirs+=($p)
+        fi
       done
 
-      $eza_def $user $params $dirs
+      $VERBOSE && print -u2 -- $eza_def $user $pparams -- $dirs
+      $eza_def $user $pparams -- $dirs
       ;;
     t|tree)
       page $eza_def -T $params
@@ -220,6 +229,7 @@ else
     # recent reverse, used for lsn
     # not actually useful tho
     # https://github.com/eza-community/eza/issues/1021
+      $VERBOSE && print -u2 -- $eza_def --sort=accessed --reverse -1 $params
       $eza_def --sort=accessed --reverse -1 $params |
       if [ -t 1 ]; then cat; else
         while IFS= read -r line && [[ -n "$line" ]]; do
@@ -232,6 +242,4 @@ else
       usage 1
       ;;
   esac
-
-
 fi

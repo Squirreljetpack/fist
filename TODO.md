@@ -134,6 +134,7 @@ Possible Conditions:
   - Nav: - search depth
   - Custom: - sorting?
 - package/build?
+- https://github.com/moretension/duti
 
 # Stash
 

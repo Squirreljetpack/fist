@@ -392,7 +392,7 @@ pub fn fsaction_aliaser(
                         Action::Pos((digit - 1) as i32),
                         if GLOBAL::with_cfg(|c| c.interface.autojump_advance) {
                             FsAction::Advance.into()
-                        } else if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                        } else if GLOBAL::with_cfg(|c| c.interface.alt_accept) && !STACK::in_app() {
                             FsAction::AcceptPrint.into()
                         } else {
                             Action::Accept
@@ -457,7 +457,7 @@ pub fn fsaction_aliaser(
                     acs![a]
                 } else if in_prompt {
                     acs![FsAction::AcceptPrompt]
-                } else if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                } else if GLOBAL::with_cfg(|c| c.interface.alt_accept) && !STACK::in_app() {
                     acs![FsAction::AcceptPrint]
                 } else {
                     acs![Action::Accept]
@@ -469,7 +469,7 @@ pub fn fsaction_aliaser(
                     acs![a]
                 } else if in_prompt {
                     acs![FsAction::AcceptPrompt]
-                } else if !GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                } else if !GLOBAL::with_cfg(|c| c.interface.alt_accept) && !STACK::in_app() {
                     acs![FsAction::AcceptPrint]
                 } else {
                     acs![Action::Accept]
