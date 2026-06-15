@@ -15,8 +15,8 @@ use cba::bath::PathExt;
 use cba::bring::StrExt;
 use matchmaker::{
     action::Action,
-    config::{BorderSetting, PartialBorderSetting, StyleSetting},
-    ui::{Overlay, OverlayEffect, SizeHint},
+    config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting, StyleSetting},
+    ui::{Overlay, OverlayEffect, SizeHint, utils},
 };
 use ratatui::{
     prelude::*,
@@ -24,7 +24,7 @@ use ratatui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use std::{collections::BTreeSet, fmt::Alignment, sync::atomic::Ordering};
+use std::{collections::BTreeSet, ffi::OsString, fmt::Alignment, sync::atomic::Ordering};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -79,6 +79,8 @@ pub struct TableSelection {
     pub path_dst_cols: [usize; 2],
     pub available_w: u16,
     pub initial_widths: Vec<u16>,
+    pub dirty: bool,
+    pub reiinit: bool,
 }
 
 impl TableSelection {
@@ -92,56 +94,62 @@ impl TableSelection {
             path_dst_cols,
             available_w: 0,
             initial_widths: vec![],
+            dirty: false,
+            reiinit: false,
         }
     }
 
-    pub fn update_widths(
+    pub fn update_editing_widths(
         &mut self,
         widths: &mut [u16],
+        area: &mut Rect,
         border_width: u16,
-    ) -> OverlayEffect {
+    ) {
+        self.dirty = false;
         if let Some((_, col, input)) = &mut self.editing {
-            let val_width = input.inner.input.width() as u16 + 1;
-            let current_col_w = widths[*col];
+            let val_width = input.inner.input.width() as u16;
+            let original_col_w = widths[*col];
 
-            if val_width != current_col_w {
-                if val_width > current_col_w {
-                    // Only grow if currently small (<= 16) and won't overflow
-                    if current_col_w <= 16 {
-                        let current_total: u16 = widths.iter().sum();
-                        if current_total < self.available_w {
-                            let diff =
-                                (val_width - current_col_w).min(self.available_w - current_total);
-                            widths[*col] += diff;
-                        }
+            input.update_width(original_col_w + 1);
+
+            if val_width != original_col_w {
+                if val_width > original_col_w {
+                    // Only grow if currently small (<= 32) and won't overflow
+                    let current_total: u16 = widths.iter().sum();
+
+                    if original_col_w < 32 && current_total < self.available_w {
+                        let diff =
+                            (val_width - original_col_w).min(self.available_w - current_total);
+                        widths[*col] += diff;
                     }
-                } else if val_width < current_col_w {
+                // responsively shrink to original width
+                } else if val_width < original_col_w {
                     let initial = self.initial_widths.get(*col).cloned().unwrap_or(16); // unwrap should be fine here
                     widths[*col] = val_width.max(initial);
                 }
 
-                if widths[*col] != current_col_w {
-                    let new_total_w = widths.iter().sum::<u16>() + border_width;
-                    let input_width = widths[*col].saturating_sub(1);
-                    input.update_scroll(input_width);
-                    return OverlayEffect::UpdateArea(Some(new_total_w), None);
+                // update
+                if widths[*col] != original_col_w {
+                    input.update_width(widths[*col] + 1);
+                    // need recenter
+                    let new_total_w = widths.iter().sum::<u16>()
+                        + border_width
+                        + widths.len().saturating_sub(1) as u16;
+                    utils::update_area(area, Some(new_total_w), None);
+                    log::trace!("recentered: {area:?} {new_total_w:?} {widths:?}");
                 }
             }
-            let input_width = widths[*col].saturating_sub(1);
-            input.update_scroll(input_width);
         }
-        OverlayEffect::None
     }
 
     pub fn handle_input(
         &mut self,
         c: char,
-        widths: &mut [u16],
-        border_width: u16,
     ) -> OverlayEffect {
         if let Some((_, _, input)) = &mut self.editing {
             input.handle_input(c);
-            return self.update_widths(widths, border_width);
+            self.dirty = true;
+            return OverlayEffect::None;
         }
         OverlayEffect::None
     }
@@ -149,8 +157,6 @@ impl TableSelection {
     pub fn handle_action(
         &mut self,
         action: &Action<FsAction>,
-        widths: &mut [u16],
-        border_width: u16,
     ) -> OverlayEffect {
         let len = if self.scratch {
             let state = STASH_STATE.lock().unwrap();
@@ -182,9 +188,13 @@ impl TableSelection {
                 } else {
                     self.editing = None;
                 }
+                if self.editing.is_none() {
+                    self.reiinit = true;
+                }
                 return OverlayEffect::None;
             }
-            return self.update_widths(widths, border_width);
+            self.dirty = true;
+            return OverlayEffect::None;
         }
 
         match action {
@@ -248,14 +258,14 @@ impl TableSelection {
                 if let Some(i) = self.state.selected() {
                     if let Some((p, _)) = STASH::get(self.scratch, i) {
                         let mut input = InputWidget::new(InputWidgetConfig {
-                            no_scroll_padding: true,
                             ..Default::default()
                         });
                         let val = p.to_string_lossy().into_owned();
                         input.set_value(val.clone());
                         let col = self.path_dst_cols[0];
                         self.editing = Some((i, col, input));
-                        return self.update_widths(widths, border_width);
+                        self.dirty = true;
+                        return OverlayEffect::None;
                     }
                 }
             }
@@ -263,14 +273,14 @@ impl TableSelection {
                 if let Some(i) = self.state.selected() {
                     if let Some((_, d)) = STASH::get(self.scratch, i) {
                         let mut input = InputWidget::new(InputWidgetConfig {
-                            no_scroll_padding: true,
                             ..Default::default()
                         });
                         let val = d.to_string_lossy().into_owned();
                         input.set_value(val.clone());
                         let col = self.path_dst_cols[1];
                         self.editing = Some((i, col, input));
-                        return self.update_widths(widths, border_width);
+                        self.dirty = true;
+                        return OverlayEffect::None;
                     }
                 }
             }
@@ -296,11 +306,12 @@ impl TableSelection {
         style: Style,
     ) {
         if let Some((row, col, input)) = &mut self.editing {
-            let x_offset = widths[0..*col].iter().sum::<u16>() + border_left;
+            let x_offset = widths[0..*col].iter().sum::<u16>() + border_left + *col as u16;
             let y_offset = (*row - self.state.offset()) as u16 + border_top + 1;
 
-            let input_width = widths[*col].saturating_sub(1);
-            let span = input.make_input(input_width, style);
+            // input width is updated in update_widths
+            input.scroll_to_cursor();
+            let span = input.make_input(style);
 
             let input_area = Rect {
                 x: area.x + x_offset,
@@ -322,6 +333,9 @@ pub struct StashOverlay {
     config: StashConfig,
     widths: [u16; 4],
     headers: [String; 4],
+    area: Rect,
+
+    extra: (OverlayLayoutSettings, Rect),
 }
 
 impl StashOverlay {
@@ -336,6 +350,8 @@ impl StashOverlay {
                 "To".pad(1, 1),
                 "Progress".pad(0, 1),
             ],
+            area: Rect::default(),
+            extra: Default::default(),
         }
     }
 
@@ -343,12 +359,18 @@ impl StashOverlay {
         self.config.border.as_ref().unwrap()
     }
 
-    fn save_widths(
+    pub fn width(&self) -> u16 {
+        self.area.width.saturating_sub(self.border().width())
+    }
+
+    fn update_widths(
         &mut self,
         items: &[StashItem],
         available_ui_w: u16,
     ) {
+        log::trace!("available: {available_ui_w}");
         if self.state.editing.is_some() {
+            log::error!("Unexpected editing");
             return;
         }
 
@@ -359,7 +381,9 @@ impl StashOverlay {
 
         let mut path_w = 16;
         for item in items {
-            path_w = path_w.max(item.display().width() as u16);
+            let width = item.display().width() as u16;
+            log::trace!("iw: {width}, {}", item.display());
+            path_w = path_w.max(width);
         }
 
         let mut dst_w = self.headers[2].len() as u16;
@@ -367,22 +391,60 @@ impl StashOverlay {
             dst_w = dst_w.max(item.dst.to_string_lossy().width() as u16);
         }
 
-        let size_w = 10;
+        let mut size_w = 10;
+
         let available_path_w = available_ui_w
-            .saturating_sub(self.border().width())
             .saturating_sub(kind_w + dst_w + size_w)
             .max(16);
 
         path_w = path_w.min(available_path_w);
 
-        dst_w = available_ui_w
-            .saturating_sub(self.border().width())
+        let mut dst_w_ = available_ui_w
             .saturating_sub(kind_w + path_w + size_w)
             .max(16)
             .min(dst_w);
 
-        self.widths = [kind_w, path_w, dst_w, size_w];
+        self.widths = [kind_w, path_w, dst_w_, size_w];
+        let mut extra = self
+            .widths
+            .iter()
+            .sum::<u16>()
+            .saturating_sub(available_ui_w);
+
+        let mut reduce = |val: &mut u16, min_val: u16| {
+            if extra > 0 {
+                let can_reduce = val.saturating_sub(min_val);
+                let reduction = can_reduce.min(extra);
+
+                *val -= reduction;
+                extra -= reduction;
+            }
+        };
+
+        reduce(&mut path_w, 10);
+        reduce(&mut dst_w_, dst_w.min(6));
+        reduce(&mut size_w, 6);
+        reduce(&mut kind_w, 5);
+        reduce(&mut path_w, 6);
+        reduce(&mut size_w, 3);
+        reduce(&mut kind_w, 3);
+        reduce(&mut dst_w, 3);
+        reduce(&mut kind_w, 3);
+
+        self.widths = [kind_w, path_w, dst_w_, size_w];
+
         self.state.initial_widths = self.widths.to_vec();
+    }
+
+    fn set_area(&mut self) {
+        log::trace!("new widths {:?}", self.widths);
+
+        let width = self.widths.iter().sum::<u16>() + self.border().width() + 3;
+        self.area = utils::default_area(
+            [width.into(), SizeHint::Min(self.border().height() + 4)],
+            &self.extra.0,
+            &self.extra.1,
+        );
     }
 }
 
@@ -406,8 +468,7 @@ impl Overlay for StashOverlay {
         c: char,
     ) -> OverlayEffect {
         if self.state.editing.is_some() {
-            let border_w = self.border().width();
-            return self.state.handle_input(c, &mut self.widths, border_w);
+            return self.state.handle_input(c);
         }
         match c {
             'q' => OverlayEffect::Disable,
@@ -418,39 +479,57 @@ impl Overlay for StashOverlay {
     fn area(
         &mut self,
         ui_area: &Rect,
-    ) -> Result<Rect, [SizeHint; 2]> {
+        layout: &OverlayLayoutSettings,
+    ) {
         let state = STASH_STATE.lock().unwrap();
-        self.state.available_w = ui_area.width.saturating_sub(self.border().width());
-        self.save_widths(&state.shared, self.state.available_w);
-        let width = self.widths.iter().sum::<u16>() + self.border().width();
-        Err([width.into(), SizeHint::Min(self.border().height() + 4)])
+        self.state.available_w = ui_area
+            .width
+            .saturating_sub(self.border().width())
+            .saturating_sub(3); // column spacing
+        self.update_widths(&state.shared, self.state.available_w);
+
+        self.extra = (layout.clone(), *ui_area); // lazy method to help recompute area
+        self.set_area();
     }
 
     fn handle_action(
         &mut self,
         action: &Action<Self::A>,
     ) -> OverlayEffect {
-        let border_w = self.border().width();
-        self.state.handle_action(action, &mut self.widths, border_w)
+        self.state.handle_action(action)
     }
 
     fn draw(
         &mut self,
         frame: &mut matchmaker::ui::Frame<'_>,
-        area: Rect,
     ) {
         let state = STASH_STATE.lock().unwrap();
+
         if state.shared.is_empty() {
-            frame.render_widget(Clear, area);
+            frame.render_widget(Clear, self.area);
             frame.render_widget(
                 Paragraph::new("Stash is empty").block(self.border().as_block()),
-                area,
+                self.area,
             );
             return;
         }
 
+        if self.state.reiinit {
+            self.update_widths(&state.shared, self.state.available_w);
+            self.state.dirty = false;
+            self.state.reiinit = false;
+            log::trace!("new widths {:?}", self.widths);
+            self.set_area();
+        } else if self.state.dirty {
+            let border_w = self.border().width();
+            self.state
+                .update_editing_widths(&mut self.widths, &mut self.area, border_w);
+        }
+        let area = self.area;
+
         let editing_info = self.state.editing.as_ref().map(|(r, c, _)| (*r, *c));
 
+        // build table
         let header =
             Row::new(self.headers.clone()).style(Style::new().add_modifier(Modifier::BOLD));
         let rows: Vec<Row> = state
@@ -485,7 +564,7 @@ impl Overlay for StashOverlay {
                 let dst_cell = if is_editing && editing_info.unwrap().1 == 2 {
                     Cell::from("")
                 } else {
-                    Cell::from(item.dst.to_string_lossy().into_owned().pad(1, 1))
+                    Cell::from(item.dst.to_string_lossy().into_owned().pad(0, 1))
                 };
                 let size = Cell::from(item.status.render(&self.config));
 
@@ -493,10 +572,11 @@ impl Overlay for StashOverlay {
             })
             .collect();
 
+        // render table
         let table = Table::new(rows, self.widths)
             .header(header)
+            .column_spacing(1)
             .block(self.border().as_static_block());
-
         frame.render_widget(Clear, area);
         frame.render_stateful_widget(table, area, &mut self.state.state);
 
@@ -515,6 +595,9 @@ pub struct ScratchOverlay {
     state: TableSelection,
     config: StashConfig,
     widths: Vec<u16>,
+    area: Rect,
+
+    extra: (OverlayLayoutSettings, Rect),
 }
 
 impl ScratchOverlay {
@@ -523,11 +606,56 @@ impl ScratchOverlay {
             state: TableSelection::new(true),
             config,
             widths: Vec::new(),
+            area: Rect::default(),
+            extra: Default::default(),
         }
     }
 
     pub fn border(&self) -> &BorderSetting {
         self.config.border.as_ref().unwrap()
+    }
+
+    pub fn width(&self) -> u16 {
+        self.area.width.saturating_sub(self.border().width())
+    }
+
+    fn update_widths(
+        &mut self,
+        items: &[(AbsPath, OsString)],
+        target: bool,
+    ) {
+        if self.state.editing.is_some() {
+            return;
+        }
+
+        let mut path_w = 16u16;
+        for (p, _) in items {
+            path_w = path_w.max(p.display_short(__home()).width() as u16);
+        }
+
+        if target {
+            let mut dst_w = 16u16;
+            for (_, d) in items {
+                dst_w = dst_w.max(d.to_string_lossy().width() as u16);
+            }
+            self.widths = vec![path_w, dst_w];
+        } else {
+            self.widths = vec![path_w];
+        }
+        self.state.initial_widths = self.widths.to_vec();
+    }
+
+    fn set_area(&mut self) {
+        log::trace!("new widths {:?}", self.widths);
+
+        let width = self.widths.iter().sum::<u16>()
+            + self.border().width()
+            + self.widths.len().saturating_sub(1) as u16;
+        self.area = utils::default_area(
+            [width.into(), SizeHint::Min(self.border().height() + 4)],
+            &self.extra.0,
+            &self.extra.1,
+        );
     }
 }
 
@@ -549,8 +677,7 @@ impl Overlay for ScratchOverlay {
         c: char,
     ) -> OverlayEffect {
         if self.state.editing.is_some() {
-            let border_w = self.border().width();
-            return self.state.handle_input(c, &mut self.widths, border_w);
+            return self.state.handle_input(c);
         }
         match c {
             'q' => OverlayEffect::Disable,
@@ -561,53 +688,54 @@ impl Overlay for ScratchOverlay {
     fn area(
         &mut self,
         ui_area: &Rect,
-    ) -> Result<Rect, [SizeHint; 2]> {
-        self.state.available_w = ui_area.width.saturating_sub(self.border().width());
-        if self.state.editing.is_some() {
-            let width = self.widths.iter().sum::<u16>() + self.border().width();
-            return Err([width.into(), SizeHint::Min(self.border().height() + 4)]);
+        layout: &OverlayLayoutSettings,
+    ) {
+        self.state.available_w = ui_area
+            .width
+            .saturating_sub(self.border().width())
+            .saturating_sub(self.widths.len().saturating_sub(1) as u16);
+
+        {
+            let state = STASH_STATE.lock().unwrap();
+            let (kind, list) = &state.scratch[state.current_scratch];
+            let target = state.has_target(kind);
+            self.update_widths(list.as_slice().as_slice(), target);
         }
 
-        let state = STASH_STATE.lock().unwrap();
-        let (kind, list) = &state.scratch[state.current_scratch];
-        let target = state.has_target(kind);
-        let items = list.as_slice();
-
-        let mut path_w = 16u16;
-        for (p, _) in &items {
-            path_w = path_w.max(p.display_short(__home()).width() as u16);
-        }
-
-        if target {
-            let mut dst_w = 16u16;
-            for (_, d) in &items {
-                dst_w = dst_w.max(d.to_string_lossy().width() as u16);
-            }
-            self.widths = vec![path_w, dst_w];
-        } else {
-            self.widths = vec![path_w];
-        }
-        self.state.initial_widths = self.widths.to_vec();
-
-        let width = self.widths.iter().sum::<u16>() + self.border().width();
-        Err([width.into(), SizeHint::Min(self.border().height() + 4)])
+        self.extra = (layout.clone(), *ui_area);
+        self.set_area();
     }
 
     fn handle_action(
         &mut self,
         action: &Action<Self::A>,
     ) -> OverlayEffect {
-        let border_w = self.border().width();
-        self.state.handle_action(action, &mut self.widths, border_w)
+        self.state.handle_action(action)
     }
 
     fn draw(
         &mut self,
         frame: &mut matchmaker::ui::Frame<'_>,
-        area: Rect,
     ) {
         let state = STASH_STATE.lock().unwrap();
-        let items = state.scratch[state.current_scratch].1.as_slice();
+        let (kind, list) = &state.scratch[state.current_scratch];
+        let items = list.as_slice();
+
+        let target = state.has_target(kind);
+
+        if self.state.reiinit {
+            self.update_widths(&items, target);
+            self.set_area();
+
+            self.state.dirty = false;
+            self.state.reiinit = false;
+        } else if self.state.dirty {
+            let border_w = self.border().width();
+            self.state
+                .update_editing_widths(&mut self.widths, &mut self.area, border_w);
+        }
+
+        let area = self.area;
 
         if items.is_empty() {
             frame.render_widget(Clear, area);
@@ -664,6 +792,7 @@ impl Overlay for ScratchOverlay {
                 .map(|w| Constraint::Length(*w))
                 .collect::<Vec<_>>(),
         )
+        .column_spacing(1)
         .block(self.border().as_static_block());
 
         frame.render_widget(Clear, area);

@@ -2,8 +2,9 @@ use crate::{
     abspath::AbsPath,
     fs::{auto_dest, create_all, rename},
     run::{
+        FsAction,
         item::{PathItem, short_display},
-        state::{TASKS, TOAST},
+        state::{GLOBAL, TASKS, TOAST},
     },
     utils::text::ToastStyle,
 };
@@ -95,11 +96,15 @@ impl MenuOverlay {
                 let input = self.prompt.input.value();
                 let input_path = Path::new(&input);
                 let dest = AbsPath::new_unchecked(input_path.abs(current_item_parent));
+                let cd = input.ends_with(std::path::MAIN_SEPARATOR);
 
                 TASKS::spawn(async move {
                     match std::fs::create_dir_all(&dest) {
                         Ok(_) => {
                             TOAST::push(ToastStyle::Success, "New: ", [short_display(&dest)]);
+                            if cd {
+                                GLOBAL::send_action(FsAction::Jump(vec![dest.into()]));
+                            }
                         }
                         Err(_) => {
                             TOAST::push(

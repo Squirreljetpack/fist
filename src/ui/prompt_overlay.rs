@@ -2,8 +2,8 @@ use crate::ui::input::InputWidget;
 use crate::{run::action::FsAction, ui::input::InputWidgetConfig};
 use matchmaker::{
     action::Action,
-    config::{BorderSetting, Percentage},
-    ui::{Overlay, OverlayEffect, SizeHint},
+    config::{BorderSetting, OverlayLayoutSettings, Percentage},
+    ui::{Overlay, OverlayEffect},
 };
 use ratatui::{
     layout::{Position, Rect},
@@ -31,8 +31,7 @@ impl Default for PromptConfig {
 
 pub struct PromptOverlay {
     pub input: InputWidget,
-    pub area: Rect,
-    pub config: PromptConfig,
+    pub viewport: Rect,
 }
 
 impl PromptOverlay {
@@ -43,29 +42,46 @@ impl PromptOverlay {
         };
         Self {
             input: InputWidget::new(input_config),
-            area: Rect::default(),
-            config,
+            viewport: Rect::default(),
         }
     }
 
+    /// Computes an adaptable area based on viewport size and content width.
     pub fn auto_area(
         &self,
         ui_area: &Rect,
     ) -> Rect {
-        let height = self.config.border.height() + 1;
-        let width = if (ui_area.width * 7 / 10) < self.input.inner.input.width() as u16 {
-            (self.input.inner.input.width() as u16)
-                .min(ui_area.width.saturating_sub(self.config.border.width() + 2))
-        } else {
-            (ui_area.width * 7 / 10).min(70)
-        };
+        let ui_w = ui_area.width;
+        let content_w =
+            self.input.inner.input.width() as u16 + self.input.config.border.width() + 2;
 
+        // 1. Calculate interpolation factor 't' based on screen width [40, 150]
+        let t = ((ui_w as f32 - 40.0) / (150.0 - 40.0)).clamp(0.0, 1.0);
+
+        // 2. Adaptive Minimum: 90% on small screens, 30% on large screens
+        let min_p = 0.9 - (t * 0.6);
+        let min_limit = (ui_w as f32 * min_p) as u16;
+
+        // 3. Adaptive Maximum: 95% on small screens, capped at 70 chars on large screens
+        let max_p = 0.95 - (t * 0.45);
+        let max_limit = ((ui_w as f32 * max_p) as u16)
+            .max(min_limit)
+            .min(70)
+            .max(min_limit);
+
+        // 4. Final width: content-driven, clamped by adaptive limits, and screen-safe
+        let width = content_w
+            .clamp(min_limit, max_limit)
+            .min(ui_w.saturating_sub(2));
+
+        // 5. Vertical positioning: 20% offset above center
+        let height = self.input.config.border.height() + 1;
         let available_height = ui_area.height.saturating_sub(height);
         let offset =
             available_height / 2 - Percentage::new(20).compute_clamped(available_height, 0, 0);
 
         Rect {
-            x: (ui_area.width - width) / 2,
+            x: ui_area.x + (ui_w.saturating_sub(width)) / 2,
             y: ui_area.y + offset,
             width,
             height,
@@ -94,29 +110,28 @@ impl Overlay for PromptOverlay {
     fn area(
         &mut self,
         ui_area: &Rect,
-    ) -> Result<Rect, [SizeHint; 2]> {
-        self.area = self.auto_area(ui_area);
-        Ok(Rect::default())
+        _layout: &OverlayLayoutSettings,
+    ) {
+        self.viewport = *ui_area;
     }
 
     fn draw(
         &mut self,
         frame: &mut matchmaker::ui::Frame<'_>,
-        _area: Rect,
     ) {
-        frame.render_widget(Clear, self.area);
+        let area = self.auto_area(&self.viewport);
+        frame.render_widget(Clear, area);
 
-        let input_width = self.area.width.saturating_sub(self.config.border.width());
-        let span = self.input.make_input(input_width, ratatui::style::Style::default());
+        self.input.update_width(area.width);
+        self.input.scroll_to_cursor();
 
-        frame.render_widget(
-            Paragraph::new(Line::from(span)).block(self.config.border.as_block()),
-            self.area,
-        );
+        let block = self.input.config.border.as_block();
+        let span = self.input.make_input(ratatui::style::Style::default());
+        frame.render_widget(Paragraph::new(Line::from(span)).block(block), area);
 
         let pos = Position::new(
-            self.area.x + self.config.border.left() + self.input.inner.cursor_rel_offset(),
-            self.area.y + self.config.border.top(),
+            area.x + self.input.config.border.left() + self.input.inner.cursor_rel_offset(),
+            area.y + self.input.config.border.top(),
         );
         frame.set_cursor_position(pos);
     }
@@ -125,7 +140,7 @@ impl Overlay for PromptOverlay {
         &mut self,
         action: &Action<Self::A>,
     ) -> OverlayEffect {
-        if let Some(accepted) = self.input.handle_action(action) {
+        if let Some(_accept) = self.input.handle_action(action) {
             return OverlayEffect::Disable;
         }
         OverlayEffect::None

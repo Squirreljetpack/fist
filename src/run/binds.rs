@@ -68,11 +68,11 @@ pub fn default_binds() -> BindMap<FsAction> {
         // ----------------------------------
 
         // preview
-        key!('?') => Action::Preview(Preset::Preview.to_command_string(When::Auto)),
+        key!('?') => FsAction::LessfilterPreview(Preset::Preview, When::Auto),
         // Verbose information
-        key!(alt - '/') => Action::Preview(Preset::Info.to_command_string(When::Auto)),
+        key!(alt - '/') => FsAction::LessfilterPreview(Preset::Info, When::Auto),
         // Quick Look + a header
-        key!(alt - shift - '/') => Action::Preview(Preset::Display.to_command_string(When::Always)),
+        key!(alt - shift - '/') => FsAction::LessfilterPreview(Preset::Display, When::Always),
         // Keybind help
         key!(ctrl-shift-h), key!(shift-cmd-h) => FsAction::help(),
 
@@ -85,7 +85,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(alt-8) => FsAction::new_lessfilter(Preset::Alternate, true),
         // Maximize preview
         // true => display the output in a pager
-        key!(ctrl-l) => FsAction::Execute("eval \"$=FS_PREVIEW_COMMAND\"".to_string(), 1),
+        key!(ctrl-l) => FsAction::Execute("eval \"$FS_PREVIEW_COMMAND\"".to_string(), 1),
         // For "full" or interactive terminal output
         key!(alt-l)  => FsAction::new_lessfilter(Preset::Extended, true),
 

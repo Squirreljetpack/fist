@@ -9,7 +9,7 @@ use crate::{
     abspath::AbsPath,
     run::{
         FsInjector, FsPane,
-        state::{FILTERS, GLOBAL, InitialRelativePathSetting, TlsStore, ui::global_ui_mut},
+        state::{FILTERS, GLOBAL, InitialRelativePathSetting, STORE, ui::global_ui_mut},
     },
     watcher::WatcherMessage,
 };
@@ -47,7 +47,7 @@ impl STACK {
         STACK.with(|cell| {
             let Self { stack, index } = &mut *cell.borrow_mut();
             if *index == 0 {
-                if let Some(o) = TlsStore::get::<InitialRelativePathSetting>() {
+                if let Some(o) = STORE::get::<InitialRelativePathSetting>() {
                     global_ui_mut().path.relative = o.0;
                 }
             }
@@ -79,7 +79,7 @@ impl STACK {
             if *index > 0 {
                 *index -= 1;
 
-                if *index == 0 && TlsStore::get::<InitialRelativePathSetting>().is_some()
+                if *index == 0 && STORE::get::<InitialRelativePathSetting>().is_some()
                 // original is backed up
                 {
                     global_ui_mut().path.relative = false;
@@ -257,17 +257,24 @@ impl STACK {
         })
     }
 
+    // don't save index for rg and find because order is not guaranteed
+    /// Note that because state is saved on update (and initialization) for [`FsPane::Search`] (see [`crate::run::ahandlers::fs_reload`]), rg is omitted here
+    // todo: lowpri: configurable save
     pub fn save_input(
         content: String,
         cursor: u32,
     ) {
-        log::debug!("saving: {content}");
         STACK.with(|cell| {
             let Self { stack, index, .. } = &mut *cell.borrow_mut();
             match &mut stack[*index] {
-                FsPane::Custom { input, .. } | FsPane::Nav { input, .. } => {
+                FsPane::Custom { input, .. }
+                | FsPane::Nav { input, .. }
+                | FsPane::Files { input, .. }
+                | FsPane::Folders { input, .. } => {
+                    log::debug!("saving: {content} {cursor}");
                     *input = (content, cursor)
                 }
+                FsPane::Find { input, .. } => input.0 = content,
                 _ => {}
             }
         });
@@ -276,7 +283,7 @@ impl STACK {
     // only restore index of nav and custom panes (is this what we want?)
     // see also [FsPane::get_input]
     pub fn take_maybe_index() -> Option<u32> {
-        STACK.with(|cell| {
+        let i = STACK.with(|cell| {
             let Self { stack, index, .. } = &mut *cell.borrow_mut();
             match &mut stack[*index] {
                 FsPane::Custom { input, .. }
@@ -292,7 +299,11 @@ impl STACK {
                 }
                 _ => None,
             }
-        })
+        });
+
+        log::trace!("Took stashed index {i:?}");
+
+        i
     }
 
     pub fn in_app() -> bool {

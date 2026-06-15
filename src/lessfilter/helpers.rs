@@ -124,22 +124,26 @@ fn count_file<P: AsRef<Path>>(path: P) -> Result<[usize; 3], MapReaderError<Stri
     let mut lines = 0usize;
     let mut in_word = false;
 
-    map_reader_lines::<true, _>(file, |line| {
-        lines += 1;
+    map_reader_lines(
+        file,
+        |line| {
+            lines += 1;
 
-        for c in line.chars() {
-            chars += 1;
-            if c.is_whitespace() {
-                in_word = false;
-            } else if !in_word {
-                in_word = true;
-                words += 1;
+            for c in line.chars() {
+                chars += 1;
+                if c.is_whitespace() {
+                    in_word = false;
+                } else if !in_word {
+                    in_word = true;
+                    words += 1;
+                }
             }
-        }
 
-        in_word = false;
-        Ok(())
-    })?;
+            in_word = false;
+            Ok(())
+        },
+        true,
+    )?;
 
     Ok([chars, words, lines])
 }
@@ -217,14 +221,13 @@ pub fn infer_visual(path: &Path) -> Vec<OsString> {
 
 pub fn infer_editor(path: &Path) -> Vec<OsString> {
     // get base_cmd
-    let base_cmd: Vec<String> = if let Ok(v) = env::var("FS_EDITOR") {
-        if !v.is_empty() {
-            shell_words::split(&v).unwrap_or_default()
-        } else {
-            Vec::new()
-        }
+    let mut base_cmd: Vec<String> = if let Ok(v) = env::var("FS_EDITOR") {
+        shell_words::split(&v).unwrap_or_default()
     } else if let Ok(v) = env::var("EDITOR") {
-        if !v.is_empty() {
+        if let Ok(ret) = shell_words::split(&v)
+            && !ret.is_empty()
+            && has(&ret[0])
+        {
             shell_words::split(&v).unwrap_or_default()
         } else {
             Vec::new()
@@ -232,11 +235,14 @@ pub fn infer_editor(path: &Path) -> Vec<OsString> {
     } else {
         vec!["fs".into(), ":open".into()]
     };
+    if base_cmd.is_empty() {
+        base_cmd = vec![if cfg!(windows) { "notepad" } else { "nano" }.into()]
+    }
 
     let mut cmd: Vec<OsString> = base_cmd.iter().map(OsString::from).collect();
 
     // Try to apply line/column if supported
-    let editor_name = cmd.first().and_then(|s| s.to_str()).unwrap_or_default();
+    let editor_name = cmd.first().unwrap().to_str().unwrap();
 
     let (line, col) = line_column::get();
 
@@ -262,6 +268,97 @@ pub fn infer_editor(path: &Path) -> Vec<OsString> {
                 }
                 cmd.push(path.into());
             }
+            // VS Code / Codium / JetBrains / Sublime / Zed
+            "code" | "codium" | "idea" | "subl" | "zed" => {
+                if let Some(col) = col
+                    && col >= 0
+                {
+                    cmd.push(OsString::from(format!(
+                        "{}:{}:{}",
+                        path.display(),
+                        line,
+                        col
+                    )));
+                } else {
+                    cmd.push(OsString::from(format!("{}:{}", path.display(), line)));
+                }
+            }
+
+            // Helix
+            "hx" => {
+                if let Some(col) = col
+                    && col >= 0
+                {
+                    cmd.push(OsString::from(format!(
+                        "{}:{}:{}",
+                        path.display(),
+                        line,
+                        col
+                    )));
+                } else {
+                    cmd.push(OsString::from(format!("{}:{}", path.display(), line)));
+                }
+            }
+
+            // Kakoune
+            "kak" => {
+                if let Some(col) = col
+                    && col >= 0
+                {
+                    cmd.push(OsString::from(format!("+{}:{}", line, col)));
+                } else {
+                    cmd.push(OsString::from(format!("+{}", line)));
+                }
+
+                cmd.push(path.into());
+            }
+
+            // Kate / Geany
+            "kate" => {
+                cmd.push(OsString::from(format!("-l {}", line)));
+
+                if let Some(col) = col
+                    && col >= 0
+                {
+                    cmd.push(OsString::from(format!("-c {}", col)));
+                }
+
+                cmd.push(path.into());
+            }
+
+            "geany" => {
+                cmd.push(OsString::from(format!("--line {}", line)));
+
+                if let Some(col) = col
+                    && col >= 0
+                {
+                    cmd.push(OsString::from(format!("--column {}", col)));
+                }
+
+                cmd.push(path.into());
+            }
+
+            // Emacs
+            "emacs" => {
+                cmd.push(OsString::from(format!("+{}", line)));
+
+                cmd.push(path.into());
+            }
+
+            // Notepad++
+            "notepad++" | "notepadpp" => {
+                let mut arg = format!("-n{}", line);
+
+                if let Some(col) = col
+                    && col >= 0
+                {
+                    arg.push_str(&format!(" -c{}", col));
+                }
+
+                cmd.push(OsString::from(arg));
+
+                cmd.push(path.into());
+            }
             _ => {
                 cmd.push(path.into());
             }
@@ -283,7 +380,7 @@ pub fn extract(path: &Path) -> bool {
         return false;
     }
 
-    let Some(kreuzberg) = Command::new("kreuzberg")
+    let Some((_child, kreuzberg)) = Command::new("kreuzberg")
         .args(["extract", "--output-format=plain"])
         .arg(path)
         .stdout(Stdio::piped())

@@ -11,10 +11,10 @@ use crate::{
     abspath::AbsPath,
     cli::DefaultCommand,
     db::DbSortOrder,
-    find::fd::auto_enable_hidden,
+    find::fd::last_query_starts_with_dot,
     run::{
         item::PathItem,
-        state::{GLOBAL, InitialPreserveWhitespaceInSearch, TlsStore},
+        state::{GLOBAL, InitialPreserveWhitespaceInSearch, STORE},
     },
 };
 use fist_types::{
@@ -23,6 +23,7 @@ use fist_types::{
     filters::{PartialVisibility, SortOrder, Visibility},
 };
 
+/// PartialEq is defined by discriminant
 #[derive(Debug, Clone)]
 pub enum FsPane {
     Custom {
@@ -74,6 +75,7 @@ pub enum FsPane {
 
         rg: Vec<OsString>,
         complete: Arc<AtomicBool>,
+        is_initial: std::cell::RefCell<bool>,
     },
     Files {
         sort: DbSortOrder,
@@ -141,13 +143,19 @@ impl FsPane {
     // auto_enable hidden: when not explicit in cli
     pub fn new_fd_from_command(
         cmd: DefaultCommand,
-        is_default_dir: bool,
         default_visibility: Option<PartialVisibility>,
+        dot_query_show_hidden: When,
         cwd: AbsPath,
     ) -> Self {
-        let mut vis = cmd.vis.into(default_visibility);
-        if cmd.vis.hidden.is_none() && auto_enable_hidden(&cmd.paths) {
-            vis.hidden = true;
+        let mut vis = cmd.vis.into_resolved(default_visibility);
+
+        if last_query_starts_with_dot(&cmd.paths) && !dot_query_show_hidden.is_never() {
+            if cmd.vis.hidden.is_none() {
+                vis.hidden = true;
+            }
+            if cmd.vis.ignore.is_none() && dot_query_show_hidden.is_always() {
+                vis.ignore = false;
+            }
         }
 
         let DefaultCommand {
@@ -225,6 +233,7 @@ impl FsPane {
 
             rg,
             complete: Default::default(),
+            is_initial: true.into(),
         }
     }
 
@@ -342,9 +351,11 @@ impl FsPane {
                 } else {
                     let mut s = join_with_single_quotes(patterns);
                     if GLOBAL::with_cfg(|c| c.panes.search.preserve_whitespace)
-                        || TlsStore::take::<InitialPreserveWhitespaceInSearch>().is_some()
+                        || STORE::take::<InitialPreserveWhitespaceInSearch>().is_some()
                     {
-                        s.push_str(" '");
+                        if !s.starts_with('\'') && !s.chars().any(|c| c.is_whitespace()) {
+                            s.insert(0, '\'');
+                        }
                     };
                     s
                 }

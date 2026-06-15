@@ -25,9 +25,9 @@ pub struct InitialPreserveWhitespaceInSearch;
 
 /// Option<AbsPath>: Previous Directory
 /// Option<u32>: Stashed index
-pub struct TlsStore;
+pub struct STORE;
 
-impl TlsStore {
+impl STORE {
     pub fn set<T: 'static + Debug>(value: T) {
         TLS_MAP.with(|map| {
             map.borrow_mut().insert::<T>(_dbg!("TlsSet"; value));
@@ -35,7 +35,7 @@ impl TlsStore {
     }
     pub fn maybe_set<T: 'static + Debug>(value: Option<T>) {
         if let Some(v) = value {
-            TlsStore::set(v);
+            STORE::set(v);
         }
     }
 

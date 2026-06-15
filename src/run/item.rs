@@ -76,7 +76,6 @@ impl PathItem {
         }
     }
 
-    // q: can compiler know to skip the initial render write
     pub fn override_rendered(
         &mut self,
         rendered: Text<'static>,
@@ -141,7 +140,7 @@ pub fn short_display(path: &Path) -> Span<'static> {
     if path.is_symlink() {
         Span::styled(text, Color::Green)
     } else if path.is_dir() {
-        Span::styled(text, Color::Blue)
+        Span::styled(text, Color::LightBlue)
     } else {
         Span::styled(text, Color::White)
     }
@@ -172,7 +171,7 @@ fn render(
         if stripped.is_empty() {
             return {
                 if cfg.dir_colors {
-                    let style = Style::default().fg(Color::Blue);
+                    let style = Style::default().fg(Color::LightBlue);
                     if cfg.dir_icons && cfg.icon_colors {
                         Text::from(Line::from(vec![
                             Span::styled(Icons::HOME.to_string(), style),
@@ -210,7 +209,7 @@ fn render(
                 let style = if full_path.is_symlink() {
                     Style::default().fg(Color::LightCyan)
                 } else {
-                    Style::default().fg(Color::Blue)
+                    Style::default().fg(Color::LightBlue)
                 };
                 Some(style)
             } else {
@@ -295,6 +294,9 @@ fn render(
 impl Render for PathItem {
     fn as_text(&self) -> Text<'_> {
         self.rendered.clone() // todo: is this clone cheap?
+    }
+    fn as_str(&self) -> std::borrow::Cow<'_, str> {
+        self.path.to_string_lossy()
     }
 }
 

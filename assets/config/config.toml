@@ -4,7 +4,7 @@
     show_preview = 60
     enter_prompt = false
 
-    default_visibility = { hidden = true }
+    # default_visibility = { hidden = true }
 
 [panes.find]
     show_preview = 60
@@ -33,6 +33,7 @@
 ### SETTINGS ###
 #
 [fd]
+dot_query_show_hidden = "Always"
 
 [rg]
 

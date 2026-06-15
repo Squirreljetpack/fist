@@ -40,17 +40,17 @@ use crate::{
     },
     errors::{CliError, DbError},
     find::{
-        fd::{auto_enable_hidden, build_fd_args},
+        fd::{build_fd_args, last_query_starts_with_dot},
         rg::build_rg_args,
         walker::list_dir,
     },
     lessfilter::{self, LessfilterConfig},
     run::{
         FsPane,
-        mm_config::get_mm_cfg,
+        mm_config::{get_mm_binds, get_mm_cfg},
         start,
         stash::STASH,
-        state::{InitialPreserveWhitespaceInSearch, InitialRelativePathSetting, TlsStore},
+        state::{InitialPreserveWhitespaceInSearch, InitialRelativePathSetting, STORE},
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
@@ -171,7 +171,9 @@ async fn handle_rg(
     mut cmd: SearchCommand,
     mut cfg: Config,
 ) -> Result<(), CliError> {
-    let vis = cmd.vis.into(cfg.global.panes.search.default_visibility);
+    let vis = cmd
+        .vis
+        .into_resolved(cfg.global.panes.search.default_visibility);
 
     let sort = cmd.sort.unwrap_or(
         cfg.global
@@ -204,7 +206,7 @@ async fn handle_rg(
             ),
         );
 
-        let stdout = match Command::new(prog).args(args).spawn_piped()._ebog() {
+        let (_child, stdout) = match Command::new(prog).args(args).spawn_piped()._ebog() {
             Some(s) => s,
             None => return Err(CliError::Handled),
         };
@@ -213,26 +215,30 @@ async fn handle_rg(
         let output_separator =
             EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
 
-        let _ = map_chunks::<true, CliError>(read_to_chunks(stdout, '\0'), move |line| {
-            let path = if cfg.misc.list_absolute_paths {
-                __cwd().join(PathBuf::from(line))
-            } else {
-                PathBuf::from(line)
-            };
+        let _ = map_chunks::<CliError>(
+            read_to_chunks(stdout, '\0'),
+            move |line| {
+                let path = if cfg.misc.list_absolute_paths {
+                    __cwd().join(PathBuf::from(line))
+                } else {
+                    PathBuf::from(line)
+                };
 
-            let push = vis.post_fd_filter(&path);
+                let push = vis.post_fd_filter(&path);
 
-            if push {
-                print(&path, &template, &output_separator)
-            }
-            Ok(())
-        });
+                if push {
+                    print(&path, &template, &output_separator)
+                }
+                Ok(())
+            },
+            true,
+        );
         return Ok(());
     };
 
     let pool = Pool::new(cfg.db_path()).await?;
     if cmd.preserve_whitespace {
-        TlsStore::set(InitialPreserveWhitespaceInSearch);
+        STORE::set(InitialPreserveWhitespaceInSearch);
     }
 
     let pane = FsPane::new_rg_full(
@@ -289,7 +295,7 @@ async fn handle_dirs(
         // fallback to interactive if no match
         cfg.global.interface.alt_accept = true;
         cfg.global.interface.no_multi_accept = true;
-        TlsStore::set(InitialRelativePathSetting(cfg.styles.path.relative));
+        STORE::set(InitialRelativePathSetting(cfg.styles.path.relative));
         cfg.styles.path.relative = false;
     } else if let Some(all) = cmd.list {
         let mut conn = pool.get_conn(DbTable::dirs).await?;
@@ -330,6 +336,7 @@ async fn handle_dirs(
     start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
 }
 
+#[allow(unused)] // is_default_dir is not read
 async fn handle_default(
     cli: CliOpts,
     mut cmd: DefaultCommand,
@@ -374,12 +381,12 @@ async fn handle_default(
             cfg.history.show_missing = false;
 
             // stream can only occur as the first pane, this ensures paths are not modified in display
-            TlsStore::set(cfg.styles.path.relative);
+            STORE::set(cfg.styles.path.relative);
             cfg.styles.path.relative = false;
         };
         FsPane::new_stream(
             AbsPath::new_unchecked(__cwd()),
-            cmd.vis.into(Some(Default::default())),
+            cmd.vis.into_resolved(Some(Default::default())),
             true,
         )
     } else if cmd.cd {
@@ -470,7 +477,9 @@ async fn handle_default(
         };
 
         if nav_pane {
-            let vis = cmd.vis.into(cfg.global.panes.nav.default_visibility);
+            let vis = cmd
+                .vis
+                .into_resolved(cfg.global.panes.nav.default_visibility);
 
             FsPane::new_nav(
                 cwd,
@@ -483,8 +492,8 @@ async fn handle_default(
         {
             FsPane::new_fd_from_command(
                 cmd,
-                is_default_dir,
                 cfg.global.panes.find.default_visibility,
+                cfg.global.fd.dot_query_show_hidden,
                 cwd,
             )
         }
@@ -543,8 +552,10 @@ async fn handle_default(
         if cmd.list {
             // mirror new_fd behavior
 
-            let mut vis = cmd.vis.into(cfg.global.panes.find.default_visibility);
-            if cmd.vis.hidden.is_none() && auto_enable_hidden(&cmd.paths) {
+            let mut vis = cmd
+                .vis
+                .into_resolved(cfg.global.panes.find.default_visibility);
+            if cmd.vis.hidden.is_none() && last_query_starts_with_dot(&cmd.paths) {
                 vis.hidden = true;
             }
 
@@ -553,7 +564,7 @@ async fn handle_default(
                 build_fd_args(vis, &cmd.types, &cmd.paths, &cmd.fd, &cfg.global.fd),
             );
 
-            let stdout = match Command::new(prog).args(args).spawn_piped()._ebog() {
+            let (_child, stdout) = match Command::new(prog).args(args).spawn_piped()._ebog() {
                 Some(s) => s,
                 None => return Err(CliError::Handled),
             };
@@ -562,31 +573,37 @@ async fn handle_default(
             let output_separator =
                 EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
 
-            let _ = map_chunks::<true, CliError>(read_to_chunks(stdout, '\0'), move |line| {
-                let path = if cfg.misc.list_absolute_paths {
-                    __cwd().join(PathBuf::from(line))
-                } else {
-                    PathBuf::from(line)
-                };
-                let push = vis.post_fd_filter(&path);
+            let _ = map_chunks::<CliError>(
+                read_to_chunks(stdout, '\0'),
+                move |line| {
+                    let path = if cfg.misc.list_absolute_paths {
+                        __cwd().join(PathBuf::from(line))
+                    } else {
+                        PathBuf::from(line)
+                    };
+                    let push = vis.post_fd_filter(&path);
 
-                if push {
-                    print(&path, &template, &output_separator)
-                }
-                Ok(())
-            });
+                    if push {
+                        print(&path, &template, &output_separator)
+                    }
+                    Ok(())
+                },
+                true,
+            );
             return Ok(());
         };
 
         FsPane::new_fd_from_command(
             cmd,
-            is_default_dir,
             cfg.global.panes.find.default_visibility,
+            cfg.global.fd.dot_query_show_hidden,
             cwd,
         )
     } else {
         let DefaultCommand { sort, .. } = cmd;
-        let vis = cmd.vis.into(cfg.global.panes.nav.default_visibility);
+        let vis = cmd
+            .vis
+            .into_resolved(cfg.global.panes.nav.default_visibility);
 
         if cmd.list {
             let iter = list_dir(__cwd(), vis, 1); // cwd is abs so we can add results as unchecked
@@ -656,9 +673,9 @@ async fn handle_tools(
             Ok(())
         }
         SubTool::ShowBinds => {
-            let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
+            let (binds, help) = get_mm_binds(&cli.mm_config);
 
-            let help_str = matchmaker::binds::display_binds(&mm_cfg.binds, &mm_cfg.help);
+            let help_str = matchmaker::binds::display_help(&binds, &help, None);
             prints!(help_str.to_string());
             Ok(())
         }

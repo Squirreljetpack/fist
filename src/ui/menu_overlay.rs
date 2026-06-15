@@ -4,7 +4,7 @@ use crate::{
         action::FsAction,
         item::short_display,
         stash::STASH,
-        state::{GLOBAL, STACK, TOAST, TlsStore},
+        state::{GLOBAL, STACK, TOAST, STORE},
     },
     spawn::{menu_action::MenuActions, open_wrapped},
     ui::prompt_overlay::{PromptConfig, PromptOverlay},
@@ -16,8 +16,8 @@ use crate::{
 
 use matchmaker::{
     action::Action,
-    config::{BorderSetting, PartialBorderSetting},
-    ui::{Overlay, OverlayEffect, SizeHint},
+    config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting, StyleSetting},
+    ui::{Overlay, OverlayEffect, utils},
 };
 use ratatui::{
     prelude::*,
@@ -30,8 +30,8 @@ const MAX_ITEM_WIDTH: u16 = 9;
 pub struct MenuConfig {
     #[serde(with = "border_result")]
     pub border: Result<BorderSetting, PartialBorderSetting>,
-    pub item_fg: Color,
-    pub item_modifier: Modifier,
+    pub item_style: StyleSetting,
+    pub current_style: StyleSetting,
 }
 
 impl Default for MenuConfig {
@@ -44,8 +44,12 @@ impl Default for MenuConfig {
         };
         Self {
             border: Err(border),
-            item_fg: Default::default(),
-            item_modifier: Default::default(),
+            item_style: Default::default(),
+            current_style: StyleSetting {
+                fg: None,
+                bg: Some(Color::Black),
+                modifier: Modifier::BOLD,
+            },
         }
     }
 }
@@ -85,9 +89,7 @@ impl MenuItem {
         &self,
         menu_config: &MenuConfig,
     ) -> Line<'static> {
-        let style = Style::new()
-            .add_modifier(menu_config.item_modifier)
-            .fg(menu_config.item_fg);
+        let style = menu_config.item_style.into();
 
         match self {
             MenuItem::New => Line::from(bold_indices("new", [0], style)),
@@ -171,6 +173,7 @@ pub struct MenuOverlay {
     /// See [TEMP::set_input_bar]
     pub target: MenuTarget,
     pub items: Vec<MenuItem>,
+    pub area: Rect,
 }
 
 pub static MENU_ITEMS: [MenuItem; 8] = [
@@ -197,6 +200,7 @@ impl MenuOverlay {
             prompt: PromptOverlay::new(prompt_config),
             target: Default::default(),
             items: MENU_ITEMS.to_vec(),
+            area: Rect::default(),
         }
     }
 
@@ -216,11 +220,7 @@ impl MenuOverlay {
                 let mut line = item.line(&self.config);
 
                 if idx == self.cursor {
-                    line = line.patch_style(
-                        Style::default()
-                            .bg(Color::Black)
-                            .add_modifier(Modifier::BOLD),
-                    )
+                    line = line.style(self.config.current_style)
                 }
                 Some(line)
             })
@@ -234,7 +234,7 @@ impl MenuOverlay {
         extra_title: Option<String>,
     ) {
         self.prompt_kind = Some(prompt);
-        self.prompt.config.border.title = match extra_title {
+        self.prompt.input.config.border.title = match extra_title {
             Some(s) => format!("{}: {}", prompt, s),
             None => prompt.to_string(),
         };
@@ -304,8 +304,8 @@ impl Overlay for MenuOverlay {
     ) {
         self.cursor = 0;
         self.prompt_kind = None;
-        let p = TlsStore::take();
-        let target: MenuTarget = TlsStore::take().unwrap_or_default();
+        let p = STORE::take();
+        let target: MenuTarget = STORE::take().unwrap_or_default();
 
         if let Some(p) = p {
             self.set_prompt(p, target.title());
@@ -358,24 +358,28 @@ impl Overlay for MenuOverlay {
     fn area(
         &mut self,
         ui_area: &Rect,
-    ) -> Result<Rect, [SizeHint; 2]> {
-        let _ = self.prompt.area(ui_area);
-        Err([
-            (MAX_ITEM_WIDTH + self.border().width()).into(),
-            (self.items.len() as u16 + self.border().height()).into(),
-        ])
+        layout: &OverlayLayoutSettings,
+    ) {
+        self.prompt.area(ui_area, layout);
+        self.area = utils::default_area(
+            [
+                (MAX_ITEM_WIDTH + self.border().width()).into(),
+                (self.items.len() as u16 + self.border().height()).into(),
+            ],
+            layout,
+            ui_area,
+        );
     }
 
     fn draw(
         &mut self,
         frame: &mut matchmaker::ui::Frame,
-        mut area: matchmaker::ui::Rect,
     ) {
         if self.prompt_kind.is_some() {
-            self.prompt.draw(frame, Rect::default());
+            self.prompt.draw(frame);
         } else {
-            frame.render_widget(Clear, area);
-            frame.render_widget(self.make_widget(), area);
+            frame.render_widget(Clear, self.area);
+            frame.render_widget(self.make_widget(), self.area);
         }
     }
 }
