@@ -29,7 +29,11 @@ use crate::{
         pane::FsPane,
         previewer::make_previewer,
         stash::STASH,
-        state::{DB_FILTER, GLOBAL, STACK, TASKS, context::ActionContext, ui::global_ui_init},
+        state::{
+            DB_FILTER, GLOBAL, STACK, TASKS,
+            context::ActionContext,
+            ui::{global_ui_init, prompt_main_style},
+        },
     },
     spawn::{Program, open_wrapped},
     ui::{
@@ -168,6 +172,28 @@ pub async fn start(
             fs_post_reload_new(state);
             if let Some(enter) = enter_prompt {
                 ahandlers::enter_prompt(state, enter);
+            };
+            // kind of ugly but should reduce confusion
+            if !state.picker_ui.results.cursor_disabled {
+                crate::run::state::FILTERS::with_mut(|_sort, vis| {
+                    if vis.dirs {
+                        state
+                            .picker_ui
+                            .query
+                            .set_prompt_line(ratatui::text::Line::styled(
+                                "d: ",
+                                prompt_main_style(),
+                            ));
+                    } else if vis.files {
+                        state
+                            .picker_ui
+                            .query
+                            .set_prompt_line(ratatui::text::Line::styled(
+                                "f: ",
+                                prompt_main_style(),
+                            ));
+                    }
+                })
             }
         })
         .paste_handler(paste_handler)
@@ -208,7 +234,7 @@ pub async fn start(
     // print before errors
     print_handle.map_to_vec(|s| prints!(s));
 
-    TASKS::shutdown(1000, 10, 3000).await;
+    TASKS::shutdown(500, 10, 3000).await;
     if STACK::in_app() {
         match ret.first().abort() {
             Ok(prog) => {

@@ -232,7 +232,7 @@ impl PartialVisibility {
     pub fn is_default(&self) -> bool {
         *self == Self::default()
     }
-    pub fn into(
+    pub fn into_resolved(
         mut self,
         cfg: Option<Self>,
     ) -> Visibility {

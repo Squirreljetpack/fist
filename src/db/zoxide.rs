@@ -1,8 +1,8 @@
-use chrono::Utc;
 use cba::{
     bait::ResultExt, bird::transform::camelcase_normalized, bog::BogOkExt,
     define_transparent_wrapper, prints,
 };
+use chrono::Utc;
 
 use std::path::Path;
 
@@ -44,8 +44,8 @@ pub struct HistoryConfig {
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum QueryMatchStrategy {
-    #[default]
     Monotonic,
+    #[default]
     Substring,
 }
 

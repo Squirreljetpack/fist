@@ -41,10 +41,10 @@ pub struct ShellCommand {
     #[arg(long)]
     pub rg_open_cmd: Option<String>,
     /// Arguments passed to `fs ::` when dir widget is invoked
-    #[arg(long, default_value_t = String::from("-F --style=colors --enter-prompt=false"))]
+    #[arg(long, default_value_t = String::from("-F --style=colors --enter-prompt=false -a"))]
     pub dir_widget_args: String,
     /// Arguments passed to `fs ::` when file widget is invoked
-    #[arg(long, default_value_t = String::from("--alt-accept -f --style=icon-colors --enter-prompt=false  -- .."))]
+    #[arg(long, default_value_t = String::from("--alt-accept -f --style=icon-colors --enter-prompt=false -- .."))]
     pub file_widget_args: String,
     /// Arguments passed to `fs :` when rg widget is invoked
     #[arg(long, default_value_t = String::from("-1 --fullscreen --style=colors --preserve-whitespace"))]
@@ -52,7 +52,7 @@ pub struct ShellCommand {
 
     #[arg(long, default_value_t)]
     pub aliases: bool,
-    /// Name for the nav function.
+    /// Name for the nav function created by --aliases.
     #[arg(long, default_value_t = String::from("Z"))]
     pub nav_name: String,
 

@@ -29,9 +29,7 @@ pub fn make_previewer(
         {
             let cmd = path_formatter(item, m);
 
-            // unwrap allowed by visible
-            let index = state.preview_ui.as_ref().unwrap().config.initial.index.as_ref();
-
+            // get target line from col 3
             let target = if STACK::in_rg() {
                 state.picker_ui.worker.format_with(item, "3").and_then(|t| atoi::atoi(t.as_bytes()))
             } else {

@@ -3,6 +3,11 @@
     min        = 10
     max        = 25
 
+[results]
+    wrap = true
+    scroll_wrap = true
+    row_connection = "Disjoint"
+
 [[preview.layout]]
     side       = "right"
     percentage = 40
@@ -26,3 +31,4 @@
 
 [preview]
     wrap = true
+    scroll_wrap = true

@@ -113,6 +113,8 @@ pub struct MiscConfig {
     pub clipboard_delay_ms: u64,
     /// Overwrite or append logs on application start.
     pub append_mode_logging: bool,
+    /// Overwrite or append tool logs on application start.
+    pub tools_append_mode_logging: bool,
     /// Pass the spawning command to this instead of invoking it directly.
     pub spawn_with: Vec<String>,
     /// The default output fromat when calling [FsAction::Print]
@@ -127,6 +129,7 @@ impl Default for MiscConfig {
         Self {
             clipboard_delay_ms: 20,
             append_mode_logging: false,
+            tools_append_mode_logging: false,
             spawn_with: Vec::new(),
             output_template: None,
             output_separator: "\n".into(),
@@ -159,7 +162,8 @@ pub struct InterfaceConfig {
     pub toast_on_empty: bool,
     /// If [AutoJump](`crate::run::FsAction::AutoJump`) should accept or advance
     pub autojump_advance: bool,
-    pub dim_prompt: Option<bool>,
+    pub dim_prompt: bool,
+    pub dim_status: bool,
 }
 
 impl Default for InterfaceConfig {
@@ -172,7 +176,8 @@ impl Default for InterfaceConfig {
             cwd_prompt: "{} ".into(),
             toast_on_empty: true,
             autojump_advance: false,
-            dim_prompt: Some(true),
+            dim_prompt: false,
+            dim_status: true,
         }
     }
 }
@@ -198,6 +203,11 @@ pub struct FdConfig {
     pub reduce_paths: bool,
     /// The set of arguments applied to the end of `fs ::` when no `fd_args` were given.
     pub default_args: Vec<String>,
+
+    /// - Auto: When the pattern for fs :: starts with a dot and is followed only by alphanumeric characters, and -h is not specified, include hidden files.
+    /// - Always: When query for fs :: starts with a dot and is followed only by alphanumeric characters, and -h/-I are not specified, include hidden/ignored files respectively.
+    /// - Never: No change.
+    pub dot_query_show_hidden: When,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -312,6 +322,9 @@ impl Config {
     }
     pub fn log_path(&self) -> PathBuf {
         self.state_dir.join(format!("{BINARY_FULL}.log"))
+    }
+    pub fn tools_log_path(&self) -> PathBuf {
+        self.state_dir.join(format!("{BINARY_FULL}.tools.log"))
     }
 
     pub fn check_dirs_or_exit(&self) {

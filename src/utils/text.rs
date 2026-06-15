@@ -22,7 +22,7 @@ impl From<ToastStyle> for Style {
             ToastStyle::Normal => Style::default()
                 .fg(Color::DarkGray)
                 .add_modifier(Modifier::ITALIC),
-            ToastStyle::Info => Style::default().fg(Color::Blue),
+            ToastStyle::Info => Style::default().fg(Color::LightBlue),
             ToastStyle::Success => Style::default().fg(Color::Green),
             ToastStyle::Warning => Style::default().fg(Color::Yellow),
             ToastStyle::Error => Style::default().fg(Color::Red),

@@ -302,9 +302,6 @@ pub struct SearchCommand {
     #[arg(short = '1', long = "no-heading", hide = true)]
     pub _no_heading_alias: bool,
 
-    // /// initial query.
-    // #[arg(long, default_value_t)]
-    // pub query: String,
     #[arg(long)]
     pub list: bool,
     /// initial query.

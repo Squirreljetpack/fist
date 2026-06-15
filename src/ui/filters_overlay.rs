@@ -11,8 +11,8 @@ use cba::bum::UsizeExt;
 use fist_types::{When, filters::*};
 use matchmaker::{
     action::Action,
-    config::{BorderSetting, PartialBorderSetting},
-    ui::{Overlay, OverlayEffect, SizeHint},
+    config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting},
+    ui::{Overlay, OverlayEffect, utils},
 };
 
 use ratatui::{
@@ -78,6 +78,7 @@ pub struct FilterOverlay {
     pane_lens: [usize; 3],
     config: FilterBaseConfig,
     pub configs: [FilterPaneConfig; 3],
+    area: Rect,
 }
 
 /// Renders a horizontal mural of paragraphs, declared in [`FilterOverlay::make_widgets`]
@@ -601,16 +602,21 @@ impl Overlay for FilterOverlay {
 
     fn area(
         &mut self,
-        _ui_area: &Rect,
-    ) -> Result<Rect, [SizeHint; 2]> {
-        Err([self.width().into(), self.height().into()])
+        ui_area: &Rect,
+        layout: &OverlayLayoutSettings,
+    ) {
+        self.area = utils::default_area(
+            [self.width().into(), self.height().into()],
+            layout,
+            ui_area,
+        );
     }
 
     fn draw(
         &mut self,
         frame: &mut matchmaker::ui::Frame,
-        area: matchmaker::ui::Rect,
     ) {
+        let area = self.area;
         frame.render_widget(Clear, area);
 
         let widgets = self.make_widgets();
