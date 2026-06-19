@@ -70,7 +70,7 @@ pub fn enter_prompt(
             let content = state.picker_ui.query.config.prompt.clone();
             Line::styled(content, prompt_main_style())
         };
-        state.picker_ui.results.cursor_jump(0);
+        // state.picker_ui.results.cursor_jump(0);
         if let Some(p) = state.preview_ui
             && p.is_vertical()
         {

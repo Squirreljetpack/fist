@@ -41,7 +41,7 @@ Call as:
 - `Enter`: Default (system) open.
   - `Alt-Enter`: Print / Alternate open.
   - `Ctrl-Enter`: Open in background.
-  - `ctrl-.`/`ctrl-q`: Open folder in editor.
+  - `alt-n`: Open folder in editor.
 
 ---
 

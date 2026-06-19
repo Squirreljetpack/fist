@@ -78,7 +78,7 @@ pub fn default_binds() -> BindMap<FsAction> {
 
         // This one acts on the parent directory if a file is selected.
         // Note that the "Directory" action in the edit preset defers to $VISUAL.
-        key!(ctrl-q), key!(ctrl-'.')  => FsAction::new_lessfilter(Preset::Edit, false),
+        key!(alt-n) => FsAction::new_lessfilter(Preset::Edit, false),
         key!(ctrl-enter) => FsAction::new_lessfilter(Preset::Open, false),
         // A free preset for the user to decide what to do with
         // This can be used to open a *file* with $VISUAL
@@ -98,7 +98,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(shift-up) => Action::PreviewUp(1),
         key!(shift-down) => Action::PreviewDown(1),
 
-        key!(ctrl-shift-'/'), key!(shift-cmd-'/') => Action::CyclePreview,
+        key!(ctrl-shift-'/'), key!(shift-cmd-'/') => Action::NextPreview,
         key!(alt-r) => Action::Reload("".to_string()),
         key!(ctrl-0), key!(ctrl-shift-0), key!(ctrl-'`') => FsAction::AutoJump(0),
         key!(ctrl-1) => FsAction::AutoJump(1),

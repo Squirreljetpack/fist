@@ -477,9 +477,13 @@ async fn handle_default(
         };
 
         if nav_pane {
-            let vis = cmd
+            let mut vis = cmd
                 .vis
-                .into_resolved(cfg.global.panes.nav.default_visibility);
+                .into_resolved(cfg.global.panes.nav.default_visibility)
+                .enable_hidden_if_empty_otherwise(
+                    &cwd,
+                    cmd.vis.hidden.is_none() && !cfg.global.fd.dot_query_show_hidden.is_never(),
+                );
 
             FsPane::new_nav(
                 cwd,
@@ -601,12 +605,17 @@ async fn handle_default(
         )
     } else {
         let DefaultCommand { sort, .. } = cmd;
+        let cwd = __cwd();
         let vis = cmd
             .vis
-            .into_resolved(cfg.global.panes.nav.default_visibility);
+            .into_resolved(cfg.global.panes.nav.default_visibility)
+            .enable_hidden_if_empty_otherwise(
+                cwd,
+                cmd.vis.hidden.is_none() && !cfg.global.fd.dot_query_show_hidden.is_never(),
+            );
 
         if cmd.list {
-            let iter = list_dir(__cwd(), vis, 1); // cwd is abs so we can add results as unchecked
+            let iter = list_dir(cwd, vis, 1); // cwd is abs so we can add results as unchecked
             let sort = sort.unwrap_or_default();
             let template = EnvOpts::with_env(|s| s.output_template.clone());
             let output_separator =
@@ -636,7 +645,7 @@ async fn handle_default(
         };
 
         FsPane::new_nav(
-            AbsPath::new_unchecked(__cwd()),
+            AbsPath::new_unchecked(cwd),
             vis,
             sort.unwrap_or(cfg.global.panes.nav.default_sort.unwrap_or_default()),
         )
