@@ -198,14 +198,15 @@ size\:"Not always supported"))' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--preserve-whitespace[Prepend '\'' to query start]' \
 '-i[]' \
 '--ignore-case[]' \
 '-s[]' \
 '--case-sensitive[]' \
 '-S[]' \
 '--smart-case[]' \
-'--no-fixed-strings[Enable fixed string matching Disable fixed string matching]' \
+'--fixed-strings[Enable fixed string matching]' \
+'--no-fixed-strings[Disable fixed string matching]' \
+'--preserve-whitespace[Prepend '\'' to query start]' \
 '--filtering[]' \
 '-1[]' \
 '--no-heading[]' \
@@ -243,14 +244,15 @@ size\:"Not always supported"))' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--preserve-whitespace[Prepend '\'' to query start]' \
 '-i[]' \
 '--ignore-case[]' \
 '-s[]' \
 '--case-sensitive[]' \
 '-S[]' \
 '--smart-case[]' \
-'--no-fixed-strings[Enable fixed string matching Disable fixed string matching]' \
+'--fixed-strings[Enable fixed string matching]' \
+'--no-fixed-strings[Disable fixed string matching]' \
+'--preserve-whitespace[Prepend '\'' to query start]' \
 '--filtering[]' \
 '-1[]' \
 '--no-heading[]' \

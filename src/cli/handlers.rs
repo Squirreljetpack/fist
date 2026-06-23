@@ -189,6 +189,10 @@ async fn handle_rg(
     cfg.global.panes.search.one_line._take(cmd.one_line);
     let no_heading = cfg.global.panes.search.one_line;
 
+    let fixed_strings = cmd
+        .fixed_strings()
+        .unwrap_or(cfg.global.panes.search.fixed_strings);
+
     if cmd.list {
         let (prog, args) = (
             "rg",
@@ -198,7 +202,7 @@ async fn handle_rg(
                 cmd.context.resolve(),
                 cmd.case.resolve(),
                 no_heading,
-                cmd.fixed_strings,
+                fixed_strings,
                 &cmd.patterns,
                 &cmd.paths,
                 &cmd.rg,
@@ -252,7 +256,7 @@ async fn handle_rg(
         cmd.context.resolve(),
         cmd.case.resolve(),
         no_heading,
-        cmd.fixed_strings,
+        fixed_strings,
         cmd.rg,
     );
 

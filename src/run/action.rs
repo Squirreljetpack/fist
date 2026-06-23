@@ -370,23 +370,18 @@ pub fn fsaction_aliaser(
                 // in overlay
                 {
                     acs![Action::Pos(digit.saturating_sub(1) as i32)]
-                } else if in_prompt
-                // in prompt
-                {
-                    // jump out
-                    if digit > 0 {
-                        enter_prompt(state, false);
-                        acs![Action::Pos(digit as i32 - 1)]
-                    } else {
-                        acs![FsAction::AcceptPrompt]
-                    }
                 } else if digit == 0
-                // 0 when not in prompt -> enter prompt
+                // 0 -> TogglePrompt
                 {
-                    enter_prompt(state, true);
+                    enter_prompt(state, !in_prompt);
                     acs![]
+                } else if in_prompt
+                // in prompt => jump out
+                {
+                    enter_prompt(state, false);
+                    acs![Action::Pos(digit as i32 - 1)]
                 } else if (digit - 1) as u32 == state.picker_ui.results.index()
-                // not in prompt => accept
+                // not in prompt + on pos => accept
                 {
                     acs![
                         Action::Pos((digit - 1) as i32),

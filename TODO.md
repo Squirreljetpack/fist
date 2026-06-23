@@ -50,7 +50,7 @@ transparent advance into compressed files
 # Rg
 
 - On non-nav panes, this should populate with the currently selected/stored files
-- Max store size? No store?
+- store stdin files
 
 # Global Filters
 

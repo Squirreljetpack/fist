@@ -241,11 +241,12 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -l fullscreen -r -f -a "true\
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l enter-prompt -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :rg" -l preserve-whitespace -d 'Prepend \' to query start'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s i -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s S -l smart-case
-complete -c fs -n "__fish_fs_using_subcommand :rg" -l no-fixed-strings -d 'Enable fixed string matching Disable fixed string matching'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l fixed-strings -d 'Enable fixed string matching'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l no-fixed-strings -d 'Disable fixed string matching'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l preserve-whitespace -d 'Prepend \' to query start'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l filtering
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s 1 -l no-heading
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l list
@@ -286,11 +287,12 @@ complete -c fs -n "__fish_fs_using_subcommand :" -l fullscreen -r -f -a "true\t'
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -l enter-prompt -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :" -l preserve-whitespace -d 'Prepend \' to query start'
 complete -c fs -n "__fish_fs_using_subcommand :" -s i -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :" -s S -l smart-case
-complete -c fs -n "__fish_fs_using_subcommand :" -l no-fixed-strings -d 'Enable fixed string matching Disable fixed string matching'
+complete -c fs -n "__fish_fs_using_subcommand :" -l fixed-strings -d 'Enable fixed string matching'
+complete -c fs -n "__fish_fs_using_subcommand :" -l no-fixed-strings -d 'Disable fixed string matching'
+complete -c fs -n "__fish_fs_using_subcommand :" -l preserve-whitespace -d 'Prepend \' to query start'
 complete -c fs -n "__fish_fs_using_subcommand :" -l filtering
 complete -c fs -n "__fish_fs_using_subcommand :" -s 1 -l no-heading
 complete -c fs -n "__fish_fs_using_subcommand :" -l list

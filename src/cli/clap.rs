@@ -267,6 +267,9 @@ pub struct SearchCommand {
     #[arg(long)]
     pub sort: Option<SortOrder>,
 
+    // todo: lowpri: rg supports -t and globs, but its a bit awkward so we currently require users to specify manually thru rg_args
+    // #[arg(short = 't', long = "types", value_delimiter = ',')]
+    // pub types: Vec<FileTypeArg>,
     /// Files or directories to search in.
     #[arg(short = 'p', long = "path")]
     pub paths: Vec<PathBuf>,
@@ -274,9 +277,6 @@ pub struct SearchCommand {
     /// Patterns to search (`rg -e`).
     #[arg(value_name = "PATTERNS")]
     pub patterns: Vec<String>,
-    /// Prepend ' to query start
-    #[arg(long)]
-    pub preserve_whitespace: bool,
 
     /// Args passed on verbatim to rg.
     #[arg(last = true, value_name = "RG_ARGS")]
@@ -291,11 +291,27 @@ pub struct SearchCommand {
     /// Alias: `-1`
     #[arg(long)]
     pub one_line: Option<bool>,
+
     /// Enable fixed string matching
-    #[arg(long = "fixed-strings", action = ArgAction::SetTrue)]
+    #[arg(
+        long = "fixed-strings", 
+        action = ArgAction::SetTrue, 
+        overrides_with = "no_fixed_strings"
+    )]
+    fixed_strings: bool,
+
     /// Disable fixed string matching
-    #[arg(long = "no-fixed-strings", action = ArgAction::SetFalse)]
-    pub fixed_strings: bool,
+    #[arg(
+        long = "no-fixed-strings", 
+        action = ArgAction::SetTrue, // Both set to true when passed
+        overrides_with = "fixed_strings"
+    )]
+    no_fixed_strings: bool,
+
+    /// Prepend ' to query start.
+    #[arg(long)]
+    pub preserve_whitespace: bool,
+
     #[arg(long, action = ArgAction::SetTrue)]
     pub filtering: bool,
 
@@ -309,6 +325,18 @@ pub struct SearchCommand {
     pub query: String,
     #[arg(long, action = ArgAction::Help)]
     pub help: (),
+}
+
+impl SearchCommand {
+    pub fn fixed_strings(&self) -> Option<bool> {
+        if self.fixed_strings {
+            Some(true)
+        } else if self.no_fixed_strings {
+            Some(false)
+        } else {
+            None
+        }
+    }
 }
 
 /// Browse listed files from standard input, the current directory, or fd.
