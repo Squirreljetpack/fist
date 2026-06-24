@@ -50,7 +50,6 @@ transparent advance into compressed files
 # Rg
 
 - On non-nav panes, this should populate with the currently selected/stored files
-- store stdin files
 
 # Global Filters
 

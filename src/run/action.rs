@@ -578,7 +578,8 @@ pub fn fsaction_handler(
                 let cwd = STACK::cwd().unwrap_or_default();
 
                 //
-                let paths = vec![cwd.inner()];
+                let paths = state.picker_ui.selector.map_to_vec(|i, x| x.path.inner());
+
                 let query = String::new();
                 let filtering = false;
                 let patterns = if GLOBAL::with_cfg(|c| c.panes.search.search_empty_query) {
@@ -590,7 +591,7 @@ pub fn fsaction_handler(
                 let context = Default::default();
                 let case = Default::default();
 
-                let pane = FsPane::new_rg_full(
+                let pane = FsPane::new_rg(
                     cwd,
                     FILTERS::sort(),
                     FILTERS::visibility(),
@@ -1282,8 +1283,11 @@ macro_rules! enum_from_str_display {
                                     }
                                 }
                                 SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | EnterPrompt(_) | Confirm => Ok(()), // internal
-                                Lessfilter { preset, paging, header: _, .. } => {
-                                    if *paging {
+                                Lessfilter { preset, paging, header: _, special, } => {
+                                    if *special == 1 {
+                                        write!(f, "Help")
+                                    }
+                                    else if *paging {
                                         write!(f, "LFPaged({preset})")
                                     } else {
                                         write!(f, "Lessfilter({preset})")

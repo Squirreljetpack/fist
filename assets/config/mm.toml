@@ -32,3 +32,50 @@
 [preview]
     wrap = true
     scroll_wrap = true
+
+[binds]
+"ctrl-a" = CycleSelections
+"ctrl-shift-a" = ClearSelections
+"alt-r" = Reload
+
+# cycle preview layouts
+"alt-/" = "NextPreview"
+"alt-shift-/" = "PrevPreview"
+"ctrl-/" = "NextPreview" # requires keyboard enhancement
+"ctrl-shift-/" = "PrevPreview" # requires keyboard enhancement
+# "shift-cmd-/" = "PrevPreview"
+
+"ctrl-[" = "ToggleWrap", # requires keyboard enhancement
+"ctrl-]" = "TogglePreviewWrap",  # requires keyboard enhancement
+
+### (DEFAULTS) ####
+# # Panes
+# "right" = "Advance"
+# "left" = "Parent"
+# "ctrl-f" = "Find"
+# "ctrl-r" = "Search"
+# "ctrl-g" = "History"
+# "ctrl-z" = "Undo"
+# "alt-z" = "Redo"
+# "ctrl-shift-z" = "Redo"
+# "ctrl-`" = "Jump"
+# "alt-`" = "Jump"
+# 
+# # Display
+# "ctrl-t" = "ShowStash"
+# "alt-shift-t" = "ClearStash"
+# "ctrl-e" = "ShowMenu"
+# "ctrl-i" = "ShowFilters"
+# "ctrl-d" = "FsToggle"
+# "ctrl-s" = "ToggleHidden" # if this freezes your terminal, check that you have set stty -ixon
+# 
+# # File Actions
+# "ctrl-y" = "CopyPath"
+# "delete" = "Trash"
+# "shift-delete" = "Delete"
+# "ctrl-shift-r" = "Rename"
+# "ctrl-v" = "Paste"
+# "ctrl-x" = "Cut"
+# "ctrl-c" = "Copy"
+# "ctrl-n" = "New"
+# "alt-s" = "Push"

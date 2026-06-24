@@ -196,12 +196,12 @@ impl FsPane {
         }
     }
 
-    pub fn new_rg_full(
+    pub fn new_rg(
         cwd: AbsPath,
         sort: SortOrder,
         vis: Visibility,
         //
-        paths: Vec<PathBuf>,
+        mut paths: Vec<PathBuf>,
         query: String,
         mut patterns: Vec<String>,
         filtering: bool,
@@ -215,6 +215,9 @@ impl FsPane {
     ) -> Self {
         if patterns.is_empty() {
             patterns.push(String::new()); // rg requires at least one pattern
+        }
+        if paths.is_empty() {
+            paths.push(cwd.inner());
         }
         Self::Search {
             cwd,

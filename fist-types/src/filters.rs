@@ -123,6 +123,42 @@ impl Visibility {
         push
     }
 
+    /// applies the full visibility filter (notes: checks exists(), ignore not implemented)
+    pub fn filter(
+        &self,
+        path: &Path,
+    ) -> bool {
+        let mut push = true;
+        if !self.all {
+            push &= path.exists()
+        }
+
+        if self.hidden_only {
+            return path.is_hidden()
+                || if self.dirs {
+                    path.is_dir()
+                } else if self.files {
+                    path.is_file()
+                } else {
+                    false
+                };
+        } else if !self.hidden {
+            push &= !path.is_hidden()
+        }
+
+        if self.dirs {
+            push &= path.is_dir()
+        } else if self.files {
+            push &= path.is_file()
+        }
+
+        if self.ignore {
+            // lowpri: todo
+        }
+
+        push
+    }
+
     pub fn post_fd_filter(
         &self,
         path: &Path,

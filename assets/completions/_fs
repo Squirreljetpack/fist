@@ -207,10 +207,12 @@ size\:"Not always supported"))' \
 '--fixed-strings[Enable fixed string matching]' \
 '--no-fixed-strings[Disable fixed string matching]' \
 '--preserve-whitespace[Prepend '\'' to query start]' \
+'--rebase[Execute in the deepest directory common to all given paths]' \
 '--filtering[]' \
 '-1[]' \
 '--no-heading[]' \
 '--list[]' \
+'--no-read[Don'\''t try to read paths from stdin]' \
 '--help[]' \
 '--alt-accept[]' \
 '*::patterns -- Patterns to search (`rg -e`):_default' \
@@ -253,10 +255,12 @@ size\:"Not always supported"))' \
 '--fixed-strings[Enable fixed string matching]' \
 '--no-fixed-strings[Disable fixed string matching]' \
 '--preserve-whitespace[Prepend '\'' to query start]' \
+'--rebase[Execute in the deepest directory common to all given paths]' \
 '--filtering[]' \
 '-1[]' \
 '--no-heading[]' \
 '--list[]' \
+'--no-read[Don'\''t try to read paths from stdin]' \
 '--help[]' \
 '--alt-accept[]' \
 '*::patterns -- Patterns to search (`rg -e`):_default' \
@@ -311,22 +315,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (shell)
 _arguments "${_arguments_options[@]}" : \
-'--z-name=[Name for jump function]:Z_NAME:_default' \
-'--z-dot-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`.\`]:Z_DOT_ARGS:_default' \
-'--z-slash-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`./\`]:Z_SLASH_ARGS:_default' \
-'--z-dir-args=[Arguments passed to \`fs \:dir\` for the interactive jump menu]:Z_DIR_ARGS:_default' \
-'--open-name=[Name for open function]:OPEN_NAME:_default' \
-'--open-cmd=[Command used by open function]:OPEN_CMD:_default' \
-'--dir-widget-bind=[Bind for the directory widget]:DIR_WIDGET_BIND:_default' \
-'--file-widget-bind=[Bind for the directory widget]:FILE_WIDGET_BIND:_default' \
-'--rg-widget-bind=[Bind for the directory widget]:RG_WIDGET_BIND:_default' \
-'--file-open-cmd=[]:FILE_OPEN_CMD:_default' \
-'--rg-open-cmd=[]:RG_OPEN_CMD:_default' \
-'--dir-widget-args=[Arguments passed to \`fs \:\:\` when dir widget is invoked]:DIR_WIDGET_ARGS:_default' \
-'--file-widget-args=[Arguments passed to \`fs \:\:\` when file widget is invoked]:FILE_WIDGET_ARGS:_default' \
-'--rg-widget-args=[Arguments passed to \`fs \:\` when rg widget is invoked]:RG_WIDGET_ARGS:_default' \
-'--nav-name=[Name for the nav function created by --aliases]:NAV_NAME:_default' \
-'--shell=[]:SHELL:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -334,15 +322,12 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--aliases[]' \
 '--alt-accept[]' \
+'*::args:_default' \
 && ret=0
 ;;
 (lessfilter)
 _arguments "${_arguments_options[@]}" : \
-'*-a+[Arguments to pass to the first executed command (experimental)]:ARGS:_default' \
-'*--arg=[Arguments to pass to the first executed command (experimental)]:ARGS:_default' \
-'--header=[]:HEADER:(true false)' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -350,25 +335,12 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--no-exec[]' \
-'--tty[]' \
 '--alt-accept[]' \
-':preset:((preview\:"For the f\:ist preview pane"
-display\:"For terminal display"
-extended\:"For terminal interaction/verbose display"
-info\:"Metadata/raw info"
-open\:"System open"
-alternate\:"Alternate (custom) open"
-edit\:""))' \
-'*::paths:_files' \
+'*::args:_default' \
 && ret=0
 ;;
 (bump)
 _arguments "${_arguments_options[@]}" : \
-'-g+[glob pattern to bump]:GLOB:_default' \
-'--glob=[glob pattern to bump]:GLOB:_default' \
-'-c+[amount to bump by, 0 to clear]:COUNT:_default' \
-'--count=[amount to bump by, 0 to clear]:COUNT:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -376,9 +348,20 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--reset[reset the database]' \
 '--alt-accept[]' \
-'*::paths -- path to bump:_files' \
+'*::args:_default' \
+&& ret=0
+;;
+(show-binds)
+_arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[]::ORIENTATION:(true false)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--alt-accept[]' \
 && ret=0
 ;;
 (types)
@@ -391,6 +374,7 @@ _arguments "${_arguments_options[@]}" : \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--alt-accept[]' \
+'*::args:_default' \
 && ret=0
 ;;
         esac
@@ -446,22 +430,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (shell)
 _arguments "${_arguments_options[@]}" : \
-'--z-name=[Name for jump function]:Z_NAME:_default' \
-'--z-dot-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`.\`]:Z_DOT_ARGS:_default' \
-'--z-slash-args=[Arguments passed to \`fs \:\:\` when z is invoked with a trailing \`./\`]:Z_SLASH_ARGS:_default' \
-'--z-dir-args=[Arguments passed to \`fs \:dir\` for the interactive jump menu]:Z_DIR_ARGS:_default' \
-'--open-name=[Name for open function]:OPEN_NAME:_default' \
-'--open-cmd=[Command used by open function]:OPEN_CMD:_default' \
-'--dir-widget-bind=[Bind for the directory widget]:DIR_WIDGET_BIND:_default' \
-'--file-widget-bind=[Bind for the directory widget]:FILE_WIDGET_BIND:_default' \
-'--rg-widget-bind=[Bind for the directory widget]:RG_WIDGET_BIND:_default' \
-'--file-open-cmd=[]:FILE_OPEN_CMD:_default' \
-'--rg-open-cmd=[]:RG_OPEN_CMD:_default' \
-'--dir-widget-args=[Arguments passed to \`fs \:\:\` when dir widget is invoked]:DIR_WIDGET_ARGS:_default' \
-'--file-widget-args=[Arguments passed to \`fs \:\:\` when file widget is invoked]:FILE_WIDGET_ARGS:_default' \
-'--rg-widget-args=[Arguments passed to \`fs \:\` when rg widget is invoked]:RG_WIDGET_ARGS:_default' \
-'--nav-name=[Name for the nav function created by --aliases]:NAV_NAME:_default' \
-'--shell=[]:SHELL:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -469,15 +437,12 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--aliases[]' \
 '--alt-accept[]' \
+'*::args:_default' \
 && ret=0
 ;;
 (lessfilter)
 _arguments "${_arguments_options[@]}" : \
-'*-a+[Arguments to pass to the first executed command (experimental)]:ARGS:_default' \
-'*--arg=[Arguments to pass to the first executed command (experimental)]:ARGS:_default' \
-'--header=[]:HEADER:(true false)' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -485,25 +450,12 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--no-exec[]' \
-'--tty[]' \
 '--alt-accept[]' \
-':preset:((preview\:"For the f\:ist preview pane"
-display\:"For terminal display"
-extended\:"For terminal interaction/verbose display"
-info\:"Metadata/raw info"
-open\:"System open"
-alternate\:"Alternate (custom) open"
-edit\:""))' \
-'*::paths:_files' \
+'*::args:_default' \
 && ret=0
 ;;
 (bump)
 _arguments "${_arguments_options[@]}" : \
-'-g+[glob pattern to bump]:GLOB:_default' \
-'--glob=[glob pattern to bump]:GLOB:_default' \
-'-c+[amount to bump by, 0 to clear]:COUNT:_default' \
-'--count=[amount to bump by, 0 to clear]:COUNT:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -511,9 +463,20 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--reset[reset the database]' \
 '--alt-accept[]' \
-'*::paths -- path to bump:_files' \
+'*::args:_default' \
+&& ret=0
+;;
+(show-binds)
+_arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[]::ORIENTATION:(true false)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--alt-accept[]' \
 && ret=0
 ;;
 (types)
@@ -526,6 +489,7 @@ _arguments "${_arguments_options[@]}" : \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--alt-accept[]' \
+'*::args:_default' \
 && ret=0
 ;;
         esac
@@ -615,6 +579,7 @@ _fs__subcmd__:tool_commands() {
 'shell:Dump the initialization code for your shell' \
 'lessfilter:Context and preset dependent file handler' \
 'bump:Bump history entries' \
+'show-binds:Show binds' \
 'types:List mappings supported by the --type parameter' \
     )
     _describe -t commands 'fs :tool commands' commands "$@"
@@ -643,6 +608,11 @@ _fs__subcmd__:tool__subcmd__liza_commands() {
 _fs__subcmd__:tool__subcmd__shell_commands() {
     local commands; commands=()
     _describe -t commands 'fs :tool shell commands' commands "$@"
+}
+(( $+functions[_fs__subcmd__:tool__subcmd__show-binds_commands] )) ||
+_fs__subcmd__:tool__subcmd__show-binds_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :tool show-binds commands' commands "$@"
 }
 (( $+functions[_fs__subcmd__:tool__subcmd__types_commands] )) ||
 _fs__subcmd__:tool__subcmd__types_commands() {

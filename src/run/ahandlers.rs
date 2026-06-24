@@ -236,10 +236,7 @@ pub fn fs_reload(
 ///
 /// 1. Set pane specific config overrides:
 /// - Read the current pane's enter_prompt and default prompt values to appropriately invoke [`enter_prompt`].
-///
-///
 /// 2. Reset transient state settings without any configuration knob
-///
 /// 3. Set input from pane, clear selections
 pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
     // apply pane-specific config overrides

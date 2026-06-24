@@ -15,28 +15,7 @@ mod cli {
     }
     use crate::cli::tool_types::*;
 
-    use clap::Subcommand;
-    use std::ffi::OsString;
-
-    #[allow(clippy::large_enum_variant)]
-    #[derive(Subcommand, Debug, Clone, strum_macros::Display)]
-    #[strum(serialize_all = "lowercase")]
-    pub enum SubTool {
-        Colors,
-        /// List directory (eza wrapper)
-        Liza {
-            #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-            args: Vec<OsString>,
-        },
-        /// Dump the initialization code for your shell
-        Shell(ShellCommand),
-        /// Context and preset dependent file handler
-        Lessfilter(LessfilterCommand),
-        /// Bump history entries
-        Bump(BumpCommand),
-        /// List mappings supported by the --type parameter.
-        Types(TypesCommand),
-    }
+    include!("src/cli/clap_.rs");
 }
 include!("build/completions_mock.rs");
 

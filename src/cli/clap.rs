@@ -270,6 +270,7 @@ pub struct SearchCommand {
     // todo: lowpri: rg supports -t and globs, but its a bit awkward so we currently require users to specify manually thru rg_args
     // #[arg(short = 't', long = "types", value_delimiter = ',')]
     // pub types: Vec<FileTypeArg>,
+
     /// Files or directories to search in.
     #[arg(short = 'p', long = "path")]
     pub paths: Vec<PathBuf>,
@@ -311,6 +312,9 @@ pub struct SearchCommand {
     /// Prepend ' to query start.
     #[arg(long)]
     pub preserve_whitespace: bool,
+    /// Execute in the deepest directory common to all given paths
+    #[arg(long)]
+    pub rebase: bool,
 
     #[arg(long, action = ArgAction::SetTrue)]
     pub filtering: bool,
@@ -323,6 +327,11 @@ pub struct SearchCommand {
     /// initial query.
     #[arg(long, default_value_t)]
     pub query: String,
+
+    /// Don't try to read paths from stdin.
+    #[arg(long, default_value_t)]
+    pub no_read: bool,
+
     #[arg(long, action = ArgAction::Help)]
     pub help: (),
 }

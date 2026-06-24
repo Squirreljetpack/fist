@@ -11,6 +11,7 @@ use clap::Parser;
 use globset::GlobBuilder;
 use std::{
     env::{current_dir, set_current_dir},
+    io::BufRead,
     path::{MAIN_SEPARATOR_STR, PathBuf},
     process::{Command, exit},
 };
@@ -183,6 +184,21 @@ async fn handle_rg(
             .unwrap_or(SortOrder::none),
     );
 
+    if !cmd.no_read && !atty::is(atty::Stream::Stdin) {
+        let valid_paths = std::io::stdin()
+            .lock()
+            .lines()
+            .map_while(Result::ok)
+            .map(PathBuf::from)
+            .filter(|path| vis.filter(path));
+
+        cmd.paths.extend(valid_paths);
+    }
+    if cmd.rebase {
+        let base = paths_base(&cmd.paths);
+        std::env::set_current_dir(&base)._ebog();
+    }
+
     if cmd._no_heading_alias {
         cmd.one_line = Some(true);
     };
@@ -245,7 +261,7 @@ async fn handle_rg(
         STORE::set(InitialPreserveWhitespaceInSearch);
     }
 
-    let pane = FsPane::new_rg_full(
+    let pane = FsPane::new_rg(
         AbsPath::default(),
         sort,
         vis,
@@ -669,6 +685,7 @@ async fn handle_tools(
     } else {
         mm_get([
             SubTool::Colors,
+            SubTool::ShowBinds,
             SubTool::Liza { args: args.clone() },
             SubTool::Shell { args: args.clone() },
             SubTool::Lessfilter { args: args.clone() },

@@ -18,14 +18,12 @@ pub fn default_binds() -> BindMap<FsAction> {
     let mut fs = bindmap!(
         // Nav
         // ----------------------------------
-        key!(up) => Action::Up(1),
-        key!(down) => Action::Down(1),
+        // standard but not in default
         key!(shift-right) => Action::ForwardChar,
         key!(shift-left) => Action::BackwardChar,
-        key!(enter) => Action::Accept,
-        key!(alt-enter) => Action::Print("".into()),
         key!(tab) => [Action::Toggle, Action::Down(1)],
-        key!(ctrl-a) => Action::CycleAll,
+        key!(alt-enter) => Action::Print("".into()),
+        key!(alt-r) => Action::Reload("".to_string()),
 
         key!(right) => FsAction::Advance,
         key!(left) => FsAction::Parent,
@@ -33,22 +31,20 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-r) => FsAction::Search,
         key!(ctrl-g) => FsAction::History,
         key!(ctrl-z) => FsAction::Undo,
-        key!(alt-z) => FsAction::Redo,
-        key!(alt-a), key!(alt-shift-a) => FsAction::App,
-        key!(ctrl-shift-'z') => FsAction::Redo,
-        key!(ctrl-'/') => FsAction::Jump(jump),
+        // key!(alt-a), key!(alt-shift-a) => FsAction::App,
+        key!(alt-z), key!(ctrl-shift-'z') => FsAction::Redo,
+        key!(ctrl-'`'), key!(alt-'`') => FsAction::Jump(jump),
 
         // Display
         // ----------------------------------
         key!(ctrl-t) => FsAction::ShowStash,
-        key!(ctrl-shift-s), key!(shift-cmd-s) => FsAction::ShowScratch,
         key!(alt-shift-t) => FsAction::ClearStash(None),
         key!(alt-shift-s) => FsAction::ClearStash(Some("copy".to_string())), // clear copy kind
         key!(ctrl-e) => FsAction::ShowMenu,
         // -- filters --
         key!(ctrl-i) => FsAction::ShowFilters,
         key!(ctrl-d) => FsAction::FsToggle,
-        key!(alt-h), key!(ctrl-s) => FsAction::ToggleHidden,
+        key!(ctrl-s) => FsAction::ToggleHidden,
 
         // file actions
         // ----------------------------------
@@ -74,12 +70,12 @@ pub fn default_binds() -> BindMap<FsAction> {
         // Quick Look + a header
         key!(alt - shift - '/') => FsAction::LessfilterPreview(Preset::Display, When::Always),
         // Keybind help
-        key!(ctrl-shift-h), key!(shift-cmd-h) => FsAction::help(),
+        key!(alt-h) => FsAction::help(),
 
         // This one acts on the parent directory if a file is selected.
         // Note that the "Directory" action in the edit preset defers to $VISUAL.
         key!(alt-n) => FsAction::new_lessfilter(Preset::Edit, false),
-        key!(ctrl-enter) => FsAction::new_lessfilter(Preset::Open, false),
+        key!(ctrl-enter), key!(alt-o) => FsAction::new_lessfilter(Preset::Open, false),
         // A free preset for the user to decide what to do with
         // This can be used to open a *file* with $VISUAL
         key!(alt-8) => FsAction::new_lessfilter(Preset::Alternate, true),
@@ -89,7 +85,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         // For "full" or interactive terminal output
         key!(alt-l)  => FsAction::new_lessfilter(Preset::Extended, true),
 
-        // open a shell in the current directory
+        // open a shell in the current directory (requires keyboard enhancement)
         key!(ctrl-esc) => Action::Execute("$SHELL".into()),
         // Actions can be defined directly as a ::Execute keybind, as a [menu] action, or indirectly through [stack.cas]
 
@@ -98,9 +94,8 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(shift-up) => Action::PreviewUp(1),
         key!(shift-down) => Action::PreviewDown(1),
 
-        key!(ctrl-shift-'/'), key!(shift-cmd-'/') => Action::NextPreview,
-        key!(alt-r) => Action::Reload("".to_string()),
-        key!(ctrl-0), key!(ctrl-shift-0), key!(ctrl-'`') => FsAction::AutoJump(0),
+        // requires keyboard enhancement
+        key!(ctrl-0), key!(ctrl-enter), key!(alt-enter) => FsAction::AutoJump(0),
         key!(ctrl-1) => FsAction::AutoJump(1),
         key!(ctrl-2) => FsAction::AutoJump(2),
         key!(ctrl-3) => FsAction::AutoJump(3),
@@ -123,7 +118,7 @@ pub fn default_binds() -> BindMap<FsAction> {
 
     fs.extend(ext);
 
-    let mut base = BindMap::default_binds();
+    let mut base = BindMap::default_binds().with_extras();
     base.extend(fs);
 
     base

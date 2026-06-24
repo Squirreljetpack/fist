@@ -188,10 +188,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--fixed-strings', '--fixed-strings', [CompletionResultType]::ParameterName, 'Enable fixed string matching')
             [CompletionResult]::new('--no-fixed-strings', '--no-fixed-strings', [CompletionResultType]::ParameterName, 'Disable fixed string matching')
             [CompletionResult]::new('--preserve-whitespace', '--preserve-whitespace', [CompletionResultType]::ParameterName, 'Prepend '' to query start')
+            [CompletionResult]::new('--rebase', '--rebase', [CompletionResultType]::ParameterName, 'Execute in the deepest directory common to all given paths')
             [CompletionResult]::new('--filtering', '--filtering', [CompletionResultType]::ParameterName, 'filtering')
             [CompletionResult]::new('-1', '-1', [CompletionResultType]::ParameterName, '1')
             [CompletionResult]::new('--no-heading', '--no-heading', [CompletionResultType]::ParameterName, 'no-heading')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
+            [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Don''t try to read paths from stdin')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
@@ -229,10 +231,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--fixed-strings', '--fixed-strings', [CompletionResultType]::ParameterName, 'Enable fixed string matching')
             [CompletionResult]::new('--no-fixed-strings', '--no-fixed-strings', [CompletionResultType]::ParameterName, 'Disable fixed string matching')
             [CompletionResult]::new('--preserve-whitespace', '--preserve-whitespace', [CompletionResultType]::ParameterName, 'Prepend '' to query start')
+            [CompletionResult]::new('--rebase', '--rebase', [CompletionResultType]::ParameterName, 'Execute in the deepest directory common to all given paths')
             [CompletionResult]::new('--filtering', '--filtering', [CompletionResultType]::ParameterName, 'filtering')
             [CompletionResult]::new('-1', '-1', [CompletionResultType]::ParameterName, '1')
             [CompletionResult]::new('--no-heading', '--no-heading', [CompletionResultType]::ParameterName, 'no-heading')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
+            [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Don''t try to read paths from stdin')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
@@ -252,6 +256,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('shell', 'shell', [CompletionResultType]::ParameterValue, 'Dump the initialization code for your shell')
             [CompletionResult]::new('lessfilter', 'lessfilter', [CompletionResultType]::ParameterValue, 'Context and preset dependent file handler')
             [CompletionResult]::new('bump', 'bump', [CompletionResultType]::ParameterValue, 'Bump history entries')
+            [CompletionResult]::new('show-binds', 'show-binds', [CompletionResultType]::ParameterValue, 'Show binds')
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
             break
         }
@@ -270,6 +275,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('shell', 'shell', [CompletionResultType]::ParameterValue, 'Dump the initialization code for your shell')
             [CompletionResult]::new('lessfilter', 'lessfilter', [CompletionResultType]::ParameterValue, 'Context and preset dependent file handler')
             [CompletionResult]::new('bump', 'bump', [CompletionResultType]::ParameterValue, 'Bump history entries')
+            [CompletionResult]::new('show-binds', 'show-binds', [CompletionResultType]::ParameterValue, 'Show binds')
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
             break
         }
@@ -318,22 +324,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;shell' {
-            [CompletionResult]::new('--z-name', '--z-name', [CompletionResultType]::ParameterName, 'Name for jump function')
-            [CompletionResult]::new('--z-dot-args', '--z-dot-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when z is invoked with a trailing `.`')
-            [CompletionResult]::new('--z-slash-args', '--z-slash-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when z is invoked with a trailing `./`')
-            [CompletionResult]::new('--z-dir-args', '--z-dir-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs :dir` for the interactive jump menu')
-            [CompletionResult]::new('--open-name', '--open-name', [CompletionResultType]::ParameterName, 'Name for open function')
-            [CompletionResult]::new('--open-cmd', '--open-cmd', [CompletionResultType]::ParameterName, 'Command used by open function')
-            [CompletionResult]::new('--dir-widget-bind', '--dir-widget-bind', [CompletionResultType]::ParameterName, 'Bind for the directory widget')
-            [CompletionResult]::new('--file-widget-bind', '--file-widget-bind', [CompletionResultType]::ParameterName, 'Bind for the directory widget')
-            [CompletionResult]::new('--rg-widget-bind', '--rg-widget-bind', [CompletionResultType]::ParameterName, 'Bind for the directory widget')
-            [CompletionResult]::new('--file-open-cmd', '--file-open-cmd', [CompletionResultType]::ParameterName, 'file-open-cmd')
-            [CompletionResult]::new('--rg-open-cmd', '--rg-open-cmd', [CompletionResultType]::ParameterName, 'rg-open-cmd')
-            [CompletionResult]::new('--dir-widget-args', '--dir-widget-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when dir widget is invoked')
-            [CompletionResult]::new('--file-widget-args', '--file-widget-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when file widget is invoked')
-            [CompletionResult]::new('--rg-widget-args', '--rg-widget-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs :` when rg widget is invoked')
-            [CompletionResult]::new('--nav-name', '--nav-name', [CompletionResultType]::ParameterName, 'Name for the nav function created by --aliases')
-            [CompletionResult]::new('--shell', '--shell', [CompletionResultType]::ParameterName, 'shell')
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
@@ -341,27 +331,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
-            [CompletionResult]::new('--aliases', '--aliases', [CompletionResultType]::ParameterName, 'aliases')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:t;shell' {
-            [CompletionResult]::new('--z-name', '--z-name', [CompletionResultType]::ParameterName, 'Name for jump function')
-            [CompletionResult]::new('--z-dot-args', '--z-dot-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when z is invoked with a trailing `.`')
-            [CompletionResult]::new('--z-slash-args', '--z-slash-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when z is invoked with a trailing `./`')
-            [CompletionResult]::new('--z-dir-args', '--z-dir-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs :dir` for the interactive jump menu')
-            [CompletionResult]::new('--open-name', '--open-name', [CompletionResultType]::ParameterName, 'Name for open function')
-            [CompletionResult]::new('--open-cmd', '--open-cmd', [CompletionResultType]::ParameterName, 'Command used by open function')
-            [CompletionResult]::new('--dir-widget-bind', '--dir-widget-bind', [CompletionResultType]::ParameterName, 'Bind for the directory widget')
-            [CompletionResult]::new('--file-widget-bind', '--file-widget-bind', [CompletionResultType]::ParameterName, 'Bind for the directory widget')
-            [CompletionResult]::new('--rg-widget-bind', '--rg-widget-bind', [CompletionResultType]::ParameterName, 'Bind for the directory widget')
-            [CompletionResult]::new('--file-open-cmd', '--file-open-cmd', [CompletionResultType]::ParameterName, 'file-open-cmd')
-            [CompletionResult]::new('--rg-open-cmd', '--rg-open-cmd', [CompletionResultType]::ParameterName, 'rg-open-cmd')
-            [CompletionResult]::new('--dir-widget-args', '--dir-widget-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when dir widget is invoked')
-            [CompletionResult]::new('--file-widget-args', '--file-widget-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs ::` when file widget is invoked')
-            [CompletionResult]::new('--rg-widget-args', '--rg-widget-args', [CompletionResultType]::ParameterName, 'Arguments passed to `fs :` when rg widget is invoked')
-            [CompletionResult]::new('--nav-name', '--nav-name', [CompletionResultType]::ParameterName, 'Name for the nav function created by --aliases')
-            [CompletionResult]::new('--shell', '--shell', [CompletionResultType]::ParameterName, 'shell')
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
@@ -369,14 +342,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
-            [CompletionResult]::new('--aliases', '--aliases', [CompletionResultType]::ParameterName, 'aliases')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:tool;lessfilter' {
-            [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'Arguments to pass to the first executed command (experimental)')
-            [CompletionResult]::new('--arg', '--arg', [CompletionResultType]::ParameterName, 'Arguments to pass to the first executed command (experimental)')
-            [CompletionResult]::new('--header', '--header', [CompletionResultType]::ParameterName, 'header')
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
@@ -384,15 +353,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
-            [CompletionResult]::new('--no-exec', '--no-exec', [CompletionResultType]::ParameterName, 'no-exec')
-            [CompletionResult]::new('--tty', '--tty', [CompletionResultType]::ParameterName, 'tty')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:t;lessfilter' {
-            [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'Arguments to pass to the first executed command (experimental)')
-            [CompletionResult]::new('--arg', '--arg', [CompletionResultType]::ParameterName, 'Arguments to pass to the first executed command (experimental)')
-            [CompletionResult]::new('--header', '--header', [CompletionResultType]::ParameterName, 'header')
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
@@ -400,16 +364,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
-            [CompletionResult]::new('--no-exec', '--no-exec', [CompletionResultType]::ParameterName, 'no-exec')
-            [CompletionResult]::new('--tty', '--tty', [CompletionResultType]::ParameterName, 'tty')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:tool;bump' {
-            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'glob pattern to bump')
-            [CompletionResult]::new('--glob', '--glob', [CompletionResultType]::ParameterName, 'glob pattern to bump')
-            [CompletionResult]::new('-c', '-c', [CompletionResultType]::ParameterName, 'amount to bump by, 0 to clear')
-            [CompletionResult]::new('--count', '--count', [CompletionResultType]::ParameterName, 'amount to bump by, 0 to clear')
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
@@ -417,15 +375,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
-            [CompletionResult]::new('--reset', '--reset', [CompletionResultType]::ParameterName, 'reset the database')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:t;bump' {
-            [CompletionResult]::new('-g', '-g', [CompletionResultType]::ParameterName, 'glob pattern to bump')
-            [CompletionResult]::new('--glob', '--glob', [CompletionResultType]::ParameterName, 'glob pattern to bump')
-            [CompletionResult]::new('-c', '-c', [CompletionResultType]::ParameterName, 'amount to bump by, 0 to clear')
-            [CompletionResult]::new('--count', '--count', [CompletionResultType]::ParameterName, 'amount to bump by, 0 to clear')
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
@@ -433,7 +386,28 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
             [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
             [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
-            [CompletionResult]::new('--reset', '--reset', [CompletionResultType]::ParameterName, 'reset the database')
+            [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
+            break
+        }
+        'fs;:tool;show-binds' {
+            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
+            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
+            [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
+            [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
+            [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
+            [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
+            break
+        }
+        'fs;:t;show-binds' {
+            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
+            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
+            [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
+            [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
+            [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
