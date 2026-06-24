@@ -328,8 +328,11 @@ impl FsPane {
                     ._ebog()?;
                 TASKS::register_child(TaskId::Populate, child);
 
-                let abort_empty =
-                    STACK::len() == 1 && STORE::get::<ShouldNotAbortOnEmpty>().is_none();
+                // not sure about this, but this kinda works to ensure only first run of fs will abort
+                let abort_empty = STORE::get::<ShouldNotAbortOnEmpty>().is_none();
+                if abort_empty {
+                    STORE::set(ShouldNotAbortOnEmpty {});
+                }
 
                 let _complete = complete.clone();
                 let _cwd = cwd.clone();

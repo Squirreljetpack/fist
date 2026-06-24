@@ -24,8 +24,8 @@ use crate::{
         pane::FsPane,
         stash::STASH,
         state::{
-            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, STORE,
-            ShouldNotAbortOnEmpty, TASKS, TOAST, context::ActionContext, ui::prompt_main_style,
+            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, STORE, TASKS, TOAST,
+            context::ActionContext, ui::prompt_main_style,
         },
     },
     spawn::open_wrapped,
@@ -502,8 +502,6 @@ pub fn fsaction_handler(
                 FILTERS::sort(),
                 FILTERS::visibility(),
             );
-
-            STORE::set(ShouldNotAbortOnEmpty {});
 
             // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
             // todo: there is a problem

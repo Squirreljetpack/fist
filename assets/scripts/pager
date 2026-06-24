@@ -33,7 +33,7 @@ less_opts=()
 [[ $HIGHLIGHT_LINE =~ ^[0-9]+$ ]] && opts+=(--highlight-line $HIGHLIGHT_LINE)
 # [[ $SCROLL_LINE =~ ^[0-9]+$ ]] && less_opts+=(+$SCROLL_LINE) # Uncomment this to listen for scroll offsets from the previewer
 
-
+[[ -n $LESS ]] || LESS="-i# .25"
 [[ -n $PG_LESS ]] && LESS+=" $PG_LESS"
 opts+=($@)
 

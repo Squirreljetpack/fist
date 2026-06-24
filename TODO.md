@@ -4,7 +4,10 @@ with a lot of items, ui gets laggy, where is the blocking?
 Arc str is probably faster for context: check this
 Arc str for render storage?
 
-( fs .; )  63.56s user 12.48s system 359% cpu 21.143 total # to 350k
+( fs .; ) 63.56s user 12.48s system 359% cpu 21.143 total # to 350k
+
+find: --restore-visibility: switch back visibility to default after initial
+lessfilter preview: .desktop, .app, .exe: display icons
 
 # nnn
 
@@ -25,7 +28,7 @@ Arc str for render storage?
 - Low pri
   - rle_matcher is not perfect because it doesn't support expressing fallback conditions
   - prettier + tmp file formatting isn't hard but maybe out of scope?
-Image rendering
+    Image rendering
 
 - lowpri
 - ratatui-image doesn't seem very reliable, we may have to do it manually, maybe check out yazi
@@ -74,7 +77,6 @@ transparent advance into compressed files
 - Cli structs should be partial to merge into visibility?
 - toggleable executable filter
 - only UTF-8 paths are processed from command output (fd, rg, custom)
-
 
 # Menu overlay
 
@@ -135,6 +137,8 @@ Possible Conditions:
 - package/build?
 - https://github.com/moretension/duti
 
+- custom pager binary combining bat, minus and our special requirements
+
 # Stash
 
 - overridden actions should hide the overridden toast as well somehow.
@@ -160,7 +164,7 @@ Possible Conditions:
 - Also, note that undo/redo won't save state changes caused by pane change overrides
 - maybe pane prompts should not be configurable
 
-
 # Plugins
+
 - Custom panes as wasm?
   - music/git

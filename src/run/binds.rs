@@ -95,7 +95,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(shift-down) => Action::PreviewDown(1),
 
         // requires keyboard enhancement
-        key!(ctrl-0), key!(ctrl-enter), key!(alt-enter) => FsAction::AutoJump(0),
+        key!(ctrl-0), key!(ctrl-enter), key!(alt-space) => FsAction::AutoJump(0),
         key!(ctrl-1) => FsAction::AutoJump(1),
         key!(ctrl-2) => FsAction::AutoJump(2),
         key!(ctrl-3) => FsAction::AutoJump(3),

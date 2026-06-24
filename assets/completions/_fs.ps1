@@ -255,6 +255,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('liza', 'liza', [CompletionResultType]::ParameterValue, 'List directory (eza wrapper)')
             [CompletionResult]::new('shell', 'shell', [CompletionResultType]::ParameterValue, 'Dump the initialization code for your shell')
             [CompletionResult]::new('lessfilter', 'lessfilter', [CompletionResultType]::ParameterValue, 'Context and preset dependent file handler')
+            [CompletionResult]::new('pager', 'pager', [CompletionResultType]::ParameterValue, 'pager')
             [CompletionResult]::new('bump', 'bump', [CompletionResultType]::ParameterValue, 'Bump history entries')
             [CompletionResult]::new('show-binds', 'show-binds', [CompletionResultType]::ParameterValue, 'Show binds')
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
@@ -274,6 +275,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('liza', 'liza', [CompletionResultType]::ParameterValue, 'List directory (eza wrapper)')
             [CompletionResult]::new('shell', 'shell', [CompletionResultType]::ParameterValue, 'Dump the initialization code for your shell')
             [CompletionResult]::new('lessfilter', 'lessfilter', [CompletionResultType]::ParameterValue, 'Context and preset dependent file handler')
+            [CompletionResult]::new('pager', 'pager', [CompletionResultType]::ParameterValue, 'pager')
             [CompletionResult]::new('bump', 'bump', [CompletionResultType]::ParameterValue, 'Bump history entries')
             [CompletionResult]::new('show-binds', 'show-binds', [CompletionResultType]::ParameterValue, 'Show binds')
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
@@ -357,6 +359,28 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;lessfilter' {
+            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
+            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
+            [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
+            [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
+            [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
+            [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
+            break
+        }
+        'fs;:tool;pager' {
+            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
+            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
+            [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
+            [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
+            [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
+            [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
+            break
+        }
+        'fs;:t;pager' {
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')

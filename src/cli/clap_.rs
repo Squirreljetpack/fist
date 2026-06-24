@@ -7,6 +7,7 @@ use std::ffi::OsString;
 pub enum SubTool {
     Colors,
     /// List directory (eza wrapper)
+    #[command(alias = "lz")]
     Liza {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<OsString>,
@@ -17,7 +18,13 @@ pub enum SubTool {
         args: Vec<OsString>,
     },
     /// Context and preset dependent file handler
+    #[command(alias = "lf")]
     Lessfilter {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<OsString>,
+    },
+    #[command(alias = "pg")]
+    Pager {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<OsString>,
     },

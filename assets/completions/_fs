@@ -339,6 +339,19 @@ _arguments "${_arguments_options[@]}" : \
 '*::args:_default' \
 && ret=0
 ;;
+(pager)
+_arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[]::ORIENTATION:(true false)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--alt-accept[]' \
+'*::args:_default' \
+&& ret=0
+;;
 (bump)
 _arguments "${_arguments_options[@]}" : \
 '--verbosity=[]:VERBOSITY:_default' \
@@ -442,6 +455,19 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (lessfilter)
+_arguments "${_arguments_options[@]}" : \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[]::ORIENTATION:(true false)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--alt-accept[]' \
+'*::args:_default' \
+&& ret=0
+;;
+(pager)
 _arguments "${_arguments_options[@]}" : \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
@@ -578,6 +604,7 @@ _fs__subcmd__:tool_commands() {
 'liza:List directory (eza wrapper)' \
 'shell:Dump the initialization code for your shell' \
 'lessfilter:Context and preset dependent file handler' \
+'pager:' \
 'bump:Bump history entries' \
 'show-binds:Show binds' \
 'types:List mappings supported by the --type parameter' \
@@ -603,6 +630,11 @@ _fs__subcmd__:tool__subcmd__lessfilter_commands() {
 _fs__subcmd__:tool__subcmd__liza_commands() {
     local commands; commands=()
     _describe -t commands 'fs :tool liza commands' commands "$@"
+}
+(( $+functions[_fs__subcmd__:tool__subcmd__pager_commands] )) ||
+_fs__subcmd__:tool__subcmd__pager_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :tool pager commands' commands "$@"
 }
 (( $+functions[_fs__subcmd__:tool__subcmd__shell_commands] )) ||
 _fs__subcmd__:tool__subcmd__shell_commands() {

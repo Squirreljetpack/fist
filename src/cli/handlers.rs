@@ -33,7 +33,7 @@ use super::{
 };
 use crate::{
     abspath::AbsPath,
-    cli::{SubTool, clap_helpers::ListMode, env::EnvOpts},
+    cli::{SubTool, clap_helpers::ListMode, env::EnvOpts, paths::text_renderer_path},
     config::Config,
     db::{
         DbSortOrder, DbTable, Pool, display_entries,
@@ -709,6 +709,7 @@ async fn handle_tools(
             prints!(help_str.to_string());
             Ok(())
         }
+        SubTool::Pager { args } => Command::new(text_renderer_path()).args(args)._exec(),
         SubTool::Liza { args } => Command::new(liza_path()).args(args)._exec(),
         SubTool::Shell { mut args } => {
             // note: this seems to already be the short path of the exe, not that im complaining
