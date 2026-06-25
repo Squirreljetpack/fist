@@ -23,6 +23,17 @@ pub fn state_dir() -> PathBuf {
             .join(BINARY_FULL)
     }
 }
+
+pub fn tmp_dir() -> PathBuf {
+    let mut tmp_dir = env::temp_dir();
+    tmp_dir.push(BINARY_FULL);
+
+    if let Err(e) = std::fs::create_dir_all(&tmp_dir) {
+        eprintln!("Warning: Failed to create app temp directory: {e}");
+    }
+
+    tmp_dir
+}
 // --------------------------------
 pub fn config_dir() -> PathBuf {
     if let Some(home) = dirs::home_dir() {

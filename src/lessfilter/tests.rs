@@ -119,6 +119,47 @@ fn test_image_file_matching() {
 }
 
 #[test]
+fn test_application_matching() {
+    let rules = get_test_config();
+    let dir = tempdir().unwrap();
+
+    #[cfg(target_os = "macos")]
+    let path = {
+        let path = dir.path().join("Example.Application");
+        fs::create_dir(&path).unwrap();
+        path
+    };
+
+    #[cfg(target_os = "linux")]
+    let path = {
+        let path = dir.path().join("example.desktop");
+        File::create(&path)
+            .unwrap()
+            .write_all(b"[Desktop Entry]\nType=Application\nName=Example\nExec=example\n")
+            .unwrap();
+        path
+    };
+
+    #[cfg(target_os = "windows")]
+    let path = {
+        let path = dir.path().join("example.exe");
+        File::create(&path).unwrap();
+        path
+    };
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    let path = dir.path().join("example");
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    {
+        assert!(is_application_path(&path));
+
+        let action = get_best_action(&rules.preview, &path).unwrap();
+        assert_eq!(*action, Action::Application);
+    }
+}
+
+#[test]
 fn test_archive_matching() {
     let rules = get_test_config();
     let dir = tempdir().unwrap();

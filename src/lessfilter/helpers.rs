@@ -14,6 +14,7 @@ use cba::{StringError, wbog};
 use cba::{bo::MapReaderError, bog::BogOkExt, broc::has, vec_};
 use crossterm::style::Stylize;
 
+pub use super::application_helper::application_icon_path;
 use super::env::line_column;
 use crate::cli::paths::{current_exe, text_renderer_path};
 use crate::lessfilter::mime_helpers::{detect_encoding, is_native};
@@ -184,8 +185,27 @@ fn infer_chafa_format() -> &'static str {
     })
 }
 
-pub fn image_viewer(path: &Path) -> Vec<OsString> {
-    vec_![: "chafa", "-f", infer_chafa_format(), path]
+pub fn image_viewer(
+    path: &Path,
+    max_w: Option<u8>,
+) -> Vec<OsString> {
+    let mut args = vec_![: "chafa", "-f", infer_chafa_format()];
+
+    if let Some(w) = max_w {
+        // Read lines from env
+        let terminal_lines = env::var("LINES")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(24);
+
+        // Apply both width and height bounds so it doesn't overflow vertically
+        args.push(format!("--size={}x{}", w, terminal_lines).into());
+    }
+
+    args.push("--scale=max".into());
+    args.push(path.into());
+
+    args
 }
 
 pub fn infer_visual(path: &Path) -> Vec<OsString> {

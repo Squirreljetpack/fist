@@ -1,6 +1,7 @@
 //! Match files to actions based on matching rules.
 //! Based on a RuleMatcher implementation in the standalone file rule_matcher.rs.
 pub mod action;
+mod application_helper;
 mod config;
 pub mod file_rule;
 mod helpers;

@@ -17,17 +17,15 @@ pub struct ExecuteHandlerShouldProcessParent;
 #[derive(Debug, Clone)]
 pub struct ShouldNotAbortOnEmpty;
 
-#[derive(Debug, Clone)]
-pub struct ResetVisibility;
-
 #[derive(Clone, Debug)]
 pub struct InitialRelativePathSetting(pub bool);
 
 #[derive(Debug)]
 pub struct InitialPreserveWhitespaceInSearch;
 
-/// Option<AbsPath>: Previous Directory
-/// Option<u32>: Stashed index
+/// AbsPath: Previous Directory
+/// u32: Stashed index
+/// Visibility: Initial visibility if fd pane was initialized without pv, from --reset-visibility
 pub struct STORE;
 
 impl STORE {
@@ -35,11 +33,6 @@ impl STORE {
         TLS_MAP.with(|map| {
             map.borrow_mut().insert::<T>(_dbg!("TlsSet"; value));
         });
-    }
-    pub fn maybe_set<T: 'static + Debug>(value: Option<T>) {
-        if let Some(v) = value {
-            STORE::set(v);
-        }
     }
 
     pub fn get<T: Clone + 'static>() -> Option<T> {

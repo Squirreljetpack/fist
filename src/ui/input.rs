@@ -67,7 +67,8 @@ impl InputWidget {
             Action::DeleteWord => self.inner.delete_word(),
             Action::DeleteLineStart => self.inner.delete_line_start(),
             Action::DeleteLineEnd => self.inner.delete_line_end(),
-            Action::Cancel | Action::Quit(1) => {
+            Action::ClearQuery => self.inner.cancel(),
+            Action::Quit(1) => {
                 self.inner.cancel();
                 return Some(false);
             }

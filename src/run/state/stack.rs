@@ -221,9 +221,10 @@ impl STACK {
     pub fn cwd() -> Option<AbsPath> {
         STACK.with(|cell| {
             let Self { stack, index, .. } = &*cell.borrow();
+            let mut seen = false;
             for s in stack[0..=*index].iter().rev() {
                 match s {
-                    FsPane::Files { .. } | FsPane::Folders { .. } => {}
+                    FsPane::Files { .. } | FsPane::Folders { .. } => seen = true,
                     FsPane::Nav { cwd, .. }
                     | FsPane::Custom { cwd, .. }
                     | FsPane::Find { cwd, .. }
@@ -236,8 +237,13 @@ impl STACK {
             }
 
             // FsPane::Files looks for the last directory, or else the original
-            Some(AbsPath::default())
+            seen.then_some(AbsPath::initial())
         })
+    }
+
+    // treat as cwd().unwrap() without needing to think about it
+    pub fn cwd_() -> AbsPath {
+        STACK::cwd().unwrap_or(AbsPath::initial())
     }
     pub fn nav_cwd() -> Option<AbsPath> {
         STACK.with(|cell| {

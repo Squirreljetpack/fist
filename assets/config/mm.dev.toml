@@ -29,7 +29,3 @@
 
 [overlay]
     border = { type = "Plain", padding = 1 }
-
-[filters]
-    border    = { type = "Plain", padding = [ 4, 0 ] }
-    alignment = "Center"

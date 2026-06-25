@@ -43,6 +43,7 @@
     [ [ "Image" ], [ "1|image/*" ] ],
     [ [ "Text" ], [ "1|type:text" ] ],
     [ [ "Extract", "Metadata" ], [ "1|cat:document", "1|cat:spreadsheet", "1|cat:email", "1|cat:academic" ] ], # try extracting, with fallback to metadata
+    [ [ "Application" ], [ "application" ] ],
     [ [ "Directory" ], [ "1|directory/*" ] ],
   ]
   preview = [

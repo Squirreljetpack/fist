@@ -1,6 +1,6 @@
 use cba::{_dbg, bo::load_type_or_default};
 use matchmaker::{
-    binds::BindMap,
+    binds::{BindMap, BindMapExt},
     config::{
         DisplayConfig, HelpDisplayConfig, OverlayConfig, Percentage, PreviewSetting, RenderConfig,
         RowConnectionStyle, TerminalConfig, TerminalLayoutSettings,
@@ -102,9 +102,7 @@ pub fn get_mm_cfg(
         mm_cfg.render.apply(partial);
     }
 
-    let binds = default_binds();
-    default_binds().extend(mm_cfg.binds);
-    mm_cfg.binds = binds;
+    mm_cfg.binds.extend_from(default_binds());
 
     // Render display
     let RenderConfig {
@@ -200,7 +198,7 @@ pub fn get_mm_cfg(
     }
 
     _dbg!(&mm_cfg);
-    log::debug!("{mm_cfg:?}");
+    log::debug!("Final: {mm_cfg:?}");
 
     mm_cfg
 }

@@ -8,6 +8,7 @@ Arc str for render storage?
 
 find: --restore-visibility: switch back visibility to default after initial
 lessfilter preview: .desktop, .app, .exe: display icons
+tools: trash
 
 # nnn
 

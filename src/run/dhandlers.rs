@@ -94,7 +94,7 @@ impl FsMatchmaker {
                         vec![OsString::from(arg), script.into()],
                     );
                     let pane = FsPane::new_custom(
-                        STACK::cwd().unwrap_or_default(),
+                        STACK::cwd_(),
                         FILTERS::visibility(),
                         command,
                         false,

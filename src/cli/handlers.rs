@@ -51,16 +51,17 @@ use crate::{
         mm_config::{get_mm_binds, get_mm_cfg},
         start,
         stash::STASH,
-        state::{
-            InitialPreserveWhitespaceInSearch, InitialRelativePathSetting, ResetVisibility, STORE,
-        },
+        state::{InitialPreserveWhitespaceInSearch, InitialRelativePathSetting, STORE},
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
     utils::{colors::display_ratatui_styles, formatter::format_path, path::paths_base},
 };
-use fist_types::filetypes::{FileType, FileTypeArg};
-use fist_types::filters::SortOrder;
+use fist_types::filters::{SortOrder, Visibility};
+use fist_types::{
+    filetypes::{FileType, FileTypeArg},
+    filters::PartialVisibility,
+};
 
 pub async fn handle_subcommand(
     cli: Cli,
@@ -264,7 +265,7 @@ async fn handle_rg(
     }
 
     let pane = FsPane::new_rg(
-        AbsPath::default(),
+        AbsPath::initial(),
         sort,
         vis,
         cmd.paths,
@@ -393,7 +394,8 @@ async fn handle_default(
         return Err(CliError::ConflictingFlags("cd", "list"));
     }
     if cmd.reset_visibility {
-        STORE::set(ResetVisibility)
+        let vis = resolve_fd_visibility(Default::default(), &cmd, &cfg);
+        STORE::set(vis)
     }
 
     let pool = Pool::new(cfg.db_path()).await?;
@@ -519,12 +521,8 @@ async fn handle_default(
         } else
         // interactively search the best match
         {
-            FsPane::new_fd_from_command(
-                cmd,
-                cfg.global.panes.find.default_visibility,
-                cfg.global.fd.dot_query_show_hidden,
-                cwd,
-            )
+            let vis = resolve_fd_visibility(cmd.vis, &cmd, &cfg);
+            FsPane::new_fd_full(cwd, vis, cmd.sort, cmd.types, cmd.paths, cmd.fd)
         }
     } else if
     // any fd arg is specified
@@ -622,12 +620,8 @@ async fn handle_default(
             return Ok(());
         };
 
-        FsPane::new_fd_from_command(
-            cmd,
-            cfg.global.panes.find.default_visibility,
-            cfg.global.fd.dot_query_show_hidden,
-            cwd,
-        )
+        let vis = resolve_fd_visibility(cmd.vis, &cmd, &cfg);
+        FsPane::new_fd_full(cwd, vis, cmd.sort, cmd.types, cmd.paths, cmd.fd)
     } else {
         let DefaultCommand { sort, .. } = cmd;
         let cwd = __cwd();
@@ -913,4 +907,27 @@ pub fn print(
     };
     display.push_str(output_separator);
     print!("{display}")
+}
+
+// default ignore: apply when not explicit in cli -- this can work on the partial
+// auto_enable hidden: when not explicit in cli
+pub fn resolve_fd_visibility(
+    cmd_vis: PartialVisibility,
+    cmd: &DefaultCommand,
+    cfg: &Config,
+) -> Visibility {
+    let mut vis = cmd_vis.into_resolved(cfg.global.panes.find.default_visibility);
+
+    let dot_query_show_hidden = cfg.global.fd.dot_query_show_hidden;
+
+    if last_query_starts_with_dot(&cmd.paths) && !dot_query_show_hidden.is_never() {
+        if cmd_vis.hidden.is_none() {
+            vis.hidden = true;
+        }
+        if cmd_vis.ignore.is_none() && dot_query_show_hidden.is_always() {
+            vis.ignore = false;
+        }
+    }
+
+    vis
 }

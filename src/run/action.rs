@@ -498,7 +498,7 @@ pub fn fsaction_handler(
 
             // pane
             let pane = FsPane::new_fd(
-                STACK::cwd().unwrap_or_default(),
+                STACK::cwd_(),
                 FILTERS::sort(),
                 FILTERS::visibility(),
             );
@@ -573,7 +573,7 @@ pub fn fsaction_handler(
                 let [one_line, fixed_strings] =
                     GLOBAL::with_cfg(|c| [c.panes.search.one_line, c.panes.search.fixed_strings]);
 
-                let cwd = STACK::cwd().unwrap_or_default();
+                let cwd = STACK::cwd_();
 
                 //
                 let paths = state.picker_ui.selector.map_to_vec(|i, x| x.path.inner());
@@ -646,8 +646,16 @@ pub fn fsaction_handler(
             };
         }
 
-        FsAction::Jump(paths) => {
+        FsAction::Jump(mut paths) => {
             let cwd = STACK::cwd().and_then(|p| p.canonicalize().ok());
+
+            // jump between home and current root if empty (seems reasonable)
+            if paths.is_empty() {
+                paths = vec![__home().into()];
+                if let Some(p) = cba::bath::find_root() {
+                    paths.push(p);
+                }
+            }
 
             let canonical = |p: &std::path::Path| p.abs(__home()).canonicalize().ok();
 
@@ -1270,7 +1278,7 @@ macro_rules! enum_from_str_display {
                                     /* ---------- Manually parsed ---------- */
                                     Jump(paths) => {
                                         if paths.is_empty() {
-                                            write!(f, "Jump(⌂)")
+                                            write!(f, "Jump(⌂⦀/)")
                                         } else {
                                             write!(f, "Jump({})", paths
                                             .iter()
@@ -1379,20 +1387,21 @@ macro_rules! enum_from_str_display {
                                 "Lessfilter" => {
                                     let preset_str = data.ok_or_else(|| "Missing preset for Lessfilter")?;
                                     let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for Lessfilter: {preset_str}"))?;
-                                    let header = When::default();
-                                    Ok(Self::Lessfilter { preset, paging: false, header, special: Default::default() })
+                                    Ok(FsAction::new_lessfilter(preset, false))
                                 }
                                 "LFPaged" => {
                                     let preset_str = data.ok_or_else(|| "Missing preset for LFPaged")?;
                                     let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for LFPaged: {preset_str}"))?;
-                                    let header = When::default();
-                                    Ok(Self::Lessfilter { preset, paging: true, header, special: Default::default() })
+                                    Ok(FsAction::new_lessfilter(preset, true))
                                 }
                                 "LFPreview" => {
                                     let preset_str = data.ok_or_else(|| "Missing preset for LFPreview")?;
                                     let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for LFPreview: {preset_str}"))?;
                                     let header = When::default();
                                     Ok(Self::LessfilterPreview ( preset, header ))
+                                }
+                                "Help" if data.is_none() => {
+                                    Ok(FsAction::help())
                                 }
                                 "Execute" => {
                                     let cmd = data.ok_or_else(|| "Missing command for Execute")?;
@@ -1421,7 +1430,7 @@ macro_rules! enum_from_str_display {
 
                                 /* ------------------------------------- */
 
-                                _ => Err(format!("Unknown action {}", s)),
+                                _ => Err("".to_string()),
                             }
                         }
                     }

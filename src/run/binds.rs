@@ -1,4 +1,4 @@
-use cba::bath::__root;
+use cba::bath::find_root;
 use matchmaker::{
     action::Action,
     bindmap,
@@ -12,19 +12,58 @@ use super::FsAction;
 
 pub fn default_binds() -> BindMap<FsAction> {
     let mut jump = vec![__home().into()];
-    if let Some(p) = __root() {
+    if let Some(p) = find_root() {
         jump.push(p);
     }
     let mut fs = bindmap!(
-        // Nav
+        // hidden defaults
+        key!(shift-up) => Action::PreviewUp(1),
+        key!(shift-down) => Action::PreviewDown(1),
+        key!(ctrl-'/') => Action::NextPreview,
+        key!(ctrl-shift-'/') => Action::PrevPreview,
+
+        // previews (builtin because header is not exposed)
         // ----------------------------------
-        // standard but not in default
+        // preview
+        key!('?') => FsAction::LessfilterPreview(Preset::Preview, When::Auto),
+        // Verbose information
+        key!(alt - '/') => FsAction::LessfilterPreview(Preset::Info, When::Auto),
+        // Quick Look + a header
+        key!(alt - shift - '/') => FsAction::LessfilterPreview(Preset::Display, When::Always),
+        // Keybind help
+        key!(alt-h) => FsAction::help(),
+    );
+
+    // cmd+backspace is traditional for trash on mac
+    #[cfg(target_os = "macos")]
+    let ext = bindmap!(
+        key!(ctrl-h), key!(cmd-backspace) => FsAction::Trash(false),
+        key!(alt-backspace) => Action::DeleteWord,
+        key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete(false),
+    );
+    #[cfg(not(target_os = "macos"))]
+    let ext = bindmap!();
+
+    fs.extend(ext);
+    fs.extend_from(BindMap::default_binds());
+
+    fs
+}
+
+#[allow(unused)]
+/// mirrors settings in mm.toml
+fn config_as_code() -> BindMap<FsAction> {
+    bindmap!(
+        // MM
+        // ----------------------------------
         key!(shift-right) => Action::ForwardChar,
         key!(shift-left) => Action::BackwardChar,
-        key!(tab) => [Action::Toggle, Action::Down(1)],
+        key!(tab) => [Action::ToggleSelection, Action::Down(1)],
         key!(alt-enter) => Action::Print("".into()),
         key!(alt-r) => Action::Reload("".to_string()),
 
+        // Panes
+        // ----------------------------------
         key!(right) => FsAction::Advance,
         key!(left) => FsAction::Parent,
         key!(ctrl-f) => FsAction::Find,
@@ -33,7 +72,6 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-z) => FsAction::Undo,
         // key!(alt-a), key!(alt-shift-a) => FsAction::App,
         key!(alt-z), key!(ctrl-shift-'z') => FsAction::Redo,
-        key!(ctrl-'`'), key!(alt-'`') => FsAction::Jump(jump),
 
         // Display
         // ----------------------------------
@@ -46,7 +84,7 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-d) => FsAction::FsToggle,
         key!(ctrl-s) => FsAction::ToggleHidden,
 
-        // file actions
+        // File actions
         // ----------------------------------
         key!(ctrl-y) => FsAction::CopyPath,
         key!(delete) => FsAction::Trash(true),
@@ -58,43 +96,13 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-x) => FsAction::Cut,
         key!(ctrl-c) => FsAction::Copy,
         key!(ctrl-n) => FsAction::New,
+
+        // Stash
+        // ----------------------------------
         key!(alt-s) => FsAction::Push,
 
-        // preview and execution
-        // ----------------------------------
-
-        // preview
-        key!('?') => FsAction::LessfilterPreview(Preset::Preview, When::Auto),
-        // Verbose information
-        key!(alt - '/') => FsAction::LessfilterPreview(Preset::Info, When::Auto),
-        // Quick Look + a header
-        key!(alt - shift - '/') => FsAction::LessfilterPreview(Preset::Display, When::Always),
-        // Keybind help
-        key!(alt-h) => FsAction::help(),
-
-        // This one acts on the parent directory if a file is selected.
-        // Note that the "Directory" action in the edit preset defers to $VISUAL.
-        key!(alt-n) => FsAction::new_lessfilter(Preset::Edit, false),
-        key!(ctrl-enter), key!(alt-o) => FsAction::new_lessfilter(Preset::Open, false),
-        // A free preset for the user to decide what to do with
-        // This can be used to open a *file* with $VISUAL
-        key!(alt-8) => FsAction::new_lessfilter(Preset::Alternate, true),
-        // Maximize preview
-        // true => display the output in a pager
-        key!(ctrl-l) => FsAction::Execute("eval \"$FS_PREVIEW_COMMAND\"".to_string(), 1),
-        // For "full" or interactive terminal output
-        key!(alt-l)  => FsAction::new_lessfilter(Preset::Extended, true),
-
-        // open a shell in the current directory (requires keyboard enhancement)
-        key!(ctrl-esc) => Action::Execute("$SHELL".into()),
-        // Actions can be defined directly as a ::Execute keybind, as a [menu] action, or indirectly through [stack.cas]
-
-        // misc
-        // ---------------------------------------
-        key!(shift-up) => Action::PreviewUp(1),
-        key!(shift-down) => Action::PreviewDown(1),
-
-        // requires keyboard enhancement
+        // Autojump
+        // --------------------------------
         key!(ctrl-0), key!(ctrl-enter), key!(alt-space) => FsAction::AutoJump(0),
         key!(ctrl-1) => FsAction::AutoJump(1),
         key!(ctrl-2) => FsAction::AutoJump(2),
@@ -105,21 +113,5 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-7) => FsAction::AutoJump(7),
         key!(ctrl-8) => FsAction::AutoJump(8),
         key!(ctrl-9) => FsAction::AutoJump(9),
-    );
-    // cmd+backspace is traditional for trash on mac
-    #[cfg(target_os = "macos")]
-    let ext = bindmap!(
-        key!(ctrl-h), key!(cmd-backspace) => FsAction::Trash(false),
-        key!(alt-backspace) => Action::DeleteWord,
-        key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete(false),
-    );
-    #[cfg(not(target_os = "macos"))]
-    let ext = bindmap!();
-
-    fs.extend(ext);
-
-    let mut base = BindMap::default_binds().with_extras();
-    base.extend(fs);
-
-    base
+    )
 }

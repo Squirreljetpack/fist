@@ -6,6 +6,7 @@ infer = "infer"
     [ [ "Directory" ], [ "40|mime:directory/*" ] ],
     [ [ "Image" ], [ "mime:image/*" ] ],
     [ [ "Text" ], [ "mime:text/*" ] ],
+    [ [ "Application" ], [ "application" ] ],
     [ [ "Metadata" ], [ "5|mime:*/*" ] ],
     [ [ "sqlite" ], [ "mime:application/vnd.sqlite3" ] ],
     [
@@ -46,12 +47,14 @@ infer = "infer"
   ]
 
   display = [
+    [ [ "Application" ], [ "application" ] ],
     [ [ "Directory" ], [ "mime:directory/*" ] ],
     [ [ "Text" ], [ "mime:text/*" ] ],
     [ [ "Metadata" ], [  ] ],
   ]
 
   extended = [
+    [ [ "Application" ], [ "application" ] ],
     [ [ "Image" ], [ "mime:image/*" ] ],
     [ [ "Directory" ], [ "mime:directory/*" ] ],
     [ [ "Text" ], [ "mime:text/*" ] ],
@@ -59,12 +62,14 @@ infer = "infer"
   ]
 
   info = [
+    [ [ "Application" ], [ "application" ] ],
     [ [ "Image" ], [ "mime:image/*" ] ],
     [ [ "Directory" ], [ "mime:directory/*" ] ],
     [ [ "Metadata" ], [  ] ],
   ]
 
   open = [
+    [ [ "Application" ], [ "application" ] ],
     [ [ "Directory" ], [ "mime:directory/*" ] ],
     [ [ "Text" ], [ "mime:text/*" ] ],
     [ [ "Image" ], [ "mime:image/*" ] ],

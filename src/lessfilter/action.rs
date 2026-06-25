@@ -9,7 +9,7 @@ use crate::arr;
 use crate::cli::paths::{current_exe, show_error_path, text_renderer_path};
 use crate::lessfilter::Preset;
 use crate::lessfilter::helpers::{
-    image_viewer, infer_editor, infer_visual, simple_header, simple_metadata,
+    application_icon_path, image_viewer, infer_editor, infer_visual, simple_header, simple_metadata,
 };
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, serde::Serialize)]
@@ -19,6 +19,7 @@ pub enum Action {
     Directory,
     Text,
     Image,
+    Application,
     Extract,
     Metadata,
 
@@ -41,6 +42,7 @@ impl<'de> Deserialize<'de> for Action {
             "directory" => Ok(Action::Directory),
             "text" => Ok(Action::Text),
             "image" => Ok(Action::Image),
+            "application" => Ok(Action::Application),
             "extract" => Ok(Action::Extract),
             "open" => Ok(Action::Open),
             "metadata" => Ok(Action::Metadata),
@@ -67,7 +69,11 @@ impl Action {
                 // standard actions in these 2 presets are just open
                 if matches!(
                     self,
-                    Action::Directory | Action::Text | Action::Image | Action::Metadata
+                    Action::Directory
+                        | Action::Text
+                        | Action::Image
+                        | Action::Metadata
+                        | Action::Application
                 ) {
                     return (
                         arr![vec_![: current_exe(), ":open", "--", path]],
@@ -133,12 +139,12 @@ impl Action {
             },
             Action::Image => match preset {
                 Preset::Preview | Preset::Display => {
-                    (arr![image_viewer(path)], [true, false, false])
+                    (arr![image_viewer(path, None)], [true, false, false])
                 }
                 Preset::Extended => (
                     arr![
                         simple_header(path),
-                        image_viewer(path),
+                        image_viewer(path, None),
                         simple_metadata(path)
                     ],
                     [true, false, false],
@@ -155,6 +161,49 @@ impl Action {
                     unreachable!()
                 }
             },
+
+            Action::Application => {
+                let icon_path = application_icon_path(path);
+                let display_path = icon_path.as_deref();
+
+                match preset {
+                    Preset::Preview | Preset::Display => {
+                        if let Some(icon) = display_path {
+                            (arr![image_viewer(icon, Some(16))], [false, false, false])
+                        } else {
+                            (arr![simple_metadata(path)], [true, false, true])
+                        }
+                    }
+                    Preset::Extended => {
+                        if let Some(icon) = display_path {
+                            (
+                                arr![
+                                    simple_header(path),
+                                    image_viewer(icon, Some(16)),
+                                    simple_metadata(path)
+                                ],
+                                [true, false, true],
+                            )
+                        } else {
+                            (
+                                arr![simple_header(path), simple_metadata(path)],
+                                [true, false, true],
+                            )
+                        }
+                    }
+                    Preset::Info => (
+                        arr![simple_header(path), simple_metadata(path)],
+                        [true, false, true],
+                    ),
+                    Preset::Edit => (
+                        arr![vec_![: current_exe(), ":open", "--", path]],
+                        [false, false, false],
+                    ),
+                    Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
+                        unreachable!()
+                    }
+                }
+            }
 
             // this action is basically just simple_metadata except for extended
             // where we show stats (+ metadata if file)

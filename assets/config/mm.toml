@@ -8,6 +8,7 @@
     scroll_wrap = true
     row_connection = "Disjoint"
 
+# default
 [[preview.layout]]
     side       = "right"
     percentage = 40
@@ -15,6 +16,7 @@
     max        = 120
     border     = { type = "LightDoubleDashed", color = "DarkGray" }
 
+# find
 [[preview.layout]]
     side       = "top"
     percentage = 50
@@ -22,6 +24,7 @@
     max        = 50
     border     = { type = "LightDoubleDashed", color = "DarkGray" }
 
+# wide
 [[preview.layout]]
     side       = "right"
     percentage = 80
@@ -29,53 +32,115 @@
     max        = 200
     border     = { type = "LightDoubleDashed", color = "DarkGray" }
 
+# app
+[[preview.layout]]
+    side       = "left"
+    percentage = 70
+    min        = 5
+    max        = 20
+
 [preview]
     wrap = true
     scroll_wrap = true
 
+[overlay]
+    border = { type = "Rounded", color = "darkGrey", padding = 1 }
+
+# [filters]
+#     border    = { type = "Plain", padding = [ 4, 0 ] }
+#     alignment = "Center"
+
 [binds]
-"ctrl-a" = CycleSelections
-"ctrl-shift-a" = ClearSelections
-"alt-r" = Reload
+### MM
+"shift-right" = "ForwardChar"
+"shift-left" = "ForwardChar"
+"tab" = ["ToggleSelection", "Down"]
+"ctrl-a" = "CycleSelections"
+"ctrl-shift-a" = "ClearSelections"
+"alt-enter" = "Print"
+"alt-r" = "Reload"
 
-# cycle preview layouts
-"alt-/" = "NextPreview"
-"alt-shift-/" = "PrevPreview"
-"ctrl-/" = "NextPreview" # requires keyboard enhancement
-"ctrl-shift-/" = "PrevPreview" # requires keyboard enhancement
-# "shift-cmd-/" = "PrevPreview"
+"ctrl-[" = "ToggleWrap" # requires keyboard enhancement
+"ctrl-]" = "TogglePreviewWrap"  # requires keyboard enhancement
+"alt-{" = "ToggleWrap"
+"alt-}" = "TogglePreviewWrap"
 
-"ctrl-[" = "ToggleWrap", # requires keyboard enhancement
-"ctrl-]" = "TogglePreviewWrap",  # requires keyboard enhancement
+"ctrl-shift-right" = "HScroll(1)"
+"ctrl-shift-left" = "HScroll(-1)"
+"ctrl-shift-up" = "VScroll(1)"
+"ctrl-shift-down" = "VScroll(-1)"
 
+"alt-right" = "HScroll(1)"
+"alt-left" = "HScroll(-1)"
+"alt-up" = "VScroll(1)"
+"alt-down" = "VScroll(-1)"
+
+### Panes
+"right" = "Advance"
+"left" = "Parent"
+"ctrl-f" = "Find"
+"ctrl-r" = "Search"
+"ctrl-g" = "History"
+"ctrl-z" = "Undo"
+"alt-z" = "Redo"
+"ctrl-shift-z" = "Redo"
+"ctrl-`" = "Jump()"
+"alt-`" = "Jump()"
+
+### Display
+"ctrl-t" = "ShowStash"
+"alt-shift-t" = "ClearStash"
+"ctrl-e" = "ShowMenu"
+"ctrl-i" = "ShowFilters"
+"ctrl-d" = "FsToggle"
+"ctrl-s" = "ToggleHidden" # if this freezes your terminal, check that you have set stty -ixon
+
+### File Actions
+"ctrl-v" = "Paste"
+"ctrl-x" = "Cut"
+"ctrl-c" = "Copy"
+"ctrl-n" = "New"
+"ctrl-shift-n" = "NewDir"
+"ctrl-y" = "CopyPath"
+"delete" = "Trash"
+"shift-delete" = "Delete"
+"ctrl-shift-r" = "Rename"
+
+### Stash
+"alt-s" = "Push"
+
+### Preview / Execute
 ### (DEFAULTS) ####
-# # Panes
-# "right" = "Advance"
-# "left" = "Parent"
-# "ctrl-f" = "Find"
-# "ctrl-r" = "Search"
-# "ctrl-g" = "History"
-# "ctrl-z" = "Undo"
-# "alt-z" = "Redo"
-# "ctrl-shift-z" = "Redo"
-# "ctrl-`" = "Jump"
-# "alt-`" = "Jump"
-# 
-# # Display
-# "ctrl-t" = "ShowStash"
-# "alt-shift-t" = "ClearStash"
-# "ctrl-e" = "ShowMenu"
-# "ctrl-i" = "ShowFilters"
-# "ctrl-d" = "FsToggle"
-# "ctrl-s" = "ToggleHidden" # if this freezes your terminal, check that you have set stty -ixon
-# 
-# # File Actions
-# "ctrl-y" = "CopyPath"
-# "delete" = "Trash"
-# "shift-delete" = "Delete"
-# "ctrl-shift-r" = "Rename"
-# "ctrl-v" = "Paste"
-# "ctrl-x" = "Cut"
-# "ctrl-c" = "Copy"
-# "ctrl-n" = "New"
-# "alt-s" = "Push"
+# "?" = "LFPreview(Preview)"
+# "alt-/" = "LFPreview(Info)"
+# "alt-h" = "Help"
+# "alt-shift-/" = "LFPreview(Display)"
+
+# This one acts on the parent directory if a file is selected.
+# Note that the "Directory" action in the edit preset defers to $VISUAL.
+"alt-n" = "Lessfilter(Edit)"
+"ctrl-enter" = "Lessfilter(Open)"
+"alt-o" = "Lessfilter(Open)"
+# A free preset for any user purpose (configure in lessfilter.toml)
+# This can be used to open a *file* with $VISUAL
+"alt-8" = "LFPaged(Alternate)"
+# Maximize preview
+# Incidentally, this is same as ExecutePaged(eval $FS_PREVIEW_COMMAND)
+"ctrl-l" = "LFPaged(Preview)"
+# "full" or interactive terminal output
+"alt-l" = "LFPaged(Extended)"
+# open a shell in the current directory
+"ctrl-esc" = "Execute($SHELL)" # (requires keyboard enhancement)
+
+### Autojump
+"ctrl-0" = "AutoJump(0)"
+"alt-space" = "AutoJump(0)"
+"ctrl-1" = "AutoJump(1)"
+"ctrl-2" = "AutoJump(2)"
+"ctrl-3" = "AutoJump(3)"
+"ctrl-4" = "AutoJump(4)"
+"ctrl-5" = "AutoJump(5)"
+"ctrl-6" = "AutoJump(6)"
+"ctrl-7" = "AutoJump(7)"
+"ctrl-8" = "AutoJump(8)"
+"ctrl-9" = "AutoJump(9)"

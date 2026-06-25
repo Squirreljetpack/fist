@@ -9,9 +9,7 @@ use matchmaker::preview::AppendOnly;
 
 use crate::{
     abspath::AbsPath,
-    cli::DefaultCommand,
     db::DbSortOrder,
-    find::fd::last_query_starts_with_dot,
     run::{
         item::PathItem,
         state::{GLOBAL, InitialPreserveWhitespaceInSearch, STORE},
@@ -20,7 +18,7 @@ use crate::{
 use fist_types::{
     When,
     filetypes::FileTypeArg,
-    filters::{PartialVisibility, SortOrder, Visibility},
+    filters::{SortOrder, Visibility},
 };
 
 /// PartialEq is defined by discriminant
@@ -139,33 +137,14 @@ impl FsPane {
         }
     }
 
-    // default ignore: apply when not explicit in cli -- this can work on the partial
-    // auto_enable hidden: when not explicit in cli
-    pub fn new_fd_from_command(
-        cmd: DefaultCommand,
-        default_visibility: Option<PartialVisibility>,
-        dot_query_show_hidden: When,
+    pub fn new_fd_full(
         cwd: AbsPath,
+        vis: Visibility,
+        sort: Option<SortOrder>,
+        types: Vec<FileTypeArg>,
+        paths: Vec<OsString>,
+        fd: Vec<OsString>,
     ) -> Self {
-        let mut vis = cmd.vis.into_resolved(default_visibility);
-
-        if last_query_starts_with_dot(&cmd.paths) && !dot_query_show_hidden.is_never() {
-            if cmd.vis.hidden.is_none() {
-                vis.hidden = true;
-            }
-            if cmd.vis.ignore.is_none() && dot_query_show_hidden.is_always() {
-                vis.ignore = false;
-            }
-        }
-
-        let DefaultCommand {
-            sort,
-            types,
-            paths,
-            fd,
-            ..
-        } = cmd;
-
         Self::Find {
             cwd,
             complete: Default::default(),

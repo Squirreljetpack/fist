@@ -26,6 +26,10 @@
 {red:query: {}} \s\m/\t
 '''
 
+[panes.app]
+preview_layout_index = 3
+show_preview = true
+
 ### STYLES ####
 #
 [styles]
@@ -42,7 +46,8 @@ dot_query_show_hidden = "Always"
 [misc]
 
 [history]
-    refind = "Search"
-    ### ACTIONS ####
+refind = "Search"
+
+### ACTIONS ####
 
 [actions]

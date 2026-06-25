@@ -1,5 +1,5 @@
 use cba::{bring::split::split_whitespace_preserve_single_quotes, vec_};
-use fist_types::git::in_git_repo;
+use fist_types::{filters::Visibility, git::in_git_repo};
 use matchmaker::{
     acs,
     message::{BindDirective, Event},
@@ -15,7 +15,7 @@ use crate::{
         FsAction, FsPane,
         stash::STASH,
         state::{
-            FILTERS, GLOBAL, ResetVisibility, STACK, STORE, TOAST,
+            FILTERS, GLOBAL, STACK, STORE, TOAST,
             ui::{global_ui, prompt_main_style},
         },
     },
@@ -147,11 +147,12 @@ pub fn fs_reload(
         STACK::with_current_mut(|pane| {
             GLOBAL::with_cfg(|c| {
                 // apply on non-initial new pane: update visibility
-                if STORE::take::<ResetVisibility>().is_some() {
+                if let Some(dv) = STORE::take::<Visibility>() {
                     let pv = c.panes.default_visibility(pane).unwrap_or_default();
 
+                    // behaves as if initial (fd) cmd was specified without visibility modifiers
                     if let Some(v) = pane.vis_mut() {
-                        *v = Default::default();
+                        *v = dv;
                         v.apply(pv);
                     }
                 } else if let Some(pv) = c.panes.default_visibility(pane)
@@ -227,7 +228,9 @@ pub fn fs_reload(
 
     // stash the saved index to restore it once synced
     // The index is only saved through FsAction::Undo/Redo/Restart, see [`STACK::save_input`]
-    STORE::maybe_set(STACK::take_maybe_index());
+    if let Some(i) = STACK::take_maybe_index() {
+        STORE::set(i);
+    }
 
     if is_new {
         fs_post_reload_new(state);
