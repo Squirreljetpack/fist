@@ -182,7 +182,7 @@ impl FsPane {
         //
         mut paths: Vec<PathBuf>,
         query: String,
-        mut patterns: Vec<String>,
+        patterns: Vec<String>,
         filtering: bool,
         //
         context: [usize; 2],
@@ -192,9 +192,6 @@ impl FsPane {
         //
         rg: Vec<OsString>,
     ) -> Self {
-        if patterns.is_empty() {
-            patterns.push(String::new()); // rg requires at least one pattern
-        }
         if paths.is_empty() {
             paths.push(cwd.inner());
         }

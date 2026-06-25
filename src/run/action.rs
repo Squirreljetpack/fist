@@ -497,11 +497,7 @@ pub fn fsaction_handler(
             STACK::save_input(content, index);
 
             // pane
-            let pane = FsPane::new_fd(
-                STACK::cwd_(),
-                FILTERS::sort(),
-                FILTERS::visibility(),
-            );
+            let pane = FsPane::new_fd(STACK::cwd_(), FILTERS::sort(), FILTERS::visibility());
 
             // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
             // todo: there is a problem
@@ -580,11 +576,6 @@ pub fn fsaction_handler(
 
                 let query = String::new();
                 let filtering = false;
-                let patterns = if GLOBAL::with_cfg(|c| c.panes.search.search_empty_query) {
-                    vec!["".into()]
-                } else {
-                    vec![]
-                };
 
                 let context = Default::default();
                 let case = Default::default();
@@ -596,7 +587,7 @@ pub fn fsaction_handler(
                     //
                     paths,
                     query,
-                    patterns,
+                    vec![],
                     filtering,
                     //
                     context,

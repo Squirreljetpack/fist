@@ -6,9 +6,16 @@ Arc str for render storage?
 
 ( fs .; ) 63.56s user 12.48s system 359% cpu 21.143 total # to 350k
 
-find: --restore-visibility: switch back visibility to default after initial
 lessfilter preview: .desktop, .app, .exe: display icons
-tools: trash
+
+- review and test
+  tools: trash
+
+lessfilter chafa:
+
+- pass &run to to_progs
+- image_viewer take &image_viewer as override
+- test sixel
 
 # nnn
 

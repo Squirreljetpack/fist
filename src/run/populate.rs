@@ -30,7 +30,7 @@ use crate::{
     abspath::AbsPath,
     cli::env::EnvOpts,
     config::GlobalConfig,
-    find::rg::build_rg_args,
+    find::rg::{build_rg_args, is_inverted},
     run::{
         FsPane,
         populate_rg::{BufItem, flush_rg_buffer, process_rg_line},
@@ -408,6 +408,7 @@ impl FsPane {
                     ),
                 );
                 let toast_on_empty = toast_on_empty && is_initial.take();
+                let no_column = is_inverted(&args);
 
                 log::info!("spawning: {}", display_sh_prog_and_args(prog, &args));
 
@@ -464,6 +465,7 @@ impl FsPane {
                         stdout,
                         *context,
                         &cwd,
+                        no_column,
                         injector,
                         toast_on_empty,
                         complete.clone(),
@@ -497,7 +499,7 @@ impl FsPane {
                                 let mut text = Text::from(std::mem::take(&mut current_context));
                                 scrub_text_styles(&mut text);
                                 for line in &text.lines {
-                                    extract_rg_line_no_path(line, &mut current_places);
+                                    extract_rg_line_no_path(line, &mut current_places, no_column);
                                 }
 
                                 item.tail = text;
@@ -695,6 +697,7 @@ pub fn map_reader_rg(
     reader: impl Read + matchmaker::SSS + 'static,
     context: [usize; 2],
     cwd: &Path,
+    no_column: bool,
     injector: FsInjector,
     toast_on_empty: bool,
     complete: Arc<AtomicBool>,
@@ -743,9 +746,16 @@ pub fn map_reader_rg(
                 }
 
                 let mut buf = buffer.borrow_mut();
-                process_rg_line(text.lines.remove(0), context, &cwd, &mut buf, |item| {
-                    let _ = injector.push(item);
-                })?;
+                process_rg_line(
+                    text.lines.remove(0),
+                    context,
+                    &cwd,
+                    no_column,
+                    &mut buf,
+                    |item| {
+                        let _ = injector.push(item);
+                    },
+                )?;
 
                 Ok(())
             },

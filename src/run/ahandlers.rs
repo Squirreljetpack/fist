@@ -1,4 +1,4 @@
-use cba::{bring::split::split_whitespace_preserve_single_quotes, vec_};
+use cba::bring::split::split_whitespace_preserve_single_quotes;
 use fist_types::{filters::Visibility, git::in_git_repo};
 use matchmaker::{
     acs,
@@ -212,12 +212,8 @@ pub fn fs_reload(
                 if *filtering {
                     input.0 = state.picker_ui.query.input.clone(); // input is saved anyway
                 } else {
-                    let p = split_whitespace_preserve_single_quotes(&state.picker_ui.query.input);
-                    *patterns = if p.is_empty() && GLOBAL::with_cfg(|c| !c.rg.empty_start) {
-                        vec_![""]
-                    } else {
-                        p
-                    };
+                    *patterns =
+                        split_whitespace_preserve_single_quotes(&state.picker_ui.query.input);
                 };
             }
         }

@@ -185,6 +185,7 @@ pub fn parse_rg_line(
     line: Line,
     match_sep: char,
     ctx_sep: char,
+    no_column: bool,
 ) -> Option<(String, String, Text)> {
     let mut state: usize = 0;
     let mut path = String::new();
@@ -216,7 +217,8 @@ pub fn parse_rg_line(
                 1 => {
                     if c == match_sep || c == ctx_sep {
                         loc.push(c);
-                        if c == ctx_sep {
+                        // If it's context, or we don't expect a column, we're done with the prefix
+                        if c == ctx_sep || no_column {
                             state = 3;
                         } else {
                             state = 2;
@@ -235,7 +237,6 @@ pub fn parse_rg_line(
                         loc.push(c);
                     } else {
                         return None; // always expect column after row index
-                        // state = 3; // --column
                     }
                 }
                 _ => unreachable!(),
@@ -263,6 +264,7 @@ pub fn parse_rg_line(
 pub fn extract_rg_line_no_path(
     line: &Line,
     out: &mut String,
+    no_column: bool,
 ) -> bool {
     #[derive(Clone, Copy)]
     enum State {
@@ -282,7 +284,22 @@ pub fn extract_rg_line_no_path(
                         len += ch.len_utf8();
                     } else if ch == ':' && len > 0 {
                         len += 1;
-                        state = State::AfterFirstColon;
+
+                        if no_column {
+                            let mut remaining = len;
+                            for span in &line.spans {
+                                if remaining == 0 {
+                                    break;
+                                }
+                                let s = span.content.as_ref();
+                                let take = remaining.min(s.len());
+                                out.push_str(&s[..take]);
+                                remaining -= take;
+                            }
+                            return true;
+                        } else {
+                            state = State::AfterFirstColon;
+                        }
                     } else {
                         return false;
                     }

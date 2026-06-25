@@ -202,7 +202,7 @@ pub fn image_viewer(
         args.push(format!("--size={}x{}", w, terminal_lines).into());
     }
 
-    args.push("--scale=max".into());
+    args.push("--scale=max".into()); // default
     args.push(path.into());
 
     args

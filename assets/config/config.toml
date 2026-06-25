@@ -17,7 +17,6 @@
 
     one_line         = true
     default_sort       = "none"
-    search_empty_query = true
 
     rg_status_template = '''
 {blue:filter: {}} \s\m/\t
@@ -40,6 +39,7 @@ show_preview = true
 dot_query_show_hidden = "Always"
 
 [rg]
+empty_pattern = "-v ^ *$"
 
 [notify]
 

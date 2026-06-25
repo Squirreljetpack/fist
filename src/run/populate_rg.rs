@@ -19,6 +19,7 @@ pub fn process_rg_line<F>(
     line: Line<'static>,
     ctx: [usize; 2], // [before, after]
     cwd: &Path,
+    no_column: bool,
     buffer: &mut VecDeque<BufItem>,
     mut on_item: F,
 ) -> anyhow::Result<()>
@@ -27,7 +28,7 @@ where
 {
     let [before, after] = ctx;
 
-    let Some((path, loc, mut text)) = parse_rg_line(line, ':', '-') else {
+    let Some((path, loc, mut text)) = parse_rg_line(line, ':', '-', no_column) else {
         return Ok(());
     };
 

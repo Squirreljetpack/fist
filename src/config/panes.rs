@@ -161,9 +161,6 @@ pub struct RgPaneSettings {
     pub rg_status_template: String,
     /// Template to display when filtering with fs
     pub fs_status_template: String,
-
-    /// Whether to display results on empty query. Setting this to true saves some cpu cycles.
-    pub search_empty_query: bool,
 }
 
 // impl Default for RgPaneSettings {

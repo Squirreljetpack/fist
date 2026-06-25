@@ -224,11 +224,10 @@ pub struct RgConfig {
     /// Arguments added to every rg command
     pub base_args: Vec<String>,
 
-    //  ---------------- Experimental/Nonstandard ---------------
+    /// Query when no patterns are provided. Starting with '-v ' adds the -v flag.
+    pub empty_pattern: Option<String>,
     /// The set of arguments applied to the end of `fs :` when no `rg_args` were given.
     pub default_args: Vec<String>,
-    /// Initially empty search.
-    pub empty_start: bool,
 }
 
 impl Default for RgConfig {
@@ -241,7 +240,7 @@ impl Default for RgConfig {
                 "--no-context-separator",
                 "--field-context-separator=-",
             ],
-            empty_start: false,
+            empty_pattern: None,
             default_args: Default::default(),
         }
     }
