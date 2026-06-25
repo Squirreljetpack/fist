@@ -136,6 +136,7 @@ size\:"Not always supported"))' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--cd[print the first match]' \
 '--no-read[Never stream input from stdin]' \
+'--reset-visibility[]' \
 '--list[]' \
 '--help[]' \
 '--alt-accept[]' \
@@ -164,6 +165,7 @@ size\:"Not always supported"))' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
 '--cd[print the first match]' \
 '--no-read[Never stream input from stdin]' \
+'--reset-visibility[]' \
 '--list[]' \
 '--help[]' \
 '--alt-accept[]' \

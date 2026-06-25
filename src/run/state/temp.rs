@@ -17,6 +17,9 @@ pub struct ExecuteHandlerShouldProcessParent;
 #[derive(Debug, Clone)]
 pub struct ShouldNotAbortOnEmpty;
 
+#[derive(Debug, Clone)]
+pub struct ResetVisibility;
+
 #[derive(Clone, Debug)]
 pub struct InitialRelativePathSetting(pub bool);
 

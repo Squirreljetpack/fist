@@ -380,6 +380,8 @@ pub struct DefaultCommand {
     /// Never stream input from stdin.
     #[arg(long, default_value_t)]
     pub no_read: bool,
+    #[arg(long, default_value_t)]
+    pub reset_visibility: bool,
 
     #[arg(long)]
     pub list: bool,

@@ -15,7 +15,7 @@ use crate::{
         FsAction, FsPane,
         stash::STASH,
         state::{
-            FILTERS, GLOBAL, STACK, STORE, TOAST,
+            FILTERS, GLOBAL, ResetVisibility, STACK, STORE, TOAST,
             ui::{global_ui, prompt_main_style},
         },
     },
@@ -146,7 +146,15 @@ pub fn fs_reload(
         // apply vis/sort changes
         STACK::with_current_mut(|pane| {
             GLOBAL::with_cfg(|c| {
-                if let Some(pv) = c.panes.default_visibility(pane)
+                // apply on non-initial new pane: update visibility
+                if STORE::take::<ResetVisibility>().is_some() {
+                    let pv = c.panes.default_visibility(pane).unwrap_or_default();
+
+                    if let Some(v) = pane.vis_mut() {
+                        *v = Default::default();
+                        v.apply(pv);
+                    }
+                } else if let Some(pv) = c.panes.default_visibility(pane)
                     && let Some(v) = pane.vis_mut()
                 {
                     v.apply(pv);

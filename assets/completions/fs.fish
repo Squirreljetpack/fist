@@ -169,6 +169,7 @@ complete -c fs -n "__fish_fs_using_subcommand :fd" -l enter-prompt -r -f -a "tru
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l no-read -d 'Never stream input from stdin'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l reset-visibility
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l list
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l help
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l alt-accept
@@ -203,6 +204,7 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -l enter-prompt -r -f -a "true
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l no-read -d 'Never stream input from stdin'
+complete -c fs -n "__fish_fs_using_subcommand ::" -l reset-visibility
 complete -c fs -n "__fish_fs_using_subcommand ::" -l list
 complete -c fs -n "__fish_fs_using_subcommand ::" -l help
 complete -c fs -n "__fish_fs_using_subcommand ::" -l alt-accept

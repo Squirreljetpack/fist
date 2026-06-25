@@ -51,7 +51,9 @@ use crate::{
         mm_config::{get_mm_binds, get_mm_cfg},
         start,
         stash::STASH,
-        state::{InitialPreserveWhitespaceInSearch, InitialRelativePathSetting, STORE},
+        state::{
+            InitialPreserveWhitespaceInSearch, InitialRelativePathSetting, ResetVisibility, STORE,
+        },
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
@@ -389,6 +391,9 @@ async fn handle_default(
 
     if cmd.cd && cmd.list {
         return Err(CliError::ConflictingFlags("cd", "list"));
+    }
+    if cmd.reset_visibility {
+        STORE::set(ResetVisibility)
     }
 
     let pool = Pool::new(cfg.db_path()).await?;
