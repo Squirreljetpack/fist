@@ -96,7 +96,7 @@ pub fn enter_dir_pane(
     let (content, index) = state.get_content_and_index();
     STACK::save_input(content, index);
     // record
-    GLOBAL::db().bump(true, path.clone());
+    GLOBAL::db().bump_path(true, path.clone());
 
     // apply specific settings
     if STACK::with_current(FsPane::should_cancel_input_entering_dir) {

@@ -704,7 +704,7 @@ pub fn fsaction_handler(
             } else if item.path.exists() {
                 // record
                 if item.path.is_file() {
-                    GLOBAL::db().bump(false, item.path.clone());
+                    GLOBAL::db().bump_path(false, item.path.clone());
                 }
 
                 // todo: specialized
@@ -1133,7 +1133,7 @@ pub fn fsaction_handler(
                     let s = p.display().to_string();
                     print_handle.push(s);
 
-                    GLOBAL::db().bump(true, p);
+                    GLOBAL::db().bump_path(true, p);
 
                     state.picker_ui.selector.clear();
                     state.should_quit = true;
@@ -1164,12 +1164,12 @@ pub fn fsaction_handler(
                 print_handle.push(s);
 
                 // bump
-                GLOBAL::db().bump(true, p);
+                GLOBAL::db().bump_path(true, p);
             } else {
                 // if alt_accept, this was aliased from Accept, in which case we should respect no_multi_accept
                 if GLOBAL::with_cfg(|c| c.interface.alt_accept && c.interface.no_multi_accept) {
                     if let Some(item) = state.current_raw() {
-                        GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
+                        GLOBAL::db().bump_path(item.path.is_dir(), item.path.clone());
 
                         let s = item.display().to_string();
                         print_handle.push(s);
@@ -1177,7 +1177,7 @@ pub fn fsaction_handler(
                 } else {
                     // print selected
                     state.map_selected_to_vec(|_, item| {
-                        GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
+                        GLOBAL::db().bump_path(item.path.is_dir(), item.path.clone());
 
                         let s = item.display().to_string();
                         print_handle.push(s);

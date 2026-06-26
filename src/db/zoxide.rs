@@ -1,45 +1,52 @@
-use cba::{
-    bait::ResultExt, bird::transform::camelcase_normalized, bog::BogOkExt,
-    define_transparent_wrapper, prints,
-};
-use chrono::Utc;
+use cba::{bait::ResultExt, bird::transform::camelcase_normalized, bog::BogOkExt, prints};
 
 use std::path::Path;
 
 use crate::{
     abspath::AbsPath,
     db::{Connection, DbSortOrder, DbTable, Entry, Epoch},
+    errors::DbError,
 };
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct HistoryConfig {
+    // --- filter / decay ---
+    /// When checking for existence, follow symlinks to determine if type is consistent.
+    pub resolve_symlinks: bool,
+    /// The criterion by which a path is determined to match a given set of keywords
+    pub query_strategy: QueryMatchStrategy,
+    /// Default: smart (only if keyword contains capitalization)
+    pub case_sensitive: Option<bool>,
+    /// Decay constant λ for EMS scoring. Each tick, the stored score is
+    /// multiplied by `exp(-λ × Δticks)` before the new visit count is added.
+    /// Default: `Some(8e-3)`. When `None`, uses wall-clock atime scoring
+    /// (compatible with zoxide databases).
+    pub lambda: Option<f64>,
+
+    #[serde(skip)]
+    keywords: Vec<String>,
+    // --- maintenence / bump ---
     /// Ignore files matching these globs
     pub exclude: Vec<String>,
-    /// Whether to show files that don't exist on the filesystem in queries.
-    /// This is set to false by the binary when called with the "--cd" flag.
-    // todo: this probably should only be set internally
-    pub show_missing: bool,
-    /// Lazily remove nonexistant entries older than this many days
-    pub missing_expiry: TtlDays,
 
-    /// Lazily remove entries older than this many days
-    pub atime_expiry: TtlDays,
+    /// Maximum entries before pruning. When the total count exceeds this,
+    /// entries beyond `prune_min` are removed from the database.
+    pub prune_max: usize,
+    /// Number of entries retained after a pruning pass.
+    pub prune_min: usize,
 
+    // --- other ---
     /// What to do when the best match by [`Connection::print_best_by_frecency`] is the current directory
     #[serde(deserialize_with = "camelcase_normalized")]
     pub refind: RetryStrat,
 
-    /// When checking for existence, whether to follow symlinks
-    pub resolve_symlinks: bool,
-    /// Experimental
+    // ---- unimplemented / experimental  ---
+    /// Whether to show files that don't exist on the filesystem in queries.
+    /// This is set to false by the binary when called with the "--cd" flag.
+    pub show_missing: bool,
+    /// Only track subpaths [of the given path]
     pub base_dir: Option<String>,
-
-    /// The criterion by which a path is determined to match a given set of keywords
-    pub query_strategy: QueryMatchStrategy,
-
-    /// Default: smart (only if keyword contains capitalization)
-    pub case_sensitive: Option<bool>,
 }
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -52,158 +59,21 @@ pub enum QueryMatchStrategy {
 impl Default for HistoryConfig {
     fn default() -> Self {
         Self {
-            exclude: Default::default(),
-            show_missing: Default::default(),
-            missing_expiry: TtlDays(30),
             resolve_symlinks: Default::default(),
-            atime_expiry: TtlDays(720),
-            base_dir: Default::default(),
-            refind: Default::default(),
             case_sensitive: Default::default(),
             query_strategy: Default::default(),
+            lambda: Some(8e-3),
+            keywords: Default::default(),
+
+            exclude: Default::default(),
+            prune_max: 10000,
+            prune_min: 8000,
+
+            refind: Default::default(),
+
+            show_missing: Default::default(),
+            base_dir: Default::default(),
         }
-    }
-}
-
-impl Connection {
-    /// some optimizations on the [`Self::get_entries`] for faster printing
-    ///
-    /// Abuses RetryStrat as a signal:
-    /// - Next: Found
-    /// - None: No Match
-    /// - Search: First match was the current directory and RetryStrat == Search
-    pub async fn print_best_by_frecency(
-        mut self,
-        db_filter: &DbFilter,
-    ) -> RetryStrat {
-        let mut remove = Vec::new();
-        let mut found = None;
-
-        let mut entries = self
-            .get_entries_range(0, 0, DbSortOrder::none)
-            .await
-            .__ebog();
-
-        let maybe_cwd = std::env::current_dir().ok();
-
-        entries.sort_by_key(|e| std::cmp::Reverse(db_filter.score(e)));
-
-        for e in entries {
-            match db_filter.filter(&e.path, e.atime) {
-                None => {
-                    remove.push(e.path.clone());
-                }
-                Some(true) => {
-                    if let Some(cwd) = maybe_cwd.as_deref()
-                        && cwd == e.cmd.as_maybe_realpath().unwrap_or(&e.path)
-                    {
-                        match db_filter.refind {
-                            RetryStrat::Next => continue,
-                            RetryStrat::None => {}
-                            RetryStrat::Search => {
-                                if !remove.is_empty() {
-                                    tokio::spawn(async move {
-                                        self.remove_entries(&remove).await._elog();
-                                    });
-                                }
-                                return RetryStrat::Search;
-                            }
-                        }
-                    };
-                    prints!(e.path.to_string_lossy());
-                    if let Some(p) = e.cmd.as_maybe_realpath()
-                        && let Ok(rp) = e.path.canonicalize()
-                        && p != rp
-                    {
-                        self.set_cmd(&e.path, &rp.into()).await._elog();
-                    }
-                    found = Some(e.path);
-
-                    break;
-                }
-                Some(false) => {}
-            }
-        }
-
-        // if let Some(p) = found.as_ref() {
-        //     self.bump(p, 1).await._elog();
-        // };
-        if !remove.is_empty() {
-            self.remove_entries(&remove).await._elog();
-        }
-
-        if found.is_some() {
-            RetryStrat::Next
-        } else {
-            RetryStrat::None
-        }
-    }
-
-    // None -> no match/(cwd is match + refind = RetryStrat::Search)
-    pub async fn return_best_by_frecency(
-        mut self,
-        db_filter: &DbFilter,
-    ) -> Option<AbsPath> {
-        let mut remove = Vec::new();
-        let mut found = None;
-
-        let mut entries = self
-            .get_entries_range(0, 0, DbSortOrder::none)
-            .await
-            .__ebog();
-
-        entries.sort_by_key(|e| std::cmp::Reverse(db_filter.score(e)));
-
-        let maybe_cwd = std::env::current_dir().ok();
-
-        for e in entries {
-            match db_filter.filter(&e.path, e.atime) {
-                None => {
-                    remove.push(e.path.clone());
-                }
-                Some(true) => {
-                    if let Some(cwd) = maybe_cwd.as_deref()
-                        && cwd == e.cmd.as_maybe_realpath().unwrap_or(&e.path)
-                    {
-                        match db_filter.refind {
-                            RetryStrat::Next => continue,
-                            RetryStrat::None => {}
-                            RetryStrat::Search => {
-                                if !remove.is_empty() {
-                                    tokio::spawn(async move {
-                                        self.remove_entries(&remove).await._elog();
-                                    });
-                                }
-                                return None;
-                            }
-                        }
-                    };
-                    found = Some(e);
-                    break;
-                }
-                Some(false) => {}
-            }
-        }
-
-        let _found = found.clone();
-
-        tokio::spawn(async move {
-            if let Some(e) = _found {
-                if let Some(p) = e.cmd.as_maybe_realpath()
-                    && let Ok(rp) = e.path.canonicalize()
-                    && p != rp
-                {
-                    self.set_cmd(&e.path, &rp.into()).await._elog();
-                }
-                // bump because this opens up an interactive screen
-                self.bump(e.path, 1).await._elog();
-            };
-            if !remove.is_empty() {
-                self.remove_entries(&remove).await._elog();
-            }
-        });
-
-        found.map(|e| e.path)
     }
 }
 
@@ -219,56 +89,7 @@ pub enum RetryStrat {
     None,
 }
 
-/// History filter/matcher
-#[derive(Debug, Clone)]
-pub struct DbFilter {
-    now: Epoch,
-    pub keywords: Vec<String>,
-    // exclude: GlobSet,
-    atime_expiry: Epoch,
-
-    pub show_missing: bool,
-    pub missing_expiry: Epoch,
-    pub resolve_symlinks: bool,
-    /// filter_before is stored as epoch seconds
-    base_dir: Option<String>,
-    pub refind: RetryStrat,
-    pub case_sensitive: Option<bool>,
-    pub query_strategy: QueryMatchStrategy,
-}
-
-impl DbFilter {
-    pub fn new(config: &HistoryConfig) -> Self {
-        let now = Utc::now().timestamp();
-        let atime_expiry = now - config.atime_expiry.0 * 24 * 60 * 60; // convert TTL days to absolute seconds
-        let missing_expiry = now - config.missing_expiry.0 * 24 * 60 * 60;
-
-        DbFilter {
-            now,
-            keywords: Default::default(),
-            // exclude,
-            atime_expiry,
-
-            show_missing: config.show_missing,
-            missing_expiry,
-            resolve_symlinks: config.resolve_symlinks, // todo: support resolve specifically for dirs
-            refind: config.refind,
-            base_dir: config.base_dir.clone(),
-            case_sensitive: config.case_sensitive,
-            query_strategy: config.query_strategy,
-        }
-    }
-
-    pub fn with_resolve_symlinks(
-        mut self,
-        table: DbTable,
-    ) -> Self {
-        if !matches!(table, DbTable::dirs) {
-            self.resolve_symlinks = false;
-        }
-        self
-    }
-
+impl HistoryConfig {
     pub fn with_keywords(
         mut self,
         keywords: Vec<String>,
@@ -276,76 +97,32 @@ impl DbFilter {
         self.keywords = keywords;
         self
     }
-    pub fn keywords(
-        &mut self,
-        keywords: Vec<String>,
-    ) -> &mut Self {
-        self.keywords = keywords;
-        self
-    }
 
-    /// Filter an entry by path + last-access epoch
-    /// Returns:
-    /// Some(true) => keep
-    /// Some(false) => exclude
-    /// None => remove lazily
+    /// Filter an entry.
+    /// Returns `true` to keep, `false` to exclude.
     pub fn filter(
         &self,
-        path: &Path,
-        atime: Epoch,
-    ) -> Option<bool> {
+        entry: &Entry,
+        table: DbTable,
+    ) -> bool {
+        let path = &entry.path;
+
         if !self.filter_by_base_dir(path) {
             log::debug!("filtered by: base");
-            return Some(false);
+            return false;
         }
-        // if !self.filter_by_exclude(path) {
-        //     log::debug!("filtered by: exclude");
-        //     return Some(false);
-        // }
-        if atime <= self.atime_expiry {
-            log::debug!("filtered by: atime");
-            return None;
-        }
+
         if !self.filter_by_keywords(path) {
             log::debug!("filtered by: kw");
-            return Some(false);
+            return false;
         }
-        if !self.filter_by_exists(path) {
+
+        if !self.filter_by_exists(path, table) {
             log::debug!("{path:?} filtered by: exist");
-            return if atime <= self.missing_expiry {
-                None
-            } else {
-                Some(false)
-            };
+            return false;
         }
-        Some(true)
-    }
 
-    /// Compute a frecency score using epoch seconds
-    pub fn score(
-        &self,
-        e: &Entry,
-    ) -> i32 {
-        Self::_score(self.now, e)
-    }
-
-    pub fn _score(
-        now: Epoch,
-        e: &Entry,
-    ) -> i32 {
-        let Entry { atime, count, .. } = e;
-        let age_secs = now - atime;
-        let count = *count * 4;
-
-        if age_secs <= 60 * 60 {
-            count * 4 // last hour
-        } else if age_secs <= 60 * 60 * 24 {
-            count * 2 // last day
-        } else if age_secs <= 60 * 60 * 24 * 7 {
-            count / 2 // last week
-        } else {
-            count / 4 // older
-        }
+        true
     }
 
     fn filter_by_base_dir(
@@ -358,27 +135,26 @@ impl DbFilter {
         }
     }
 
-    // fn filter_by_exclude(
-    //     &self,
-    //     path: &Path,
-    // ) -> bool {
-    //     !self.exclude.is_match(path)
-    // }
-
     fn filter_by_exists(
         &self,
         path: &Path,
+        table: DbTable,
     ) -> bool {
         if self.show_missing {
             return true;
         }
-        // path.exists()
-
         if self.resolve_symlinks {
-            std::fs::symlink_metadata(path)
-                .ok()
-                .map(|m| m.is_dir())
-                .unwrap_or(false)
+            match table {
+                DbTable::dirs | DbTable::files => std::fs::symlink_metadata(path)
+                    .ok()
+                    .map(|m| match table {
+                        DbTable::dirs => m.is_dir(),
+                        DbTable::files => m.is_file(),
+                        _ => unreachable!(),
+                    })
+                    .unwrap_or(false),
+                _ => path.exists(),
+            }
         } else {
             path.exists()
         }
@@ -468,6 +244,47 @@ impl DbFilter {
     }
 }
 
+fn decay(
+    score: f64,
+    now: Epoch,
+    atime: Epoch,
+    lambda: f64,
+) -> f64 {
+    let delta = now - atime;
+    score * (-lambda * delta as f64).exp()
+}
+
+const FLOAT_TO_I32: f64 = 10000.0; // scalar to avoid losing precision
+
+/// Sorting key: returns the frecency-like score as an integer.
+///
+/// atime (lambda=None): `count × bucketed_age_multiplier`.
+/// EMS (lambda=Some(λ)): `stored_score × exp(-λ × Δticks)`, truncated to i32.
+pub fn score(
+    now: Epoch,
+    e: &Entry,
+    lambda: Option<f64>,
+) -> i32 {
+    if let Some(lambda) = lambda {
+        (FLOAT_TO_I32 * decay(e.score, now, e.atime, lambda)) as i32
+    } else {
+        // bucketed from wall-clock age
+        let Entry { atime, count, .. } = e;
+        let age_secs = now - atime;
+        let count = *count * 4;
+
+        if age_secs <= 60 * 60 {
+            count * 4 // last hour
+        } else if age_secs <= 60 * 60 * 24 {
+            count * 2 // last day
+        } else if age_secs <= 60 * 60 * 24 * 7 {
+            count / 2 // last week
+        } else {
+            count / 4 // older
+        }
+    }
+}
+
 /// s2 maps monotonically and injectively into s1
 fn is_monotonic_substring(
     s1: &str,
@@ -493,8 +310,157 @@ fn is_monotonic_substring(
     true
 }
 
-// Transparent wrappers for type safety
-define_transparent_wrapper!(
-    #[derive(Copy, Clone, serde::Serialize, serde::Deserialize)]
-    TtlDays: i64 = 90
-);
+// --------------------------------------------
+// Fetching with the filter
+
+impl Connection {
+    /// some optimizations on the [`Self::get_entries`] for faster printing
+    ///
+    /// Abuses RetryStrat as a signal:
+    /// - Next: Found
+    /// - None: No Match
+    /// - Search: First match was the current directory and RetryStrat == Search
+    pub async fn print_best_by_frecency(
+        mut self,
+        config: &HistoryConfig,
+        table: DbTable,
+    ) -> RetryStrat {
+        let mut found = None;
+
+        let entries = self
+            .get_entries_range(0, 0, DbSortOrder::frecency)
+            .await
+            .__ebog();
+
+        let maybe_cwd = std::env::current_dir().ok();
+
+        for e in &entries {
+            if !config.filter(e, table) {
+                continue;
+            }
+
+            if let Some(cwd) = maybe_cwd.as_deref()
+                && cwd == e.cmd.as_maybe_realpath().unwrap_or(&e.path)
+            {
+                match config.refind {
+                    RetryStrat::Next => continue,
+                    RetryStrat::None => {}
+                    RetryStrat::Search => {
+                        return RetryStrat::Search;
+                    }
+                }
+            };
+            prints!(e.path.to_string_lossy());
+            if let Some(p) = e.cmd.as_maybe_realpath()
+                && let Ok(rp) = e.path.canonicalize()
+                && p != rp
+            {
+                self.set_cmd(&e.path, &rp.into()).await._elog();
+            }
+            found = Some(e.path.clone());
+
+            break;
+        }
+
+        self.prune_tail(&entries, config.prune_max, config.prune_min)
+            .await
+            ._elog();
+
+        if found.is_some() {
+            RetryStrat::Next
+        } else {
+            RetryStrat::None
+        }
+    }
+
+    // None -> no match/(cwd is match + refind = RetryStrat::Search)
+    pub async fn return_best_by_frecency(
+        mut self,
+        config: &HistoryConfig,
+        table: DbTable,
+    ) -> Option<AbsPath> {
+        let mut found = None;
+
+        let entries = self
+            .get_entries_range(0, 0, DbSortOrder::frecency)
+            .await
+            .__ebog();
+
+        let maybe_cwd = std::env::current_dir().ok();
+
+        for e in &entries {
+            if !config.filter(e, table) {
+                continue;
+            }
+
+            if let Some(cwd) = maybe_cwd.as_deref()
+                && cwd == e.cmd.as_maybe_realpath().unwrap_or(&e.path)
+            {
+                match config.refind {
+                    RetryStrat::Next => continue,
+                    RetryStrat::None => {}
+                    RetryStrat::Search => {
+                        return None;
+                    }
+                }
+            };
+            found = Some(e.clone());
+            break;
+        }
+
+        let _found = found.clone();
+        let prune_max = config.prune_max;
+        let prune_min = config.prune_min;
+
+        tokio::spawn(async move {
+            if let Some(e) = _found {
+                if let Some(p) = e.cmd.as_maybe_realpath()
+                    && let Ok(rp) = e.path.canonicalize()
+                    && p != rp
+                {
+                    self.set_cmd(&e.path, &rp.into()).await._elog();
+                }
+                // bump because this opens up an interactive screen
+                self.bump_entry(&e, 1).await._elog();
+            };
+            self.prune_tail(&entries, prune_max, prune_min)
+                .await
+                ._elog();
+        });
+
+        found.map(|e| e.path)
+    }
+
+    /// Sweep all entries and remove missing entries with score below threshold.
+    /// This is a full sweep that checks filesystem existence for every entry.
+    pub async fn prune_missing(
+        &mut self,
+        score_threshold: i32,
+    ) -> Result<u64, DbError> {
+        use crate::db::zoxide;
+        use chrono::Utc;
+
+        // Get all entries
+        let entries = self.get_entries_range(0, 0, DbSortOrder::none).await?;
+
+        // Compute 'now' for scoring
+        let now = if self.lambda.is_some() {
+            self.get_max_atime().await?
+        } else {
+            Utc::now().timestamp()
+        };
+
+        // Filter missing entries below threshold
+        let mut to_remove = Vec::new();
+        for entry in entries {
+            if score_threshold == 0 || zoxide::score(now, &entry, self.lambda) < score_threshold {
+                if !entry.path.exists() {
+                    to_remove.push(entry.path);
+                }
+            }
+        }
+
+        // Remove entries
+        self.remove_entries(&to_remove).await
+    }
+}

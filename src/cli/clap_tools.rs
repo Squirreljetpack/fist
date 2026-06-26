@@ -89,7 +89,7 @@ pub struct LessfilterCommand {
 #[command(group(
     ArgGroup::new("target")
     .required(true)
-    .args(["paths", "glob", "reset"])
+    .args(["paths", "glob", "reset", "prune"])
 ))]
 pub struct BumpCommand {
     /// path to bump.
@@ -101,12 +101,17 @@ pub struct BumpCommand {
     pub glob: Option<String>,
 
     /// amount to bump by, 0 to clear.
+    /// With --prune, this sets a minimum survival score threshold.
     #[arg(short, long, default_value_t = 1)]
     pub count: i32,
 
     /// reset the database.
     #[arg(long)]
     pub reset: bool,
+
+    /// prune missing entries with score below threshold.
+    #[arg(long)]
+    pub prune: bool,
 
     /// table matched on by the glob.
     #[arg(last(true))]

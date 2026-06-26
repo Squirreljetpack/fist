@@ -38,7 +38,7 @@ use crate::{
     config::Config,
     db::{
         DbSortOrder, DbTable, Pool, display_entries,
-        zoxide::{DbFilter, RetryStrat},
+        zoxide::RetryStrat,
     },
     errors::{CliError, DbError},
     find::{
@@ -90,7 +90,7 @@ async fn handle_open(
     cmd: OpenCmd,
     mut cfg: Config,
 ) -> Result<(), CliError> {
-    let pool = Pool::new(cfg.db_path()).await?;
+    let pool = Pool::new_from_cfg(&cfg).await?;
 
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
@@ -123,23 +123,14 @@ async fn handle_info(
     cmd: InfoCmd,
     cfg: Config,
 ) -> Result<(), CliError> {
-    println!("Config path: {}", config_path().display());
-    println!("MM config path: {}", mm_cfg_path().display());
-    println!("logs path: {}", cfg.log_path().display());
-    println!();
-
     let limit = cmd.limit.unwrap_or(if cmd.minimal { 0 } else { 50 });
+    let pool = Pool::new_from_cfg(&cfg).await?;
 
-    let pool = Pool::new(cfg.db_path()).await?;
     if let Some(table) = cmd.table {
         let mut conn = pool.get_conn(table).await?;
 
         conn.switch_table(table);
         let mut entries = conn.get_entries_range(0, 0, cmd.sort).await?;
-        if matches!(cmd.sort, DbSortOrder::frecency) {
-            let now = chrono::Utc::now().timestamp();
-            entries.sort_by_key(|e| std::cmp::Reverse(DbFilter::_score(now, e)));
-        }
         if limit != 0 {
             entries.truncate(limit);
         }
@@ -152,8 +143,13 @@ async fn handle_info(
                 print(&entry.path, &template, &output_separator);
             }
         } else {
-            display_entries(&entries);
+            display_entries(&entries, cfg.history.lambda);
         }
+    } else {
+        println!("Config path: {}", config_path().display());
+        println!("MM config path: {}", mm_cfg_path().display());
+        println!("logs path: {}", cfg.log_path().display());
+        println!();
     }
 
     Ok(())
@@ -171,7 +167,7 @@ async fn handle_files(
     };
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-    let pool = Pool::new(cfg.db_path()).await?;
+    let pool = Pool::new_from_cfg(&cfg).await?;
     start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
 }
 
@@ -264,7 +260,7 @@ async fn handle_rg(
         return Ok(());
     };
 
-    let pool = Pool::new(cfg.db_path()).await?;
+    let pool = Pool::new_from_cfg(&cfg).await?;
     if cmd.preserve_whitespace {
         STORE::set(InitialPreserveWhitespaceInSearch);
     }
@@ -293,7 +289,7 @@ async fn handle_dirs(
     mut cmd: DirsCmd,
     mut cfg: Config,
 ) -> Result<(), CliError> {
-    let pool = Pool::new(cfg.db_path()).await?;
+    let pool = Pool::new_from_cfg(&cfg).await?;
     if cmd.cd && cmd.list.is_some() {
         return Err(CliError::ConflictingFlags("cd", "list"));
     }
@@ -303,9 +299,9 @@ async fn handle_dirs(
 
         if !cmd.query.is_empty() {
             let conn = pool.get_conn(DbTable::dirs).await?;
-            let db_filter = DbFilter::new(&cfg.history).with_keywords(cmd.query.clone());
+            let db_filter = cfg.history.clone().with_keywords(cmd.query.clone());
 
-            let result = conn.print_best_by_frecency(&db_filter).await;
+            let result = conn.print_best_by_frecency(&db_filter, DbTable::dirs).await;
             match result {
                 RetryStrat::Next => return Ok(()),
                 RetryStrat::None if db_filter.refind != RetryStrat::Search => {
@@ -331,9 +327,9 @@ async fn handle_dirs(
         if matches!(all, ListMode::All) {
             cfg.history.show_missing = true;
         }
-        let db_filter = DbFilter::new(&cfg.history).with_keywords(cmd.query.clone());
+        let db_filter = cfg.history.clone().with_keywords(cmd.query.clone());
 
-        for e in conn.get_entries(cmd.sort, &db_filter).await? {
+        for e in conn.get_entries(cmd.sort, &db_filter, DbTable::dirs).await? {
             match e.path.to_str() {
                 Some(s) => {
                     prints!(s)
@@ -403,7 +399,7 @@ async fn handle_default(
         STORE::set(vis)
     }
 
-    let pool = Pool::new(cfg.db_path()).await?;
+    let pool = Pool::new_from_cfg(&cfg).await?;
 
     let pane = if
     // piped input
@@ -442,7 +438,7 @@ async fn handle_default(
         let cwd = if cmd.paths.len() > 1
         // treat paths as zoxide args (since searching over multiple paths should be uncommon with --cd)
         {
-            let conn = pool.get_conn(DbTable::dirs).await?;
+            let mut conn = pool.get_conn(DbTable::dirs).await?;
 
             // the last path is the pattern, so determine the best match from keywords formed by all but the last
             let num_keywords = cmd.paths.len() - 1;
@@ -453,9 +449,9 @@ async fn handle_default(
                 .map(|f| f.to_string_lossy().into_owned())
                 .collect();
 
-            let db_filter = DbFilter::new(&cfg.history).with_keywords(kw.clone());
+            let mut db_filter = cfg.history.clone().with_keywords(kw.clone());
 
-            match conn.return_best_by_frecency(&db_filter).await {
+            match conn.return_best_by_frecency(&db_filter, DbTable::dirs).await {
                 None => {
                     if !matches!(db_filter.refind, RetryStrat::Search) && !cmd.list {
                         return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
@@ -576,7 +572,7 @@ async fn handle_default(
         tokio::spawn(async move {
             if let Ok(mut conn) = pool_clone.get_conn(DbTable::dirs).await {
                 for path in paths {
-                    conn.bump(AbsPath::new(path), 1).await._elog();
+                    conn.bump_path(AbsPath::new(path), 1).await._elog();
                 }
             }
         });
@@ -745,7 +741,7 @@ async fn handle_tools(
                     .filter_map(|path| path.exists().then_some(AbsPath::new(path)));
 
                 Some(tokio::spawn(async move {
-                    let pool = Pool::new(cfg.db_path()).await?;
+                    let pool = Pool::new_from_cfg(&cfg).await?;
                     let mut conn = pool.get_conn(DbTable::files).await?;
                     conn.push_files_and_folders(paths).await?;
                     Ok::<_, DbError>(())
@@ -777,11 +773,27 @@ async fn handle_tools(
                 glob: pattern,
                 table,
                 reset,
+                prune,
             } = BumpCommand::parse_from(args);
+
+            if prune {
+                let tables = match table {
+                    Some(t) => vec![t],
+                    None => vec![DbTable::apps, DbTable::files, DbTable::dirs],
+                };
+                let mut total = 0u64;
+                let mut conn = Pool::new_from_cfg(&cfg).await?.get_conn(tables[0]).await?;
+                for &t in &tables {
+                    conn.switch_table(t);
+                    total += conn.prune_missing(count).await?;
+                }
+                _ibog!("Pruned {total} missing entries.");
+                return Ok(());
+            }
 
             if reset {
                 if let Some(table) = table {
-                    let mut conn = Pool::new(cfg.db_path()).await?.get_conn(table).await?;
+                    let mut conn = Pool::new_from_cfg(&cfg).await?.get_conn(table).await?;
                     conn.reset_table().await?;
                     _ibog!("Deleted {table}");
                 } else {
@@ -820,7 +832,7 @@ async fn handle_tools(
                     entry_queue.push(path)
                 }
 
-                let mut conn = Pool::new(cfg.db_path())
+                let mut conn = Pool::new_from_cfg(&cfg)
                     .await?
                     .get_conn(DbTable::dirs)
                     .await?;
@@ -853,7 +865,7 @@ async fn handle_tools(
             } else {
                 let table = table.unwrap_or(table.unwrap_or(DbTable::dirs));
                 // glob is per-table
-                let mut conn = Pool::new(cfg.db_path()).await?.get_conn(table).await?;
+                let mut conn = Pool::new_from_cfg(&cfg).await?.get_conn(table).await?;
 
                 let glob = GlobBuilder::new(&pattern.unwrap())
                     .build()
@@ -862,9 +874,9 @@ async fn handle_tools(
 
                 let mut to_remove = Vec::new();
 
-                let db_filter = DbFilter::new(&cfg.history).with_resolve_symlinks(table);
+                let db_filter = cfg.history.clone();
                 let entries = conn
-                    .get_entries(DbSortOrder::none, &db_filter)
+                    .get_entries(DbSortOrder::none, &db_filter, table)
                     .await
                     .__ebog();
 
@@ -875,7 +887,7 @@ async fn handle_tools(
                         if count == 0 {
                             to_remove.push(e.path.clone());
                         } else {
-                            conn.bump(e.path, count).await._wlog();
+                            conn.bump_entry(&e, count).await._wlog();
                         }
                     }
                 }

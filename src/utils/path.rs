@@ -8,6 +8,71 @@ use std::{
 
 use crate::abspath::AbsPath;
 
+/// Returns common platform-specific default directory paths.
+pub fn default_directories() -> Vec<AbsPath> {
+    let Some(home) = dirs::home_dir() else {
+        return Vec::new();
+    };
+
+    let mut dirs = vec![AbsPath::new_unchecked(home.clone())];
+
+    for dir in [
+        "Desktop",
+        "Documents",
+        "Downloads",
+        "Music",
+        "Pictures",
+        ".ssh",
+        ".config",
+    ] {
+        dirs.push(AbsPath::new_unchecked(home.join(dir)));
+    }
+
+    #[cfg(target_os = "macos")]
+    for dir in [
+        "Movies",
+        "Library",
+        "Library/Application Support",
+        "Library/Caches",
+        "Library/Preferences",
+        "Applications",
+        ".Trash",
+    ] {
+        dirs.push(AbsPath::new_unchecked(home.join(dir)));
+    }
+
+    #[cfg(target_os = "linux")]
+    for dir in [
+        "Movies",
+        "Public",
+        "Templates",
+        ".cache",
+        ".local/share",
+        ".local/bin",
+        ".gnupg",
+        ".local/share/Trash",
+    ] {
+        dirs.push(AbsPath::new_unchecked(home.join(dir)));
+    }
+
+    #[cfg(target_os = "windows")]
+    for dir in [
+        "Videos",
+        "Contacts",
+        "Favorites",
+        "Links",
+        "OneDrive",
+        "AppData",
+        "AppData/Local",
+        "AppData/Roaming",
+        "AppData/LocalLow",
+    ] {
+        dirs.push(AbsPath::new_unchecked(home.join(dir)));
+    }
+
+    dirs
+}
+
 pub fn paths_base<P>(paths: impl IntoIterator<Item = P>) -> PathBuf
 where
     P: AsRef<std::path::Path>,

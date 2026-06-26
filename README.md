@@ -68,9 +68,9 @@ Call as:
 - `Tab`: Toggle select.
 - `alt-enter`: Print.
 - `?`: toggle preview.
-- `alt-/`: toggle [informative](#Lessfilter) preview.
+- `alt-/`: toggle [informative](#lessfilter) preview.
 - `ctrl-l`: Maximize preview.
-- `alt-l`: Maximize [extended](#Lessfilter) preview.
+- `alt-l`: Maximize [extended](#lessfilter) preview.
 - `/` and `~`: Jump to home
 - `ctrl-[1-9]`: Autojump to item
 - `ctrl-0`: Autojump to prompt
@@ -101,7 +101,7 @@ You can search through all files recursively by
 
 <img src=".README.assets/image-20260227223347559.png" alt="image-20260227223347559" style="height:309px;" />
 
-The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Filters overlay](#Filters).
+The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Filters overlay](#filters).
 
 > [!NOTE]
 >
@@ -251,21 +251,21 @@ For more information on any of the panes, run `fs [pane] --help` with the approp
 
 <img src=".README.assets/image-20260227222022484.png" alt="image-20260227222022484" style="height:400px;" />
 
-The **Stash** (`ctrl-t`) is a place where actions on items are queued. Within the overlay, stashed item item statuses are visible, and they can be edited, rearranged, removed and executed. Items can also be executed through the [`Paste`] or [`StackFlush`](#Actions) actions.
+The **Stash** (`ctrl-t`) is a place where actions on items are queued. Within the overlay, stashed item item statuses are visible, and they can be edited, rearranged, removed and executed. Items can also be executed through the [`Paste`] or [`StackFlush`](#actions) actions.
 
 `Copy` and `Cut` places items on the Stash under the `Copy` and `Cut` stack action types respectively. The `Paste` action executes all stashed `Copy`, `Cut` and `Symlink` tasks, transferring files to their destinations -- the active directory at the time of *execution* by default.[^7]
 
-`Push` (`alt-s`) places items on the stack under the **Custom** type. When executed, its effect depends on the currently set [Custom Action Type](#CAS).
+`Push` (`alt-s`) places items on the stack under the **Custom** type. When executed, its effect depends on the currently set [Custom Action Type](#cas).
 
 [^7]: Although safeguards exist to keep these alive and prevent data loss during normal application execution and shutdown, if reliability is crucial it might be safer to define your own custom actions to perform, manage and monitor these actions externally. Ideas and contributions in this area are welcome!
 
 ##### *CAS*
 
-All custom-type actions display their action in the stash as the current Custom Action State (CAS), which can be toggled when in the Stash overlay using [`Undo/Redo`](#Actions). The default state is `Symlink`.
+All custom-type actions display their action in the stash as the current Custom Action State (CAS), which can be toggled when in the Stash overlay using [`Undo/Redo`](#actions). The default state is `Symlink`.
 
-The CAS can be shared or exclusive. The `App` CAS is exclusive: when in this state, stash actions (such as [`ClearStash`](#Actions)) only affect the `App` stash, and only `App` items are shown in the overlay. The symlink action is inclusive: it is shown and executed together with the other (`Copy` and `Cut`) actions.
+The CAS can be shared or exclusive. The `App` CAS is exclusive: when in this state, stash actions (such as [`ClearStash`](#actions)) only affect the `App` stash, and only `App` items are shown in the overlay. The symlink action is inclusive: it is shown and executed together with the other (`Copy` and `Cut`) actions.
 
-Custom stack types can be declared in the `[stash]` section of the config, and executed through the same channels as the built-in actions -- the overlay, the [Menu](#Menu), or through the [`FlushStash`](#Actions) action.
+Custom stack types can be declared in the `[stash]` section of the config, and executed through the same channels as the built-in actions -- the overlay, the [Menu](#menu), or through the [`FlushStash`](#actions) action.
 
 ### Filters
 
@@ -297,7 +297,7 @@ Only zsh is supported for now.
 
 The output of `fs :tool shell` will, when sourced, provide the jump and jump+open functions:
 
-The jump function (`z`) is a replacement for `cd`, except that incomplete queries are matched to a most likely destination drawn from the unified f:ist database. This behavior closely mirrors that of [zoxide](https://github.com/ajeetdsouza/zoxide).
+The jump function (`z`) is a replacement for `cd`, except that incomplete queries are matched to a most likely destination drawn from the unified f:ist database. This behavior is inspired by zoxide[^13].
 
 > [!NOTE]
 >
@@ -485,6 +485,18 @@ Replacements:
 Configuration is presently only documented in the source files: [Main Config](./src/config/mod.rs), [Panes](./src/config/panes.rs), [Styling](./src/config/styles.rs), [Miscellaneous UI](./src/config/ui.rs), [Lessfilter](./src/lessfilter/config.rs), [Lessfilter](./src/lessfilter/config.rs), [Matchmaker Config](./src/run/mm_config.rs)[^12].
 
 [^12]: For more information on this one, you can refer to the matchmaker documentation [here](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/src/config.rs).
+
+[^13]: f:ist uses an improved implementation by default, although the simple [zoxide](https://github.com/ajeetdsouza/zoxide) implementation can be enabled by disabling lambda:
+
+    **Event clock**: zoxide score decay is coupled to wall-clock time. The problem is that after any extended period of inactivity, all scores decay toward zero, and the first directories visited on return immediately dominate the ranking regardless of prior history ([see](https://github.com/jghub/ze/tree/master)). f:ist replaces wall-clock time with an event clock: each cd action advances the clock by one tick. The clock stands still during inactive periods and no score decay occurs during such periods.
+
+    **Scoring**: zoxide uses recency buckets to multiply existing score. f:ist replaces this with a monoexponential decay kernel. The decay rate is controlled by `lambda` (default `8e-3`/cd actions, half-life `ln(2)/lambda` ≈ 87 cd actions).
+
+    **Unified database**: f:ist maintains a single SQLite database tracking files, directories, and applications together, rather than separate databases for each.
+
+    **Pruning**: Pruning happens automatically and lazily once db exceeds a certain size. For more information, see `fs :tool bump --help`.
+
+    **Interactive fallback**: When no match is found, or when the top result is the current directory, f:ist can be configured to start an interactive search interface instead of failing.
 
 ### Notes
 

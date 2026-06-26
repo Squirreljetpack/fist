@@ -6,10 +6,7 @@ use sqlx::{
     prelude::FromRow,
     sqlite::{SqliteTypeInfo, SqliteValueRef},
 };
-use std::{
-    ffi::OsString,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::ffi::OsString;
 
 use super::Epoch;
 use crate::abspath::{AbsPath, OsStringWrapper};
@@ -20,8 +17,11 @@ pub struct Entry {
     pub path: AbsPath,
     pub alias: String,
     pub cmd: OsStringWrapper,
+    // Initialized to 0 in `Entry::new`; set to the current atime (tick or
+    // wall-clock) by `set_entry` when the entry is first pushed to the db.
     pub atime: Epoch,
     pub count: i32, // should be non-negative but currently leaky
+    pub score: f64,
 }
 
 impl Entry {
@@ -32,13 +32,11 @@ impl Entry {
         Self {
             name: name.into(),
             path,
-            atime: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs() as Epoch,
+            atime: 0,
             alias: String::new(),
             cmd: OsStringWrapper::default(),
             count: 1,
+            score: 1.0,
         }
     }
 
@@ -67,7 +65,7 @@ impl<'r> Decode<'r, Sqlite> for AbsPath {
 impl<'q> Encode<'q, Sqlite> for AbsPath {
     fn encode_by_ref(
         &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer,
     ) -> Result<IsNull, BoxDynError> {
         let bytes = os_str_to_bytes(self.as_os_str());
         <Vec<u8> as Encode<Sqlite>>::encode(bytes.into_owned(), buf)
@@ -92,7 +90,7 @@ impl<'r> Decode<'r, Sqlite> for OsStringWrapper {
 impl<'q> Encode<'q, Sqlite> for OsStringWrapper {
     fn encode_by_ref(
         &self,
-        buf: &mut <Sqlite as Database>::ArgumentBuffer<'q>,
+        buf: &mut <Sqlite as Database>::ArgumentBuffer,
     ) -> Result<IsNull, BoxDynError> {
         let bytes = os_str_to_bytes(self.as_os_str());
         <Vec<u8> as Encode<Sqlite>>::encode(bytes.into_owned(), buf)

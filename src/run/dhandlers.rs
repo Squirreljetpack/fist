@@ -130,7 +130,7 @@ impl FsMatchmaker {
                     })
                 });
                 if execute(None, &path, state) {
-                    GLOBAL::db().bump(path.is_dir(), path);
+                    GLOBAL::db().bump_path(path.is_dir(), path);
                 }
             }
         });

@@ -18,7 +18,7 @@ use crate::{
     cli::env::EnvOpts,
     clipboard,
     config::Config,
-    db::{DbTable, Pool, zoxide::DbFilter},
+    db::{DbTable, Pool},
     errors::CliError,
     run::{
         action::{fsaction_aliaser, fsaction_handler},
@@ -214,7 +214,7 @@ pub async fn start(
     // init history capabilities
     {
         let mut guard = DB_FILTER.lock().await;
-        *guard = Some(DbFilter::new(&cfg.history));
+        *guard = Some(cfg.history.clone());
     }
     // init global
     GLOBAL::init(

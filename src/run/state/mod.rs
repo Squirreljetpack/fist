@@ -12,7 +12,7 @@ use tokio;
 
 use crate::config::GlobalConfig;
 use crate::{
-    db::{Connection, DbSortOrder, Pool, zoxide::DbFilter},
+    db::{Connection, DbSortOrder, Pool, zoxide::HistoryConfig},
     errors::DbError,
     run::{FsPane, action::FsAction},
     utils::text::{ToastContent, ToastStyle, make_toast},
@@ -31,7 +31,7 @@ pub use temp::*;
 // ------------- TRACKING -----------------------
 
 // just try different kinds of locks :p
-pub static DB_FILTER: tokio::sync::Mutex<Option<DbFilter>> =
+pub static DB_FILTER: tokio::sync::Mutex<Option<HistoryConfig>> =
     const { tokio::sync::Mutex::const_new(None) };
 // ------------- READ_ONLY ------------------------
 pub mod GLOBAL {
@@ -137,16 +137,9 @@ pub mod GLOBAL {
         conn: &mut Connection,
         sort: DbSortOrder,
     ) -> Result<Vec<crate::db::Entry>, DbError> {
-        let mut guard = DB_FILTER.lock().await;
-        let db_filter = guard.as_mut().unwrap();
-        if conn.table_name != "dirs" {
-            let o = std::mem::take(&mut db_filter.resolve_symlinks);
-            let ret = conn.get_entries(sort, db_filter).await;
-            db_filter.resolve_symlinks = o;
-            ret
-        } else {
-            conn.get_entries(sort, db_filter).await
-        }
+        let guard = DB_FILTER.lock().await;
+        let config = guard.as_ref().unwrap();
+        conn.get_entries(sort, config, conn.table).await
     }
 }
 

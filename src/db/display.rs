@@ -1,10 +1,18 @@
-use chrono::{DateTime, Local};
 use cba::{bog::BogUnwrapExt, prints};
+use chrono::{DateTime, Local};
 use comfy_table::{ContentArrangement, Row, Table, presets::UTF8_FULL};
 
 use crate::db::{Entry, Epoch};
 
-pub fn display_entries(entries: &[Entry]) {
+/// Print a formatted table to stdout.
+///
+/// `lambda`: when `None`, the "Last Accessed" column shows a formatted
+/// date; when `Some` (EMS mode), it shows the raw tick count and an extra
+/// "Score" column appears with `{:.2}` formatting.
+pub fn display_entries(
+    entries: &[Entry],
+    lambda: Option<f64>,
+) {
     let mut table = Table::new();
 
     // Style
@@ -12,23 +20,42 @@ pub fn display_entries(entries: &[Entry]) {
     table.set_content_arrangement(ContentArrangement::Dynamic);
 
     // Header row
-    table.set_header(Row::from(vec![
+    let mut headers = vec![
         "Name",
         "Path",
         "Alias",
-        "Last Accessed",
+        if lambda.is_none() {
+            "Last Accessed"
+        } else {
+            "Last Access (tick)"
+        },
         "Count",
-    ]));
+    ];
+    if lambda.is_some() {
+        headers.push("Score");
+    }
+    table.set_header(Row::from(headers));
 
     // Add rows
     for entry in entries {
-        let row = Row::from(vec![
-            entry.name.as_str(),
-            &entry.path.to_string_lossy(),
-            &entry.alias,
-            &display_epoch(entry.atime),
-            &entry.count.to_string(),
-        ]);
+        let atime_str = if lambda.is_none() {
+            display_epoch(entry.atime)
+        } else {
+            entry.atime.to_string()
+        };
+
+        let mut row_cells = vec![
+            entry.name.as_str().to_string(),
+            entry.path.to_string_lossy().to_string(),
+            entry.alias.clone(),
+            atime_str,
+            entry.count.to_string(),
+        ];
+        if lambda.is_some() {
+            row_cells.push(format!("{:.2}", entry.score));
+        }
+
+        let row = Row::from(row_cells);
         table.add_row(row);
     }
 

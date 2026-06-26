@@ -6,16 +6,6 @@ Arc str for render storage?
 
 ( fs .; ) 63.56s user 12.48s system 359% cpu 21.143 total # to 350k
 
-lessfilter preview: .desktop, .app, .exe: display icons
-
-- review and test
-
-lessfilter chafa:
-
-- pass &run to to_progs
-- image_viewer take &image_viewer as override
-- test sixel
-
 # nnn
 
 - Create, list, extract (to), mount (FUSE based) archives
@@ -44,6 +34,16 @@ lessfilter chafa:
 
 Better support for some of the modes
 sudo prompting (for this and other actions)
+
+lessfilter preview: .desktop, .app, .exe: display icons
+- review and test
+
+lessfilter chafa:
+
+- pass &run to to_progs
+- image_viewer take &image_viewer as override
+- test sixel
+- cd hook to ls: first refactor ansi-2-tui to use ansi tokenizer/vte
 
 # Archives
 
