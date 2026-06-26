@@ -33,6 +33,11 @@ pub enum SubTool {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<OsString>,
     },
+    /// Trash files
+    Trash {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<OsString>,
+    },
     /// Show binds.
     ShowBinds,
     /// List mappings supported by the --type parameter.

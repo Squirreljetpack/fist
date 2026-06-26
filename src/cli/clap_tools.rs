@@ -115,3 +115,33 @@ pub struct BumpCommand {
 
 #[derive(Debug, Parser, Default, Clone)]
 pub struct TypesCommand {}
+
+/// How `--follow` resolves symlinks before trashing.
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FollowMode {
+    /// Delete each symlink's immediate target as well.
+    Default,
+    /// Display the symlink chain for each input that is a symlink, then exit without trashing.
+    Show,
+    /// Delete each symlink chain to its end.
+    Recursive,
+}
+
+#[derive(Debug, Parser, Default, Clone)]
+pub struct TrashCommand {
+    /// Paths to trash.
+    #[arg(value_name = "PATHS")]
+    pub paths: Vec<PathBuf>,
+
+    /// No prompt when when trash fails.
+    #[arg(short, long)]
+    pub quiet: bool,
+
+    /// Delete when when trash fails.
+    #[arg(short, long)]
+    pub force: bool,
+
+    /// Resolve symlinks before trashing.
+    #[arg(long, value_enum)]
+    pub follow: Option<FollowMode>,
+}

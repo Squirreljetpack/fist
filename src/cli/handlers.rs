@@ -10,9 +10,10 @@ use cba::{
 use clap::Parser;
 use globset::GlobBuilder;
 use std::{
+    collections::HashSet,
     env::{current_dir, set_current_dir},
     io::BufRead,
-    path::{MAIN_SEPARATOR_STR, PathBuf},
+    path::{MAIN_SEPARATOR_STR, Path, PathBuf},
     process::{Command, exit},
 };
 
@@ -55,7 +56,11 @@ use crate::{
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
-    utils::{colors::display_ratatui_styles, formatter::format_path, path::paths_base},
+    utils::{
+        colors::display_ratatui_styles,
+        formatter::format_path,
+        path::{expand_follow, follow_symlink_chain, paths_base},
+    },
 };
 use fist_types::filters::{SortOrder, Visibility};
 use fist_types::{
@@ -689,6 +694,7 @@ async fn handle_tools(
             SubTool::Shell { args: args.clone() },
             SubTool::Lessfilter { args: args.clone() },
             SubTool::Bump { args: args.clone() },
+            SubTool::Trash { args: args.clone() },
             SubTool::Types { args: args.clone() },
         ])
         .await?
@@ -805,7 +811,7 @@ async fn handle_tools(
                 for path in paths {
                     if !path.exists() {
                         ebog!("{} does not exist!", path.to_string_lossy());
-                        exit(1);
+                        return Err(CliError::Handled);
                     }
                     let path = AbsPath::new_canonical(path);
                     if exclude.as_ref().is_some_and(|e| e.is_match(&path)) {
@@ -891,6 +897,159 @@ async fn handle_tools(
 
             let TypesCommand { .. } = TypesCommand::parse_from(args);
             todo!()
+        }
+        SubTool::Trash { mut args } => {
+            let path = current_exe().basename();
+            args.insert(0, format!("{path} :tool trash").into());
+
+            let TrashCommand {
+                paths,
+                quiet,
+                force,
+                follow,
+            } = TrashCommand::parse_from(args);
+
+            if paths.is_empty() {
+                ebog!("No paths provided.");
+                return Err(CliError::Handled);
+            }
+
+            // `--follow show`: dry-run. Display each symlink chain (one indent per level)
+            // for inputs that are symlinks, then print counts and exit without trashing.
+            if matches!(follow, Some(FollowMode::Show)) {
+                let original: HashSet<PathBuf> = paths.iter().cloned().collect();
+                let mut linked_unique: HashSet<PathBuf> = HashSet::new();
+                for p in &paths {
+                    let chain = follow_symlink_chain(p);
+                    if chain.is_empty() {
+                        continue;
+                    }
+                    println!("{}", p.display());
+                    for (i, target) in chain.iter().enumerate() {
+                        let indent = " ".repeat(2 * (i + 1));
+                        println!("{indent}{}", target.display());
+                        let target_pb =
+                            <crate::abspath::AbsPath as AsRef<Path>>::as_ref(target).to_path_buf();
+                        if !original.contains(&target_pb) {
+                            linked_unique.insert(target_pb);
+                        }
+                    }
+                }
+                let linked = linked_unique.len();
+                println!("{} inputs, {linked} linked", paths.len());
+                return Ok(());
+            }
+
+            // `--follow default|recursive`: rebuild the path list according to the mode,
+            // preserving first-occurrence order. `default` swaps each symlink for its
+            // immediate target; `recursive` queues every symlink in each chain in
+            // reverse order (chain-end first, original input last).
+            let paths: Vec<PathBuf> = match follow {
+                Some(FollowMode::Default) => expand_follow(paths, false),
+                Some(FollowMode::Recursive) => expand_follow(paths, true),
+                _ => paths,
+            };
+
+            use crate::utils::trash::trash;
+
+            let mut failed: Vec<PathBuf> = Vec::new();
+
+            for p in &paths {
+                match trash(p) {
+                    Ok(()) => {
+                        _ibog!("Trashed: {}", p.to_string_lossy());
+                    }
+                    Err(e) => {
+                        log::error!("Failed to trash {}: {e}", p.to_string_lossy());
+                        failed.push(p.clone());
+                    }
+                }
+            }
+
+            if !failed.is_empty() {
+                for p in &failed {
+                    ebog!("Failed to trash: {}", p.to_string_lossy());
+                }
+            }
+
+            if quiet || (!atty::is(atty::Stream::Stdin) && !force) {
+                if failed.is_empty() {
+                    exit(0);
+                } else {
+                    exit(1);
+                }
+            }
+
+            if !failed.is_empty() {
+                if !force {
+                    // prompt the user
+                    eprint!("Force delete {} failed item(s)? [y/N]: ", failed.len());
+                    use std::io::Write as _;
+                    let _ = std::io::stderr().flush();
+
+                    let mut line = String::new();
+                    let bytes_read = std::io::stdin().read_line(&mut line);
+                    let answer = line.trim().to_ascii_lowercase();
+
+                    if !answer.starts_with("y") {
+                        exit(0);
+                    }
+                }
+
+                let mut delete_failed: Vec<PathBuf> = Vec::new();
+                for p in &failed {
+                    let res = if p.is_dir() {
+                        std::fs::remove_dir_all(p)
+                    } else {
+                        std::fs::remove_file(p)
+                    };
+                    match res {
+                        Ok(()) => {
+                            _ibog!("Deleted: {}", p.to_string_lossy());
+                        }
+                        Err(e) => {
+                            ebog!("Failed to delete {}: {e}", p.to_string_lossy());
+                            delete_failed.push(p.clone());
+                        }
+                    }
+                }
+
+                if delete_failed.is_empty() {
+                    ibog!("All items deleted.");
+                    return Ok(());
+                }
+
+                // no prompt means we exit
+                if force {
+                    exit(1);
+                }
+
+                // Last resort: prompt the user to escalate to `sudo rm -rf` for anything
+                // that still failed after both trash and force-delete.
+                eprint!(
+                    "Retry with sudo for {} failed item(s)? [y/N]: ",
+                    delete_failed.len()
+                );
+                use std::io::Write as _;
+                let _ = std::io::stderr().flush();
+
+                let mut line = String::new();
+                let _ = std::io::stdin().read_line(&mut line);
+                let answer = line.trim().to_ascii_lowercase();
+
+                if !answer.starts_with("y") {
+                    exit(1);
+                }
+
+                let mut sudo = Command::new("sudo")
+                    .with_arg("rm")
+                    .with_arg("-rf")
+                    .with_args(&delete_failed);
+                sudo._exec();
+            } else if !quiet {
+                ibog!("Trashed {} items.", paths.len());
+            }
+            Ok(())
         }
     }
 }

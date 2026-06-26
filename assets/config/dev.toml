@@ -20,7 +20,6 @@
     one_line           = true
     default_visibility = { ignore = true }
     default_sort       = "none"
-    search_empty_query = true
 
     rg_status_template = '''
 {blue:filter: {}} \s\m/\t

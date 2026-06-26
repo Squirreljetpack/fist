@@ -259,6 +259,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('lessfilter', 'lessfilter', [CompletionResultType]::ParameterValue, 'Context and preset dependent file handler')
             [CompletionResult]::new('pager', 'pager', [CompletionResultType]::ParameterValue, 'pager')
             [CompletionResult]::new('bump', 'bump', [CompletionResultType]::ParameterValue, 'Bump history entries')
+            [CompletionResult]::new('trash', 'trash', [CompletionResultType]::ParameterValue, 'Trash files')
             [CompletionResult]::new('show-binds', 'show-binds', [CompletionResultType]::ParameterValue, 'Show binds')
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
             break
@@ -279,6 +280,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('lessfilter', 'lessfilter', [CompletionResultType]::ParameterValue, 'Context and preset dependent file handler')
             [CompletionResult]::new('pager', 'pager', [CompletionResultType]::ParameterValue, 'pager')
             [CompletionResult]::new('bump', 'bump', [CompletionResultType]::ParameterValue, 'Bump history entries')
+            [CompletionResult]::new('trash', 'trash', [CompletionResultType]::ParameterValue, 'Trash files')
             [CompletionResult]::new('show-binds', 'show-binds', [CompletionResultType]::ParameterValue, 'Show binds')
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
             break
@@ -405,6 +407,28 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;bump' {
+            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
+            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
+            [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
+            [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
+            [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
+            [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
+            break
+        }
+        'fs;:tool;trash' {
+            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
+            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
+            [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
+            [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
+            [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
+            [CompletionResult]::new('--enter-prompt', '--enter-prompt', [CompletionResultType]::ParameterName, 'enter-prompt')
+            [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
+            break
+        }
+        'fs;:t;trash' {
             [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
