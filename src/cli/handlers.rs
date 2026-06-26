@@ -907,6 +907,7 @@ async fn handle_tools(
                 quiet,
                 force,
                 follow,
+                abort,
             } = TrashCommand::parse_from(args);
 
             if paths.is_empty() {
@@ -953,23 +954,29 @@ async fn handle_tools(
             use crate::utils::trash::trash;
 
             let mut failed: Vec<PathBuf> = Vec::new();
+            let mut skipped = 0;
 
             for p in &paths {
+                if !abort && !p.exists() {
+                    skipped += 1;
+                    continue;
+                }
                 match trash(p) {
                     Ok(()) => {
                         _ibog!("Trashed: {}", p.to_string_lossy());
                     }
                     Err(e) => {
-                        log::error!("Failed to trash {}: {e}", p.to_string_lossy());
+                        ebog!("Failed to trash {}: {e}", p.to_string_lossy());
                         failed.push(p.clone());
+                        if abort {
+                            return Err(CliError::Handled);
+                        }
                     }
                 }
             }
 
-            if !failed.is_empty() {
-                for p in &failed {
-                    ebog!("Failed to trash: {}", p.to_string_lossy());
-                }
+            if skipped > 0 {
+                wbog!("Skipped {skipped} nonexistant paths");
             }
 
             if quiet || (!atty::is(atty::Stream::Stdin) && !force) {
@@ -1010,6 +1017,9 @@ async fn handle_tools(
                         Err(e) => {
                             ebog!("Failed to delete {}: {e}", p.to_string_lossy());
                             delete_failed.push(p.clone());
+                            if abort {
+                                return Err(CliError::Handled);
+                            }
                         }
                     }
                 }

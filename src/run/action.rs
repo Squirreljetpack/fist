@@ -642,10 +642,10 @@ pub fn fsaction_handler(
 
             // jump between home and current root if empty (seems reasonable)
             if paths.is_empty() {
-                paths = vec![__home().into()];
-                if let Some(p) = cba::bath::find_root() {
-                    paths.push(p);
-                }
+                paths = vec![
+                    __home().into(),
+                    cba::bath::find_root().unwrap_or(PathBuf::from(std::path::MAIN_SEPARATOR_STR)),
+                ];
             }
 
             let canonical = |p: &std::path::Path| p.abs(__home()).canonicalize().ok();
@@ -660,11 +660,7 @@ pub fn fsaction_handler(
                 0
             };
 
-            let target_path = if paths.is_empty() {
-                __home().into()
-            } else {
-                paths[idx].abs(__home())
-            };
+            let target_path = paths[idx].abs(__home());
 
             if target_path.is_dir() {
                 let abs_target = AbsPath::new_unchecked(target_path);
@@ -1275,7 +1271,7 @@ macro_rules! enum_from_str_display {
                                             .iter()
                                             .map(|p| p.to_string_lossy())
                                             .collect::<Vec<_>>()
-                                            .join("⦀")
+                                            .join(",")
                                         )
                                     }
                                 }
@@ -1371,8 +1367,10 @@ macro_rules! enum_from_str_display {
 
                                 /* ---------- Manually parsed ---------- */
                                 "Jump" => {
-                                    let values = data.ok_or_else(|| "Missing path for Jump")?;
-                                    let paths = cba::bring::split::split_on_unescaped_delimiter(values, "|||").iter().map(PathBuf::from).collect();
+                                    let Some(values) = data else {
+                                        return Ok(Self::Jump(vec![]))
+                                    };
+                                    let paths = cba::bring::split::split_on_unescaped_delimiter(values, ",").iter().map(PathBuf::from).collect();
                                     Ok(Self::Jump(paths))
                                 }
                                 "Lessfilter" => {

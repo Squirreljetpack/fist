@@ -9,7 +9,6 @@ Arc str for render storage?
 lessfilter preview: .desktop, .app, .exe: display icons
 
 - review and test
-  tools: trash
 
 lessfilter chafa:
 
@@ -176,3 +175,5 @@ Possible Conditions:
 
 - Custom panes as wasm?
   - music/git
+
+- -f, -q exclusive? --alias, --bin='o,ll' -> how to do it without duplication: parse the final script, error on missing definitions, skip definitions, write to file instead, chmod + x

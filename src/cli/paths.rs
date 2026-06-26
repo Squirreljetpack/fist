@@ -1,4 +1,4 @@
-use cba::{bath::root_dir, bog::BogUnwrapExt, ebog, expr_as_path_fn};
+use cba::{bath::find_root, bog::BogUnwrapExt, ebog, expr_as_path_fn};
 use std::{env, ffi::OsString, path::PathBuf};
 
 pub static BINARY_FULL: &str = "fist";
@@ -96,7 +96,7 @@ fn cwd() -> PathBuf {
 expr_as_path_fn!(__cwd, cwd());
 
 // the absolute home directory, or root
-expr_as_path_fn!(__home, dirs::home_dir().unwrap_or(root_dir()));
+expr_as_path_fn!(__home, dirs::home_dir().unwrap_or(find_root().unwrap_or(PathBuf::from(std::path::MAIN_SEPARATOR_STR))));
 
 // ---------------------- FILES ----------------------
 #[cfg(debug_assertions)]

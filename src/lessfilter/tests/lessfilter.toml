@@ -1,83 +1,83 @@
 infer = "infer"
 
 [rules]
-  default = [  ]
-  preview = [
-    [ [ "Directory" ], [ "40|mime:directory/*" ] ],
-    [ [ "Image" ], [ "mime:image/*" ] ],
-    [ [ "Text" ], [ "mime:text/*" ] ],
-    [ [ "Application" ], [ "application" ] ],
-    [ [ "Metadata" ], [ "5|mime:*/*" ] ],
-    [ [ "sqlite" ], [ "mime:application/vnd.sqlite3" ] ],
+default = []
+preview = [
+    [["Directory"], ["40|mime:directory/*"]],
+    [["Image"], ["mime:image/*"]],
+    [["Text"], ["mime:text/*"]],
+    [["Application"], ["application"]],
+    [["Metadata"], ["5|mime:*/*"]],
+    [["sqlite"], ["mime:application/vnd.sqlite3"]],
     [
-      [ "Metadata" ],
-      [
-        "mime:application/zip",
-        "mime:application/x-tar",
-        "mime:application/x-gzip",
-        "mime:application/x-bzip2",
-        "mime:application/x-xz",
-        "ext:zip",
-        "ext:tar",
-        "ext:gz",
-        "ext:bz2",
-        "ext:xz",
-      ],
+        ["Metadata"],
+        [
+            "mime:application/zip",
+            "mime:application/x-tar",
+            "mime:application/x-gzip",
+            "mime:application/x-bzip2",
+            "mime:application/x-xz",
+            "ext:zip",
+            "ext:tar",
+            "ext:gz",
+            "ext:bz2",
+            "ext:xz",
+        ],
     ],
-  ]
+]
 
-  edit = [
-    [ [ "Text" ], [ "mime:text/*" ] ],
-    [ [ "Directory" ], [ "mime:directory/*" ] ],
+edit = [
+    [["Text"], ["mime:text/*"]],
+    [["Directory"], ["mime:directory/*"]],
     [
-      [ "Metadata" ],
-      [
-        "mime:application/zip",
-        "mime:application/x-tar",
-        "mime:application/x-gzip",
-        "mime:application/x-bzip2",
-        "mime:application/x-xz",
-        "ext:zip",
-        "ext:tar",
-        "ext:gz",
-        "ext:bz2",
-        "ext:xz",
-      ],
+        ["Metadata"],
+        [
+            "mime:application/zip",
+            "mime:application/x-tar",
+            "mime:application/x-gzip",
+            "mime:application/x-bzip2",
+            "mime:application/x-xz",
+            "ext:zip",
+            "ext:tar",
+            "ext:gz",
+            "ext:bz2",
+            "ext:xz",
+        ],
     ],
-  ]
+]
 
-  display = [
-    [ [ "Application" ], [ "application" ] ],
-    [ [ "Directory" ], [ "mime:directory/*" ] ],
-    [ [ "Text" ], [ "mime:text/*" ] ],
-    [ [ "Metadata" ], [  ] ],
-  ]
+display = [
+    [["Application"], ["application"]],
+    [["Directory"], ["mime:directory/*"]],
+    [["Text"], ["mime:text/*"]],
+    [["Metadata"], []],
+]
 
-  extended = [
-    [ [ "Application" ], [ "application" ] ],
-    [ [ "Image" ], [ "mime:image/*" ] ],
-    [ [ "Directory" ], [ "mime:directory/*" ] ],
-    [ [ "Text" ], [ "mime:text/*" ] ],
-    [ [ "Metadata" ], [  ] ],
-  ]
+extended = [
+    [["Application"], ["application"]],
+    [["Image"], ["mime:image/*"]],
+    [["Directory"], ["mime:directory/*"]],
+    [["Text"], ["mime:text/*"]],
+    [["Metadata"], []],
+]
 
-  info = [
-    [ [ "Application" ], [ "application" ] ],
-    [ [ "Image" ], [ "mime:image/*" ] ],
-    [ [ "Directory" ], [ "mime:directory/*" ] ],
-    [ [ "Metadata" ], [  ] ],
-  ]
+info = [
+    [["Application"], ["application"]],
+    [["Image"], ["mime:image/*"]],
+    [["Directory"], ["mime:directory/*"]],
+    [["Metadata"], []],
+]
 
-  open = [
-    [ [ "Application" ], [ "application" ] ],
-    [ [ "Directory" ], [ "mime:directory/*" ] ],
-    [ [ "Text" ], [ "mime:text/*" ] ],
-    [ [ "Image" ], [ "mime:image/*" ] ],
-    [ [ "Metadata" ], [  ] ],
-  ]
+open = [
+    [["Application"], ["application"]],
+    [["Directory"], ["mime:directory/*"]],
+    [["Text"], ["mime:text/*"]],
+    [["Image"], ["mime:image/*"]],
+    [["Metadata"], []],
+]
 
 [actions]
-  sqlite = '''
+sqlite = '''
 have() {
     command -v "$1" >/dev/null 2>&1
 }

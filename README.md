@@ -7,17 +7,20 @@ F:ist is a fast and intuitive search tool for the filesystem.
 # Installation
 
 Install from GitHub releases[^20]:
+
 ```shell
 curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/fist/main/install.sh | sh
 ```
 
 Install the required dependencies:
+
 ```shell
 # dependencies (optional)
 cargo install bat fd-find eza ripgrep
 ```
 
 Optionally, setup shell integration:
+
 ```
 # Only zsh support for now
 echo "\neval $(fs :tool shell)" >> ~/.zshrc # or whatever the startup file of your respective shell is.
@@ -122,12 +125,12 @@ In this pane, the context column contains the query matches (and any requested c
 
 This pane operates in a query and a filter mode, which can be switched between[^4]:
 
-- In _query mode_, the results are (dynamically) populated with all text matches of a given query (your input).
-- In _filter mode_, the results are filtered to only lines matching your input.
+- In *query mode*, the results are (dynamically) populated with all text matches of a given query (your input).
+- In *filter mode*, the results are filtered to only lines matching your input.
 - By default, the filter applies to the main (first) column. To switch to filtering the second column, type `%` (i.e. `path_filter % context_filter`)
 - The current query/filter of the inactive mode is displayed above your input.
 - In query mode, multiple queries (of which any should match) are seperated by whitespace. Queries containing whitespace can be grouped together by single quotes. Single quotes can be escaped as `\'`.
-- The default mode treats the given queries as _regexes_ (as opposed to the filter input, which does not). This can be toggled, or the default [reconfigured](#configuration).
+- The default mode treats the given queries as *regexes* (as opposed to the filter input, which does not). This can be toggled, or the default [reconfigured](#configuration).
 
 > [!NOTE]
 >
@@ -216,7 +219,7 @@ f:ist records the **files, directories and applications** that you've visited in
 
 <img src=".README.assets/image-20260301082915830.png" alt="image-20260301082915830" style="width:500px" />
 
-The _Files_ and _Folders_ panes are most useful when integrated into the ambient context where you usually access files. For example, the [shell](#shell-integration), or a [command launcher](#dependencies).
+The *Files* and *Folders* panes are most useful when integrated into the ambient context where you usually access files. For example, the [shell](#shell-integration), or a [command launcher](#dependencies).
 
 ### App
 
@@ -250,13 +253,13 @@ For more information on any of the panes, run `fs [pane] --help` with the approp
 
 The **Stash** (`ctrl-t`) is a place where actions on items are queued. Within the overlay, stashed item item statuses are visible, and they can be edited, rearranged, removed and executed. Items can also be executed through the [`Paste`] or [`StackFlush`](#Actions) actions.
 
-`Copy` and `Cut` places items on the Stash under the `Copy` and `Cut` stack action types respectively. The `Paste` action executes all stashed `Copy`, `Cut` and `Symlink` tasks, transferring files to their destinations -- the active directory at the time of _execution_ by default.[^7]
+`Copy` and `Cut` places items on the Stash under the `Copy` and `Cut` stack action types respectively. The `Paste` action executes all stashed `Copy`, `Cut` and `Symlink` tasks, transferring files to their destinations -- the active directory at the time of *execution* by default.[^7]
 
 `Push` (`alt-s`) places items on the stack under the **Custom** type. When executed, its effect depends on the currently set [Custom Action Type](#CAS).
 
 [^7]: Although safeguards exist to keep these alive and prevent data loss during normal application execution and shutdown, if reliability is crucial it might be safer to define your own custom actions to perform, manage and monitor these actions externally. Ideas and contributions in this area are welcome!
 
-##### _CAS_
+##### *CAS*
 
 All custom-type actions display their action in the stash as the current Custom Action State (CAS), which can be toggled when in the Stash overlay using [`Undo/Redo`](#Actions). The default state is `Symlink`.
 
@@ -374,17 +377,25 @@ Though the syntax has many parts, configuration should be fairly straightforward
 ### --- lessfilter.toml -- ###
 
 preview = [
-  # ...
-  # On an file with mime-type sqlite-3 and a system with sqlite3, this rule gets a score of 20.
-  [ [ "sqlite" ], [ "application/vnd.sqlite3", "have:sqlite3" ] ],
-  # ...
+    # ...
+    # On an file with mime-type sqlite-3 and a system with sqlite3, this rule gets a score of 20.
+    [["sqlite"], ["application/vnd.sqlite3", "have:sqlite3"]],
+    # ...
 ]
 
 # When invoking the edit action (in `fist` or through the `n` alias),
 # any file belonging to this category will be opened with the system's default preferred application.
 # Since this rule has minimal priority (at most 1), any subsequent rule will override it.
 edit = [
-  [ [ "Open" ], [ "1|cat:document", "1|cat:spreadsheet", "1|cat:email", "1|cat:academic" ] ],
+    [
+        ["Open"],
+        [
+            "1|cat:document",
+            "1|cat:spreadsheet",
+            "1|cat:email",
+            "1|cat:academic",
+        ],
+    ],
 ]
 ```
 
@@ -403,7 +414,7 @@ Additional actions can be defined with shell syntax. For example:
 ```toml
 [rules]
 alternate = [
-  [["code"], ["*/*"]],
+    [["code"], ["*/*"]],
 ]
 [actions]
 code = 'code --add {}'

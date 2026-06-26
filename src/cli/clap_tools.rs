@@ -137,11 +137,15 @@ pub struct TrashCommand {
     #[arg(short, long)]
     pub quiet: bool,
 
+    /// Abort early on failure.
+    #[arg(short, long)]
+    pub abort: bool,
+
     /// Delete when when trash fails.
     #[arg(short, long)]
     pub force: bool,
 
     /// Resolve symlinks before trashing.
-    #[arg(long, value_enum)]
+    #[arg(long, short = 's', value_enum)]
     pub follow: Option<FollowMode>,
 }

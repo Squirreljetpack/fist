@@ -147,13 +147,14 @@ pub fn fs_reload(
         STACK::with_current_mut(|pane| {
             GLOBAL::with_cfg(|c| {
                 // apply on non-initial new pane: update visibility
-                if let Some(dv) = STORE::take::<Visibility>() {
+                if let Some(mut dv) = STORE::get::<Visibility>() {
                     let pv = c.panes.default_visibility(pane).unwrap_or_default();
 
                     // behaves as if initial (fd) cmd was specified without visibility modifiers
                     if let Some(v) = pane.vis_mut() {
+                        dv.apply(pv);
                         *v = dv;
-                        v.apply(pv);
+                        STORE::take::<Visibility>();
                     }
                 } else if let Some(pv) = c.panes.default_visibility(pane)
                     && let Some(v) = pane.vis_mut()

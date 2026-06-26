@@ -1,54 +1,50 @@
 [tui]
-    percentage = 50
-    min        = 10
-    max        = 25
+percentage = 50
+min = 10
+max = 25
 
 [results]
-    wrap = true
-    scroll_wrap = true
-    row_connection = "Disjoint"
+wrap = true
+scroll_wrap = true
+row_connection = "Disjoint"
 
 # default
 [[preview.layout]]
-    side       = "right"
-    percentage = 40
-    min        = 30
-    max        = 120
-    border     = { type = "LightDoubleDashed", color = "DarkGray" }
+side = "right"
+percentage = 40
+min = 30
+max = 120
+border = { type = "LightDoubleDashed", color = "DarkGray" }
 
 # find
 [[preview.layout]]
-    side       = "top"
-    percentage = 50
-    min        = 5
-    max        = 50
-    border     = { type = "LightDoubleDashed", color = "DarkGray" }
+side = "top"
+percentage = 50
+min = 5
+max = 50
+border = { type = "LightDoubleDashed", color = "DarkGray" }
 
 # wide
 [[preview.layout]]
-    side       = "right"
-    percentage = 80
-    min        = 5
-    max        = 200
-    border     = { type = "LightDoubleDashed", color = "DarkGray" }
+side = "right"
+percentage = 80
+min = 5
+max = 200
+border = { type = "LightDoubleDashed", color = "DarkGray" }
 
 # app
 [[preview.layout]]
-    side       = "left"
-    percentage = 70
-    min        = 5
-    max        = 20
+side = "left"
+percentage = 70
+min = 5
+max = 20
 
 [preview]
-    wrap = true
-    scroll_wrap = true
+wrap = true
+scroll_wrap = true
 
 [overlay]
-    border = { type = "Rounded", color = "darkGrey", padding = 1 }
-
-# [filters]
-#     border    = { type = "Plain", padding = [ 4, 0 ] }
-#     alignment = "Center"
+border = { type = "Rounded", color = "darkGrey", padding = 1 }
 
 [binds]
 ### MM
@@ -61,7 +57,7 @@
 "alt-r" = "Reload"
 
 "ctrl-[" = "ToggleWrap" # requires keyboard enhancement
-"ctrl-]" = "TogglePreviewWrap"  # requires keyboard enhancement
+"ctrl-]" = "TogglePreviewWrap" # requires keyboard enhancement
 "alt-{" = "ToggleWrap"
 "alt-}" = "TogglePreviewWrap"
 
@@ -82,10 +78,10 @@
 "ctrl-r" = "Search"
 "ctrl-g" = "History"
 "ctrl-z" = "Undo"
+"ctrl-shift-z" = "Redo" # requires keyboard enhancement
 "alt-z" = "Redo"
-"ctrl-shift-z" = "Redo"
-"ctrl-`" = "Jump()"
-"alt-`" = "Jump()"
+"ctrl-`" = "Jump" # requires keyboard enhancement
+"alt-`" = "Jump"
 
 ### Display
 "ctrl-t" = "ShowStash"

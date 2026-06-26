@@ -1,20 +1,15 @@
-use cba::bath::find_root;
 use matchmaker::{
     action::Action,
     bindmap,
     binds::{BindMap, BindMapExt, key},
 };
 
-use crate::{cli::paths::__home, lessfilter::Preset};
+use crate::lessfilter::Preset;
 use fist_types::When;
 
 use super::FsAction;
 
 pub fn default_binds() -> BindMap<FsAction> {
-    let mut jump = vec![__home().into()];
-    if let Some(p) = find_root() {
-        jump.push(p);
-    }
     let mut fs = bindmap!(
         // hidden defaults
         key!(shift-up) => Action::PreviewUp(1),

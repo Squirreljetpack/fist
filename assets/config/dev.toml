@@ -1,39 +1,36 @@
 ### PANES ###
 #
 [panes.nav]
-    show_preview = 60
-    enter_prompt = false
+show_preview = 60
+enter_prompt = false
 
-    default_visibility = { hidden = true }
+default_visibility = { hidden = true }
 
 [panes.find]
-    show_preview = 60
-    enter_prompt = true
+show_preview = 60
+enter_prompt = true
 
-    on_leave_unset_dirs_only = true
+on_leave_unset_dirs_only = true
 
 [panes.search]
-    enter_prompt         = true
-    show_preview         = 20
-    preview_layout_index = 1
+enter_prompt = true
+show_preview = 20
+preview_layout_index = 1
 
-    one_line           = true
-    default_visibility = { ignore = true }
-    default_sort       = "none"
+one_line = true
+default_visibility = { ignore = true }
+default_sort = "none"
 
-    rg_status_template = '''
+rg_status_template = '''
 {blue:filter: {}} \s\m/\t
 '''
-    fs_status_template = '''
+fs_status_template = '''
 {red:query: {}} \s\m/\t
 '''
-
 
 ### STYLES ####
 #
 [styles]
-
-
 ### SETTINGS ###
 #
 [fd]
@@ -43,26 +40,26 @@
 [notify]
 
 [misc]
-    append_mode_logging = true
+append_mode_logging = true
 
 [history]
-    refind = "Search"
+refind = "Search"
 
-    ### ACTIONS ####
+### ACTIONS ####
 
 [stash.backup]
-    scratch  = false
-    target   = true
-    strategy = "copy"
+scratch = false
+target = true
+strategy = "copy"
 
 [stash.work]
-    scratch  = true
-    target   = false
-    strategy = "none"
+scratch = true
+target = false
+strategy = "none"
 
 [stash.scripts]
-    scratch  = true
-    target   = true
-    strategy = { command = "echo {1} to {2}" }
+scratch = true
+target = true
+strategy = { command = "echo {1} to {2}" }
 
 [actions]
