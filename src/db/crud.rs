@@ -153,7 +153,7 @@ impl Connection {
         Ok(entry)
     }
 
-    pub async fn update_alias(
+    pub async fn set_alias(
         &mut self,
         path: &AbsPath,
         new_alias: &str,
@@ -306,10 +306,7 @@ impl Connection {
             end.saturating_sub(start) as i32
         };
 
-        let sql = format!(
-            "SELECT * FROM {} {} LIMIT ? OFFSET ?",
-            self.table, order_by
-        );
+        let sql = format!("SELECT * FROM {} {} LIMIT ? OFFSET ?", self.table, order_by);
 
         sqlx::query_as::<_, Entry>(sqlx::AssertSqlSafe(sql))
             .bind(limit)
@@ -371,11 +368,11 @@ mod tests {
         db.set_entry(&entry).await.unwrap();
 
         let new_alias = "new_alias";
-        db.update_alias(&path, new_alias).await.unwrap();
+        db.set_alias(&path, new_alias).await.unwrap();
         let fetched_entry = db.get_entry(&path).await.unwrap().unwrap();
         assert_eq!(fetched_entry.alias, new_alias);
 
-        db.update_alias(&path, "").await.unwrap();
+        db.set_alias(&path, "").await.unwrap();
         let fetched_entry_no_alias = db.get_entry(&path).await.unwrap().unwrap();
         assert_eq!(fetched_entry_no_alias.alias, "");
     }

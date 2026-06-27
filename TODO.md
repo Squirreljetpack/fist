@@ -36,6 +36,7 @@ Better support for some of the modes
 sudo prompting (for this and other actions)
 
 lessfilter preview: .desktop, .app, .exe: display icons
+
 - review and test
 
 lessfilter chafa:
@@ -177,3 +178,17 @@ Possible Conditions:
   - music/git
 
 - -f, -q exclusive? --alias, --bin='o,ll' -> how to do it without duplication: parse the final script, error on missing definitions, skip definitions, write to file instead, chmod + x
+
+# Mounts pane
+
+    pub name: String: display name
+    pub path: AbsPath: mount path
+    pub alias: String (multi-select, like app, makes sense)
+    pub cmd: OsStringWrapper: command to launch it
+
+    action to Look/Update the command
+
+    mount/run and unmount maps to what? System open, enter are already useful. We should have plenty though i.e. New or whatever.
+    prefixes to show mounted/not
+
+bring back stack progress bar

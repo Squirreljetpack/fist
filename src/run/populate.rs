@@ -533,7 +533,7 @@ impl FsPane {
             }
             Self::Files { sort, .. } => {
                 let sort = *sort;
-                let cwd = STACK::cwd_();
+                let cwd = STACK::_cwd();
                 let pool = GLOBAL::db();
 
                 tokio::spawn(async move {
@@ -553,7 +553,7 @@ impl FsPane {
             }
             Self::Folders { sort, .. } => {
                 let sort = *sort;
-                let cwd = STACK::cwd_();
+                let cwd = STACK::_cwd();
                 let pool = GLOBAL::db();
 
                 tokio::spawn(async move {

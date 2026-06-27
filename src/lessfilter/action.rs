@@ -87,22 +87,22 @@ impl Action {
         match self {
             Action::Directory => match preset {
                 Preset::Preview => (
-                    arr![vec_![: current_exe(), ":tool", "liza", ":u2", path]],
+                    arr![vec_![: current_exe(), ":tool", "liza", ":u2", "--", path]],
                     [true, false, true], // read + execute
                 ),
                 Preset::Display => (
-                    arr![vec_![: current_exe(), ":tool", "liza", ":u", path]],
+                    arr![vec_![: current_exe(), ":tool", "liza", ":u", "--",path]],
                     [true, false, true],
                 ),
                 Preset::Extended => (
                     arr![
                         simple_header(path),
-                        vec_![: current_exe(), ":tool", "liza", "::nav", ":a", path]
+                        vec_![: current_exe(), ":tool", "liza", "::nav", ":a", "--",path]
                     ],
                     [true, false, true],
                 ),
                 Preset::Info => (
-                    arr![vec_![: current_exe(), ":tool", "liza", ":sba", path]],
+                    arr![vec_![: current_exe(), ":tool", "liza", ":sba", "--", path]],
                     [true, false, true],
                 ),
                 Preset::Edit => (arr![infer_visual(path)], [true, false, true]),
@@ -112,21 +112,21 @@ impl Action {
             },
             Action::Text => match preset {
                 Preset::Preview | Preset::Display => (
-                    arr![vec_![: text_renderer_path(), path]],
+                    arr![vec_![: text_renderer_path(), "--", path]],
                     [true, false, false],
                 ),
                 // bat has a "native" header but using our app header is more consistent
                 Preset::Extended => (
                     arr![
                         simple_header(path),
-                        vec_![: text_renderer_path(), path],
+                        vec_![: text_renderer_path(), "--",path],
                         simple_metadata(path)
                     ],
                     [true, false, false],
                 ),
                 Preset::Info => (
                     arr![
-                        vec_![: current_exe(), ":tool", "liza", ":l", path],
+                        vec_![: current_exe(), ":tool", "liza", ":l", "--", path],
                         simple_metadata(path)
                     ],
                     [true, false, false],
@@ -212,13 +212,13 @@ impl Action {
                     // show file stats in addition to metadata like Info
                     if path.is_file() {
                         arr![
-                            vec_![: current_exe(), ":tool", "liza", ":l", path],
+                            vec_![: current_exe(), ":tool", "liza", ":l", "--",path],
                             simple_metadata(path)
                         ]
                     } else {
                         // not a file => skip the metadata
                         // altho simple_metadata = stats if !file, that's just a coincidence and semantically it only makes sense to show stats
-                        arr![vec_![: current_exe(), ":tool", "liza", ":l", path]]
+                        arr![vec_![: current_exe(), ":tool", "liza", ":l", "--",path]]
                     },
                     [true, false, true],
                 ),
@@ -226,11 +226,11 @@ impl Action {
                     // preset info should display size
                     if path.is_file() {
                         arr![
-                            vec_![: current_exe(), ":tool", "liza", ":l", path],
+                            vec_![: current_exe(), ":tool", "liza", ":l", "--",path],
                             simple_metadata(path)
                         ]
                     } else {
-                        arr![vec_![: current_exe(), ":tool", "liza", ":l", path]]
+                        arr![vec_![: current_exe(), ":tool", "liza", ":l", "--",path]]
                     },
                     [true, false, true],
                 ),

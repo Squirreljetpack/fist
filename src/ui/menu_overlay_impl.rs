@@ -1,10 +1,11 @@
 use crate::{
     abspath::AbsPath,
+    db::DbTable,
     fs::{auto_dest, create_all, rename},
     run::{
         FsAction,
-        item::{PathItem, short_display},
-        state::{GLOBAL, TASKS, TOAST},
+        item::short_display,
+        state::{GLOBAL, STACK, TASKS, TOAST},
     },
     utils::text::ToastStyle,
 };
@@ -14,7 +15,6 @@ use matchmaker::ui::{Overlay, OverlayEffect};
 use std::path::Path;
 
 use super::menu_overlay::MenuOverlay;
-use MenuTarget::*;
 
 #[derive(Debug, strum::Display, Clone, Copy)]
 pub enum PromptKind {
@@ -22,40 +22,36 @@ pub enum PromptKind {
     #[strum(serialize = "New folder")]
     NewDir,
     Rename,
+    #[strum(serialize = "Set alias")]
+    SetAlias,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MenuTarget {
-    Item(PathItem),
-    Cwd(AbsPath),
+    Item(AbsPath),
 }
 
-impl Default for MenuTarget {
-    fn default() -> Self {
-        Self::Cwd(AbsPath::empty())
-    }
-}
 impl MenuTarget {
-    pub fn title(&self) -> Option<String> {
+    pub fn abs_path(&self) -> &AbsPath {
         match self {
-            Item(s) => Some(s.path.basename()),
-            _ => None,
+            Self::Item(p) => p,
         }
     }
 }
 
 impl MenuOverlay {
     pub fn target_path(&self) -> AbsPath {
-        match &self.target {
-            Item(p) => p.path.clone(),
-            Cwd(p) => p.clone(),
-        }
+        self.target
+            .as_ref()
+            .map(|t| t.abs_path().clone())
+            .unwrap_or_else(STACK::_cwd)
     }
+
     pub fn target_parent(&self) -> AbsPath {
-        match &self.target {
-            Item(p) => p.path._parent(),
-            Cwd(p) => p.clone(),
-        }
+        self.target
+            .as_ref()
+            .map(|t| t.abs_path()._parent())
+            .unwrap_or_else(STACK::_cwd)
     }
 
     pub fn on_prompt_accept(
@@ -153,6 +149,28 @@ impl MenuOverlay {
                             }
                         }
                     });
+                }
+            }
+            PromptKind::SetAlias => {
+                let path = self.target_path();
+                let alias = self.prompt.input.value();
+                let pool = GLOBAL::db();
+                let table = if path.is_dir() {
+                    DbTable::dirs
+                } else {
+                    DbTable::files
+                };
+
+                pool.set_path_alias(path.clone(), alias.clone(), table);
+
+                if alias.is_empty() {
+                    TOAST::push(
+                        ToastStyle::Normal,
+                        "Alias cleared: ",
+                        [short_display(&path)],
+                    );
+                } else {
+                    TOAST::push(ToastStyle::Success, "Alias set: ", [short_display(&path)]);
                 }
             }
         }

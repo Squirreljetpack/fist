@@ -24,8 +24,8 @@ use crate::{
         pane::FsPane,
         stash::STASH,
         state::{
-            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, STORE, TASKS, TOAST,
-            context::ActionContext, ui::prompt_main_style,
+            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, MenuPrompt, STACK, STORE, TASKS,
+            TOAST, context::ActionContext, ui::prompt_main_style,
         },
     },
     spawn::open_wrapped,
@@ -101,10 +101,13 @@ pub enum FsAction {
     Push,
     /// Copy full path.
     CopyPath,
-    /// Create a new file.
+    /// Create a new file. Paths are relative to the current item's parent.
     New,
-    /// Create a new directory. (todo)
+    /// Create a new directory. Paths are relative to the current item's parent.
+    // todo: lowpri: can also add a config option to compute relative to cwd
     NewDir,
+    /// Set an alias for a file or directory.
+    SetAlias(String),
     /// Rename a file or directory.
     Rename,
 
@@ -317,10 +320,10 @@ pub fn fsaction_aliaser(
             // todo: matchmaker needs to support activating the overlay ourselves so that the activated item is aligned
             FsAction::ShowMenu => {
                 if let Some(p) = state.current_item() {
-                    STORE::set_input_bar(None, MenuTarget::Item(p.clone()));
+                    STORE::set_menu_target(MenuTarget::Item(p.path.clone()));
                     acs![Action::Overlay(4)]
                 } else if let Some(cwd) = STACK::cwd() {
-                    STORE::set_input_bar(None, MenuTarget::Cwd(cwd));
+                    STORE::set_menu_target(MenuTarget::Item(cwd.clone()));
                     acs![Action::Overlay(4)]
                 } else {
                     acs![]
@@ -332,12 +335,8 @@ pub fn fsaction_aliaser(
                     return acs![];
                 }
                 // no support for creating outside of nav
-                if let Some(p) = state.current_raw() {
-                    let p = p.path._parent();
-                    STORE::set_input_bar(Some(PromptKind::New), MenuTarget::Cwd(p));
-                    acs![Action::Overlay(4)]
-                } else if let Some(cwd) = STACK::nav_cwd() {
-                    STORE::set_input_bar(Some(PromptKind::New), MenuTarget::Cwd(cwd));
+                if state.current_raw().is_some() || STACK::nav_cwd().is_some() {
+                    STORE::set_menu_prompt(Some(MenuPrompt::new(PromptKind::New)));
                     acs![Action::Overlay(4)]
                 } else {
                     acs![]
@@ -348,12 +347,23 @@ pub fn fsaction_aliaser(
                     return acs![];
                 }
                 // no support for creating outside of nav
-                if let Some(p) = state.current_raw() {
-                    let p = p.path._parent();
-                    STORE::set_input_bar(Some(PromptKind::NewDir), MenuTarget::Cwd(p));
+                if state.current_raw().is_some() || STACK::nav_cwd().is_some() {
+                    STORE::set_menu_prompt(Some(MenuPrompt::new(PromptKind::NewDir)));
                     acs![Action::Overlay(4)]
-                } else if let Some(cwd) = STACK::nav_cwd() {
-                    STORE::set_input_bar(Some(PromptKind::NewDir), MenuTarget::Cwd(cwd));
+                } else {
+                    acs![]
+                }
+            }
+            FsAction::SetAlias(_) => {
+                if in_prompt || STACK::in_rg() || state.overlay_index().is_some() {
+                    return acs![];
+                }
+                if let Some(item) = state.current_raw() {
+                    let prepop_value = item.tail.to_string();
+                    STORE::set_menu_prompt(Some(
+                        MenuPrompt::new(PromptKind::SetAlias).initial(prepop_value),
+                    ));
+                    STORE::set_menu_target(MenuTarget::Item(item.path.clone()));
                     acs![Action::Overlay(4)]
                 } else {
                     acs![]
@@ -497,7 +507,7 @@ pub fn fsaction_handler(
             STACK::save_input(content, index);
 
             // pane
-            let pane = FsPane::new_fd(STACK::cwd_(), FILTERS::sort(), FILTERS::visibility());
+            let pane = FsPane::new_fd(STACK::_cwd(), FILTERS::sort(), FILTERS::visibility());
 
             // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
             // todo: there is a problem
@@ -569,7 +579,7 @@ pub fn fsaction_handler(
                 let [one_line, fixed_strings] =
                     GLOBAL::with_cfg(|c| [c.panes.search.one_line, c.panes.search.fixed_strings]);
 
-                let cwd = STACK::cwd_();
+                let cwd = STACK::_cwd();
 
                 //
                 let paths = state.picker_ui.selector.map_to_vec(|i, x| x.path.inner());
@@ -1208,7 +1218,7 @@ enum_from_str_display! {
     Backup;
 
     tuples:
-    AutoJump, SwitchStash;
+    AutoJump, SwitchStash, SetAlias;
 
     defaults:
     (Delete, false), (Trash, false), (Stash, String::new()), (CycleStash, true)

@@ -64,6 +64,7 @@ pub fn show_simple_metadata(
 
             let ret = cmd
                 .arg("-bL")
+                .arg("--")
                 .arg(path)
                 // .stderr(Stdio::null())
                 .output()
@@ -228,7 +229,7 @@ pub fn infer_visual(path: &Path) -> Vec<OsString> {
             }
 
             // use our default opener
-            vec_!["fs", ":open"]
+            vec_!["fs", ":open", "--"]
         })
         .iter()
         .map(OsString::from)

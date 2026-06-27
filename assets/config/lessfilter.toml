@@ -70,7 +70,7 @@ display = [
 # the 'la' alias
 extended = [
     # [ [ "rainfrog" ], [ "application/vnd.sqlite3" ] ],
-    # [ [ ["fx"], [ ".yml", ".json", ".jsonl", ".yaml", ".jsonh" ] ],
+    # [ ["fx"], [ ".yml", ".json", ".jsonl", ".yaml", ".jsonh" ] ],
 ]
 
 # the 'll' alias

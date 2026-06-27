@@ -634,7 +634,7 @@ _fs__subcmd__:tool_commands() {
 'lessfilter:Context and preset dependent file handler' \
 'pager:' \
 'bump:Bump history entries' \
-'trash:Trash files' \
+'trash:Trash files with timed fallback prompts' \
 'show-binds:Show binds' \
 'types:List mappings supported by the --type parameter' \
     )

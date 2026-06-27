@@ -241,8 +241,8 @@ impl STACK {
         })
     }
 
-    // treat as cwd().unwrap() without needing to think about it
-    pub fn cwd_() -> AbsPath {
+    /// Corresponds to the cwd displayed in prompt.
+    pub fn _cwd() -> AbsPath {
         STACK::cwd().unwrap_or(AbsPath::initial())
     }
     pub fn nav_cwd() -> Option<AbsPath> {

@@ -259,7 +259,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('lessfilter', 'lessfilter', [CompletionResultType]::ParameterValue, 'Context and preset dependent file handler')
             [CompletionResult]::new('pager', 'pager', [CompletionResultType]::ParameterValue, 'pager')
             [CompletionResult]::new('bump', 'bump', [CompletionResultType]::ParameterValue, 'Bump history entries')
-            [CompletionResult]::new('trash', 'trash', [CompletionResultType]::ParameterValue, 'Trash files')
+            [CompletionResult]::new('trash', 'trash', [CompletionResultType]::ParameterValue, 'Trash files with timed fallback prompts')
             [CompletionResult]::new('show-binds', 'show-binds', [CompletionResultType]::ParameterValue, 'Show binds')
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
             break
@@ -280,7 +280,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('lessfilter', 'lessfilter', [CompletionResultType]::ParameterValue, 'Context and preset dependent file handler')
             [CompletionResult]::new('pager', 'pager', [CompletionResultType]::ParameterValue, 'pager')
             [CompletionResult]::new('bump', 'bump', [CompletionResultType]::ParameterValue, 'Bump history entries')
-            [CompletionResult]::new('trash', 'trash', [CompletionResultType]::ParameterValue, 'Trash files')
+            [CompletionResult]::new('trash', 'trash', [CompletionResultType]::ParameterValue, 'Trash files with timed fallback prompts')
             [CompletionResult]::new('show-binds', 'show-binds', [CompletionResultType]::ParameterValue, 'Show binds')
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
             break

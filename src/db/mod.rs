@@ -18,12 +18,10 @@ impl Pool {
     /// Spawn a background task that records a directory or file visit.
     /// `folder`: `true` for dirs table, `false` for files.
     pub fn bump_path(
-        &self,
+        self,
         folder: bool,
         path: AbsPath,
     ) {
-        let pool = self.clone();
-
         TASKS::spawn(async move {
             let table = if folder {
                 DbTable::dirs
@@ -31,10 +29,37 @@ impl Pool {
                 DbTable::files
             };
 
-            match pool.get_conn(table).await {
+            match self.get_conn(table).await {
                 Ok(mut conn) => {
                     if let Err(e) = conn.bump_path(path, 1).await {
                         log::error!("Error bumping entry: {}", e);
+                    }
+                }
+                Err(e) => {
+                    log::error!("Error getting connection: {}", e);
+                }
+            }
+        });
+    }
+
+    /// Spawn a background task that sets an alias for a path, creating the entry if needed.
+    pub fn set_path_alias(
+        self,
+        path: AbsPath,
+        alias: String,
+        table: DbTable,
+    ) {
+        TASKS::spawn(async move {
+            match self.get_conn(table).await {
+                Ok(mut conn) => {
+                    if let Err(e) = conn.bump_path(path.clone(), 1).await {
+                        log::error!("Error bumping entry: {}", e);
+                        return;
+                    }
+
+                    // Update the alias
+                    if let Err(e) = conn.set_alias(&path, &alias).await {
+                        log::error!("Error setting alias: {}", e);
                     }
                 }
                 Err(e) => {
@@ -49,6 +74,15 @@ impl Connection {
     pub async fn push_files_and_folders(
         &mut self,
         paths: impl IntoIterator<Item = AbsPath>,
+    ) -> Result<(), DbError> {
+        // Delegate to the new function with an amount of 1
+        self.bump_files_and_folders_n(paths, 1).await
+    }
+
+    pub async fn bump_files_and_folders_n(
+        &mut self,
+        paths: impl IntoIterator<Item = AbsPath>,
+        count: i32,
     ) -> Result<(), DbError> {
         let mut files = Vec::new();
         let mut dirs = Vec::new();
@@ -69,13 +103,15 @@ impl Connection {
 
         self.switch_table(DbTable::dirs);
         for f in dirs {
-            self.bump_path(f, 1).await?;
+            self.bump_path(f, count).await?;
             // todo: maybe should also update the abspath?
         }
+
         self.switch_table(DbTable::files);
         for f in files {
-            self.bump_path(f, 1).await?;
+            self.bump_path(f, count).await?;
         }
+
         Ok(())
     }
 

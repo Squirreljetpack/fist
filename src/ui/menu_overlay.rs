@@ -4,7 +4,7 @@ use crate::{
         action::FsAction,
         item::short_display,
         stash::STASH,
-        state::{GLOBAL, STACK, TOAST, STORE},
+        state::{GLOBAL, MenuPrompt, STACK, STORE, TOAST},
     },
     spawn::{menu_action::MenuActions, open_wrapped},
     ui::prompt_overlay::{PromptConfig, PromptOverlay},
@@ -105,14 +105,27 @@ impl MenuItem {
     }
 
     /// Execute an action.
-    /// Returns an optional input to [`TEMP::set_prompt`], or whether to keep menu open.
+    /// Returns a [`MenuPrompt`] to open the input bar, or whether to keep menu open.
     pub fn action(
         &self,
         path: AbsPath,
-    ) -> Result<(PromptKind, Option<String>), bool> {
+    ) -> Result<MenuPrompt, bool> {
         match self {
-            MenuItem::New => Ok((PromptKind::New, None)),
-            MenuItem::Rename => Ok((PromptKind::Rename, Some(path.to_string_lossy().into()))),
+            MenuItem::New => Ok(MenuPrompt::new(PromptKind::New)),
+            MenuItem::Rename => {
+                let filename = path.to_string_lossy().into_owned();
+                let cursor_pos = path
+                    .with_file_name(path.file_stem().unwrap_or_default())
+                    .to_string_lossy()
+                    .len();
+                STORE::set_menu_target(MenuTarget::Item(path));
+                Ok(MenuPrompt {
+                    kind: PromptKind::Rename,
+                    title: "Rename".to_string(),
+                    initial: filename,
+                    cursor: cursor_pos,
+                })
+            }
             MenuItem::Cut => {
                 TOAST::push(ToastStyle::Normal, "Cut: ", [short_display(&path)]);
                 STASH::extend("cut", vec![path]);
@@ -170,8 +183,7 @@ pub struct MenuOverlay {
     pub config: MenuConfig,
     pub prompt_kind: Option<PromptKind>,
     pub prompt: PromptOverlay,
-    /// See [TEMP::set_input_bar]
-    pub target: MenuTarget,
+    pub target: Option<MenuTarget>,
     pub items: Vec<MenuItem>,
     pub area: Rect,
 }
@@ -198,7 +210,7 @@ impl MenuOverlay {
             config,
             prompt_kind: None,
             prompt: PromptOverlay::new(prompt_config),
-            target: Default::default(),
+            target: None,
             items: MENU_ITEMS.to_vec(),
             area: Rect::default(),
         }
@@ -230,15 +242,18 @@ impl MenuOverlay {
 
     fn set_prompt(
         &mut self,
-        prompt: PromptKind,
-        extra_title: Option<String>,
+        prompt: MenuPrompt,
     ) {
-        self.prompt_kind = Some(prompt);
-        self.prompt.input.config.border.title = match extra_title {
-            Some(s) => format!("{}: {}", prompt, s),
-            None => prompt.to_string(),
-        };
+        self.prompt_kind = Some(prompt.kind);
+        if !prompt.title.is_empty() {
+            self.prompt.input.config.border.title = prompt.title;
+        }
         self.prompt.on_enable(&Rect::default());
+
+        if !prompt.initial.is_empty() {
+            self.prompt.input.set_value(prompt.initial);
+            self.prompt.input.inner.cursor = prompt.cursor;
+        }
     }
 
     fn handle_menu_input(
@@ -246,13 +261,15 @@ impl MenuOverlay {
         c: char,
     ) -> OverlayEffect {
         if let Some(item) = MenuItem::from_key(c) {
-            let action_result = match &self.target {
-                MenuTarget::Item(target) => item.action(target.path.clone()),
-                MenuTarget::Cwd(target) => item.action(target.clone()),
-            };
+            let path = self
+                .target
+                .as_ref()
+                .map(|t| t.abs_path().clone())
+                .unwrap_or_else(STACK::_cwd);
+            let action_result = item.action(path);
             match action_result {
-                Ok((prompt, extra)) => {
-                    self.set_prompt(prompt, extra);
+                Ok(prompt) => {
+                    self.set_prompt(prompt);
                     OverlayEffect::None
                 }
                 Err(true) => OverlayEffect::None,
@@ -267,14 +284,15 @@ impl MenuOverlay {
 
     pub fn accept(&mut self) -> OverlayEffect {
         let item = &self.items[self.cursor];
-
-        let action_result = match &self.target {
-            MenuTarget::Item(target) => item.action(target.path.clone()),
-            MenuTarget::Cwd(p) => item.action(p.clone()),
-        };
+        let path = self
+            .target
+            .as_ref()
+            .map(|t| t.abs_path().clone())
+            .unwrap_or_else(STACK::_cwd);
+        let action_result = item.action(path);
         match action_result {
-            Ok((prompt, extra)) => {
-                self.set_prompt(prompt, extra);
+            Ok(prompt) => {
+                self.set_prompt(prompt);
                 OverlayEffect::None
             }
             Err(true) => OverlayEffect::None,
@@ -304,13 +322,12 @@ impl Overlay for MenuOverlay {
     ) {
         self.cursor = 0;
         self.prompt_kind = None;
-        let p = STORE::take();
-        let target: MenuTarget = STORE::take().unwrap_or_default();
 
-        if let Some(p) = p {
-            self.set_prompt(p, target.title());
+        if let Some(prompt) = STORE::take::<MenuPrompt>() {
+            self.set_prompt(prompt);
         }
-        self.target = target;
+
+        self.target = STORE::take::<MenuTarget>();
     }
 
     fn on_disable(&mut self) {
