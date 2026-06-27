@@ -53,7 +53,7 @@ pub fn handle(
     }
     let mut default = cfg.rules.get(Preset::Default).clone();
     let rules = cfg.rules.get_mut(preset);
-    rules.prepend(&mut default);
+    rules.append(&mut default);
 
     let mut any_file_succeeded = false;
 

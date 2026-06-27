@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_fs_global_optspecs
-	string join \n verbosity= override= config= mm-config= dump-config style= fullscreen= enter-prompt= alt-accept help V/version
+	string join \n verbosity= override= config= mm-config= dump-config style= fullscreen= enter-prompt= alt-accept sort= h= I= a= F= f= cd t/types= no-read reset-visibility list help V/version
 end
 
 function __fish_fs_needs_command
@@ -38,21 +38,40 @@ complete -c fs -n "__fish_fs_needs_command" -l fullscreen -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_needs_command" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_needs_command" -l sort -r -f -a "name\t''
+mtime\t''
+none\t''
+size\t'Not always supported'"
+complete -c fs -n "__fish_fs_needs_command" -s h -d 'show hidden files and folders' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_needs_command" -s I -d 'HIDE ignored files' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_needs_command" -s a -d 'show all' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_needs_command" -s F -d 'only show directories' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_needs_command" -s f -d 'show only files' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_needs_command" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
 complete -c fs -n "__fish_fs_needs_command" -l dump-config -d 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.'
 complete -c fs -n "__fish_fs_needs_command" -l alt-accept
+complete -c fs -n "__fish_fs_needs_command" -l cd -d 'print the first match'
+complete -c fs -n "__fish_fs_needs_command" -l no-read -d 'Never stream input from stdin'
+complete -c fs -n "__fish_fs_needs_command" -l reset-visibility
+complete -c fs -n "__fish_fs_needs_command" -l list
 complete -c fs -n "__fish_fs_needs_command" -l help
 complete -c fs -n "__fish_fs_needs_command" -s V -l version -d 'Print version'
-complete -c fs -n "__fish_fs_needs_command" -f -a ":open" -d 'Launch apps and files'
-complete -c fs -n "__fish_fs_needs_command" -f -a ":o" -d 'Launch apps and files'
-complete -c fs -n "__fish_fs_needs_command" -f -a ":file" -d 'Recent files'
-complete -c fs -n "__fish_fs_needs_command" -f -a ":dir" -d 'Recent folders'
-complete -c fs -n "__fish_fs_needs_command" -f -a ":fd" -d 'Find and browse. (Default)'
-complete -c fs -n "__fish_fs_needs_command" -f -a "::" -d 'Find and browse. (Default)'
-complete -c fs -n "__fish_fs_needs_command" -f -a ":rg" -d 'Full text search'
-complete -c fs -n "__fish_fs_needs_command" -f -a ":" -d 'Full text search'
-complete -c fs -n "__fish_fs_needs_command" -f -a ":tool" -d 'Plugins and utilities'
-complete -c fs -n "__fish_fs_needs_command" -f -a ":t" -d 'Plugins and utilities'
-complete -c fs -n "__fish_fs_needs_command" -f -a ":info" -d 'Stats and database records'
+complete -c fs -n "__fish_fs_needs_command" -a ":open" -d 'Launch apps and files'
+complete -c fs -n "__fish_fs_needs_command" -a ":o" -d 'Launch apps and files'
+complete -c fs -n "__fish_fs_needs_command" -a ":file" -d 'Recent files'
+complete -c fs -n "__fish_fs_needs_command" -a ":dir" -d 'Recent folders'
+complete -c fs -n "__fish_fs_needs_command" -a ":fd" -d 'Find and browse. (Default)'
+complete -c fs -n "__fish_fs_needs_command" -a "::" -d 'Find and browse. (Default)'
+complete -c fs -n "__fish_fs_needs_command" -a ":rg" -d 'Full text search'
+complete -c fs -n "__fish_fs_needs_command" -a ":" -d 'Full text search'
+complete -c fs -n "__fish_fs_needs_command" -a ":tool" -d 'Plugins and utilities'
+complete -c fs -n "__fish_fs_needs_command" -a ":t" -d 'Plugins and utilities'
+complete -c fs -n "__fish_fs_needs_command" -a ":info" -d 'Stats and database records'
 complete -c fs -n "__fish_fs_using_subcommand :open" -s w -l with -d 'app to open files with' -r
 complete -c fs -n "__fish_fs_using_subcommand :open" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :open" -l override -d 'config override' -r
@@ -326,7 +345,7 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcomm
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "lessfilter" -d 'Context and preset dependent file handler'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "pager"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "bump" -d 'Bump history entries'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "trash" -d 'Trash files'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "trash" -d 'Trash files with timed fallback prompts'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "show-binds" -d 'Show binds'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "types" -d 'List mappings supported by the --type parameter'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l verbosity -r
@@ -486,7 +505,7 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "lessfilter" -d 'Context and preset dependent file handler'
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "pager"
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "bump" -d 'Bump history entries'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "trash" -d 'Trash files'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "trash" -d 'Trash files with timed fallback prompts'
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "show-binds" -d 'Show binds'
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "types" -d 'List mappings supported by the --type parameter'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l verbosity -r

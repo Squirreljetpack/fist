@@ -1,7 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use cba::_dbg;
-use clap::{ArgAction, Args, Parser, Subcommand, error::ErrorKind};
+use clap::{ArgAction, Args, Parser, Subcommand};
 
 use crate::{
     cli::{
@@ -14,53 +13,39 @@ use crate::{
 use fist_types::filters::{DbSortOrder, SortOrder};
 use fist_types::{filetypes::FileTypeArg, filters::PartialVisibility};
 
+// #[derive(Parser, Debug)]
+// #[command(version, about, long_about = None)]
+// #[command(disable_help_subcommand = true)]
+// #[command(disable_help_flag = true)]
+pub struct Cli {
+    // #[command(subcommand)]
+    pub subcommand: SubCmd,
+    // #[command(flatten)]
+    pub opts: CliOpts,
+    // #[arg(long, action = ArgAction::Help)]
+    // pub help: (),
+}
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 #[command(disable_help_subcommand = true)]
 #[command(disable_help_flag = true)]
-pub struct Cli {
+pub struct CliWithDefault {
     #[command(subcommand)]
-    pub subcommand: SubCmd,
+    pub subcommand: Option<SubCmd>,
     #[command(flatten)]
     pub opts: CliOpts,
-    #[arg(long, action = ArgAction::Help)]
-    pub help: (),
+    #[command(flatten)]
+    pub dopts: DefaultCommand,
 }
 
 impl Cli {
     pub fn parse_custom() -> Self {
-        let first = std::env::args_os().nth(1);
-
-        const SUBCMDS: &[&str] = &[
-            ":open", ":o", ":app", ":a", ":file", ":dir", ":fd", "::", ":rg", ":", ":tool", ":t",
-            ":info",
-        ];
-
-        let non_default = match first.as_deref().map(|s| s.to_str()) {
-            None => false,
-            Some(None) => true,
-            Some(Some(arg)) => SUBCMDS.contains(&arg),
-        };
-
-        if non_default {
-            return match Cli::try_parse() {
-                Ok(cli) => cli,
-                Err(e) => match e.kind() {
-                    ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => {
-                        e.print().expect("Failed to print help/version");
-                        std::process::exit(0);
-                    }
-                    _ => e.exit(),
-                },
-            };
-        }
-
-        match NavCli::try_parse() {
-            Ok(cli) => cli.into(),
-            Err(err) => {
-                _dbg!(err);
-                Cli::try_parse().unwrap_or_else(|e| e.exit())
-            }
+        let CliWithDefault { subcommand, opts, dopts } = CliWithDefault::parse();
+        if let Some(subcommand) = subcommand {
+            Cli { subcommand, opts }
+        } else {
+            Cli { subcommand: SubCmd::Fd(dopts), opts }
         }
     }
 }
@@ -73,16 +58,6 @@ pub struct NavCli {
     pub args: DefaultCommand,
     #[command(flatten)]
     pub opts: CliOpts,
-}
-
-impl From<NavCli> for Cli {
-    fn from(NavCli { args, opts }: NavCli) -> Self {
-        Cli {
-            subcommand: SubCmd::Fd(args),
-            opts,
-            help: (),
-        }
-    }
 }
 
 #[derive(Debug, Args, Default, Clone)]

@@ -14,6 +14,8 @@ pub fn application_icon_path(path: &Path) -> Option<PathBuf> {
     }
 }
 
+
+
 #[cfg(target_os = "macos")]
 fn macos_application_icon_path(path: &Path) -> Option<PathBuf> {
     use std::process::{Command, Stdio};

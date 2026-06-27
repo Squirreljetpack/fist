@@ -1,17 +1,23 @@
 use cba::{bog::BogUnwrapExt, prints};
 use chrono::{DateTime, Local};
-use comfy_table::{ContentArrangement, Row, Table, presets::UTF8_FULL};
+use comfy_table::{presets::UTF8_FULL, ContentArrangement, Row, Table};
 
-use crate::db::{Entry, Epoch};
+use crate::db::{zoxide, Entry, Epoch};
 
 /// Print a formatted table to stdout.
 ///
 /// `lambda`: when `None`, the "Last Accessed" column shows a formatted
 /// date; when `Some` (EMS mode), it shows the raw tick count and an extra
-/// "Score" column appears with `{:.2}` formatting.
+/// "Score" column appears, populated from [`zoxide::score`].
+///
+/// `now`: the reference epoch used for scoring. For EMS mode this should
+/// be `MAX(atime)` (matching the SQL `ORDER BY` in
+/// [`crate::db::Connection::get_entries_range`]); for wall-clock mode it
+/// should be the current wall-clock time.
 pub fn display_entries(
     entries: &[Entry],
     lambda: Option<f64>,
+    now: Epoch,
 ) {
     let mut table = Table::new();
 
@@ -52,7 +58,10 @@ pub fn display_entries(
             entry.count.to_string(),
         ];
         if lambda.is_some() {
-            row_cells.push(format!("{:.2}", entry.score));
+            // Use the live, decayed score used to sort entries — matches the
+            // SQL `score * exp(-λ * (MAX(atime) - atime))` order-by in
+            // `Connection::get_entries_range`.
+            row_cells.push(zoxide::score(now, entry, lambda).to_string());
         }
 
         let row = Row::from(row_cells);

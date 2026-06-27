@@ -23,6 +23,54 @@ pub struct InitialRelativePathSetting(pub bool);
 #[derive(Debug)]
 pub struct InitialPreserveWhitespaceInSearch;
 
+/// Menu prompt configuration for the overlay input bar
+#[derive(Debug, Clone)]
+pub struct MenuPrompt {
+    pub kind: PromptKind,
+    pub title: String,
+    pub initial: String,
+    pub cursor: usize,
+}
+
+impl MenuPrompt {
+    pub fn new(kind: PromptKind) -> Self {
+        Self {
+            title: kind.to_string(),
+            kind,
+            initial: String::new(),
+            cursor: 0,
+        }
+    }
+
+    pub fn title(
+        mut self,
+        value: impl Into<String>,
+    ) -> Self {
+        self.title = value.into();
+        self
+    }
+
+    /// Set initial input value and move cursor to the end of it
+    pub fn initial(
+        mut self,
+        value: impl Into<String>,
+    ) -> Self {
+        let s = value.into();
+        self.cursor = s.len();
+        self.initial = s;
+        self
+    }
+
+    /// Set cursor position (grapheme index)
+    pub fn cursor(
+        mut self,
+        pos: usize,
+    ) -> Self {
+        self.cursor = pos;
+        self
+    }
+}
+
 /// AbsPath: Previous Directory
 /// u32: Stashed index
 /// Visibility: Initial visibility if fd pane was initialized without pv, from --reset-visibility
@@ -69,16 +117,17 @@ impl STORE {
     ///
     /// # Additional
     /// When the prompt is set and the target is Ok, the target's filename is shown in the title of the input bar.
-    pub fn set_input_bar(
-        menu_prompt: Option<PromptKind>,
-        menu_target: MenuTarget,
-    ) {
+    pub fn set_menu_prompt(menu_prompt: Option<MenuPrompt>) {
+        if let Some(prompt) = menu_prompt {
+            TLS_MAP.with(|map| {
+                map.borrow_mut().insert(prompt);
+            });
+        }
+    }
+
+    pub fn set_menu_target(target: MenuTarget) {
         TLS_MAP.with(|map| {
-            let mut map = map.borrow_mut();
-            if let Some(menu_prompt) = menu_prompt {
-                map.insert(menu_prompt);
-            }
-            map.insert(menu_target);
+            map.borrow_mut().insert(target);
         });
     }
 

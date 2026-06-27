@@ -22,20 +22,37 @@ _fs() {
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sort=[]:SORT:((name\:""
+mtime\:""
+none\:""
+size\:"Not always supported"))' \
+'-h+[show hidden files and folders]::HIDDEN:(true false)' \
+'-I+[HIDE ignored files]::IGNORE:(true false)' \
+'-a+[show all]::ALL:(true false)' \
+'-F+[only show directories]::DIRS:(true false)' \
+'-f+[show only files]::FILES:(true false)' \
+'*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
+'*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.]' \
 '--alt-accept[]' \
+'--cd[print the first match]' \
+'--no-read[Never stream input from stdin]' \
+'--reset-visibility[]' \
+'--list[]' \
 '--help[]' \
 '-V[Print version]' \
 '--version[Print version]' \
+'::paths -- Paths to search in. Searches the current directory if none specified (and not otherwise configured):_default' \
+'::fd -- Args passed on verbatim to fd:_default' \
 ":: :_fs_commands" \
 "*::: :->fist" \
 && ret=0
     case $state in
     (fist)
-        words=($line[1] "${words[@]}")
+        words=($line[3] "${words[@]}")
         (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:fs-command-$line[1]:"
-        case $line[1] in
+        curcontext="${curcontext%:*:*}:fs-command-$line[3]:"
+        case $line[3] in
             (:open)
 _arguments "${_arguments_options[@]}" : \
 '-w+[app to open files with]:PROG:_default' \
@@ -634,7 +651,7 @@ _fs__subcmd__:tool_commands() {
 'lessfilter:Context and preset dependent file handler' \
 'pager:' \
 'bump:Bump history entries' \
-'trash:Trash files' \
+'trash:Trash files with timed fallback prompts' \
 'show-binds:Show binds' \
 'types:List mappings supported by the --type parameter' \
     )

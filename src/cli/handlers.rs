@@ -36,10 +36,7 @@ use crate::{
     abspath::AbsPath,
     cli::{SubTool, clap_helpers::ListMode, env::EnvOpts, paths::text_renderer_path},
     config::Config,
-    db::{
-        DbSortOrder, DbTable, Pool, display_entries,
-        zoxide::RetryStrat,
-    },
+    db::{DbSortOrder, DbTable, Pool, display_entries, zoxide::RetryStrat},
     errors::{CliError, DbError},
     find::{
         fd::{build_fd_args, last_query_starts_with_dot},
@@ -60,6 +57,7 @@ use crate::{
         colors::display_ratatui_styles,
         formatter::format_path,
         path::{expand_follow, follow_symlink_chain, paths_base},
+        prompt::{READ_TIMEOUT, confirm_prompt},
     },
 };
 use fist_types::filters::{SortOrder, Visibility};
@@ -143,7 +141,14 @@ async fn handle_info(
                 print(&entry.path, &template, &output_separator);
             }
         } else {
-            display_entries(&entries, cfg.history.lambda);
+            // `now` must match the SQL order-by reference time:
+            // EMS uses `MAX(atime)`; wall-clock uses current time.
+            let now = if cfg.history.lambda.is_some() {
+                conn.get_max_atime().await?
+            } else {
+                chrono::Utc::now().timestamp()
+            };
+            display_entries(&entries, cfg.history.lambda, now);
         }
     } else {
         println!("Config path: {}", config_path().display());
@@ -329,7 +334,10 @@ async fn handle_dirs(
         }
         let db_filter = cfg.history.clone().with_keywords(cmd.query.clone());
 
-        for e in conn.get_entries(cmd.sort, &db_filter, DbTable::dirs).await? {
+        for e in conn
+            .get_entries(cmd.sort, &db_filter, DbTable::dirs)
+            .await?
+        {
             match e.path.to_str() {
                 Some(s) => {
                     prints!(s)
@@ -451,7 +459,10 @@ async fn handle_default(
 
             let mut db_filter = cfg.history.clone().with_keywords(kw.clone());
 
-            match conn.return_best_by_frecency(&db_filter, DbTable::dirs).await {
+            match conn
+                .return_best_by_frecency(&db_filter, DbTable::dirs)
+                .await
+            {
                 None => {
                     if !matches!(db_filter.refind, RetryStrat::Search) && !cmd.list {
                         return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
@@ -706,7 +717,7 @@ async fn handle_tools(
         SubTool::ShowBinds => {
             let (binds, help) = get_mm_binds(&cli.mm_config);
 
-            let help_str = matchmaker::binds::display_help(&binds, &help, None);
+            let help_str = matchmaker::binds::display_help(&binds, &help);
             prints!(help_str.to_string());
             Ok(())
         }
@@ -860,7 +871,7 @@ async fn handle_tools(
                         _ibog!("Removed {}.", msg);
                     }
                 } else {
-                    conn.push_files_and_folders(entry_queue).await?;
+                    conn.bump_files_and_folders_n(entry_queue, count).await?;
                 }
             } else {
                 let table = table.unwrap_or(table.unwrap_or(DbTable::dirs));
@@ -991,7 +1002,9 @@ async fn handle_tools(
                 wbog!("Skipped {skipped} nonexistant paths");
             }
 
-            if quiet || (!atty::is(atty::Stream::Stdin) && !force) {
+            let should_prompt = atty::is(atty::Stream::Stdin);
+
+            if quiet || (!should_prompt && !force) {
                 if failed.is_empty() {
                     exit(0);
                 } else {
@@ -1001,17 +1014,16 @@ async fn handle_tools(
 
             if !failed.is_empty() {
                 if !force {
-                    // prompt the user
-                    eprint!("Force delete {} failed item(s)? [y/N]: ", failed.len());
-                    use std::io::Write as _;
-                    let _ = std::io::stderr().flush();
-
-                    let mut line = String::new();
-                    let bytes_read = std::io::stdin().read_line(&mut line);
-                    let answer = line.trim().to_ascii_lowercase();
-
-                    if !answer.starts_with("y") {
-                        exit(0);
+                    if !confirm_prompt(
+                        &format!("Force delete {} failed item(s)?", failed.len()),
+                        READ_TIMEOUT,
+                        vec!["y", "N"],
+                    )
+                    .await
+                    .map(|x| x == 0)
+                    .unwrap_or(false)
+                    {
+                        exit(0)
                     }
                 }
 
@@ -1046,21 +1058,19 @@ async fn handle_tools(
                     exit(1);
                 }
 
-                // Last resort: prompt the user to escalate to `sudo rm -rf` for anything
-                // that still failed after both trash and force-delete.
-                eprint!(
-                    "Retry with sudo for {} failed item(s)? [y/N]: ",
-                    delete_failed.len()
-                );
-                use std::io::Write as _;
-                let _ = std::io::stderr().flush();
-
-                let mut line = String::new();
-                let _ = std::io::stdin().read_line(&mut line);
-                let answer = line.trim().to_ascii_lowercase();
-
-                if !answer.starts_with("y") {
-                    exit(1);
+                if !confirm_prompt(
+                    &format!(
+                        "Retry with sudo for {} failed item(s)?",
+                        delete_failed.len()
+                    ),
+                    READ_TIMEOUT,
+                    vec!["y", "N"],
+                )
+                .await
+                .map(|x| x == 0)
+                .unwrap_or(false)
+                {
+                    exit(1)
                 }
 
                 let mut sudo = Command::new("sudo")

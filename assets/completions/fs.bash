@@ -83,7 +83,7 @@ _fs() {
 
     case "${cmd}" in
         fs)
-            opts="-V --verbosity --override --config --mm-config --dump-config --style --fullscreen --enter-prompt --alt-accept --help --version :open :o :file :dir :fd :: :rg : :tool :t :info"
+            opts="-h -I -a -F -f -t -V --verbosity --override --config --mm-config --dump-config --style --fullscreen --enter-prompt --alt-accept --sort --cd --types --no-read --reset-visibility --list --help --version [PATHS]... [FD_ARGS]... :open :o :file :dir :fd :: :rg : :tool :t :info"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -115,6 +115,38 @@ _fs() {
                     ;;
                 --enter-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                --sort)
+                    COMPREPLY=($(compgen -W "name mtime none size" -- "${cur}"))
+                    return 0
+                    ;;
+                -h)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -I)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -a)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -F)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                -f)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                --types)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -t)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 *)

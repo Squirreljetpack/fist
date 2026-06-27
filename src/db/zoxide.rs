@@ -173,13 +173,13 @@ impl HistoryConfig {
 
         let path_components: Vec<_> = path
             .components()
-            .map(|c| c.as_os_str().to_string_lossy().to_lowercase())
+            .map(|c| c.as_os_str().to_string_lossy())
             .collect();
 
-        let keywords_lower: Vec<_> = self
+        let keywords: Vec<_> = self
             .keywords
             .iter()
-            .map(|k| k.trim_end_matches(std::path::MAIN_SEPARATOR).to_lowercase())
+            .map(|k| k.trim_end_matches(std::path::MAIN_SEPARATOR))
             .collect();
 
         let matcher = |component: &str, keyword: &str| -> bool {
@@ -195,6 +195,8 @@ impl HistoryConfig {
                 }
             };
 
+            log::trace!("filter comparing: {comp}, {kw}");
+
             match self.query_strategy {
                 QueryMatchStrategy::Monotonic => is_monotonic_substring(&comp, &kw),
                 QueryMatchStrategy::Substring => comp.contains(&kw),
@@ -205,11 +207,11 @@ impl HistoryConfig {
         // last kw must succeed
         let mut first = true;
 
-        for keyword in keywords_lower.iter().rev() {
+        for keyword in keywords.into_iter().rev() {
             let key_components: Vec<_> = if keyword.contains(std::path::MAIN_SEPARATOR) {
                 keyword.split(std::path::MAIN_SEPARATOR).collect()
             } else {
-                vec![keyword.as_str()]
+                vec![keyword]
             };
 
             let mut found = false;
@@ -254,7 +256,7 @@ fn decay(
     score * (-lambda * delta as f64).exp()
 }
 
-const FLOAT_TO_I32: f64 = 10000.0; // scalar to avoid losing precision
+const FLOAT_TO_I32: f64 = 5000.0; // scalar to avoid losing precision
 
 /// Sorting key: returns the frecency-like score as an integer.
 ///

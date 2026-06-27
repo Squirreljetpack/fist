@@ -2,7 +2,7 @@
 #   Rule Matching
 # ==============================
 
-# In event of a tie, last one wins.
+# In event of a tie, first one wins.
 
 # ----------
 #   Syntax

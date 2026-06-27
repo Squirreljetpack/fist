@@ -1,6 +1,6 @@
 use cba::{_dbg, bo::load_type_or_default};
 use matchmaker::{
-    binds::{BindMap, BindMapExt},
+    binds::{BindMap, BindMapExt, ResolvedBindMap},
     config::{
         DisplayConfig, HelpDisplayConfig, OverlayConfig, Percentage, PreviewSetting, RenderConfig,
         RowConnectionStyle, TerminalConfig, TerminalLayoutSettings,
@@ -79,7 +79,7 @@ pub const MATCHER_CONFIG: nucleo::Config = const { nucleo::Config::DEFAULT.match
 
 // -------------------------------------------------------------------------------------------
 
-pub fn get_mm_binds(path: &Path) -> (BindMap<FsAction>, HelpDisplayConfig) {
+pub fn get_mm_binds(path: &Path) -> (ResolvedBindMap<FsAction>, HelpDisplayConfig) {
     let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
     #[cfg(feature = "mm_overrides")]
     if let Some(partial) = EnvOpts::get_mm_partial() {
@@ -88,7 +88,7 @@ pub fn get_mm_binds(path: &Path) -> (BindMap<FsAction>, HelpDisplayConfig) {
 
     mm_cfg.binds.extend_from(default_binds());
 
-    (mm_cfg.binds, mm_cfg.help)
+    (mm_cfg.binds.resolve_semantics(&[]), mm_cfg.help)
 }
 
 pub fn get_mm_cfg(

@@ -32,7 +32,7 @@ fn main() {
         out_dir
     };
 
-    let mut cmd = Cli::command();
+    let mut cmd = CliWithDefault::command();
 
     for shell in [Shell::Bash, Shell::Zsh, Shell::Fish, Shell::PowerShell] {
         generate_to(shell, &mut cmd, cli::paths::BINARY_SHORT, &out_dir).unwrap();

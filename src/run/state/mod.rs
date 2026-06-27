@@ -116,13 +116,13 @@ pub mod GLOBAL {
     /// must be called in initializing thread
     pub fn send_watcher(msg: WatcherMessage) {
         let guard = WATCHER_TX.lock().unwrap();
-        let tx = guard.as_ref().expect("render tx missing");
+        let tx = guard.as_ref().expect("watcher tx missing");
         tx.send(msg)._elog();
     }
     pub fn send_bind(msg: BindDirective<FsAction>) {
         BIND_TX.with(|tx| {
             let guard = tx.borrow();
-            let tx = guard.as_ref().expect("watcher tx missing");
+            let tx = guard.as_ref().expect("bind tx missing");
             tx.send(msg)._elog();
         });
     }
@@ -446,7 +446,7 @@ pub mod TASKS {
                 // task completed
                 res = join_set.join_next() => {
                     match res {
-                        Some(_) => {            
+                        Some(_) => {
                             if join_set.is_empty() {
                                 if warned {
                                     ibog!(

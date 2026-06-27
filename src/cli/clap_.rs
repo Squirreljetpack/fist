@@ -33,7 +33,7 @@ pub enum SubTool {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<OsString>,
     },
-    /// Trash files
+    /// Trash files with timed fallback prompts.
     Trash {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<OsString>,

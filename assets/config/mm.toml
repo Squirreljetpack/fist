@@ -109,6 +109,8 @@ border = { type = "Rounded", color = "darkGrey", padding = 1 }
 ### (DEFAULTS) ####
 # "?" = "LFPreview(Preview)"
 # "alt-/" = "LFPreview(Info)"
+"alt-i" = "LFPreview(Info)"
+"alt-shift-i" = "LFPreview(Display)"
 # "alt-h" = "Help"
 # "alt-shift-/" = "LFPreview(Display)"
 

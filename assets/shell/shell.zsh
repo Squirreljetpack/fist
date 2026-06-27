@@ -28,7 +28,7 @@ function $${Z_NAME}() {
   if [ -d "$line" ]; then
     cd "$line" || return
   else
-    line="$(dirname "$line")" && [ -d "$line" ] && cd "$line" || return
+    echo "$line" && line="$(dirname "$line")" && [ -d "$line" ] && cd "$line" || return
   fi
 }
 

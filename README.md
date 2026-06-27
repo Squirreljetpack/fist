@@ -490,9 +490,9 @@ Configuration is presently only documented in the source files: [Main Config](./
 
     **Event clock**: zoxide score decay is coupled to wall-clock time. The problem is that after any extended period of inactivity, all scores decay toward zero, and the first directories visited on return immediately dominate the ranking regardless of prior history ([see](https://github.com/jghub/ze/tree/master)). f:ist replaces wall-clock time with an event clock: each cd action advances the clock by one tick. The clock stands still during inactive periods and no score decay occurs during such periods.
 
-    **Scoring**: zoxide uses recency buckets to multiply existing score. f:ist replaces this with a monoexponential decay kernel. The decay rate is controlled by `lambda` (default `8e-3`/cd actions, half-life `ln(2)/lambda` ≈ 87 cd actions).
+    **Scoring**: Items are sorted by score. In zoxide, the score is computed as count * recency bucket. f:ist replaces this with a monoexponential decay kernel. The decay rate is controlled by `lambda` (default `8e-3`, equating to a half-life of about 87 actions).
 
-    **Unified database**: f:ist maintains a single SQLite database tracking files, directories, and applications together, rather than separate databases for each.
+    **Unified database**: f:ist maintains a single SQLite database tracking files, directories, and applications together.
 
     **Pruning**: Pruning happens automatically and lazily once db exceeds a certain size. For more information, see `fs :tool bump --help`.
 
