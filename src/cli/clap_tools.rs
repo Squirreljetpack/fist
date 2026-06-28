@@ -13,7 +13,7 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("-F --style=colors"))]
     pub z_dot_args: String,
     /// Arguments passed to `fs ::` when z is invoked with a trailing `./`
-    #[arg(long, default_value_t = String::from(""))]
+    #[arg(long, default_value_t = String::from("-a"))]
     pub z_slash_args: String,
     /// Arguments passed to `fs :dir` for the interactive jump menu
     #[arg(long, default_value_t = String::from("--sort atime --style=colors --enter-prompt=false"))]

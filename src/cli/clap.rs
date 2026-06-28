@@ -45,7 +45,7 @@ impl Cli {
         if let Some(subcommand) = subcommand {
             Cli { subcommand, opts }
         } else {
-            Cli { subcommand: SubCmd::Fd(dopts), opts }
+            Cli { subcommand: SubCmd::Default(dopts), opts }
         }
     }
 }
@@ -137,7 +137,7 @@ pub enum SubCmd {
     Dirs(DirsCmd),
     /// Find and browse. (Default)
     #[command(name = ":fd", visible_aliases = ["::"])]
-    Fd(DefaultCommand),
+    Default(DefaultCommand),
     #[command(name = ":rg", visible_aliases = [":"])]
     Rg(SearchCommand),
     #[command(name =  ":tool", visible_aliases = [":t"])]
@@ -239,6 +239,7 @@ pub struct FilesCmd {
 pub struct SearchCommand {
     #[command(flatten)]
     pub vis: PartialVisibility,
+
     #[arg(long)]
     pub sort: Option<SortOrder>,
 
@@ -333,6 +334,8 @@ pub struct DefaultCommand {
     pub sort: Option<SortOrder>,
     #[command(flatten)]
     pub vis: PartialVisibility,
+    #[arg(short = 'A', long)]
+    pub no_all: bool,
 
     /// print the first match.
     #[arg(long)]

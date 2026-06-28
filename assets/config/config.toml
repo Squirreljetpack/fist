@@ -50,3 +50,6 @@ refind = "Search"
 ### ACTIONS ####
 
 [actions]
+### MISC ###
+[interface]
+move_cursor_with_advance_and_parent_in_prompt = true

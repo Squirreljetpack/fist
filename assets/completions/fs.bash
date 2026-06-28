@@ -83,7 +83,7 @@ _fs() {
 
     case "${cmd}" in
         fs)
-            opts="-h -I -a -F -f -t -V --verbosity --override --config --mm-config --dump-config --style --fullscreen --enter-prompt --alt-accept --sort --cd --types --no-read --reset-visibility --list --help --version [PATHS]... [FD_ARGS]... :open :o :file :dir :fd :: :rg : :tool :t :info"
+            opts="-h -I -a -F -f -A -t -V --verbosity --override --config --mm-config --dump-config --style --fullscreen --enter-prompt --alt-accept --sort --no-all --cd --types --no-read --reset-visibility --list --help --version [PATHS]... [FD_ARGS]... :open :o :file :dir :fd :: :rg : :tool :t :info"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -215,7 +215,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:fd)
-            opts="-h -I -a -F -f -t --sort --cd --types --no-read --reset-visibility --list --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept [PATHS]... [FD_ARGS]..."
+            opts="-h -I -a -F -f -A -t --sort --no-all --cd --types --no-read --reset-visibility --list --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept [PATHS]... [FD_ARGS]..."
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

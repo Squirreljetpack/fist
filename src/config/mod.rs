@@ -154,6 +154,7 @@ pub struct InterfaceConfig {
     pub no_multi_accept: bool,
     /// When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
+    pub move_cursor_with_advance_and_parent_in_prompt: bool,
 
     // display
     /// The prefix to display when the cursor is in the prompt.
@@ -178,6 +179,7 @@ impl Default for InterfaceConfig {
             autojump_advance: false,
             dim_prompt: false,
             dim_status: true,
+            move_cursor_with_advance_and_parent_in_prompt: false,
         }
     }
 }

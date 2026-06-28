@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_fs_global_optspecs
-	string join \n verbosity= override= config= mm-config= dump-config style= fullscreen= enter-prompt= alt-accept sort= h= I= a= F= f= cd t/types= no-read reset-visibility list help V/version
+	string join \n verbosity= override= config= mm-config= dump-config style= fullscreen= enter-prompt= alt-accept sort= h= I= a= F= f= A/no-all cd t/types= no-read reset-visibility list help V/version
 end
 
 function __fish_fs_needs_command
@@ -55,6 +55,7 @@ false\t''"
 complete -c fs -n "__fish_fs_needs_command" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
 complete -c fs -n "__fish_fs_needs_command" -l dump-config -d 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.'
 complete -c fs -n "__fish_fs_needs_command" -l alt-accept
+complete -c fs -n "__fish_fs_needs_command" -s A -l no-all
 complete -c fs -n "__fish_fs_needs_command" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_needs_command" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_needs_command" -l reset-visibility
@@ -186,6 +187,7 @@ complete -c fs -n "__fish_fs_using_subcommand :fd" -l fullscreen -r -f -a "true\
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s A -l no-all
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l reset-visibility
@@ -221,6 +223,7 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -l fullscreen -r -f -a "true\t
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand ::" -s A -l no-all
 complete -c fs -n "__fish_fs_using_subcommand ::" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l reset-visibility

@@ -35,6 +35,8 @@ size\:"Not always supported"))' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.]' \
 '--alt-accept[]' \
+'-A[]' \
+'--no-all[]' \
 '--cd[print the first match]' \
 '--no-read[Never stream input from stdin]' \
 '--reset-visibility[]' \
@@ -151,6 +153,8 @@ size\:"Not always supported"))' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'-A[]' \
+'--no-all[]' \
 '--cd[print the first match]' \
 '--no-read[Never stream input from stdin]' \
 '--reset-visibility[]' \
@@ -180,6 +184,8 @@ size\:"Not always supported"))' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'-A[]' \
+'--no-all[]' \
 '--cd[print the first match]' \
 '--no-read[Never stream input from stdin]' \
 '--reset-visibility[]' \

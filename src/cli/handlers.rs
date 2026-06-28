@@ -76,7 +76,7 @@ pub async fn handle_subcommand(
         SubCmd::Open(cmd) => handle_open(cli.opts, cmd, cfg).await,
         SubCmd::Files(cmd) => handle_files(cli.opts, cmd, cfg).await,
         SubCmd::Dirs(cmd) => handle_dirs(cli.opts, cmd, cfg).await,
-        SubCmd::Fd(cmd) => handle_default(cli.opts, cmd, cfg).await,
+        SubCmd::Default(cmd) => handle_default(cli.opts, cmd, cfg).await,
         SubCmd::Tools(cmd) => handle_tools(cli.opts, cmd, cfg).await,
         SubCmd::Info(cmd) => handle_info(cli.opts, cmd, cfg).await,
         SubCmd::Rg(cmd) => handle_rg(cli.opts, cmd, cfg).await,
@@ -405,6 +405,9 @@ async fn handle_default(
     if cmd.reset_visibility {
         let vis = resolve_fd_visibility(Default::default(), &cmd, &cfg);
         STORE::set(vis)
+    }
+    if cmd.no_all {
+        cmd.vis.all = Some(false)
     }
 
     let pool = Pool::new_from_cfg(&cfg).await?;
