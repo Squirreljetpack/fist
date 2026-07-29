@@ -9,7 +9,7 @@ use crate::arr;
 use crate::cli::paths::{current_exe, show_error_path, text_renderer_path};
 use crate::lessfilter::Preset;
 use crate::lessfilter::helpers::{
-    image_viewer, infer_editor, infer_visual, simple_header, simple_metadata,
+    application_icon_path, image_viewer, infer_editor, infer_visual, simple_header, simple_metadata,
 };
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, serde::Serialize)]
@@ -19,6 +19,7 @@ pub enum Action {
     Directory,
     Text,
     Image,
+    Application,
     Extract,
     Metadata,
 
@@ -41,6 +42,7 @@ impl<'de> Deserialize<'de> for Action {
             "directory" => Ok(Action::Directory),
             "text" => Ok(Action::Text),
             "image" => Ok(Action::Image),
+            "application" => Ok(Action::Application),
             "extract" => Ok(Action::Extract),
             "open" => Ok(Action::Open),
             "metadata" => Ok(Action::Metadata),
@@ -67,7 +69,11 @@ impl Action {
                 // standard actions in these 2 presets are just open
                 if matches!(
                     self,
-                    Action::Directory | Action::Text | Action::Image | Action::Metadata
+                    Action::Directory
+                        | Action::Text
+                        | Action::Image
+                        | Action::Metadata
+                        | Action::Application
                 ) {
                     return (
                         arr![vec_![: current_exe(), ":open", "--", path]],
@@ -81,22 +87,22 @@ impl Action {
         match self {
             Action::Directory => match preset {
                 Preset::Preview => (
-                    arr![vec_![: current_exe(), ":tool", "liza", ":u2", path]],
+                    arr![vec_![: current_exe(), ":tool", "liza", ":u2", "--", path]],
                     [true, false, true], // read + execute
                 ),
                 Preset::Display => (
-                    arr![vec_![: current_exe(), ":tool", "liza", ":u", path]],
+                    arr![vec_![: current_exe(), ":tool", "liza", ":u", "--",path]],
                     [true, false, true],
                 ),
                 Preset::Extended => (
                     arr![
                         simple_header(path),
-                        vec_![: current_exe(), ":tool", "liza", "::nav", ":a", path]
+                        vec_![: current_exe(), ":tool", "liza", "::nav", ":a", "--",path]
                     ],
                     [true, false, true],
                 ),
                 Preset::Info => (
-                    arr![vec_![: current_exe(), ":tool", "liza", ":sba", path]],
+                    arr![vec_![: current_exe(), ":tool", "liza", ":sba", "--", path]],
                     [true, false, true],
                 ),
                 Preset::Edit => (arr![infer_visual(path)], [true, false, true]),
@@ -106,21 +112,21 @@ impl Action {
             },
             Action::Text => match preset {
                 Preset::Preview | Preset::Display => (
-                    arr![vec_![: text_renderer_path(), path]],
+                    arr![vec_![: text_renderer_path(), "--", path]],
                     [true, false, false],
                 ),
                 // bat has a "native" header but using our app header is more consistent
                 Preset::Extended => (
                     arr![
                         simple_header(path),
-                        vec_![: text_renderer_path(), path],
+                        vec_![: text_renderer_path(), "--",path],
                         simple_metadata(path)
                     ],
                     [true, false, false],
                 ),
                 Preset::Info => (
                     arr![
-                        vec_![: current_exe(), ":tool", "liza", ":l", path],
+                        vec_![: current_exe(), ":tool", "liza", ":l", "--", path],
                         simple_metadata(path)
                     ],
                     [true, false, false],
@@ -133,12 +139,12 @@ impl Action {
             },
             Action::Image => match preset {
                 Preset::Preview | Preset::Display => {
-                    (arr![image_viewer(path)], [true, false, false])
+                    (arr![image_viewer(path, None)], [true, false, false])
                 }
                 Preset::Extended => (
                     arr![
                         simple_header(path),
-                        image_viewer(path),
+                        image_viewer(path, None),
                         simple_metadata(path)
                     ],
                     [true, false, false],
@@ -156,6 +162,43 @@ impl Action {
                 }
             },
 
+            Action::Application => {
+                let icon_path = application_icon_path(path);
+                let display_path = icon_path.as_deref();
+
+                match preset {
+                    Preset::Preview | Preset::Display => {
+                        // fallback to directory display if no icon found
+                        let ac = if let Some(icon) = display_path {
+                            image_viewer(icon, Some(16))
+                        } else {
+                            application_fallback(path)
+                        };
+                        (arr![ac], [false, false, false])
+                    }
+                    Preset::Extended => {
+                        let ac = if let Some(icon) = display_path {
+                            image_viewer(icon, Some(16))
+                        } else {
+                            application_fallback(path)
+                        };
+
+                        (arr![simple_header(path), ac], [true, false, true])
+                    }
+                    Preset::Info => (
+                        arr![simple_header(path), simple_metadata(path)],
+                        [true, false, true],
+                    ),
+                    Preset::Edit => (
+                        arr![vec_![: current_exe(), ":open", "--", path]],
+                        [false, false, false],
+                    ),
+                    Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
+                        unreachable!()
+                    }
+                }
+            }
+
             // this action is basically just simple_metadata except for extended
             // where we show stats (+ metadata if file)
             Action::Metadata => match preset {
@@ -163,13 +206,13 @@ impl Action {
                     // show file stats in addition to metadata like Info
                     if path.is_file() {
                         arr![
-                            vec_![: current_exe(), ":tool", "liza", ":l", path],
+                            vec_![: current_exe(), ":tool", "liza", ":l", "--",path],
                             simple_metadata(path)
                         ]
                     } else {
                         // not a file => skip the metadata
                         // altho simple_metadata = stats if !file, that's just a coincidence and semantically it only makes sense to show stats
-                        arr![vec_![: current_exe(), ":tool", "liza", ":l", path]]
+                        arr![vec_![: current_exe(), ":tool", "liza", ":l", "--",path]]
                     },
                     [true, false, true],
                 ),
@@ -177,11 +220,11 @@ impl Action {
                     // preset info should display size
                     if path.is_file() {
                         arr![
-                            vec_![: current_exe(), ":tool", "liza", ":l", path],
+                            vec_![: current_exe(), ":tool", "liza", ":l", "--",path],
                             simple_metadata(path)
                         ]
                     } else {
-                        arr![vec_![: current_exe(), ":tool", "liza", ":l", path]]
+                        arr![vec_![: current_exe(), ":tool", "liza", ":l", "--",path]]
                     },
                     [true, false, true],
                 ),
@@ -218,4 +261,8 @@ impl Action {
             String::new()
         }
     }
+}
+
+fn application_fallback(path: &Path) -> Vec<OsString> {
+    vec_![: current_exe(), ":tool", "liza", ":u2", "--", path]
 }

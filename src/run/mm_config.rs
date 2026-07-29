@@ -1,6 +1,6 @@
 use cba::{_dbg, bo::load_type_or_default};
 use matchmaker::{
-    binds::BindMap,
+    binds::{BindMap, BindMapExt, ResolvedBindMap},
     config::{
         DisplayConfig, HelpDisplayConfig, OverlayConfig, Percentage, PreviewSetting, RenderConfig,
         RowConnectionStyle, TerminalConfig, TerminalLayoutSettings,
@@ -79,17 +79,16 @@ pub const MATCHER_CONFIG: nucleo::Config = const { nucleo::Config::DEFAULT.match
 
 // -------------------------------------------------------------------------------------------
 
-pub fn get_mm_binds(path: &Path) -> (BindMap<FsAction>, HelpDisplayConfig) {
-    let mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
+pub fn get_mm_binds(path: &Path) -> (ResolvedBindMap<FsAction>, HelpDisplayConfig) {
+    let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
     #[cfg(feature = "mm_overrides")]
     if let Some(partial) = EnvOpts::get_mm_partial() {
         mm_cfg.render.apply(partial);
     }
 
-    let binds = default_binds();
-    default_binds().extend(mm_cfg.binds);
+    mm_cfg.binds.extend_from(default_binds());
 
-    (binds, mm_cfg.help)
+    (mm_cfg.binds.resolve_semantics(&[]), mm_cfg.help)
 }
 
 pub fn get_mm_cfg(
@@ -102,9 +101,7 @@ pub fn get_mm_cfg(
         mm_cfg.render.apply(partial);
     }
 
-    let binds = default_binds();
-    default_binds().extend(mm_cfg.binds);
-    mm_cfg.binds = binds;
+    mm_cfg.binds.extend_from(default_binds());
 
     // Render display
     let RenderConfig {
@@ -200,7 +197,7 @@ pub fn get_mm_cfg(
     }
 
     _dbg!(&mm_cfg);
-    log::debug!("{mm_cfg:?}");
+    log::debug!("Final: {mm_cfg:?}");
 
     mm_cfg
 }

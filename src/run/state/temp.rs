@@ -23,20 +23,64 @@ pub struct InitialRelativePathSetting(pub bool);
 #[derive(Debug)]
 pub struct InitialPreserveWhitespaceInSearch;
 
-/// Option<AbsPath>: Previous Directory
-/// Option<u32>: Stashed index
+/// Menu prompt configuration for the overlay input bar
+#[derive(Debug, Clone)]
+pub struct MenuPrompt {
+    pub kind: PromptKind,
+    pub title: String,
+    pub initial: String,
+    pub cursor: usize,
+}
+
+impl MenuPrompt {
+    pub fn new(kind: PromptKind) -> Self {
+        Self {
+            title: kind.to_string(),
+            kind,
+            initial: String::new(),
+            cursor: 0,
+        }
+    }
+
+    pub fn title(
+        mut self,
+        value: impl Into<String>,
+    ) -> Self {
+        self.title = value.into();
+        self
+    }
+
+    /// Set initial input value and move cursor to the end of it
+    pub fn initial(
+        mut self,
+        value: impl Into<String>,
+    ) -> Self {
+        let s = value.into();
+        self.cursor = s.len();
+        self.initial = s;
+        self
+    }
+
+    /// Set cursor position (grapheme index)
+    pub fn cursor(
+        mut self,
+        pos: usize,
+    ) -> Self {
+        self.cursor = pos;
+        self
+    }
+}
+
+/// AbsPath: Previous Directory
+/// u32: Stashed index
+/// Visibility: Initial visibility if fd pane was initialized without pv, from --reset-visibility
 pub struct STORE;
 
 impl STORE {
     pub fn set<T: 'static + Debug>(value: T) {
         TLS_MAP.with(|map| {
-            map.borrow_mut().insert::<T>(_dbg!("TlsSet"; value));
+            map.borrow_mut().insert::<T>(_dbg!("TlsSet", value));
         });
-    }
-    pub fn maybe_set<T: 'static + Debug>(value: Option<T>) {
-        if let Some(v) = value {
-            STORE::set(v);
-        }
     }
 
     pub fn get<T: Clone + 'static>() -> Option<T> {
@@ -45,7 +89,7 @@ impl STORE {
 
     pub fn take<T: 'static + Debug>() -> Option<T> {
         _dbg!(
-            "TlsTake";
+            "TlsTake",
             TLS_MAP.with(|map| map.borrow_mut().remove::<T>())
         )
     }
@@ -73,16 +117,17 @@ impl STORE {
     ///
     /// # Additional
     /// When the prompt is set and the target is Ok, the target's filename is shown in the title of the input bar.
-    pub fn set_input_bar(
-        menu_prompt: Option<PromptKind>,
-        menu_target: MenuTarget,
-    ) {
+    pub fn set_menu_prompt(menu_prompt: Option<MenuPrompt>) {
+        if let Some(prompt) = menu_prompt {
+            TLS_MAP.with(|map| {
+                map.borrow_mut().insert(prompt);
+            });
+        }
+    }
+
+    pub fn set_menu_target(target: MenuTarget) {
         TLS_MAP.with(|map| {
-            let mut map = map.borrow_mut();
-            if let Some(menu_prompt) = menu_prompt {
-                map.insert(menu_prompt);
-            }
-            map.insert(menu_target);
+            map.borrow_mut().insert(target);
         });
     }
 

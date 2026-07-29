@@ -185,7 +185,7 @@ if true; then
   (( idx )) && long[idx]=(--no-permissions --octal-permissions)
 fi
 
-params=($all $parsed $nlong $long $header $args -- $pargs)
+params=($all $parsed $nlong $long $header $args $pargs) # not inserting -- seems slightly more resilient
 pparams=($all $parsed $nlong $long $header $args)
 
 if [[ -z $show ]]; then

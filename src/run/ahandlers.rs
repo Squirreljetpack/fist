@@ -1,9 +1,9 @@
-use cba::{bring::split::split_whitespace_preserve_single_quotes, vec_};
-use fist_types::git::in_git_repo;
+use cba::bring::split::split_whitespace_preserve_single_quotes;
+use fist_types::{filters::Visibility, git::in_git_repo};
 use matchmaker::{
     acs,
     message::{BindDirective, Event},
-    nucleo::{Modifier, injector::IndexedInjector},
+    nucleo::Modifier,
     ui::StatusUI,
 };
 use ratatui::text::Line;
@@ -28,7 +28,7 @@ pub fn paste_handler(
 ) -> String {
     if let Some(c) = STACK::nav_cwd()
         && !(GLOBAL::with_cfg(|c| c.interface.always_paste)
-            || state.picker_ui.results.cursor_disabled
+            || state.picker_ui.results.cursor_disabled()
             || state.overlay_index().is_some())
     {
         STASH::execute_all_impl(c, false, None);
@@ -70,7 +70,7 @@ pub fn enter_prompt(
             let content = state.picker_ui.query.config.prompt.clone();
             Line::styled(content, prompt_main_style())
         };
-        state.picker_ui.results.cursor_jump(0);
+        // state.picker_ui.results.cursor_jump(0);
         if let Some(p) = state.preview_ui
             && p.is_vertical()
         {
@@ -83,7 +83,7 @@ pub fn enter_prompt(
         state.stash_preview_visibility(None);
         state.picker_ui.query.set_prompt(None);
     }
-    state.picker_ui.results.cursor_disabled = enter;
+    state.picker_ui.results.disable_cursor(enter);
 
     log::debug!("entered prompt: {enter}");
 }
@@ -96,7 +96,7 @@ pub fn enter_dir_pane(
     let (content, index) = state.get_content_and_index();
     STACK::save_input(content, index);
     // record
-    GLOBAL::db().bump(true, path.clone());
+    GLOBAL::db().bump_path(true, path.clone());
 
     // apply specific settings
     if STACK::with_current(FsPane::should_cancel_input_entering_dir) {
@@ -146,7 +146,17 @@ pub fn fs_reload(
         // apply vis/sort changes
         STACK::with_current_mut(|pane| {
             GLOBAL::with_cfg(|c| {
-                if let Some(pv) = c.panes.default_visibility(pane)
+                // apply on non-initial new pane: update visibility
+                if let Some(mut dv) = STORE::get::<Visibility>() {
+                    let pv = c.panes.default_visibility(pane).unwrap_or_default();
+
+                    // behaves as if initial (fd) cmd was specified without visibility modifiers
+                    if let Some(v) = pane.vis_mut() {
+                        dv.apply(pv);
+                        *v = dv;
+                        STORE::take::<Visibility>();
+                    }
+                } else if let Some(pv) = c.panes.default_visibility(pane)
                     && let Some(v) = pane.vis_mut()
                 {
                     v.apply(pv);
@@ -203,12 +213,8 @@ pub fn fs_reload(
                 if *filtering {
                     input.0 = state.picker_ui.query.input.clone(); // input is saved anyway
                 } else {
-                    let p = split_whitespace_preserve_single_quotes(&state.picker_ui.query.input);
-                    *patterns = if p.is_empty() && GLOBAL::with_cfg(|c| !c.rg.empty_start) {
-                        vec_![""]
-                    } else {
-                        p
-                    };
+                    *patterns =
+                        split_whitespace_preserve_single_quotes(&state.picker_ui.query.input);
                 };
             }
         }
@@ -219,7 +225,9 @@ pub fn fs_reload(
 
     // stash the saved index to restore it once synced
     // The index is only saved through FsAction::Undo/Redo/Restart, see [`STACK::save_input`]
-    STORE::maybe_set(STACK::take_maybe_index());
+    if let Some(i) = STACK::take_maybe_index() {
+        STORE::set(i);
+    }
 
     if is_new {
         fs_post_reload_new(state);
@@ -236,10 +244,7 @@ pub fn fs_reload(
 ///
 /// 1. Set pane specific config overrides:
 /// - Read the current pane's enter_prompt and default prompt values to appropriately invoke [`enter_prompt`].
-///
-///
 /// 2. Reset transient state settings without any configuration knob
-///
 /// 3. Set input from pane, clear selections
 pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
     // apply pane-specific config overrides
@@ -257,7 +262,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
                 let area = state.ui_size();
                 if let Some(p) = state.preview_ui.as_mut() {
                     p.config.show = condition;
-                    p.reevaluate_show_condition(area, false);
+                    p.reevaluate_show_condition(area, true);
                 }
             }
 

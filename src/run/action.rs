@@ -24,8 +24,8 @@ use crate::{
         pane::FsPane,
         stash::STASH,
         state::{
-            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, STORE,
-            ShouldNotAbortOnEmpty, TASKS, TOAST, context::ActionContext, ui::prompt_main_style,
+            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, MenuPrompt, STACK, STORE, TASKS,
+            TOAST, context::ActionContext, ui::prompt_main_style,
         },
     },
     spawn::open_wrapped,
@@ -76,7 +76,7 @@ pub enum FsAction {
     /// Display the current stack.
     ShowStash,
     /// Clear the stack.
-    ClearStash(Option<String>), // if empty, clear shared. if name, clear specific kind.
+    ClearStash,
 
     CycleStash(bool),
     SwitchStash(String),
@@ -101,10 +101,13 @@ pub enum FsAction {
     Push,
     /// Copy full path.
     CopyPath,
-    /// Create a new file.
+    /// Create a new file. Paths are relative to the current item's parent.
     New,
-    /// Create a new directory. (todo)
+    /// Create a new directory. Paths are relative to the current item's parent.
+    // todo: lowpri: can also add a config option to compute relative to cwd
     NewDir,
+    /// Set an alias for a file or directory.
+    SetAlias(String),
     /// Rename a file or directory.
     Rename,
 
@@ -131,7 +134,6 @@ pub enum FsAction {
     Execute(String, usize),
     // Nonbindable
     // ----------------------------------
-    EnterPrompt(bool),
     SaveInput,
     SetHeader(Option<Text<'static>>),
     SetFooter(Option<Text<'static>>),
@@ -145,6 +147,7 @@ pub enum FsAction {
     // ----------------------------------
     /// Jump and accept;
     /// 0 jumps to menu.
+    EnterPrompt(bool),
     AutoJump(u8),
 }
 // print, accept
@@ -197,7 +200,7 @@ pub fn fsaction_aliaser(
     a: Action<FsAction>,
     state: &mut MMState<'_, '_>,
 ) -> Actions<FsAction> {
-    let in_prompt = state.picker_ui.results.cursor_disabled;
+    let in_prompt = state.picker_ui.results.cursor_disabled();
     let raw_input = in_prompt || state.overlay_index().is_some();
 
     match a {
@@ -254,7 +257,11 @@ pub fn fsaction_aliaser(
             // Actions which only trigger when not in the prompt:
             // -------------------------------------------------
             FsAction::Parent => {
-                if raw_input {
+                if raw_input
+                    && GLOBAL::with_cfg(|c| {
+                        c.interface.move_cursor_with_advance_and_parent_in_prompt
+                    })
+                {
                     acs![Action::BackwardChar]
                 } else if STACK::in_app() {
                     acs![]
@@ -263,7 +270,11 @@ pub fn fsaction_aliaser(
                 }
             }
             FsAction::Advance => {
-                if raw_input {
+                if raw_input
+                    && GLOBAL::with_cfg(|c| {
+                        c.interface.move_cursor_with_advance_and_parent_in_prompt
+                    })
+                {
                     acs![Action::ForwardChar]
                 } else if STACK::in_app() {
                     // todo!()
@@ -316,11 +327,11 @@ pub fn fsaction_aliaser(
             }
             // todo: matchmaker needs to support activating the overlay ourselves so that the activated item is aligned
             FsAction::ShowMenu => {
-                if let Some(p) = state.current_item() {
-                    STORE::set_input_bar(None, MenuTarget::Item(p.clone()));
+                if let Some((_, p)) = state.picker_ui.current_indexed() {
+                    STORE::set_menu_target(MenuTarget::Item(p.path.clone()));
                     acs![Action::Overlay(4)]
                 } else if let Some(cwd) = STACK::cwd() {
-                    STORE::set_input_bar(None, MenuTarget::Cwd(cwd));
+                    STORE::set_menu_target(MenuTarget::Item(cwd.clone()));
                     acs![Action::Overlay(4)]
                 } else {
                     acs![]
@@ -332,12 +343,8 @@ pub fn fsaction_aliaser(
                     return acs![];
                 }
                 // no support for creating outside of nav
-                if let Some(p) = state.current_raw() {
-                    let p = p.path._parent();
-                    STORE::set_input_bar(Some(PromptKind::New), MenuTarget::Cwd(p));
-                    acs![Action::Overlay(4)]
-                } else if let Some(cwd) = STACK::nav_cwd() {
-                    STORE::set_input_bar(Some(PromptKind::New), MenuTarget::Cwd(cwd));
+                if state.current_raw().is_some() || STACK::nav_cwd().is_some() {
+                    STORE::set_menu_prompt(Some(MenuPrompt::new(PromptKind::New)));
                     acs![Action::Overlay(4)]
                 } else {
                     acs![]
@@ -348,12 +355,23 @@ pub fn fsaction_aliaser(
                     return acs![];
                 }
                 // no support for creating outside of nav
-                if let Some(p) = state.current_raw() {
-                    let p = p.path._parent();
-                    STORE::set_input_bar(Some(PromptKind::NewDir), MenuTarget::Cwd(p));
+                if state.current_raw().is_some() || STACK::nav_cwd().is_some() {
+                    STORE::set_menu_prompt(Some(MenuPrompt::new(PromptKind::NewDir)));
                     acs![Action::Overlay(4)]
-                } else if let Some(cwd) = STACK::nav_cwd() {
-                    STORE::set_input_bar(Some(PromptKind::NewDir), MenuTarget::Cwd(cwd));
+                } else {
+                    acs![]
+                }
+            }
+            FsAction::SetAlias(_) => {
+                if in_prompt || STACK::in_rg() || state.overlay_index().is_some() {
+                    return acs![];
+                }
+                if let Some(item) = state.current_raw() {
+                    let prepop_value = item.tail.to_string();
+                    STORE::set_menu_prompt(Some(
+                        MenuPrompt::new(PromptKind::SetAlias).initial(prepop_value),
+                    ));
+                    STORE::set_menu_target(MenuTarget::Item(item.path.clone()));
                     acs![Action::Overlay(4)]
                 } else {
                     acs![]
@@ -370,23 +388,18 @@ pub fn fsaction_aliaser(
                 // in overlay
                 {
                     acs![Action::Pos(digit.saturating_sub(1) as i32)]
-                } else if in_prompt
-                // in prompt
-                {
-                    // jump out
-                    if digit > 0 {
-                        enter_prompt(state, false);
-                        acs![Action::Pos(digit as i32 - 1)]
-                    } else {
-                        acs![FsAction::AcceptPrompt]
-                    }
                 } else if digit == 0
-                // 0 when not in prompt -> enter prompt
+                // 0 -> TogglePrompt
                 {
-                    enter_prompt(state, true);
+                    enter_prompt(state, !in_prompt);
                     acs![]
+                } else if in_prompt
+                // in prompt => jump out
+                {
+                    enter_prompt(state, false);
+                    acs![Action::Pos(digit as i32 - 1)]
                 } else if (digit - 1) as u32 == state.picker_ui.results.index()
-                // not in prompt => accept
+                // not in prompt + on pos => accept
                 {
                     acs![
                         Action::Pos((digit - 1) as i32),
@@ -493,7 +506,7 @@ pub fn fsaction_handler(
     context: &mut ActionContext,
 ) {
     let print_handle = &context.print_handle;
-    let in_prompt = state.picker_ui.results.cursor_disabled;
+    let in_prompt = state.picker_ui.results.cursor_disabled();
 
     match a {
         FsAction::Find => {
@@ -502,13 +515,7 @@ pub fn fsaction_handler(
             STACK::save_input(content, index);
 
             // pane
-            let pane = FsPane::new_fd(
-                STACK::cwd().unwrap_or_default(),
-                FILTERS::sort(),
-                FILTERS::visibility(),
-            );
-
-            STORE::set(ShouldNotAbortOnEmpty {});
+            let pane = FsPane::new_fd(STACK::_cwd(), FILTERS::sort(), FILTERS::visibility());
 
             // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
             // todo: there is a problem
@@ -580,29 +587,25 @@ pub fn fsaction_handler(
                 let [one_line, fixed_strings] =
                     GLOBAL::with_cfg(|c| [c.panes.search.one_line, c.panes.search.fixed_strings]);
 
-                let cwd = STACK::cwd().unwrap_or_default();
+                let cwd = STACK::_cwd();
 
                 //
-                let paths = vec![cwd.inner()];
+                let paths = state.picker_ui.selector.map_to_vec(|i, x| x.path.inner());
+
                 let query = String::new();
                 let filtering = false;
-                let patterns = if GLOBAL::with_cfg(|c| c.panes.search.search_empty_query) {
-                    vec!["".into()]
-                } else {
-                    vec![]
-                };
 
                 let context = Default::default();
                 let case = Default::default();
 
-                let pane = FsPane::new_rg_full(
+                let pane = FsPane::new_rg(
                     cwd,
                     FILTERS::sort(),
                     FILTERS::visibility(),
                     //
                     paths,
                     query,
-                    patterns,
+                    vec![],
                     filtering,
                     //
                     context,
@@ -652,8 +655,16 @@ pub fn fsaction_handler(
             };
         }
 
-        FsAction::Jump(paths) => {
+        FsAction::Jump(mut paths) => {
             let cwd = STACK::cwd().and_then(|p| p.canonicalize().ok());
+
+            // jump between home and current root if empty (seems reasonable)
+            if paths.is_empty() {
+                paths = vec![
+                    __home().into(),
+                    cba::bath::find_root().unwrap_or(PathBuf::from(std::path::MAIN_SEPARATOR_STR)),
+                ];
+            }
 
             let canonical = |p: &std::path::Path| p.abs(__home()).canonicalize().ok();
 
@@ -667,11 +678,7 @@ pub fn fsaction_handler(
                 0
             };
 
-            let target_path = if paths.is_empty() {
-                __home().into()
-            } else {
-                paths[idx].abs(__home())
-            };
+            let target_path = paths[idx].abs(__home());
 
             if target_path.is_dir() {
                 let abs_target = AbsPath::new_unchecked(target_path);
@@ -715,7 +722,7 @@ pub fn fsaction_handler(
             } else if item.path.exists() {
                 // record
                 if item.path.is_file() {
-                    GLOBAL::db().bump(false, item.path.clone());
+                    GLOBAL::db().bump_path(false, item.path.clone());
                 }
 
                 // todo: specialized
@@ -987,8 +994,8 @@ pub fn fsaction_handler(
             };
             STASH::execute_all_impl(base, false, None);
         }
-        FsAction::ClearStash(x) => {
-            STASH::clear(x.as_deref());
+        FsAction::ClearStash => {
+            // STASH::clear(x.as_deref());
 
             TOAST::notice(ToastStyle::Normal, "Stack cleared");
         }
@@ -1144,7 +1151,7 @@ pub fn fsaction_handler(
                     let s = p.display().to_string();
                     print_handle.push(s);
 
-                    GLOBAL::db().bump(true, p);
+                    GLOBAL::db().bump_path(true, p);
 
                     state.picker_ui.selector.clear();
                     state.should_quit = true;
@@ -1175,12 +1182,12 @@ pub fn fsaction_handler(
                 print_handle.push(s);
 
                 // bump
-                GLOBAL::db().bump(true, p);
+                GLOBAL::db().bump_path(true, p);
             } else {
                 // if alt_accept, this was aliased from Accept, in which case we should respect no_multi_accept
                 if GLOBAL::with_cfg(|c| c.interface.alt_accept && c.interface.no_multi_accept) {
                     if let Some(item) = state.current_raw() {
-                        GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
+                        GLOBAL::db().bump_path(item.path.is_dir(), item.path.clone());
 
                         let s = item.display().to_string();
                         print_handle.push(s);
@@ -1188,7 +1195,7 @@ pub fn fsaction_handler(
                 } else {
                     // print selected
                     state.map_selected_to_vec(|_, item| {
-                        GLOBAL::db().bump(item.path.is_dir(), item.path.clone());
+                        GLOBAL::db().bump_path(item.path.is_dir(), item.path.clone());
 
                         let s = item.display().to_string();
                         print_handle.push(s);
@@ -1216,16 +1223,16 @@ enum_from_str_display! {
     ShowFilters, ShowStash, ShowScratch,
     ShowMenu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir, Rename,
-    Backup;
+    Backup, ClearStash;
 
     tuples:
-    AutoJump, SwitchStash;
+    AutoJump, SwitchStash, SetAlias;
 
     defaults:
-    (Delete, false), (Trash, false), (Stash, String::new()), (CycleStash, true)
+    (Delete, false), (Trash, false), (Stash, String::new()), (CycleStash, true), (EnterPrompt, true)
     ;
     options:
-    ClearStash
+
     ;
 
     lossy:
@@ -1276,19 +1283,22 @@ macro_rules! enum_from_str_display {
                                     /* ---------- Manually parsed ---------- */
                                     Jump(paths) => {
                                         if paths.is_empty() {
-                                            write!(f, "Jump(⌂)")
+                                            write!(f, "Jump(⌂⦀/)")
                                         } else {
                                             write!(f, "Jump({})", paths
                                             .iter()
                                             .map(|p| p.to_string_lossy())
                                             .collect::<Vec<_>>()
-                                            .join("⦀")
+                                            .join(",")
                                         )
                                     }
                                 }
-                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | EnterPrompt(_) | Confirm => Ok(()), // internal
-                                Lessfilter { preset, paging, header: _, .. } => {
-                                    if *paging {
+                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | Confirm => Ok(()), // internal
+                                Lessfilter { preset, paging, header: _, special, } => {
+                                    if *special == 1 {
+                                        write!(f, "Help")
+                                    }
+                                    else if *paging {
                                         write!(f, "LFPaged({preset})")
                                     } else {
                                         write!(f, "Lessfilter({preset})")
@@ -1375,27 +1385,30 @@ macro_rules! enum_from_str_display {
 
                                 /* ---------- Manually parsed ---------- */
                                 "Jump" => {
-                                    let values = data.ok_or_else(|| "Missing path for Jump")?;
-                                    let paths = cba::bring::split::split_on_unescaped_delimiter(values, "|||").iter().map(PathBuf::from).collect();
+                                    let Some(values) = data else {
+                                        return Ok(Self::Jump(vec![]))
+                                    };
+                                    let paths = cba::bring::split::split_on_unescaped_delimiter(values, ",").iter().map(PathBuf::from).collect();
                                     Ok(Self::Jump(paths))
                                 }
                                 "Lessfilter" => {
                                     let preset_str = data.ok_or_else(|| "Missing preset for Lessfilter")?;
                                     let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for Lessfilter: {preset_str}"))?;
-                                    let header = When::default();
-                                    Ok(Self::Lessfilter { preset, paging: false, header, special: Default::default() })
+                                    Ok(FsAction::new_lessfilter(preset, false))
                                 }
                                 "LFPaged" => {
                                     let preset_str = data.ok_or_else(|| "Missing preset for LFPaged")?;
                                     let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for LFPaged: {preset_str}"))?;
-                                    let header = When::default();
-                                    Ok(Self::Lessfilter { preset, paging: true, header, special: Default::default() })
+                                    Ok(FsAction::new_lessfilter(preset, true))
                                 }
                                 "LFPreview" => {
                                     let preset_str = data.ok_or_else(|| "Missing preset for LFPreview")?;
                                     let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for LFPreview: {preset_str}"))?;
                                     let header = When::default();
                                     Ok(Self::LessfilterPreview ( preset, header ))
+                                }
+                                "Help" if data.is_none() => {
+                                    Ok(FsAction::help())
                                 }
                                 "Execute" => {
                                     let cmd = data.ok_or_else(|| "Missing command for Execute")?;
@@ -1424,7 +1437,7 @@ macro_rules! enum_from_str_display {
 
                                 /* ------------------------------------- */
 
-                                _ => Err(format!("Unknown action {}", s)),
+                                _ => Err("".to_string()),
                             }
                         }
                     }

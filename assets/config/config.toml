@@ -1,48 +1,55 @@
 ### PANES ###
 #
 [panes.nav]
-    show_preview = 60
-    enter_prompt = false
+show_preview = 60
+enter_prompt = false
 
-    # default_visibility = { hidden = true }
+# default_visibility = { hidden = true }
 
 [panes.find]
-    show_preview = 60
-    enter_prompt = true
+show_preview = 60
+enter_prompt = true
 
 [panes.search]
-    enter_prompt         = true
-    show_preview         = 20
-    preview_layout_index = 1
+enter_prompt = true
+show_preview = 20
+preview_layout_index = 1
 
-    one_line         = true
-    default_sort       = "none"
-    search_empty_query = true
+one_line = true
+default_sort = "none"
 
-    rg_status_template = '''
+rg_status_template = '''
 {blue:filter: {}} \s\m/\t
 '''
-    fs_status_template = '''
+fs_status_template = '''
 {red:query: {}} \s\m/\t
 '''
+
+[panes.app]
+preview_layout_index = 3
+show_preview = true
 
 ### STYLES ####
 #
 [styles]
-
 ### SETTINGS ###
 #
 [fd]
 dot_query_show_hidden = "Always"
 
 [rg]
+empty_pattern = "-v ^ *$"
 
 [notify]
 
 [misc]
 
 [history]
-    refind = "Search"
-    ### ACTIONS ####
+refind = "Search"
+
+### ACTIONS ####
 
 [actions]
+### MISC ###
+[interface]
+move_cursor_with_advance_and_parent_in_prompt = true

@@ -78,7 +78,7 @@ pub struct FilterOverlay {
     pane_lens: [usize; 3],
     config: FilterBaseConfig,
     pub configs: [FilterPaneConfig; 3],
-    area: Rect,
+    area: Rect, // inner area
 }
 
 /// Renders a horizontal mural of paragraphs, declared in [`FilterOverlay::make_widgets`]
@@ -605,11 +605,9 @@ impl Overlay for FilterOverlay {
         ui_area: &Rect,
         layout: &OverlayLayoutSettings,
     ) {
-        self.area = utils::default_area(
-            [self.width().into(), self.height().into()],
-            layout,
-            ui_area,
-        );
+        self.area =
+            utils::default_area([self.width().into(), self.height().into()], layout, ui_area);
+        log::trace!("Computed filters overlay dimensions: {:?}", self.area);
     }
 
     fn draw(
@@ -629,11 +627,7 @@ impl Overlay for FilterOverlay {
             .map(|_| Constraint::Length(PANE_WIDTH))
             .collect();
 
-        let mut inner_area = area;
-        inner_area.width -= self.border().width();
-        inner_area.height -= self.border().height();
-        inner_area.x += self.border().left();
-        inner_area.y += self.border().top();
+        let mut inner_area = self.border().inner(area);
 
         let chunks = Layout::default()
             .direction(Direction::Horizontal)

@@ -1,8 +1,6 @@
 use std::{collections::HashMap, str::FromStr};
 
-use cba::{
-    bird::transform::camelcase_normalized, define_collection_wrapper,
-};
+use cba::{bird::transform::camelcase_normalized, define_collection_wrapper};
 use mime_guess::Mime;
 
 use crate::{
@@ -22,8 +20,8 @@ use fist_types::{FileCategory, When};
     serde::Serialize,
     serde::Deserialize,
     clap::ValueEnum,
-    strum::Display,
-    strum::EnumString,
+    strum_macros::Display,
+    strum_macros::EnumString,
 )]
 #[strum(serialize_all = "lowercase")]
 pub enum Preset {
@@ -105,6 +103,13 @@ pub struct LessfilterSettings {
     #[serde(skip)]
     pub early_exit: bool,
     pub tracked_presets: Vec<Preset>,
+    pub run: RunSettings,
+}
+
+#[derive(Default, Debug, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct RunSettings {
+    pub image_viewer: Vec<String>,
 }
 
 #[derive(Debug, Default, Copy, Clone, serde::Deserialize)]
@@ -121,6 +126,7 @@ impl Default for LessfilterSettings {
             infer: Default::default(),
             early_exit: false,
             tracked_presets: vec![Preset::Edit, Preset::Alternate, Preset::Extended],
+            run: Default::default(),
         }
     }
 }
@@ -208,6 +214,6 @@ impl<'de> Deserialize<'de> for Categories {
             }
         }
 
-        Ok(Categories(map))
+        Ok(Categories::new_from(map))
     }
 }

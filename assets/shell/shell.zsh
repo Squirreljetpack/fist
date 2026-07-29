@@ -28,7 +28,7 @@ function $${Z_NAME}() {
   if [ -d "$line" ]; then
     cd "$line" || return
   else
-    line="$(dirname "$line")" && [ -d "$line" ] && cd "$line" || return
+    echo "$line" && line="$(dirname "$line")" && [ -d "$line" ] && cd "$line" || return
   fi
 }
 
@@ -66,7 +66,9 @@ function $${OPEN_NAME}() {
 
 #: zsh
 __fist_jump_hook() {
-  $${BINARY_PATH} :tool bump "$PWD"
+  if ! (( ZSH_SUBSHELL > 0 )); then
+    $${BINARY_PATH} :tool bump "$PWD"
+  fi
 }
 
 #: zsh

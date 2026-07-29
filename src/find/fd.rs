@@ -153,14 +153,14 @@ pub fn build_fd_args(
         if !vis.ignore {
             ret.push("--no-ignore".into());
         }
-        // todo: lowpri: maybe we want to pop off other -t args as well
-        if vis.dirs {
-            ret.push("-t".into());
-            ret.push("d".into());
-        } else if vis.files {
-            ret.push("-t".into());
-            ret.push("f".into());
-        }
+    }
+    // todo: lowpri: maybe we want to pop off other -t args as well
+    if vis.dirs {
+        ret.push("-t".into());
+        ret.push("d".into());
+    } else if vis.files {
+        ret.push("-t".into());
+        ret.push("f".into());
     }
 
     // add -E

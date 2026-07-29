@@ -1,7 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use cba::_dbg;
-use clap::{ArgAction, Args, Parser, Subcommand, error::ErrorKind};
+use clap::{ArgAction, Args, Parser, Subcommand};
 
 use crate::{
     cli::{
@@ -14,53 +13,39 @@ use crate::{
 use fist_types::filters::{DbSortOrder, SortOrder};
 use fist_types::{filetypes::FileTypeArg, filters::PartialVisibility};
 
+// #[derive(Parser, Debug)]
+// #[command(version, about, long_about = None)]
+// #[command(disable_help_subcommand = true)]
+// #[command(disable_help_flag = true)]
+pub struct Cli {
+    // #[command(subcommand)]
+    pub subcommand: SubCmd,
+    // #[command(flatten)]
+    pub opts: CliOpts,
+    // #[arg(long, action = ArgAction::Help)]
+    // pub help: (),
+}
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 #[command(disable_help_subcommand = true)]
 #[command(disable_help_flag = true)]
-pub struct Cli {
+pub struct CliWithDefault {
     #[command(subcommand)]
-    pub subcommand: SubCmd,
+    pub subcommand: Option<SubCmd>,
     #[command(flatten)]
     pub opts: CliOpts,
-    #[arg(long, action = ArgAction::Help)]
-    pub help: (),
+    #[command(flatten)]
+    pub dopts: DefaultCommand,
 }
 
 impl Cli {
     pub fn parse_custom() -> Self {
-        let first = std::env::args_os().nth(1);
-
-        const SUBCMDS: &[&str] = &[
-            ":open", ":o", ":app", ":a", ":file", ":dir", ":fd", "::", ":rg", ":", ":tool", ":t",
-            ":info",
-        ];
-
-        let non_default = match first.as_deref().map(|s| s.to_str()) {
-            None => false,
-            Some(None) => true,
-            Some(Some(arg)) => SUBCMDS.contains(&arg),
-        };
-
-        if non_default {
-            return match Cli::try_parse() {
-                Ok(cli) => cli,
-                Err(e) => match e.kind() {
-                    ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => {
-                        e.print().expect("Failed to print help/version");
-                        std::process::exit(0);
-                    }
-                    _ => e.exit(),
-                },
-            };
-        }
-
-        match NavCli::try_parse() {
-            Ok(cli) => cli.into(),
-            Err(err) => {
-                _dbg!(err);
-                Cli::try_parse().unwrap_or_else(|e| e.exit())
-            }
+        let CliWithDefault { subcommand, opts, dopts } = CliWithDefault::parse();
+        if let Some(subcommand) = subcommand {
+            Cli { subcommand, opts }
+        } else {
+            Cli { subcommand: SubCmd::Default(dopts), opts }
         }
     }
 }
@@ -73,16 +58,6 @@ pub struct NavCli {
     pub args: DefaultCommand,
     #[command(flatten)]
     pub opts: CliOpts,
-}
-
-impl From<NavCli> for Cli {
-    fn from(NavCli { args, opts }: NavCli) -> Self {
-        Cli {
-            subcommand: SubCmd::Fd(args),
-            opts,
-            help: (),
-        }
-    }
 }
 
 #[derive(Debug, Args, Default, Clone)]
@@ -162,7 +137,7 @@ pub enum SubCmd {
     Dirs(DirsCmd),
     /// Find and browse. (Default)
     #[command(name = ":fd", visible_aliases = ["::"])]
-    Fd(DefaultCommand),
+    Default(DefaultCommand),
     #[command(name = ":rg", visible_aliases = [":"])]
     Rg(SearchCommand),
     #[command(name =  ":tool", visible_aliases = [":t"])]
@@ -264,8 +239,13 @@ pub struct FilesCmd {
 pub struct SearchCommand {
     #[command(flatten)]
     pub vis: PartialVisibility,
+
     #[arg(long)]
     pub sort: Option<SortOrder>,
+
+    // todo: lowpri: rg supports -t and globs, but its a bit awkward so we currently require users to specify manually thru rg_args
+    // #[arg(short = 't', long = "types", value_delimiter = ',')]
+    // pub types: Vec<FileTypeArg>,
 
     /// Files or directories to search in.
     #[arg(short = 'p', long = "path")]
@@ -274,9 +254,6 @@ pub struct SearchCommand {
     /// Patterns to search (`rg -e`).
     #[arg(value_name = "PATTERNS")]
     pub patterns: Vec<String>,
-    /// Prepend ' to query start
-    #[arg(long)]
-    pub preserve_whitespace: bool,
 
     /// Args passed on verbatim to rg.
     #[arg(last = true, value_name = "RG_ARGS")]
@@ -291,11 +268,30 @@ pub struct SearchCommand {
     /// Alias: `-1`
     #[arg(long)]
     pub one_line: Option<bool>,
+
     /// Enable fixed string matching
-    #[arg(long = "fixed-strings", action = ArgAction::SetTrue)]
+    #[arg(
+        long = "fixed-strings", 
+        action = ArgAction::SetTrue, 
+        overrides_with = "no_fixed_strings"
+    )]
+    fixed_strings: bool,
+
     /// Disable fixed string matching
-    #[arg(long = "no-fixed-strings", action = ArgAction::SetFalse)]
-    pub fixed_strings: bool,
+    #[arg(
+        long = "no-fixed-strings", 
+        action = ArgAction::SetTrue, // Both set to true when passed
+        overrides_with = "fixed_strings"
+    )]
+    no_fixed_strings: bool,
+
+    /// Prepend ' to query start.
+    #[arg(long)]
+    pub preserve_whitespace: bool,
+    /// Execute in the deepest directory common to all given paths
+    #[arg(long)]
+    pub rebase: bool,
+
     #[arg(long, action = ArgAction::SetTrue)]
     pub filtering: bool,
 
@@ -307,8 +303,25 @@ pub struct SearchCommand {
     /// initial query.
     #[arg(long, default_value_t)]
     pub query: String,
+
+    /// Don't try to read paths from stdin.
+    #[arg(long, default_value_t)]
+    pub no_read: bool,
+
     #[arg(long, action = ArgAction::Help)]
     pub help: (),
+}
+
+impl SearchCommand {
+    pub fn fixed_strings(&self) -> Option<bool> {
+        if self.fixed_strings {
+            Some(true)
+        } else if self.no_fixed_strings {
+            Some(false)
+        } else {
+            None
+        }
+    }
 }
 
 /// Browse listed files from standard input, the current directory, or fd.
@@ -321,6 +334,8 @@ pub struct DefaultCommand {
     pub sort: Option<SortOrder>,
     #[command(flatten)]
     pub vis: PartialVisibility,
+    #[arg(short = 'A', long)]
+    pub no_all: bool,
 
     /// print the first match.
     #[arg(long)]
@@ -343,6 +358,8 @@ pub struct DefaultCommand {
     /// Never stream input from stdin.
     #[arg(long, default_value_t)]
     pub no_read: bool,
+    #[arg(long, default_value_t)]
+    pub reset_visibility: bool,
 
     #[arg(long)]
     pub list: bool,

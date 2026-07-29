@@ -66,6 +66,34 @@ impl Visibility {
         files: false,
     };
 
+    pub fn enable_hidden_if_empty_otherwise(
+        mut self,
+        cwd: &Path,
+        modify_if: bool,
+    ) -> Self {
+        if !self.hidden && modify_if {
+            // automatic flag set for directories with only hidden files
+            let only_hidden = std::fs::read_dir(cwd)
+                .map(|mut entries| {
+                    entries.all(|entry| {
+                        entry
+                            .map(|e| {
+                                e.file_name()
+                                    .to_str()
+                                    .map(|s| s.starts_with('.'))
+                                    .unwrap_or(false)
+                            })
+                            .unwrap_or(false)
+                    })
+                })
+                .unwrap_or(false);
+            if only_hidden {
+                self.hidden = true
+            }
+        }
+        self
+    }
+
     // note: does rust know to get all these metadata checks in one go?
     pub fn post_nav_filter(
         &self,
@@ -90,6 +118,42 @@ impl Visibility {
             push &= path.is_dir()
         } else if self.files {
             push &= path.is_file()
+        }
+
+        push
+    }
+
+    /// applies the full visibility filter (notes: checks exists(), ignore not implemented)
+    pub fn filter(
+        &self,
+        path: &Path,
+    ) -> bool {
+        let mut push = true;
+        if !self.all {
+            push &= path.exists()
+        }
+
+        if self.hidden_only {
+            return path.is_hidden()
+                || if self.dirs {
+                    path.is_dir()
+                } else if self.files {
+                    path.is_file()
+                } else {
+                    false
+                };
+        } else if !self.hidden {
+            push &= !path.is_hidden()
+        }
+
+        if self.dirs {
+            push &= path.is_dir()
+        } else if self.files {
+            push &= path.is_file()
+        }
+
+        if self.ignore {
+            // lowpri: todo
         }
 
         push
@@ -247,13 +311,15 @@ impl PartialVisibility {
             };
         } else {
             if self.hidden.is_none() && self.ignore.is_none() {
+                // Config specifies a default cfg (for the pane)
                 if let Some(cfg) = cfg {
                     self.hidden = cfg.hidden;
                     self.ignore = cfg.ignore;
+                // automatic flag set for git repo
                 } else if super::git::in_git_repo(std::env::current_dir().ok()) {
                     vis.hidden = true;
                     vis.ignore = true;
-                };
+                }
             }
             vis.apply(self);
         }

@@ -9,6 +9,36 @@ use crate::{
 use fist_types::When;
 use fist_types::filters::{SortOrder, Visibility};
 
+// pub fn is_inverted(
+//     patterns: &[String],
+//     rg_args: &[OsString],
+//     cfg: &RgConfig,
+// ) -> bool {
+//     if patterns.is_empty()
+//         && cfg
+//             .empty_pattern
+//             .as_deref()
+//             .is_some_and(|x| x.starts_with("-v "))
+//     {
+//         return true;
+//     };
+//     if rg_args.iter().take_while(|v| *v != "--").any(|v| v == "-v") {
+//         return true;
+//     }
+//     let mut extra_args: Vec<OsString> = cfg.base_args.iter().map(|s| s.into()).collect();
+//     if rg_args.is_empty() {
+//         extra_args.extend(cfg.default_args.iter().map(|s| s.into()));
+//     }
+//     if rg_args.iter().any(|v| v == "-v") {
+//         return true;
+//     }
+//     false
+// }
+
+pub fn is_inverted(args: &[OsString]) -> bool {
+    args.iter().take_while(|v| *v != "--").any(|v| v == "-v")
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn build_rg_args(
     mut vis: Visibility,
@@ -22,10 +52,16 @@ pub fn build_rg_args(
     rg_args: &[OsString],
     cfg: &RgConfig,
 ) -> Vec<OsString> {
+    if patterns.is_empty() && cfg.empty_pattern.is_none() {
+        return vec!["".into()]; // empty command to fail fast
+    }
     let mut ret: Vec<OsString> = vec![];
     // Initialize extra args
     // Add base args and user/default args
     let mut extra_args: Vec<OsString> = cfg.base_args.iter().map(|s| s.into()).collect();
+    if rg_args.is_empty() {
+        extra_args.extend(cfg.default_args.iter().map(|s| s.into()));
+    }
 
     vis.no_follow |= cfg.base_args.iter().any(|x| x == "--no-follow");
     if !vis.no_follow {
@@ -87,6 +123,15 @@ pub fn build_rg_args(
         ret.push("--regexp".into());
         ret.push(p.into());
     }
+    if patterns.is_empty() {
+        let mut pat = cfg.empty_pattern.as_deref().unwrap();
+        if let Some(stripped) = pat.strip_prefix("-v ") {
+            ret.push("-v".into());
+            pat = stripped;
+        }
+        ret.extend(["--regexp".into(), pat.into()]);
+    }
+
     ret.append(&mut vec_![
     OsString:
     "--field-context-separator=:",
@@ -107,7 +152,8 @@ pub fn build_rg_args(
         When::Always => "--case-sensitive",
     };
     ret.push(case.into());
-    let fixed = if fixed_strings {
+
+    let fixed = if fixed_strings && !(patterns.is_empty()) {
         "--fixed-strings"
     } else {
         "--no-fixed-strings"

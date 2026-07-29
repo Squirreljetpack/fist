@@ -30,7 +30,7 @@ use crate::{
     abspath::AbsPath,
     cli::env::EnvOpts,
     config::GlobalConfig,
-    find::rg::build_rg_args,
+    find::rg::{build_rg_args, is_inverted},
     run::{
         FsPane,
         populate_rg::{BufItem, flush_rg_buffer, process_rg_line},
@@ -328,8 +328,11 @@ impl FsPane {
                     ._ebog()?;
                 TASKS::register_child(TaskId::Populate, child);
 
-                let abort_empty =
-                    STACK::len() == 1 && STORE::get::<ShouldNotAbortOnEmpty>().is_none();
+                // not sure about this, but this kinda works to ensure only first run of fs will abort
+                let abort_empty = STORE::get::<ShouldNotAbortOnEmpty>().is_none();
+                if abort_empty {
+                    STORE::set(ShouldNotAbortOnEmpty {});
+                }
 
                 let _complete = complete.clone();
                 let _cwd = cwd.clone();
@@ -405,6 +408,7 @@ impl FsPane {
                     ),
                 );
                 let toast_on_empty = toast_on_empty && is_initial.take();
+                let no_column = is_inverted(&args);
 
                 log::info!("spawning: {}", display_sh_prog_and_args(prog, &args));
 
@@ -461,6 +465,7 @@ impl FsPane {
                         stdout,
                         *context,
                         &cwd,
+                        no_column,
                         injector,
                         toast_on_empty,
                         complete.clone(),
@@ -494,7 +499,7 @@ impl FsPane {
                                 let mut text = Text::from(std::mem::take(&mut current_context));
                                 scrub_text_styles(&mut text);
                                 for line in &text.lines {
-                                    extract_rg_line_no_path(line, &mut current_places);
+                                    extract_rg_line_no_path(line, &mut current_places, no_column);
                                 }
 
                                 item.tail = text;
@@ -528,7 +533,7 @@ impl FsPane {
             }
             Self::Files { sort, .. } => {
                 let sort = *sort;
-                let cwd = STACK::cwd().unwrap_or_default();
+                let cwd = STACK::_cwd();
                 let pool = GLOBAL::db();
 
                 tokio::spawn(async move {
@@ -548,7 +553,7 @@ impl FsPane {
             }
             Self::Folders { sort, .. } => {
                 let sort = *sort;
-                let cwd = STACK::cwd().unwrap_or_default();
+                let cwd = STACK::_cwd();
                 let pool = GLOBAL::db();
 
                 tokio::spawn(async move {
@@ -692,6 +697,7 @@ pub fn map_reader_rg(
     reader: impl Read + matchmaker::SSS + 'static,
     context: [usize; 2],
     cwd: &Path,
+    no_column: bool,
     injector: FsInjector,
     toast_on_empty: bool,
     complete: Arc<AtomicBool>,
@@ -740,9 +746,16 @@ pub fn map_reader_rg(
                 }
 
                 let mut buf = buffer.borrow_mut();
-                process_rg_line(text.lines.remove(0), context, &cwd, &mut buf, |item| {
-                    let _ = injector.push(item);
-                })?;
+                process_rg_line(
+                    text.lines.remove(0),
+                    context,
+                    &cwd,
+                    no_column,
+                    &mut buf,
+                    |item| {
+                        let _ = injector.push(item);
+                    },
+                )?;
 
                 Ok(())
             },

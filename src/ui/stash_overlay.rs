@@ -218,7 +218,7 @@ impl TableSelection {
                     self.selected.remove(&i);
                 }
             }
-            Action::Toggle => {
+            Action::ToggleSelection => {
                 if let Some(i) = self.state.selected() {
                     if !self.selected.insert(i) {
                         self.selected.remove(&i);

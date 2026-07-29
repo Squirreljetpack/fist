@@ -82,7 +82,7 @@ impl<T, A> RuleMatcher<T, A> {
     /// Find the best matching rule for the item.
     ///
     /// # Notes
-    /// - last one wins in tie
+    /// - first one wins in tie
     /// - 0 score does not count
     /// - Early exit on 255
     #[cfg(not(test))]
@@ -104,7 +104,7 @@ impl<T, A> RuleMatcher<T, A> {
                 score = r.0.modify(score, r.1.passes(item, &context));
             }
 
-            if score >= best_score && score > 0 {
+            if score > best_score && score > 0 {
                 best_score = score;
                 best_id = Some(id);
 
@@ -142,7 +142,7 @@ impl<T, A> RuleMatcher<T, A> {
 
             eprintln!("rule id: {:?}, score: {}", id, score);
 
-            if score >= best_score && score > 0 {
+            if score > best_score && score > 0 {
                 best_score = score;
                 best_id = Some(id);
 
@@ -214,12 +214,18 @@ impl<T, A> RuleMatcher<T, A> {
     }
 
     // -------------------
-    pub fn prepend(
+    // pub fn prepend(
+    //     &mut self,
+    //     initial: &mut Self,
+    // ) {
+    //     initial.rules.append(&mut self.rules);
+    //     std::mem::swap(initial, self);
+    // }
+    pub fn append(
         &mut self,
         initial: &mut Self,
     ) {
-        initial.rules.append(&mut self.rules);
-        std::mem::swap(initial, self);
+        self.rules.append(&mut initial.rules);
     }
 
     pub fn len(&self) -> usize {
