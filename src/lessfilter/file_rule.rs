@@ -65,6 +65,8 @@ pub enum FileRuleKind {
     /// A few additional broad file types are supported:
     /// - Text
     FileType(OverloadedFileType),
+    /// Platform-specific application bundle/launcher/executable.
+    Application,
 }
 
 /// Overloads FileType to add a Text variant, which is matched on all native text (utf-8/utf-16).
@@ -196,6 +198,8 @@ impl Test<Path> for FileRule {
                 } // this computed for each test instead of being cached
             },
 
+            FileRuleKind::Application => is_application_path(item),
+
             FileRuleKind::Have(cmd) => has(cmd),
         };
         if ok {
@@ -216,8 +220,34 @@ impl DefaultScore for FileRule {
             FileRuleKind::Cat(_) => Score::Max(20),
             FileRuleKind::Have(_) => Score::Req,
             FileRuleKind::FileType(_) => Score::Req,
+            FileRuleKind::Application => Score::Max(60),
         }
     }
+}
+
+pub fn is_application_path(path: &Path) -> bool {
+    if cfg!(target_os = "macos") {
+        return path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.ends_with(".app") || name.ends_with(".Application"));
+    }
+
+    if cfg!(target_os = "linux") {
+        return path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.ends_with(".desktop") || name.ends_with(".AppImage"));
+    }
+
+    if cfg!(target_os = "windows") {
+        return path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"));
+    }
+
+    false
 }
 // -------------- PARSING --------------------
 
@@ -251,6 +281,9 @@ impl FromStr for FileRule {
         let Some((kind, rest)) = s.split_once(':') else {
             return if let Some(s) = s.strip_prefix('.') {
                 let kind = FileRuleKind::Ext(s.to_string());
+                Ok(FileRule { kind, invert })
+            } else if s.eq_ignore_ascii_case("application") || s.eq_ignore_ascii_case("app") {
+                let kind = FileRuleKind::Application;
                 Ok(FileRule { kind, invert })
             } else if let Ok(mime) = s.parse() {
                 let kind = FileRuleKind::Mime(mime);

@@ -11,7 +11,7 @@ use crate::cli::paths;
 define_restricted_wrapper!(
     /// Absolute path in which all components are [`std::path::Component::Normal`]
     #[derive(Eq, Clone, Hash)]
-    AbsPath: PathBuf = paths::__cwd().into()
+    AbsPath: PathBuf
 );
 
 impl AbsPath {
@@ -19,6 +19,10 @@ impl AbsPath {
     pub fn new(path: impl Into<PathBuf>) -> Self {
         let path = path.into().abs(paths::__cwd());
         Self(path)
+    }
+
+    pub fn initial() -> Self {
+        AbsPath(PathBuf::from(paths::__cwd()))
     }
 
     /// Normalize + resolve paths relative to cwd

@@ -1,6 +1,6 @@
 use matchmaker::{
-    MatchError, MatchResultExt, Matchmaker, SSS, Selector,
-    nucleo::{Indexed, Render, Worker},
+    MatchError, MatchResultExt, Matchmaker, SSS,
+    nucleo::{Render, Worker},
 };
 
 use crate::cli::SubTool;
@@ -10,8 +10,7 @@ pub async fn mm_get<T: SSS + Render + Clone>(
 ) -> Result<T, MatchError> {
     let worker = Worker::new_single_column();
     worker.append(items);
-    let selector = Selector::new(Indexed::identifier);
-    let mm = Matchmaker::new(worker, selector);
+    let mm = Matchmaker::new_on_cloneable(worker);
 
     mm.pick_default().await.abort().first()
 }

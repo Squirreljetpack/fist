@@ -154,6 +154,7 @@ pub struct InterfaceConfig {
     pub no_multi_accept: bool,
     /// When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
+    pub move_cursor_with_advance_and_parent_in_prompt: bool,
 
     // display
     /// The prefix to display when the cursor is in the prompt.
@@ -178,6 +179,7 @@ impl Default for InterfaceConfig {
             autojump_advance: false,
             dim_prompt: false,
             dim_status: true,
+            move_cursor_with_advance_and_parent_in_prompt: false,
         }
     }
 }
@@ -207,6 +209,8 @@ pub struct FdConfig {
     /// - Auto: When the pattern for fs :: starts with a dot and is followed only by alphanumeric characters, and -h is not specified, include hidden files.
     /// - Always: When query for fs :: starts with a dot and is followed only by alphanumeric characters, and -h/-I are not specified, include hidden/ignored files respectively.
     /// - Never: No change.
+    ///
+    /// Additionally, when this setting is not Never, hidden visibility is automatically turned on when starting a nav pane in a directory containing only hidden files.
     pub dot_query_show_hidden: When,
 }
 
@@ -222,11 +226,10 @@ pub struct RgConfig {
     /// Arguments added to every rg command
     pub base_args: Vec<String>,
 
-    //  ---------------- Experimental/Nonstandard ---------------
+    /// Query when no patterns are provided. Starting with '-v ' adds the -v flag.
+    pub empty_pattern: Option<String>,
     /// The set of arguments applied to the end of `fs :` when no `rg_args` were given.
     pub default_args: Vec<String>,
-    /// Initially empty search.
-    pub empty_start: bool,
 }
 
 impl Default for RgConfig {
@@ -239,7 +242,7 @@ impl Default for RgConfig {
                 "--no-context-separator",
                 "--field-context-separator=-",
             ],
-            empty_start: false,
+            empty_pattern: None,
             default_args: Default::default(),
         }
     }

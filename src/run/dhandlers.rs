@@ -94,7 +94,7 @@ impl FsMatchmaker {
                         vec![OsString::from(arg), script.into()],
                     );
                     let pane = FsPane::new_custom(
-                        STACK::cwd().unwrap_or_default(),
+                        STACK::_cwd(),
                         FILTERS::visibility(),
                         command,
                         false,
@@ -130,7 +130,7 @@ impl FsMatchmaker {
                     })
                 });
                 if execute(None, &path, state) {
-                    GLOBAL::db().bump(path.is_dir(), path);
+                    GLOBAL::db().bump_path(path.is_dir(), path);
                 }
             }
         });

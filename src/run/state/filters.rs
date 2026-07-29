@@ -6,7 +6,10 @@ use log::{self};
 
 use crate::{
     db::DbSortOrder,
-    run::{FsAction, FsPane, state::GLOBAL, state::STACK},
+    run::{
+        FsAction, FsPane,
+        state::{GLOBAL, STACK, STORE},
+    },
 };
 use fist_types::filters::{SortOrder, Visibility};
 
@@ -99,6 +102,7 @@ impl FILTERS {
                         }
                     }
                     if reload {
+                        STORE::take::<Visibility>();
                         log::debug!("updating filters: {sort} -> {gsort}, {vis:?} -> {gvis:?}");
                         // send the effect to trigger the formatter
                         GLOBAL::send_action(FsAction::Reload);

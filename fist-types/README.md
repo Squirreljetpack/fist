@@ -3,6 +3,7 @@
 Shared types and constants for the [fist](https://github.com/Squirreljetpack/fist) (Interactive Search Tool) project.
 
 This crate provides:
+
 - `FileCategory`: An extensive classification system for files based on extensions, filenames, and MIME types.
 - `When`: A tri-state enum (`Auto`, `Always`, `Never`) used for controlling features like colorization.
 - `IconMappings`: PHF-based mappings for file icons.

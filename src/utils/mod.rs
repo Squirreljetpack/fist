@@ -1,10 +1,12 @@
 pub mod colors;
 pub mod formatter;
 pub mod path;
+pub mod prompt;
 pub mod serde;
 pub mod string;
 pub mod text;
 pub mod trash;
+
 mod types;
 
 #[macro_export]

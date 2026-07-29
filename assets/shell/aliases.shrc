@@ -4,6 +4,9 @@ function lessfilter() {
 function lz() {
   fs :tool liza $@
 }
+function tra() {
+  fs :tool trash $@
+}
 
 l()  { fs :tool lessfilter display  "${@:-.}"; }
 la() { fs :tool lessfilter extended "${@:-.}"; }

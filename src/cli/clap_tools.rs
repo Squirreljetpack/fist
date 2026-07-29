@@ -13,7 +13,7 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("-F --style=colors"))]
     pub z_dot_args: String,
     /// Arguments passed to `fs ::` when z is invoked with a trailing `./`
-    #[arg(long, default_value_t = String::from(""))]
+    #[arg(long, default_value_t = String::from("-a"))]
     pub z_slash_args: String,
     /// Arguments passed to `fs :dir` for the interactive jump menu
     #[arg(long, default_value_t = String::from("--sort atime --style=colors --enter-prompt=false"))]
@@ -44,7 +44,7 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("-F --style=colors --enter-prompt=false -a"))]
     pub dir_widget_args: String,
     /// Arguments passed to `fs ::` when file widget is invoked
-    #[arg(long, default_value_t = String::from("--alt-accept -f --style=icon-colors --enter-prompt=false -- .."))]
+    #[arg(long, default_value_t = String::from("--alt-accept -f --reset-visibility --style=icon-colors --enter-prompt=false -- .."))]
     pub file_widget_args: String,
     /// Arguments passed to `fs :` when rg widget is invoked
     #[arg(long, default_value_t = String::from("-1 --fullscreen --style=colors --preserve-whitespace"))]
@@ -89,7 +89,7 @@ pub struct LessfilterCommand {
 #[command(group(
     ArgGroup::new("target")
     .required(true)
-    .args(["paths", "glob", "reset"])
+    .args(["paths", "glob", "reset", "prune"])
 ))]
 pub struct BumpCommand {
     /// path to bump.
@@ -101,12 +101,17 @@ pub struct BumpCommand {
     pub glob: Option<String>,
 
     /// amount to bump by, 0 to clear.
+    /// With --prune, this sets a minimum survival score threshold.
     #[arg(short, long, default_value_t = 1)]
     pub count: i32,
 
     /// reset the database.
     #[arg(long)]
     pub reset: bool,
+
+    /// prune missing entries with score below threshold.
+    #[arg(long)]
+    pub prune: bool,
 
     /// table matched on by the glob.
     #[arg(last(true))]
@@ -115,3 +120,37 @@ pub struct BumpCommand {
 
 #[derive(Debug, Parser, Default, Clone)]
 pub struct TypesCommand {}
+
+/// How `--follow` resolves symlinks before trashing.
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FollowMode {
+    /// Delete each symlink's immediate target as well.
+    Default,
+    /// Display the symlink chain for each input that is a symlink, then exit without trashing.
+    Show,
+    /// Delete each symlink chain to its end.
+    Recursive,
+}
+
+#[derive(Debug, Parser, Default, Clone)]
+pub struct TrashCommand {
+    /// Paths to trash.
+    #[arg(value_name = "PATHS")]
+    pub paths: Vec<PathBuf>,
+
+    /// No prompt when when trash fails.
+    #[arg(short, long)]
+    pub quiet: bool,
+
+    /// Abort early on failure.
+    #[arg(short, long)]
+    pub abort: bool,
+
+    /// Delete when when trash fails.
+    #[arg(short, long)]
+    pub force: bool,
+
+    /// Resolve symlinks before trashing.
+    #[arg(long, short = 's', value_enum)]
+    pub follow: Option<FollowMode>,
+}

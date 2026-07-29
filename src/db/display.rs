@@ -1,10 +1,24 @@
-use chrono::{DateTime, Local};
 use cba::{bog::BogUnwrapExt, prints};
-use comfy_table::{ContentArrangement, Row, Table, presets::UTF8_FULL};
+use chrono::{DateTime, Local};
+use comfy_table::{presets::UTF8_FULL, ContentArrangement, Row, Table};
 
-use crate::db::{Entry, Epoch};
+use crate::db::{zoxide, Entry, Epoch};
 
-pub fn display_entries(entries: &[Entry]) {
+/// Print a formatted table to stdout.
+///
+/// `lambda`: when `None`, the "Last Accessed" column shows a formatted
+/// date; when `Some` (EMS mode), it shows the raw tick count and an extra
+/// "Score" column appears, populated from [`zoxide::score`].
+///
+/// `now`: the reference epoch used for scoring. For EMS mode this should
+/// be `MAX(atime)` (matching the SQL `ORDER BY` in
+/// [`crate::db::Connection::get_entries_range`]); for wall-clock mode it
+/// should be the current wall-clock time.
+pub fn display_entries(
+    entries: &[Entry],
+    lambda: Option<f64>,
+    now: Epoch,
+) {
     let mut table = Table::new();
 
     // Style
@@ -12,23 +26,45 @@ pub fn display_entries(entries: &[Entry]) {
     table.set_content_arrangement(ContentArrangement::Dynamic);
 
     // Header row
-    table.set_header(Row::from(vec![
+    let mut headers = vec![
         "Name",
         "Path",
         "Alias",
-        "Last Accessed",
+        if lambda.is_none() {
+            "Last Accessed"
+        } else {
+            "Last Access (tick)"
+        },
         "Count",
-    ]));
+    ];
+    if lambda.is_some() {
+        headers.push("Score");
+    }
+    table.set_header(Row::from(headers));
 
     // Add rows
     for entry in entries {
-        let row = Row::from(vec![
-            entry.name.as_str(),
-            &entry.path.to_string_lossy(),
-            &entry.alias,
-            &display_epoch(entry.atime),
-            &entry.count.to_string(),
-        ]);
+        let atime_str = if lambda.is_none() {
+            display_epoch(entry.atime)
+        } else {
+            entry.atime.to_string()
+        };
+
+        let mut row_cells = vec![
+            entry.name.as_str().to_string(),
+            entry.path.to_string_lossy().to_string(),
+            entry.alias.clone(),
+            atime_str,
+            entry.count.to_string(),
+        ];
+        if lambda.is_some() {
+            // Use the live, decayed score used to sort entries — matches the
+            // SQL `score * exp(-λ * (MAX(atime) - atime))` order-by in
+            // `Connection::get_entries_range`.
+            row_cells.push(zoxide::score(now, entry, lambda).to_string());
+        }
+
+        let row = Row::from(row_cells);
         table.add_row(row);
     }
 

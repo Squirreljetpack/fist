@@ -1,4 +1,4 @@
-use cba::{bath::root_dir, bog::BogUnwrapExt, ebog, expr_as_path_fn};
+use cba::{bath::find_root, bog::BogUnwrapExt, ebog, expr_as_path_fn};
 use std::{env, ffi::OsString, path::PathBuf};
 
 pub static BINARY_FULL: &str = "fist";
@@ -22,6 +22,17 @@ pub fn state_dir() -> PathBuf {
             .join("state")
             .join(BINARY_FULL)
     }
+}
+
+pub fn tmp_dir() -> PathBuf {
+    let mut tmp_dir = env::temp_dir();
+    tmp_dir.push(BINARY_FULL);
+
+    if let Err(e) = std::fs::create_dir_all(&tmp_dir) {
+        eprintln!("Warning: Failed to create app temp directory: {e}");
+    }
+
+    tmp_dir
 }
 // --------------------------------
 pub fn config_dir() -> PathBuf {
@@ -85,7 +96,7 @@ fn cwd() -> PathBuf {
 expr_as_path_fn!(__cwd, cwd());
 
 // the absolute home directory, or root
-expr_as_path_fn!(__home, dirs::home_dir().unwrap_or(root_dir()));
+expr_as_path_fn!(__home, dirs::home_dir().unwrap_or(find_root().unwrap_or(PathBuf::from(std::path::MAIN_SEPARATOR_STR))));
 
 // ---------------------- FILES ----------------------
 #[cfg(debug_assertions)]

@@ -7,17 +7,20 @@ F:ist is a fast and intuitive search tool for the filesystem.
 # Installation
 
 Install from GitHub releases[^20]:
+
 ```shell
 curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/fist/main/install.sh | sh
 ```
 
 Install the required dependencies:
+
 ```shell
 # dependencies (optional)
 cargo install bat fd-find eza ripgrep
 ```
 
 Optionally, setup shell integration:
+
 ```
 # Only zsh support for now
 echo "\neval $(fs :tool shell)" >> ~/.zshrc # or whatever the startup file of your respective shell is.
@@ -41,7 +44,7 @@ Call as:
 - `Enter`: Default (system) open.
   - `Alt-Enter`: Print / Alternate open.
   - `Ctrl-Enter`: Open in background.
-  - `ctrl-.`/`ctrl-q`: Open folder in editor.
+  - `alt-n`: Open folder in editor.
 
 ---
 
@@ -65,9 +68,9 @@ Call as:
 - `Tab`: Toggle select.
 - `alt-enter`: Print.
 - `?`: toggle preview.
-- `alt-/`: toggle [informative](#Lessfilter) preview.
+- `alt-/`: toggle [informative](#lessfilter) preview.
 - `ctrl-l`: Maximize preview.
-- `alt-l`: Maximize [extended](#Lessfilter) preview.
+- `alt-l`: Maximize [extended](#lessfilter) preview.
 - `/` and `~`: Jump to home
 - `ctrl-[1-9]`: Autojump to item
 - `ctrl-0`: Autojump to prompt
@@ -98,7 +101,7 @@ You can search through all files recursively by
 
 <img src=".README.assets/image-20260227223347559.png" alt="image-20260227223347559" style="height:309px;" />
 
-The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Filters overlay](#Filters).
+The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Filters overlay](#filters).
 
 > [!NOTE]
 >
@@ -122,12 +125,12 @@ In this pane, the context column contains the query matches (and any requested c
 
 This pane operates in a query and a filter mode, which can be switched between[^4]:
 
-- In _query mode_, the results are (dynamically) populated with all text matches of a given query (your input).
-- In _filter mode_, the results are filtered to only lines matching your input.
+- In *query mode*, the results are (dynamically) populated with all text matches of a given query (your input).
+- In *filter mode*, the results are filtered to only lines matching your input.
 - By default, the filter applies to the main (first) column. To switch to filtering the second column, type `%` (i.e. `path_filter % context_filter`)
 - The current query/filter of the inactive mode is displayed above your input.
 - In query mode, multiple queries (of which any should match) are seperated by whitespace. Queries containing whitespace can be grouped together by single quotes. Single quotes can be escaped as `\'`.
-- The default mode treats the given queries as _regexes_ (as opposed to the filter input, which does not). This can be toggled, or the default [reconfigured](#configuration).
+- The default mode treats the given queries as *regexes* (as opposed to the filter input, which does not). This can be toggled, or the default [reconfigured](#configuration).
 
 > [!NOTE]
 >
@@ -216,7 +219,7 @@ f:ist records the **files, directories and applications** that you've visited in
 
 <img src=".README.assets/image-20260301082915830.png" alt="image-20260301082915830" style="width:500px" />
 
-The _Files_ and _Folders_ panes are most useful when integrated into the ambient context where you usually access files. For example, the [shell](#shell-integration), or a [command launcher](#dependencies).
+The *Files* and *Folders* panes are most useful when integrated into the ambient context where you usually access files. For example, the [shell](#shell-integration), or a [command launcher](#dependencies).
 
 ### App
 
@@ -248,21 +251,21 @@ For more information on any of the panes, run `fs [pane] --help` with the approp
 
 <img src=".README.assets/image-20260227222022484.png" alt="image-20260227222022484" style="height:400px;" />
 
-The **Stash** (`ctrl-t`) is a place where actions on items are queued. Within the overlay, stashed item item statuses are visible, and they can be edited, rearranged, removed and executed. Items can also be executed through the [`Paste`] or [`StackFlush`](#Actions) actions.
+The **Stash** (`ctrl-t`) is a place where actions on items are queued. Within the overlay, stashed item item statuses are visible, and they can be edited, rearranged, removed and executed. Items can also be executed through the [`Paste`] or [`StackFlush`](#actions) actions.
 
-`Copy` and `Cut` places items on the Stash under the `Copy` and `Cut` stack action types respectively. The `Paste` action executes all stashed `Copy`, `Cut` and `Symlink` tasks, transferring files to their destinations -- the active directory at the time of _execution_ by default.[^7]
+`Copy` and `Cut` places items on the Stash under the `Copy` and `Cut` stack action types respectively. The `Paste` action executes all stashed `Copy`, `Cut` and `Symlink` tasks, transferring files to their destinations -- the active directory at the time of *execution* by default.[^7]
 
-`Push` (`alt-s`) places items on the stack under the **Custom** type. When executed, its effect depends on the currently set [Custom Action Type](#CAS).
+`Push` (`alt-s`) places items on the stack under the **Custom** type. When executed, its effect depends on the currently set [Custom Action Type](#cas).
 
 [^7]: Although safeguards exist to keep these alive and prevent data loss during normal application execution and shutdown, if reliability is crucial it might be safer to define your own custom actions to perform, manage and monitor these actions externally. Ideas and contributions in this area are welcome!
 
-##### _CAS_
+##### *CAS*
 
-All custom-type actions display their action in the stash as the current Custom Action State (CAS), which can be toggled when in the Stash overlay using [`Undo/Redo`](#Actions). The default state is `Symlink`.
+All custom-type actions display their action in the stash as the current Custom Action State (CAS), which can be toggled when in the Stash overlay using [`Undo/Redo`](#actions). The default state is `Symlink`.
 
-The CAS can be shared or exclusive. The `App` CAS is exclusive: when in this state, stash actions (such as [`ClearStash`](#Actions)) only affect the `App` stash, and only `App` items are shown in the overlay. The symlink action is inclusive: it is shown and executed together with the other (`Copy` and `Cut`) actions.
+The CAS can be shared or exclusive. The `App` CAS is exclusive: when in this state, stash actions (such as [`ClearStash`](#actions)) only affect the `App` stash, and only `App` items are shown in the overlay. The symlink action is inclusive: it is shown and executed together with the other (`Copy` and `Cut`) actions.
 
-Custom stack types can be declared in the `[stash]` section of the config, and executed through the same channels as the built-in actions -- the overlay, the [Menu](#Menu), or through the [`FlushStash`](#Actions) action.
+Custom stack types can be declared in the `[stash]` section of the config, and executed through the same channels as the built-in actions -- the overlay, the [Menu](#menu), or through the [`FlushStash`](#actions) action.
 
 ### Filters
 
@@ -294,7 +297,7 @@ Only zsh is supported for now.
 
 The output of `fs :tool shell` will, when sourced, provide the jump and jump+open functions:
 
-The jump function (`z`) is a replacement for `cd`, except that incomplete queries are matched to a most likely destination drawn from the unified f:ist database. This behavior closely mirrors that of [zoxide](https://github.com/ajeetdsouza/zoxide).
+The jump function (`z`) is a replacement for `cd`, except that incomplete queries are matched to a most likely destination drawn from the unified f:ist database. This behavior is inspired by zoxide[^13].
 
 > [!NOTE]
 >
@@ -374,17 +377,25 @@ Though the syntax has many parts, configuration should be fairly straightforward
 ### --- lessfilter.toml -- ###
 
 preview = [
-  # ...
-  # On an file with mime-type sqlite-3 and a system with sqlite3, this rule gets a score of 20.
-  [ [ "sqlite" ], [ "application/vnd.sqlite3", "have:sqlite3" ] ],
-  # ...
+    # ...
+    # On an file with mime-type sqlite-3 and a system with sqlite3, this rule gets a score of 20.
+    [["sqlite"], ["application/vnd.sqlite3", "have:sqlite3"]],
+    # ...
 ]
 
 # When invoking the edit action (in `fist` or through the `n` alias),
 # any file belonging to this category will be opened with the system's default preferred application.
 # Since this rule has minimal priority (at most 1), any subsequent rule will override it.
 edit = [
-  [ [ "Open" ], [ "1|cat:document", "1|cat:spreadsheet", "1|cat:email", "1|cat:academic" ] ],
+    [
+        ["Open"],
+        [
+            "1|cat:document",
+            "1|cat:spreadsheet",
+            "1|cat:email",
+            "1|cat:academic",
+        ],
+    ],
 ]
 ```
 
@@ -403,7 +414,7 @@ Additional actions can be defined with shell syntax. For example:
 ```toml
 [rules]
 alternate = [
-  [["code"], ["*/*"]],
+    [["code"], ["*/*"]],
 ]
 [actions]
 code = 'code --add {}'
@@ -474,6 +485,18 @@ Replacements:
 Configuration is presently only documented in the source files: [Main Config](./src/config/mod.rs), [Panes](./src/config/panes.rs), [Styling](./src/config/styles.rs), [Miscellaneous UI](./src/config/ui.rs), [Lessfilter](./src/lessfilter/config.rs), [Lessfilter](./src/lessfilter/config.rs), [Matchmaker Config](./src/run/mm_config.rs)[^12].
 
 [^12]: For more information on this one, you can refer to the matchmaker documentation [here](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/src/config.rs).
+
+[^13]: f:ist uses an improved implementation by default, although the simple [zoxide](https://github.com/ajeetdsouza/zoxide) implementation can be enabled by disabling lambda:
+
+    **Event clock**: zoxide score decay is coupled to wall-clock time. The problem is that after any extended period of inactivity, all scores decay toward zero, and the first directories visited on return immediately dominate the ranking regardless of prior history ([see](https://github.com/jghub/ze/tree/master)). f:ist replaces wall-clock time with an event clock: each cd action advances the clock by one tick. The clock stands still during inactive periods and no score decay occurs during such periods.
+
+    **Scoring**: Items are sorted by score. In zoxide, the score is computed as count * recency bucket. f:ist replaces this with a monoexponential decay kernel. The decay rate is controlled by `lambda` (default `8e-3`, equating to a half-life of about 87 actions).
+
+    **Unified database**: f:ist maintains a single SQLite database tracking files, directories, and applications together.
+
+    **Pruning**: Pruning happens automatically and lazily once db exceeds a certain size. For more information, see `fs :tool bump --help`.
+
+    **Interactive fallback**: When no match is found, or when the top result is the current directory, f:ist can be configured to start an interactive search interface instead of failing.
 
 ### Notes
 

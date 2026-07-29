@@ -10,8 +10,10 @@ use cba::{
 use clap::Parser;
 use globset::GlobBuilder;
 use std::{
+    collections::HashSet,
     env::{current_dir, set_current_dir},
-    path::{MAIN_SEPARATOR_STR, PathBuf},
+    io::BufRead,
+    path::{MAIN_SEPARATOR_STR, Path, PathBuf},
     process::{Command, exit},
 };
 
@@ -32,12 +34,9 @@ use super::{
 };
 use crate::{
     abspath::AbsPath,
-    cli::{SubTool, clap_helpers::ListMode, env::EnvOpts},
+    cli::{SubTool, clap_helpers::ListMode, env::EnvOpts, paths::text_renderer_path},
     config::Config,
-    db::{
-        DbSortOrder, DbTable, Pool, display_entries,
-        zoxide::{DbFilter, RetryStrat},
-    },
+    db::{DbSortOrder, DbTable, Pool, display_entries, zoxide::RetryStrat},
     errors::{CliError, DbError},
     find::{
         fd::{build_fd_args, last_query_starts_with_dot},
@@ -54,10 +53,18 @@ use crate::{
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
-    utils::{colors::display_ratatui_styles, formatter::format_path, path::paths_base},
+    utils::{
+        colors::display_ratatui_styles,
+        formatter::format_path,
+        path::{expand_follow, follow_symlink_chain, paths_base},
+        prompt::{READ_TIMEOUT, confirm_prompt},
+    },
 };
-use fist_types::filetypes::{FileType, FileTypeArg};
-use fist_types::filters::SortOrder;
+use fist_types::filters::{SortOrder, Visibility};
+use fist_types::{
+    filetypes::{FileType, FileTypeArg},
+    filters::PartialVisibility,
+};
 
 pub async fn handle_subcommand(
     cli: Cli,
@@ -69,7 +76,7 @@ pub async fn handle_subcommand(
         SubCmd::Open(cmd) => handle_open(cli.opts, cmd, cfg).await,
         SubCmd::Files(cmd) => handle_files(cli.opts, cmd, cfg).await,
         SubCmd::Dirs(cmd) => handle_dirs(cli.opts, cmd, cfg).await,
-        SubCmd::Fd(cmd) => handle_default(cli.opts, cmd, cfg).await,
+        SubCmd::Default(cmd) => handle_default(cli.opts, cmd, cfg).await,
         SubCmd::Tools(cmd) => handle_tools(cli.opts, cmd, cfg).await,
         SubCmd::Info(cmd) => handle_info(cli.opts, cmd, cfg).await,
         SubCmd::Rg(cmd) => handle_rg(cli.opts, cmd, cfg).await,
@@ -81,7 +88,7 @@ async fn handle_open(
     cmd: OpenCmd,
     mut cfg: Config,
 ) -> Result<(), CliError> {
-    let pool = Pool::new(cfg.db_path()).await?;
+    let pool = Pool::new_from_cfg(&cfg).await?;
 
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
@@ -114,23 +121,14 @@ async fn handle_info(
     cmd: InfoCmd,
     cfg: Config,
 ) -> Result<(), CliError> {
-    println!("Config path: {}", config_path().display());
-    println!("MM config path: {}", mm_cfg_path().display());
-    println!("logs path: {}", cfg.log_path().display());
-    println!();
-
     let limit = cmd.limit.unwrap_or(if cmd.minimal { 0 } else { 50 });
+    let pool = Pool::new_from_cfg(&cfg).await?;
 
-    let pool = Pool::new(cfg.db_path()).await?;
     if let Some(table) = cmd.table {
         let mut conn = pool.get_conn(table).await?;
 
         conn.switch_table(table);
         let mut entries = conn.get_entries_range(0, 0, cmd.sort).await?;
-        if matches!(cmd.sort, DbSortOrder::frecency) {
-            let now = chrono::Utc::now().timestamp();
-            entries.sort_by_key(|e| std::cmp::Reverse(DbFilter::_score(now, e)));
-        }
         if limit != 0 {
             entries.truncate(limit);
         }
@@ -143,8 +141,20 @@ async fn handle_info(
                 print(&entry.path, &template, &output_separator);
             }
         } else {
-            display_entries(&entries);
+            // `now` must match the SQL order-by reference time:
+            // EMS uses `MAX(atime)`; wall-clock uses current time.
+            let now = if cfg.history.lambda.is_some() {
+                conn.get_max_atime().await?
+            } else {
+                chrono::Utc::now().timestamp()
+            };
+            display_entries(&entries, cfg.history.lambda, now);
         }
+    } else {
+        println!("Config path: {}", config_path().display());
+        println!("MM config path: {}", mm_cfg_path().display());
+        println!("logs path: {}", cfg.log_path().display());
+        println!();
     }
 
     Ok(())
@@ -162,7 +172,7 @@ async fn handle_files(
     };
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-    let pool = Pool::new(cfg.db_path()).await?;
+    let pool = Pool::new_from_cfg(&cfg).await?;
     start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
 }
 
@@ -183,11 +193,30 @@ async fn handle_rg(
             .unwrap_or(SortOrder::none),
     );
 
+    if !cmd.no_read && !atty::is(atty::Stream::Stdin) {
+        let valid_paths = std::io::stdin()
+            .lock()
+            .lines()
+            .map_while(Result::ok)
+            .map(PathBuf::from)
+            .filter(|path| vis.filter(path));
+
+        cmd.paths.extend(valid_paths);
+    }
+    if cmd.rebase {
+        let base = paths_base(&cmd.paths);
+        std::env::set_current_dir(&base)._ebog();
+    }
+
     if cmd._no_heading_alias {
         cmd.one_line = Some(true);
     };
     cfg.global.panes.search.one_line._take(cmd.one_line);
     let no_heading = cfg.global.panes.search.one_line;
+
+    let fixed_strings = cmd
+        .fixed_strings()
+        .unwrap_or(cfg.global.panes.search.fixed_strings);
 
     if cmd.list {
         let (prog, args) = (
@@ -198,7 +227,7 @@ async fn handle_rg(
                 cmd.context.resolve(),
                 cmd.case.resolve(),
                 no_heading,
-                cmd.fixed_strings,
+                fixed_strings,
                 &cmd.patterns,
                 &cmd.paths,
                 &cmd.rg,
@@ -236,13 +265,13 @@ async fn handle_rg(
         return Ok(());
     };
 
-    let pool = Pool::new(cfg.db_path()).await?;
+    let pool = Pool::new_from_cfg(&cfg).await?;
     if cmd.preserve_whitespace {
         STORE::set(InitialPreserveWhitespaceInSearch);
     }
 
-    let pane = FsPane::new_rg_full(
-        AbsPath::default(),
+    let pane = FsPane::new_rg(
+        AbsPath::initial(),
         sort,
         vis,
         cmd.paths,
@@ -252,7 +281,7 @@ async fn handle_rg(
         cmd.context.resolve(),
         cmd.case.resolve(),
         no_heading,
-        cmd.fixed_strings,
+        fixed_strings,
         cmd.rg,
     );
 
@@ -265,7 +294,7 @@ async fn handle_dirs(
     mut cmd: DirsCmd,
     mut cfg: Config,
 ) -> Result<(), CliError> {
-    let pool = Pool::new(cfg.db_path()).await?;
+    let pool = Pool::new_from_cfg(&cfg).await?;
     if cmd.cd && cmd.list.is_some() {
         return Err(CliError::ConflictingFlags("cd", "list"));
     }
@@ -275,9 +304,9 @@ async fn handle_dirs(
 
         if !cmd.query.is_empty() {
             let conn = pool.get_conn(DbTable::dirs).await?;
-            let db_filter = DbFilter::new(&cfg.history).with_keywords(cmd.query.clone());
+            let db_filter = cfg.history.clone().with_keywords(cmd.query.clone());
 
-            let result = conn.print_best_by_frecency(&db_filter).await;
+            let result = conn.print_best_by_frecency(&db_filter, DbTable::dirs).await;
             match result {
                 RetryStrat::Next => return Ok(()),
                 RetryStrat::None if db_filter.refind != RetryStrat::Search => {
@@ -303,9 +332,12 @@ async fn handle_dirs(
         if matches!(all, ListMode::All) {
             cfg.history.show_missing = true;
         }
-        let db_filter = DbFilter::new(&cfg.history).with_keywords(cmd.query.clone());
+        let db_filter = cfg.history.clone().with_keywords(cmd.query.clone());
 
-        for e in conn.get_entries(cmd.sort, &db_filter).await? {
+        for e in conn
+            .get_entries(cmd.sort, &db_filter, DbTable::dirs)
+            .await?
+        {
             match e.path.to_str() {
                 Some(s) => {
                     prints!(s)
@@ -370,8 +402,15 @@ async fn handle_default(
     if cmd.cd && cmd.list {
         return Err(CliError::ConflictingFlags("cd", "list"));
     }
+    if cmd.reset_visibility {
+        let vis = resolve_fd_visibility(Default::default(), &cmd, &cfg);
+        STORE::set(vis)
+    }
+    if cmd.no_all {
+        cmd.vis.all = Some(false)
+    }
 
-    let pool = Pool::new(cfg.db_path()).await?;
+    let pool = Pool::new_from_cfg(&cfg).await?;
 
     let pane = if
     // piped input
@@ -410,7 +449,7 @@ async fn handle_default(
         let cwd = if cmd.paths.len() > 1
         // treat paths as zoxide args (since searching over multiple paths should be uncommon with --cd)
         {
-            let conn = pool.get_conn(DbTable::dirs).await?;
+            let mut conn = pool.get_conn(DbTable::dirs).await?;
 
             // the last path is the pattern, so determine the best match from keywords formed by all but the last
             let num_keywords = cmd.paths.len() - 1;
@@ -421,9 +460,12 @@ async fn handle_default(
                 .map(|f| f.to_string_lossy().into_owned())
                 .collect();
 
-            let db_filter = DbFilter::new(&cfg.history).with_keywords(kw.clone());
+            let mut db_filter = cfg.history.clone().with_keywords(kw.clone());
 
-            match conn.return_best_by_frecency(&db_filter).await {
+            match conn
+                .return_best_by_frecency(&db_filter, DbTable::dirs)
+                .await
+            {
                 None => {
                     if !matches!(db_filter.refind, RetryStrat::Search) && !cmd.list {
                         return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
@@ -477,9 +519,13 @@ async fn handle_default(
         };
 
         if nav_pane {
-            let vis = cmd
+            let mut vis = cmd
                 .vis
-                .into_resolved(cfg.global.panes.nav.default_visibility);
+                .into_resolved(cfg.global.panes.nav.default_visibility)
+                .enable_hidden_if_empty_otherwise(
+                    &cwd,
+                    cmd.vis.hidden.is_none() && !cfg.global.fd.dot_query_show_hidden.is_never(),
+                );
 
             FsPane::new_nav(
                 cwd,
@@ -490,12 +536,8 @@ async fn handle_default(
         } else
         // interactively search the best match
         {
-            FsPane::new_fd_from_command(
-                cmd,
-                cfg.global.panes.find.default_visibility,
-                cfg.global.fd.dot_query_show_hidden,
-                cwd,
-            )
+            let vis = resolve_fd_visibility(cmd.vis, &cmd, &cfg);
+            FsPane::new_fd_full(cwd, vis, cmd.sort, cmd.types, cmd.paths, cmd.fd)
         }
     } else if
     // any fd arg is specified
@@ -544,7 +586,7 @@ async fn handle_default(
         tokio::spawn(async move {
             if let Ok(mut conn) = pool_clone.get_conn(DbTable::dirs).await {
                 for path in paths {
-                    conn.bump(AbsPath::new(path), 1).await._elog();
+                    conn.bump_path(AbsPath::new(path), 1).await._elog();
                 }
             }
         });
@@ -593,20 +635,21 @@ async fn handle_default(
             return Ok(());
         };
 
-        FsPane::new_fd_from_command(
-            cmd,
-            cfg.global.panes.find.default_visibility,
-            cfg.global.fd.dot_query_show_hidden,
-            cwd,
-        )
+        let vis = resolve_fd_visibility(cmd.vis, &cmd, &cfg);
+        FsPane::new_fd_full(cwd, vis, cmd.sort, cmd.types, cmd.paths, cmd.fd)
     } else {
         let DefaultCommand { sort, .. } = cmd;
+        let cwd = __cwd();
         let vis = cmd
             .vis
-            .into_resolved(cfg.global.panes.nav.default_visibility);
+            .into_resolved(cfg.global.panes.nav.default_visibility)
+            .enable_hidden_if_empty_otherwise(
+                cwd,
+                cmd.vis.hidden.is_none() && !cfg.global.fd.dot_query_show_hidden.is_never(),
+            );
 
         if cmd.list {
-            let iter = list_dir(__cwd(), vis, 1); // cwd is abs so we can add results as unchecked
+            let iter = list_dir(cwd, vis, 1); // cwd is abs so we can add results as unchecked
             let sort = sort.unwrap_or_default();
             let template = EnvOpts::with_env(|s| s.output_template.clone());
             let output_separator =
@@ -636,7 +679,7 @@ async fn handle_default(
         };
 
         FsPane::new_nav(
-            AbsPath::new_unchecked(__cwd()),
+            AbsPath::new_unchecked(cwd),
             vis,
             sort.unwrap_or(cfg.global.panes.nav.default_sort.unwrap_or_default()),
         )
@@ -656,10 +699,12 @@ async fn handle_tools(
     } else {
         mm_get([
             SubTool::Colors,
+            SubTool::ShowBinds,
             SubTool::Liza { args: args.clone() },
             SubTool::Shell { args: args.clone() },
             SubTool::Lessfilter { args: args.clone() },
             SubTool::Bump { args: args.clone() },
+            SubTool::Trash { args: args.clone() },
             SubTool::Types { args: args.clone() },
         ])
         .await?
@@ -675,10 +720,11 @@ async fn handle_tools(
         SubTool::ShowBinds => {
             let (binds, help) = get_mm_binds(&cli.mm_config);
 
-            let help_str = matchmaker::binds::display_help(&binds, &help, None);
+            let help_str = matchmaker::binds::display_help(&binds, &help);
             prints!(help_str.to_string());
             Ok(())
         }
+        SubTool::Pager { args } => Command::new(text_renderer_path()).args(args)._exec(),
         SubTool::Liza { args } => Command::new(liza_path()).args(args)._exec(),
         SubTool::Shell { mut args } => {
             // note: this seems to already be the short path of the exe, not that im complaining
@@ -709,7 +755,7 @@ async fn handle_tools(
                     .filter_map(|path| path.exists().then_some(AbsPath::new(path)));
 
                 Some(tokio::spawn(async move {
-                    let pool = Pool::new(cfg.db_path()).await?;
+                    let pool = Pool::new_from_cfg(&cfg).await?;
                     let mut conn = pool.get_conn(DbTable::files).await?;
                     conn.push_files_and_folders(paths).await?;
                     Ok::<_, DbError>(())
@@ -741,11 +787,27 @@ async fn handle_tools(
                 glob: pattern,
                 table,
                 reset,
+                prune,
             } = BumpCommand::parse_from(args);
+
+            if prune {
+                let tables = match table {
+                    Some(t) => vec![t],
+                    None => vec![DbTable::apps, DbTable::files, DbTable::dirs],
+                };
+                let mut total = 0u64;
+                let mut conn = Pool::new_from_cfg(&cfg).await?.get_conn(tables[0]).await?;
+                for &t in &tables {
+                    conn.switch_table(t);
+                    total += conn.prune_missing(count).await?;
+                }
+                _ibog!("Pruned {total} missing entries.");
+                return Ok(());
+            }
 
             if reset {
                 if let Some(table) = table {
-                    let mut conn = Pool::new(cfg.db_path()).await?.get_conn(table).await?;
+                    let mut conn = Pool::new_from_cfg(&cfg).await?.get_conn(table).await?;
                     conn.reset_table().await?;
                     _ibog!("Deleted {table}");
                 } else {
@@ -775,7 +837,7 @@ async fn handle_tools(
                 for path in paths {
                     if !path.exists() {
                         ebog!("{} does not exist!", path.to_string_lossy());
-                        exit(1);
+                        return Err(CliError::Handled);
                     }
                     let path = AbsPath::new_canonical(path);
                     if exclude.as_ref().is_some_and(|e| e.is_match(&path)) {
@@ -784,7 +846,7 @@ async fn handle_tools(
                     entry_queue.push(path)
                 }
 
-                let mut conn = Pool::new(cfg.db_path())
+                let mut conn = Pool::new_from_cfg(&cfg)
                     .await?
                     .get_conn(DbTable::dirs)
                     .await?;
@@ -812,12 +874,12 @@ async fn handle_tools(
                         _ibog!("Removed {}.", msg);
                     }
                 } else {
-                    conn.push_files_and_folders(entry_queue).await?;
+                    conn.bump_files_and_folders_n(entry_queue, count).await?;
                 }
             } else {
                 let table = table.unwrap_or(table.unwrap_or(DbTable::dirs));
                 // glob is per-table
-                let mut conn = Pool::new(cfg.db_path()).await?.get_conn(table).await?;
+                let mut conn = Pool::new_from_cfg(&cfg).await?.get_conn(table).await?;
 
                 let glob = GlobBuilder::new(&pattern.unwrap())
                     .build()
@@ -826,9 +888,9 @@ async fn handle_tools(
 
                 let mut to_remove = Vec::new();
 
-                let db_filter = DbFilter::new(&cfg.history).with_resolve_symlinks(table);
+                let db_filter = cfg.history.clone();
                 let entries = conn
-                    .get_entries(DbSortOrder::none, &db_filter)
+                    .get_entries(DbSortOrder::none, &db_filter, table)
                     .await
                     .__ebog();
 
@@ -839,7 +901,7 @@ async fn handle_tools(
                         if count == 0 {
                             to_remove.push(e.path.clone());
                         } else {
-                            conn.bump(e.path, count).await._wlog();
+                            conn.bump_entry(&e, count).await._wlog();
                         }
                     }
                 }
@@ -862,6 +924,168 @@ async fn handle_tools(
             let TypesCommand { .. } = TypesCommand::parse_from(args);
             todo!()
         }
+        SubTool::Trash { mut args } => {
+            let path = current_exe().basename();
+            args.insert(0, format!("{path} :tool trash").into());
+
+            let TrashCommand {
+                paths,
+                quiet,
+                force,
+                follow,
+                abort,
+            } = TrashCommand::parse_from(args);
+
+            if paths.is_empty() {
+                ebog!("No paths provided.");
+                return Err(CliError::Handled);
+            }
+
+            // `--follow show`: dry-run. Display each symlink chain (one indent per level)
+            // for inputs that are symlinks, then print counts and exit without trashing.
+            if matches!(follow, Some(FollowMode::Show)) {
+                let original: HashSet<PathBuf> = paths.iter().cloned().collect();
+                let mut linked_unique: HashSet<PathBuf> = HashSet::new();
+                for p in &paths {
+                    let chain = follow_symlink_chain(p);
+                    if chain.is_empty() {
+                        continue;
+                    }
+                    println!("{}", p.display());
+                    for (i, target) in chain.iter().enumerate() {
+                        let indent = " ".repeat(2 * (i + 1));
+                        println!("{indent}{}", target.display());
+                        let target_pb =
+                            <crate::abspath::AbsPath as AsRef<Path>>::as_ref(target).to_path_buf();
+                        if !original.contains(&target_pb) {
+                            linked_unique.insert(target_pb);
+                        }
+                    }
+                }
+                let linked = linked_unique.len();
+                println!("{} inputs, {linked} linked", paths.len());
+                return Ok(());
+            }
+
+            // `--follow default|recursive`: rebuild the path list according to the mode,
+            // preserving first-occurrence order. `default` swaps each symlink for its
+            // immediate target; `recursive` queues every symlink in each chain in
+            // reverse order (chain-end first, original input last).
+            let paths: Vec<PathBuf> = match follow {
+                Some(FollowMode::Default) => expand_follow(paths, false),
+                Some(FollowMode::Recursive) => expand_follow(paths, true),
+                _ => paths,
+            };
+
+            use crate::utils::trash::trash;
+
+            let mut failed: Vec<PathBuf> = Vec::new();
+            let mut skipped = 0;
+
+            for p in &paths {
+                if !abort && !p.exists() {
+                    skipped += 1;
+                    continue;
+                }
+                match trash(p) {
+                    Ok(()) => {
+                        _ibog!("Trashed: {}", p.to_string_lossy());
+                    }
+                    Err(e) => {
+                        ebog!("Failed to trash {}: {e}", p.to_string_lossy());
+                        failed.push(p.clone());
+                        if abort {
+                            return Err(CliError::Handled);
+                        }
+                    }
+                }
+            }
+
+            if skipped > 0 {
+                wbog!("Skipped {skipped} nonexistant paths");
+            }
+
+            let should_prompt = atty::is(atty::Stream::Stdin);
+
+            if quiet || (!should_prompt && !force) {
+                if failed.is_empty() {
+                    exit(0);
+                } else {
+                    exit(1);
+                }
+            }
+
+            if !failed.is_empty() {
+                if !force {
+                    if !confirm_prompt(
+                        &format!("Force delete {} failed item(s)?", failed.len()),
+                        READ_TIMEOUT,
+                        vec!["y", "N"],
+                    )
+                    .await
+                    .map(|x| x == 0)
+                    .unwrap_or(false)
+                    {
+                        exit(0)
+                    }
+                }
+
+                let mut delete_failed: Vec<PathBuf> = Vec::new();
+                for p in &failed {
+                    let res = if p.is_dir() {
+                        std::fs::remove_dir_all(p)
+                    } else {
+                        std::fs::remove_file(p)
+                    };
+                    match res {
+                        Ok(()) => {
+                            _ibog!("Deleted: {}", p.to_string_lossy());
+                        }
+                        Err(e) => {
+                            ebog!("Failed to delete {}: {e}", p.to_string_lossy());
+                            delete_failed.push(p.clone());
+                            if abort {
+                                return Err(CliError::Handled);
+                            }
+                        }
+                    }
+                }
+
+                if delete_failed.is_empty() {
+                    ibog!("All items deleted.");
+                    return Ok(());
+                }
+
+                // no prompt means we exit
+                if force {
+                    exit(1);
+                }
+
+                if !confirm_prompt(
+                    &format!(
+                        "Retry with sudo for {} failed item(s)?",
+                        delete_failed.len()
+                    ),
+                    READ_TIMEOUT,
+                    vec!["y", "N"],
+                )
+                .await
+                .map(|x| x == 0)
+                .unwrap_or(false)
+                {
+                    exit(1)
+                }
+
+                let mut sudo = Command::new("sudo")
+                    .with_arg("rm")
+                    .with_arg("-rf")
+                    .with_args(&delete_failed);
+                sudo._exec();
+            } else if !quiet {
+                ibog!("Trashed {} items.", paths.len());
+            }
+            Ok(())
+        }
     }
 }
 
@@ -877,4 +1101,27 @@ pub fn print(
     };
     display.push_str(output_separator);
     print!("{display}")
+}
+
+// default ignore: apply when not explicit in cli -- this can work on the partial
+// auto_enable hidden: when not explicit in cli
+pub fn resolve_fd_visibility(
+    cmd_vis: PartialVisibility,
+    cmd: &DefaultCommand,
+    cfg: &Config,
+) -> Visibility {
+    let mut vis = cmd_vis.into_resolved(cfg.global.panes.find.default_visibility);
+
+    let dot_query_show_hidden = cfg.global.fd.dot_query_show_hidden;
+
+    if last_query_starts_with_dot(&cmd.paths) && !dot_query_show_hidden.is_never() {
+        if cmd_vis.hidden.is_none() {
+            vis.hidden = true;
+        }
+        if cmd_vis.ignore.is_none() && dot_query_show_hidden.is_always() {
+            vis.ignore = false;
+        }
+    }
+
+    vis
 }
