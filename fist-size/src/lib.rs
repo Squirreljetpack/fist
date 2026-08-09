@@ -494,9 +494,10 @@ mod tests {
 
         assert_eq!(cache.get_path(temp_dir.path()), None);
 
+        // cache is reusable
         cache.add(temp_dir.path());
         cache.wait();
-        assert_eq!(cache.get_path(temp_dir.path()), None);
+        assert_eq!(cache.get_path(temp_dir.path()), Some(60));
     }
 
     #[test]

@@ -252,7 +252,7 @@ impl MenuOverlay {
 
         if !prompt.initial.is_empty() {
             self.prompt.input.set_value(prompt.initial);
-            self.prompt.input.inner.cursor = prompt.cursor;
+            self.prompt.input.inner.set(Option::<String>::None, prompt.cursor as u16);
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::run::action::FsAction;
-use matchmaker::config::StyleSetting;
-use matchmaker::{action::Action, config::BorderSetting, ui::InputUI};
+use matchmaker::config::{QueryConfig, StyleSetting};
+use matchmaker::{action::Action, config::BorderSetting, ui::QueryUI};
 use ratatui::style::Style;
 use ratatui::text::Span;
 
@@ -24,16 +24,18 @@ impl Default for InputWidgetConfig {
 
 #[derive(Debug)]
 pub struct InputWidget {
-    pub inner: InputUI,
+    pub inner: QueryUI,
     pub config: InputWidgetConfig,
 }
 
 impl InputWidget {
     pub fn new(config: InputWidgetConfig) -> Self {
-        Self {
-            inner: InputUI::new(),
-            config,
-        }
+        let inner = QueryUI::new(QueryConfig {
+            border: config.border.clone(),
+            style: config.style,
+            ..Default::default()
+        });
+        Self { inner, config }
     }
 
     pub fn set_value(
@@ -44,7 +46,7 @@ impl InputWidget {
     }
 
     pub fn value(&self) -> String {
-        self.inner.input.clone()
+        self.inner.input()
     }
 
     pub fn handle_input(
@@ -67,9 +69,9 @@ impl InputWidget {
             Action::DeleteWord => self.inner.delete_word(),
             Action::DeleteLineStart => self.inner.delete_line_start(),
             Action::DeleteLineEnd => self.inner.delete_line_end(),
-            Action::ClearQuery => self.inner.cancel(),
+            Action::ClearQuery => self.inner.clear(),
             Action::Quit(1) => {
-                self.inner.cancel();
+                self.inner.clear();
                 return Some(false);
             }
             Action::Accept => return Some(true),
@@ -82,7 +84,7 @@ impl InputWidget {
         &mut self,
         ui_width: u16,
     ) {
-        self.inner.width = ui_width.saturating_sub(self.config.border.width())
+        self.inner.update_width(ui_width)
     }
 
     // call scroll_to_cursor first
@@ -94,6 +96,8 @@ impl InputWidget {
     }
 
     pub fn scroll_to_cursor(&mut self) {
-        self.inner.scroll_to_cursor(self.config.scroll_padding);
+        self.inner
+            .state
+            .scroll_to_cursor(self.config.scroll_padding);
     }
 }

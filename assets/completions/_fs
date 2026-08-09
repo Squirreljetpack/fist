@@ -22,10 +22,10 @@ _fs() {
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
-'--sort=[]:SORT:((name\:""
-mtime\:""
-none\:""
-size\:"Not always supported"))' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
+'--sort=[]:SORT:(name mtime atime size none)' \
 '-h+[show hidden files and folders]::HIDDEN:(true false)' \
 '-I+[HIDE ignored files]::IGNORE:(true false)' \
 '-a+[show all]::ALL:(true false)' \
@@ -33,12 +33,12 @@ size\:"Not always supported"))' \
 '-f+[show only files]::FILES:(true false)' \
 '*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
+'--path-transforms=[Lua function remapping each result path before rendering/filtering. Values starting with \`@\` are read from that file]:LUA_PATH_TRANSFORM:_default' \
 '--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.]' \
 '--alt-accept[]' \
 '-A[]' \
 '--no-all[]' \
 '--cd[print the first match]' \
-'--no-read[Never stream input from stdin]' \
 '--reset-visibility[]' \
 '--list[]' \
 '--help[]' \
@@ -66,6 +66,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--list[]' \
 '--help[initial query]' \
 '--alt-accept[]' \
@@ -83,6 +86,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--list[]' \
 '--help[initial query]' \
 '--alt-accept[]' \
@@ -91,11 +97,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (:file)
 _arguments "${_arguments_options[@]}" : \
-'--sort=[history sort order]:SORT:((name\:""
-atime\:""
-frecency\:"Weighted frequency + recency"
-count\:""
-none\:""))' \
+'--sort=[history sort order]:SORT:(name mtime atime size none)' \
 '-l+[]::LIST:(_ all)' \
 '--list=[]::LIST:(_ all)' \
 '--query=[initial query]:QUERY:_default' \
@@ -106,17 +108,16 @@ none\:""))' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--help[]' \
 '--alt-accept[]' \
 && ret=0
 ;;
 (:dir)
 _arguments "${_arguments_options[@]}" : \
-'--sort=[history sort order]:SORT:((name\:""
-atime\:""
-frecency\:"Weighted frequency + recency"
-count\:""
-none\:""))' \
+'--sort=[history sort order]:SORT:(name mtime atime size none)' \
 '-l+[]::LIST:(_ all)' \
 '--list=[]::LIST:(_ all)' \
 '--initial-input=[]:INITIAL_INPUT:_default' \
@@ -127,6 +128,9 @@ none\:""))' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--cd[print the first match]' \
 '--help[]' \
 '--alt-accept[]' \
@@ -135,10 +139,7 @@ none\:""))' \
 ;;
 (:fd)
 _arguments "${_arguments_options[@]}" : \
-'--sort=[]:SORT:((name\:""
-mtime\:""
-none\:""
-size\:"Not always supported"))' \
+'--sort=[]:SORT:(name mtime atime size none)' \
 '-h+[show hidden files and folders]::HIDDEN:(true false)' \
 '-I+[HIDE ignored files]::IGNORE:(true false)' \
 '-a+[show all]::ALL:(true false)' \
@@ -146,6 +147,7 @@ size\:"Not always supported"))' \
 '-f+[show only files]::FILES:(true false)' \
 '*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
+'--path-transforms=[Lua function remapping each result path before rendering/filtering. Values starting with \`@\` are read from that file]:LUA_PATH_TRANSFORM:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -153,10 +155,12 @@ size\:"Not always supported"))' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '-A[]' \
 '--no-all[]' \
 '--cd[print the first match]' \
-'--no-read[Never stream input from stdin]' \
 '--reset-visibility[]' \
 '--list[]' \
 '--help[]' \
@@ -166,10 +170,7 @@ size\:"Not always supported"))' \
 ;;
 (::)
 _arguments "${_arguments_options[@]}" : \
-'--sort=[]:SORT:((name\:""
-mtime\:""
-none\:""
-size\:"Not always supported"))' \
+'--sort=[]:SORT:(name mtime atime size none)' \
 '-h+[show hidden files and folders]::HIDDEN:(true false)' \
 '-I+[HIDE ignored files]::IGNORE:(true false)' \
 '-a+[show all]::ALL:(true false)' \
@@ -177,6 +178,7 @@ size\:"Not always supported"))' \
 '-f+[show only files]::FILES:(true false)' \
 '*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
+'--path-transforms=[Lua function remapping each result path before rendering/filtering. Values starting with \`@\` are read from that file]:LUA_PATH_TRANSFORM:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -184,15 +186,75 @@ size\:"Not always supported"))' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '-A[]' \
 '--no-all[]' \
 '--cd[print the first match]' \
-'--no-read[Never stream input from stdin]' \
 '--reset-visibility[]' \
 '--list[]' \
 '--help[]' \
 '--alt-accept[]' \
 '*::paths -- Paths to search in. Searches the current directory if none specified (and not otherwise configured):_default' \
+&& ret=0
+;;
+(:custom)
+_arguments "${_arguments_options[@]}" : \
+'-h+[show hidden files and folders]::HIDDEN:(true false)' \
+'-I+[HIDE ignored files]::IGNORE:(true false)' \
+'-a+[show all]::ALL:(true false)' \
+'-F+[only show directories]::DIRS:(true false)' \
+'-f+[show only files]::FILES:(true false)' \
+'--sort=[]:SORT:(name mtime atime size none)' \
+'--lua-renderer=[Lua function rendering the item'\''s path into its display tail (column 2). Values starting with \`@\` are read from that file]:LUA_RENDERER:_default' \
+'--lua-render-tail=[Lua function rendering the item'\''s tail column. Values starting with \`@\` are read from that file]:LUA_RENDER_TAIL:_default' \
+'--path-transforms=[Lua function remapping each path before rendering/filtering. Values starting with \`@\` are read from that file]:LUA_PATH_TRANSFORM:_default' \
+'--delim=[Field separator within a record\: text after the first occurrence is the tail]:DELIM:_default' \
+'--record-sep=[Split the stream into records on this char instead of newlines]:RECORD_SEP:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[]::ORIENTATION:(true false)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
+'--cd[print the first match]' \
+'--help[]' \
+'--alt-accept[]' \
+'*::cmd -- Command to run and read from; empty = read stdin:_default' \
+&& ret=0
+;;
+(:c)
+_arguments "${_arguments_options[@]}" : \
+'-h+[show hidden files and folders]::HIDDEN:(true false)' \
+'-I+[HIDE ignored files]::IGNORE:(true false)' \
+'-a+[show all]::ALL:(true false)' \
+'-F+[only show directories]::DIRS:(true false)' \
+'-f+[show only files]::FILES:(true false)' \
+'--sort=[]:SORT:(name mtime atime size none)' \
+'--lua-renderer=[Lua function rendering the item'\''s path into its display tail (column 2). Values starting with \`@\` are read from that file]:LUA_RENDERER:_default' \
+'--lua-render-tail=[Lua function rendering the item'\''s tail column. Values starting with \`@\` are read from that file]:LUA_RENDER_TAIL:_default' \
+'--path-transforms=[Lua function remapping each path before rendering/filtering. Values starting with \`@\` are read from that file]:LUA_PATH_TRANSFORM:_default' \
+'--delim=[Field separator within a record\: text after the first occurrence is the tail]:DELIM:_default' \
+'--record-sep=[Split the stream into records on this char instead of newlines]:RECORD_SEP:_default' \
+'--verbosity=[]:VERBOSITY:_default' \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[]::ORIENTATION:(true false)' \
+'--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
+'--cd[print the first match]' \
+'--help[]' \
+'--alt-accept[]' \
+'*::cmd -- Command to run and read from; empty = read stdin:_default' \
 && ret=0
 ;;
 (:rg)
@@ -202,10 +264,7 @@ _arguments "${_arguments_options[@]}" : \
 '-a+[show all]::ALL:(true false)' \
 '-F+[only show directories]::DIRS:(true false)' \
 '-f+[show only files]::FILES:(true false)' \
-'--sort=[]:SORT:((name\:""
-mtime\:""
-none\:""
-size\:"Not always supported"))' \
+'--sort=[]:SORT:(name mtime atime size none)' \
 '*-p+[Files or directories to search in]:PATHS:_files' \
 '*--path=[Files or directories to search in]:PATHS:_files' \
 '-A+[Show NUM lines after each match]:NUM:_default' \
@@ -223,6 +282,9 @@ size\:"Not always supported"))' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '-i[]' \
 '--ignore-case[]' \
 '-s[]' \
@@ -250,10 +312,7 @@ _arguments "${_arguments_options[@]}" : \
 '-a+[show all]::ALL:(true false)' \
 '-F+[only show directories]::DIRS:(true false)' \
 '-f+[show only files]::FILES:(true false)' \
-'--sort=[]:SORT:((name\:""
-mtime\:""
-none\:""
-size\:"Not always supported"))' \
+'--sort=[]:SORT:(name mtime atime size none)' \
 '*-p+[Files or directories to search in]:PATHS:_files' \
 '*--path=[Files or directories to search in]:PATHS:_files' \
 '-A+[Show NUM lines after each match]:NUM:_default' \
@@ -271,6 +330,9 @@ size\:"Not always supported"))' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '-i[]' \
 '--ignore-case[]' \
 '-s[]' \
@@ -300,6 +362,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--help[]' \
 '--alt-accept[]' \
 '::args:_default' \
@@ -322,6 +387,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 && ret=0
 ;;
@@ -334,6 +402,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -347,6 +418,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -360,6 +434,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -373,6 +450,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -386,6 +466,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -399,6 +482,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -412,6 +498,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 && ret=0
 ;;
@@ -424,6 +513,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -441,6 +533,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--help[]' \
 '--alt-accept[]' \
 '::args:_default' \
@@ -463,6 +558,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 && ret=0
 ;;
@@ -475,6 +573,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -488,6 +589,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -501,6 +605,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -514,6 +621,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -527,6 +637,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -540,6 +653,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -553,6 +669,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 && ret=0
 ;;
@@ -565,6 +684,9 @@ _arguments "${_arguments_options[@]}" : \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -575,11 +697,7 @@ esac
 ;;
 (:info)
 _arguments "${_arguments_options[@]}" : \
-'--sort=[history sort order]:SORT:((name\:""
-atime\:""
-frecency\:"Weighted frequency + recency"
-count\:""
-none\:""))' \
+'--sort=[history sort order]:SORT:(name mtime atime size none)' \
 '-l+[maximum history entries to display]:LIMIT:_default' \
 '--limit=[maximum history entries to display]:LIMIT:_default' \
 '--verbosity=[]:VERBOSITY:_default' \
@@ -589,6 +707,9 @@ none\:""))' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
 '--enter-prompt=[]:ENTER_PROMPT:(true false)' \
+'--sep=[Separator printed after each result]:SEP:_default' \
+'--format=[Output template for printed results (same syntax as the old \`FS_OPTS output_template\`)]:FORMAT:_default' \
+'--opener=[Program used to open files on accept (replaces \`FS_OPTS opener\`)]:OPENER:_default' \
 '-m[Don'\''t print decorations]' \
 '--minimal[Don'\''t print decorations]' \
 '--help[]' \
@@ -610,6 +731,8 @@ _fs_commands() {
 ':dir:Recent folders' \
 ':fd:Find and browse. (Default)' \
 ':::Find and browse. (Default)' \
+':custom:Browse a piped listing or a command'\''s output' \
+':c:Browse a piped listing or a command'\''s output' \
 ':rg:Full text search' \
 '::Full text search' \
 ':tool:Plugins and utilities' \
@@ -617,6 +740,11 @@ _fs_commands() {
 ':info:Stats and database records' \
     )
     _describe -t commands 'fs commands' commands "$@"
+}
+(( $+functions[_fs__subcmd__:custom_commands] )) ||
+_fs__subcmd__:custom_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :custom commands' commands "$@"
 }
 (( $+functions[_fs__subcmd__:dir_commands] )) ||
 _fs__subcmd__:dir_commands() {

@@ -71,8 +71,9 @@ fn config_as_code() -> BindMap<FsAction> {
         // Display
         // ----------------------------------
         key!(ctrl-t) => FsAction::ShowStash,
-        key!(alt-shift-t) => FsAction::ClearStash(None),
-        key!(alt-shift-s) => FsAction::ClearStash(Some("copy".to_string())), // clear copy kind
+        // stash overhaul: ClearStash kind arg removed (unit variant now)
+        // key!(alt-shift-t) => FsAction::ClearStash,
+        // key!(alt-shift-s) => FsAction::ClearStash, // clear copy kind
         key!(ctrl-e) => FsAction::ShowMenu,
         // -- filters --
         key!(ctrl-i) => FsAction::ShowFilters,

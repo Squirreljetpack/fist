@@ -50,7 +50,7 @@ border = { type = "Rounded", color = "darkGrey", padding = 1 }
 ### MM
 "shift-right" = "ForwardChar"
 "shift-left" = "BackwardChar"
-"space" = ["EnterPrompt", "PushQuery( )"]
+"space" = ["EnterPrompt", "InsertQuery( )"]
 "tab" = ["ToggleSelection", "Down"]
 "ctrl-a" = "CycleSelections"
 "ctrl-shift-a" = "ClearSelections"

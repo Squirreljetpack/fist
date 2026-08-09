@@ -6,7 +6,6 @@ use std::{
 use cba::{
     bait::TransformExt,
     bog::BogOkExt,
-    bring::StrExt,
     broc::{CommandExt, SHELL, tty_or_inherit},
     env_vars, unwrap,
 };
@@ -14,7 +13,6 @@ use easy_ext::ext;
 use log::{debug, info, warn};
 use matchmaker::{
     message::{Event, Interrupt},
-    nucleo::Indexed,
     preview::AppendOnly,
 };
 
@@ -23,7 +21,7 @@ use crate::{
     aliases::MMState,
     cli::paths::text_renderer_path,
     run::{
-        FsMatchmaker,
+        FsAction, FsMatchmaker,
         ahandlers::fs_reload,
         item::PathItem,
         pane::FsPane,
@@ -47,7 +45,7 @@ pub fn sync_handler(
     // would it help to guarantee the directory didn't change here?
 
     // TODO: support more pane variants
-    FILTERS::refilter();
+    GLOBAL::send_action(FsAction::Refilter);
 
     let seek = STORE::take();
 
@@ -56,8 +54,8 @@ pub fn sync_handler(
         && let Some(i) = state
             .picker_ui
             .worker
-            .raw_results()
-            .position(|x| x.inner.path == seek)
+            .matched_results()
+            .position(|x| x.path == seek)
     {
         state.picker_ui.results.cursor_jump(i as u32);
         STORE::take::<u32>();
@@ -96,8 +94,14 @@ impl FsMatchmaker {
                     let pane = FsPane::new_custom(
                         STACK::_cwd(),
                         FILTERS::visibility(),
-                        command,
+                        Some(command),
                         false,
+                        fist_types::filters::SortOrder::none,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
                     );
 
                     if STACK::with_current(|p| *p != pane) {
@@ -116,16 +120,16 @@ impl FsMatchmaker {
         self.register_interrupt_handler(Interrupt::Execute, move |state| {
             let template = state.payload();
             if !template.is_empty() {
-                let path = unwrap!(if state.picker_ui.results.cursor_disabled {
+                let path = unwrap!(if state.picker_ui.results.cursor_disabled() {
                     STACK::cwd()
                 } else {
                     state.current_raw().map(|t| {
                         if STORE::take::<ExecuteHandlerShouldProcessParent>().is_some()
-                            && let Some(p) = t.inner.path.parent()
+                            && let Some(p) = t.path.parent()
                         {
                             AbsPath::new_unchecked(p)
                         } else {
-                            t.inner.path.clone()
+                            t.path.clone()
                         }
                     })
                 });
@@ -152,18 +156,11 @@ impl FsMatchmaker {
                     "FS_PREVIEW_COMMAND" => preview_cmd,
                 );
                 vars.extend(extra);
-                if let Some((line, col)) = state.current_raw().and_then(|item| {
-                    state.picker_ui.worker.format_with(item, "3").map(|t| {
-                        let x = t.as_ref().split_delim(':');
-                        let line = x[0].parse::<isize>().ok();
-                        let col = x[1].split_delim(':')[0].parse::<isize>().ok();
-                        (line, col)
-                    })
-                }) && let Some(t) = line
-                {
-                    vars.push(("HIGHLIGHT_LINE".to_string(), t.to_string()));
-                    if let Some(t) = col {
-                        vars.push(("HIGHLIGHT_COLUMN".to_string(), t.to_string()));
+                if STACK::in_rg() {
+                    let (line, col) = p.loc();
+                    vars.push(("HIGHLIGHT_LINE".to_string(), line.to_string()));
+                    if col != 0 {
+                        vars.push(("HIGHLIGHT_COLUMN".to_string(), col.to_string()));
                     }
                 };
 
@@ -212,10 +209,10 @@ impl FsMatchmaker {
 // ------------------------------------------------------------------------
 
 pub fn path_formatter(
-    item: &Indexed<PathItem>,
+    item: &PathItem,
     template: &str,
 ) -> String {
-    format_path(template, &item.inner.path)
+    format_path(template, &item.path)
 }
 
 fn execute(
@@ -242,18 +239,11 @@ fn execute(
 
     // lowpri: dow we expose fs_preview_command here?
     if STACK::in_rg() {
-        if let Some((line, col)) = state.current_raw().and_then(|item| {
-            state.picker_ui.worker.format_with(item, "3").map(|t| {
-                let x = t.as_ref().split_delim(':');
-                let line = x[0].parse::<isize>().ok();
-                let col = x[1].split_delim(':')[0].parse::<isize>().ok();
-                (line, col)
-            })
-        }) && let Some(t) = line
-        {
-            vars.push(("HIGHLIGHT_LINE".to_string(), t.to_string()));
-            if let Some(t) = col {
-                vars.push(("HIGHLIGHT_COLUMN".to_string(), t.to_string()));
+        if let Some(item) = state.current_raw() {
+            let (line, col) = item.loc();
+            vars.push(("HIGHLIGHT_LINE".to_string(), line.to_string()));
+            if col != 0 {
+                vars.push(("HIGHLIGHT_COLUMN".to_string(), col.to_string()));
             }
         };
         if let Some(p) = state.preview_ui.as_mut() {

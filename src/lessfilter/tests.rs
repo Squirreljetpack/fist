@@ -50,7 +50,7 @@ fn test_directory_matching() {
 
     let progs = action.to_progs(path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    let expected: Vec<OsString> = vec_![: current_exe(), ":tool", "liza", ":u2", path];
+    let expected: Vec<OsString> = vec_![: current_exe(), ":tool", "liza", ":u2", "--", path];
     assert_eq!(progs.0[0], expected);
 }
 
@@ -66,7 +66,7 @@ fn test_text_file_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(progs.0[0], vec![text_renderer_path(), &path]);
+    assert_eq!(progs.0[0], vec![text_renderer_path(), Path::new("--"), &path]);
 
     // test edit preset
     let edit_action = get_best_action(&rules.edit, &path).unwrap();
@@ -90,7 +90,7 @@ fn test_rust_file_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(progs.0[0], vec![text_renderer_path(), &path]);
+    assert_eq!(progs.0[0], vec![text_renderer_path(), Path::new("--"), &path]);
 }
 
 #[test]

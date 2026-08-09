@@ -35,24 +35,6 @@ pub fn recursive_size(path: &Path) -> io::Result<u64> {
     }
 }
 
-pub fn format_size(bytes: u64) -> String {
-    const KB: f64 = 1024.0;
-    const MB: f64 = KB * 1024.0;
-    const GB: f64 = MB * 1024.0;
-
-    let b = bytes as f64;
-
-    if b >= GB {
-        format!("{:.2} GB", b / GB)
-    } else if b >= MB {
-        format!("{:.2} MB", b / MB)
-    } else if b >= KB {
-        format!("{:.2} KB", b / KB)
-    } else {
-        format!("{} B", bytes)
-    }
-}
-
 pub fn sort_by_size(paths: &mut [PathBuf]) {
     paths.par_sort_unstable_by(|a, b| {
         let sa = recursive_size(a).unwrap_or(0);

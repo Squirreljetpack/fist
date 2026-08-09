@@ -10,7 +10,7 @@ use crate::{
     },
     db::DbTable,
 };
-use fist_types::filters::{DbSortOrder, SortOrder};
+use fist_types::filters::SortOrder;
 use fist_types::{filetypes::FileTypeArg, filters::PartialVisibility};
 
 // #[derive(Parser, Debug)]
@@ -111,6 +111,22 @@ Otherwise, this will OVERWRITE your main config."#
 
     #[arg(long, global = true)]
     pub alt_accept: bool,
+
+    #[command(flatten)]
+    pub output: OutputOpts,
+}
+
+#[derive(Debug, Args, Default, Clone)]
+pub struct OutputOpts {
+    /// Separator printed after each result.
+    #[arg(long, global = true)]
+    pub sep: Option<String>,
+    /// Output template for printed results (same syntax as the old `FS_OPTS output_template`).
+    #[arg(long, global = true)]
+    pub format: Option<String>,
+    /// Program used to open files on accept (replaces `FS_OPTS opener`).
+    #[arg(long, global = true)]
+    pub opener: Option<String>,
 }
 
 impl CliOpts {
@@ -138,6 +154,9 @@ pub enum SubCmd {
     /// Find and browse. (Default)
     #[command(name = ":fd", visible_aliases = ["::"])]
     Default(DefaultCommand),
+    /// Browse a piped listing or a command's output.
+    #[command(name = ":custom", visible_aliases = [":c"])]
+    Custom(CustomCommand),
     #[command(name = ":rg", visible_aliases = [":"])]
     Rg(SearchCommand),
     #[command(name =  ":tool", visible_aliases = [":t"])]
@@ -151,7 +170,7 @@ pub enum SubCmd {
 pub struct InfoCmd {
     /// history sort order.
     #[arg(long, default_value_t)]
-    pub sort: DbSortOrder,
+    pub sort: SortOrder,
     /// history table to display.
     pub table: Option<DbTable>,
     #[arg(short, long)]
@@ -188,7 +207,7 @@ pub struct OpenCmd {
 pub struct DirsCmd {
     /// history sort order.
     #[arg(long, default_value_t)]
-    pub sort: DbSortOrder,
+    pub sort: SortOrder,
 
     #[arg(
         short,
@@ -217,7 +236,7 @@ pub struct DirsCmd {
 pub struct FilesCmd {
     /// history sort order.
     #[arg(long, default_value_t)]
-    pub sort: DbSortOrder,
+    pub sort: SortOrder,
     #[arg(
         short,
         long,
@@ -355,14 +374,59 @@ pub struct DefaultCommand {
     // its neat that this works: using -- passes to fd only if paths has entries which is exactly what we want
     pub fd: Vec<OsString>,
 
-    /// Never stream input from stdin.
-    #[arg(long, default_value_t)]
-    pub no_read: bool,
+    /// Lua function remapping each result path before rendering/filtering.
+    /// Values starting with `@` are read from that file.
+    #[arg(long = "path-transforms")]
+    pub lua_path_transform: Option<String>,
+
     #[arg(long, default_value_t)]
     pub reset_visibility: bool,
 
     #[arg(long)]
     pub list: bool,
+    #[arg(long, action = ArgAction::Help)]
+    pub help: (),
+}
+
+/// Browse a piped listing or the output of a command.
+#[derive(Debug, Parser, Default, Clone)]
+pub struct CustomCommand {
+    /// Command to run and read from; empty = read stdin.
+    #[arg(trailing_var_arg = true, value_name = "CMD")]
+    pub cmd: Vec<OsString>,
+    #[command(flatten)]
+    pub vis: PartialVisibility,
+
+    /// print the first match.
+    #[arg(long)]
+    pub cd: bool,
+
+    #[arg(long)]
+    pub sort: Option<SortOrder>,
+
+    /// Lua function rendering the item's path into its display tail (column 2).
+    /// Values starting with `@` are read from that file.
+    #[arg(long)]
+    pub lua_renderer: Option<String>,
+
+    /// Lua function rendering the item's tail column.
+    /// Values starting with `@` are read from that file.
+    #[arg(long)]
+    pub lua_render_tail: Option<String>,
+
+    /// Lua function remapping each path before rendering/filtering.
+    /// Values starting with `@` are read from that file.
+    #[arg(long = "path-transforms")]
+    pub lua_path_transform: Option<String>,
+
+    /// Field separator within a record: text after the first occurrence is the tail.
+    #[arg(long)]
+    pub delim: Option<char>,
+
+    /// Split the stream into records on this char instead of newlines.
+    #[arg(long)]
+    pub record_sep: Option<char>,
+
     #[arg(long, action = ArgAction::Help)]
     pub help: (),
 }

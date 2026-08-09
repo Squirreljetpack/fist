@@ -345,3 +345,35 @@ pub fn extract_rg_line_no_path(
 pub fn is_empty(text: &Text<'_>) -> bool {
     text.lines.iter().all(|l| l.spans.is_empty())
 }
+
+/// Parse a `line:col` (or bare `line`) location string into `(line, col)`.
+/// Returns `None` if the line component is not a number. `col` defaults to 0.
+pub fn parse_loc(s: &str) -> Option<(u32, u32)> {
+    let mut parts = s.splitn(2, ':');
+    let line = parts.next()?.trim().parse::<u32>().ok()?;
+    let col = parts
+        .next()
+        .and_then(|c| c.split(':').next()?.trim().parse::<u32>().ok())
+        .unwrap_or(0);
+    Some((line, col))
+}
+
+/// Parse the first `line:col:` pair out of a `"line:col:"`-joined string
+/// (as built by [`extract_rg_line_no_path`]). `col` is 0 when `no_column` was
+/// in effect (entries are then `"line:"`).
+pub fn first_loc(s: &str) -> Option<(u32, u32)> {
+    // entries are ':'-terminated pairs; take up through the second ':' (or end)
+    let mut idx = 0;
+    let mut colons = 0;
+    for (i, ch) in s.char_indices() {
+        if ch == ':' {
+            colons += 1;
+            if colons == 2 {
+                idx = i;
+                break;
+            }
+        }
+    }
+    let first = if idx > 0 { &s[..idx] } else { s.trim_end_matches(':') };
+    parse_loc(first)
+}

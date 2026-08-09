@@ -3,14 +3,12 @@ pub use entry::*;
 mod connection;
 pub use connection::*;
 mod crud;
-mod display;
-pub use display::*;
 
 pub mod zoxide;
-pub use fist_types::filters::DbSortOrder;
 
 use crate::{abspath::AbsPath, errors::DbError, run::state::TASKS};
 use cba::{bait::ResultExt, bath::PathExt};
+use fist_types::filters::SortOrder;
 
 pub type Epoch = i64;
 
@@ -149,14 +147,14 @@ impl Connection {
 
     pub async fn get_entries(
         &mut self,
-        sort: DbSortOrder,
+        sort: SortOrder,
         config: &zoxide::HistoryConfig,
         table: DbTable,
     ) -> Result<Vec<Entry>, DbError> {
         let mut entries = self.get_entries_range(0, 0, sort).await.elog()?;
         entries.retain(|e| config.filter(e, table));
 
-        if matches!(sort, DbSortOrder::frecency) && entries.len() > config.prune_max {
+        if matches!(sort, SortOrder::none) && entries.len() > config.prune_max {
             self.prune_tail(&entries, config.prune_max, config.prune_min)
                 .await
                 ._elog();
@@ -193,7 +191,7 @@ impl Connection {
     ) -> Result<usize, DbError> {
         let mut removed = 0;
 
-        let entries: Vec<Entry> = self.get_entries_range(0, 0, DbSortOrder::none).await?;
+        let entries: Vec<Entry> = self.get_entries_range(0, 0, SortOrder::mtime).await?;
 
         for target in targets {
             for entry in &entries {

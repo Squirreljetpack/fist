@@ -14,7 +14,7 @@ use std::path::Path;
 use super::{FsAction, binds::default_binds};
 
 #[cfg(feature = "mm_overrides")]
-use crate::cli::env::EnvOpts;
+use crate::cli::env::get_mm_partial;
 
 use crate::{
     config::Config,
@@ -82,7 +82,7 @@ pub const MATCHER_CONFIG: nucleo::Config = const { nucleo::Config::DEFAULT.match
 pub fn get_mm_binds(path: &Path) -> (ResolvedBindMap<FsAction>, HelpDisplayConfig) {
     let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
     #[cfg(feature = "mm_overrides")]
-    if let Some(partial) = EnvOpts::get_mm_partial() {
+    if let Some(partial) = get_mm_partial() {
         mm_cfg.render.apply(partial);
     }
 
@@ -97,7 +97,7 @@ pub fn get_mm_cfg(
 ) -> MMConfig {
     let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
     #[cfg(feature = "mm_overrides")]
-    if let Some(partial) = EnvOpts::get_mm_partial() {
+    if let Some(partial) = get_mm_partial() {
         mm_cfg.render.apply(partial);
     }
 

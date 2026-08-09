@@ -16,20 +16,47 @@ use std::path::Path;
 pub enum SortOrder {
     name,
     mtime,
+    atime,
+    size,
     #[default]
     none,
-    /// Not always supported
-    size,
 }
 
 impl SortOrder {
     pub fn cycle(&mut self) {
         *self = match self {
-            SortOrder::mtime => SortOrder::none,
-            SortOrder::none => SortOrder::name,
             SortOrder::name => SortOrder::mtime,
-            SortOrder::size => SortOrder::mtime, // exclude size from loop
+            SortOrder::mtime => SortOrder::atime,
+            SortOrder::atime => SortOrder::size,
+            SortOrder::size => SortOrder::none,
+            SortOrder::none => SortOrder::name,
         };
+    }
+
+    /// Display label for prompts/overlays.
+    /// In db panes (files/folders/apps), `none` means frecency and the
+    /// other variants map to their SQL orderings.
+    pub fn label(
+        &self,
+        db: bool,
+    ) -> &'static str {
+        if db {
+            match self {
+                SortOrder::name => "name",
+                SortOrder::mtime => "none",
+                SortOrder::atime => "atime",
+                SortOrder::size => "count",
+                SortOrder::none => "frecency",
+            }
+        } else {
+            match self {
+                SortOrder::name => "name",
+                SortOrder::mtime => "mtime",
+                SortOrder::atime => "atime",
+                SortOrder::size => "size",
+                SortOrder::none => "none",
+            }
+        }
     }
 }
 
@@ -351,54 +378,5 @@ impl Visibility {
             self.no_follow = v;
         }
         *self = self.validated();
-    }
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Debug, Clone, Copy, Default, strum_macros::Display, PartialEq, clap::ValueEnum)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize, serde::Deserialize, strum_macros::IntoStaticStr)
-)]
-#[strum(serialize_all = "lowercase")]
-pub enum DbSortOrder {
-    name,
-    atime,
-    /// Weighted frequency + recency
-    #[default]
-    frecency,
-    count,
-    none,
-}
-
-impl DbSortOrder {
-    pub const fn cycle(&mut self) {
-        *self = match self {
-            Self::atime => Self::frecency,
-            Self::frecency => Self::name,
-            Self::name => Self::atime,
-            _ => Self::atime, // exclude size from loop
-        };
-    }
-}
-
-// --------------------------------------------------
-impl From<DbSortOrder> for SortOrder {
-    fn from(v: DbSortOrder) -> Self {
-        match v {
-            DbSortOrder::name => SortOrder::name,
-            DbSortOrder::atime => SortOrder::mtime,
-            _ => SortOrder::none,
-        }
-    }
-}
-
-impl From<SortOrder> for DbSortOrder {
-    fn from(v: SortOrder) -> Self {
-        match v {
-            SortOrder::name => DbSortOrder::name,
-            SortOrder::mtime => DbSortOrder::atime,
-            _ => DbSortOrder::frecency,
-        }
     }
 }

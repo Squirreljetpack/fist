@@ -138,12 +138,25 @@ define_collection_wrapper!(
     /// Name is case insensitive
     ///
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
+    #[serde(transparent)]
     CustomActions: HashMap<String, String>
 );
 define_collection_wrapper!(
     #[derive(Debug)]
     Categories: HashMap<String, Vec<MimeString>>
 );
+
+impl Default for CustomActions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for Categories {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 // --------------------- BOILERPLATE ---------------------
 
