@@ -12,15 +12,17 @@ use tokio;
 
 use crate::config::GlobalConfig;
 use crate::{
-    db::{Connection, DbSortOrder, Pool, zoxide::HistoryConfig},
+    db::{Connection, Pool, zoxide::HistoryConfig},
     errors::DbError,
     run::{FsPane, action::FsAction},
     utils::text::{ToastContent, ToastStyle, make_toast},
     watcher::{WatcherMessage, WatcherSender},
 };
+use fist_types::filters::SortOrder;
 
 mod filters;
 pub use filters::*;
+pub mod sort;
 mod stack;
 pub use stack::*;
 pub mod context;
@@ -60,24 +62,17 @@ pub mod GLOBAL {
         bind_tx: BindSender<FsAction>,
     ) {
         // need to handle the patterns listened on by sync_handler
-        let sort = match &pane {
-            FsPane::Nav { sort, .. }
-            | FsPane::Custom { sort, .. }
-            | FsPane::Find { sort, .. }
-            | FsPane::Stream { sort, .. } => *sort,
-            FsPane::Folders { sort, .. } | FsPane::Files { sort, .. } => (*sort).into(),
-            _ => Default::default(),
-        };
+        let sort = pane.sort();
         let visibility = match &pane {
             FsPane::Nav { vis, .. }
             | FsPane::Custom { vis, .. }
             | FsPane::Find { vis, .. }
-            | FsPane::Stream { vis, .. }
             | FsPane::Search { vis, .. } => *vis,
             _ => Default::default(),
         };
         debug!("Initial filters: {sort}, {visibility:?}");
-        FILTERS::set(sort, visibility);
+        sort::set_sort(sort);
+        FILTERS::set(visibility);
 
         crate::run::stash::STASH::init(stash_cfg.modes.clone());
 
@@ -135,7 +130,7 @@ pub mod GLOBAL {
 
     pub async fn get_db_entries(
         conn: &mut Connection,
-        sort: DbSortOrder,
+        sort: SortOrder,
     ) -> Result<Vec<crate::db::Entry>, DbError> {
         let guard = DB_FILTER.lock().await;
         let config = guard.as_ref().unwrap();

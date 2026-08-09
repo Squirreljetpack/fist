@@ -66,6 +66,7 @@ fn macos_application_icon_path(path: &Path) -> Option<PathBuf> {
     (status.success() && cache_path.is_file()).then_some(cache_path)
 }
 
+#[allow(unused)]
 fn application_icon_cache_path(path: &Path) -> PathBuf {
     let app_path = path.to_string_lossy();
     let sanitized: String = app_path

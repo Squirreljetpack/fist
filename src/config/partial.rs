@@ -19,7 +19,6 @@ pub struct MatchmakerOverrides {
     pub app: PartialRenderConfig,
     pub history: PartialRenderConfig,
     pub nav: PartialRenderConfig,
-    pub stream: PartialRenderConfig,
     pub find: PartialRenderConfig,
     pub search: PartialRenderConfig,
     pub custom: PartialRenderConfig,
@@ -34,7 +33,6 @@ impl MatchmakerOverrides {
     ) -> &PartialRenderConfig {
         match pane {
             FsPane::Custom { .. } => &self.custom,
-            FsPane::Stream { .. } => &self.stream,
             FsPane::Find { .. } => &self.find,
             FsPane::Files { .. } | FsPane::Folders { .. } => &self.history,
             FsPane::Apps { .. } => &self.app,

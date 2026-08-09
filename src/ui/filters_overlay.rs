@@ -123,10 +123,17 @@ impl FilterOverlay {
     // Returns Vec<Span> for sort options
     // Returns items as Vec<(Vec<Span>, bool)> so make_widgets can add checkboxes
     fn get_sort_items(&self) -> Vec<(Vec<Span<'static>>, Option<bool>)> {
-        let current_sort_order = FILTERS::sort();
+        let (current_sort_order, db) = STACK::with_current(|p| {
+            let db = matches!(
+                p,
+                FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
+            );
+            (p.sort(), db)
+        });
         SortOrder::iter()
             .map(|so| {
-                let spans = bold_indices(so.into(), [0], self.item_style());
+                let label = so.label(db);
+                let spans = bold_indices(label, [0], self.item_style());
                 let checked = so == current_sort_order;
                 (spans, Some(checked))
             })
@@ -323,78 +330,76 @@ impl FilterOverlay {
         let mut refilter = !matches!(x, 2);
         let mut reload = !refilter;
 
-        FILTERS::with_mut(|sort, vis| {
-            match x {
-                // visibility pane
-                0 => {
-                    if !matches!(y, 2 | 3) {
-                        vis.set_all(false);
-                    }
-                    match y {
-                        0 => {
-                            (vis.hidden, vis.hidden_only) = if vis.hidden_only {
-                                vis.files = false;
-                                (false, false)
-                            } else if vis.hidden {
-                                if !vis.dirs {
-                                    vis.files = true;
-                                }
-                                (false, true)
-                            } else {
-                                (true, false)
-                            }
-                        }
-                        1 => vis.ignore = !vis.ignore,
-                        2 => {
-                            if vis.files {
-                                vis.files = !vis.files;
-                            } else {
-                                vis.dirs = !vis.dirs
-                            }
-                        }
-                        3 => vis.toggle_all(),
-                        _ => {}
-                    }
+        match x {
+            // visibility pane
+            0 => FILTERS::with_mut(|vis| {
+                if !matches!(y, 2 | 3) {
+                    vis.set_all(false);
                 }
-
-                // sort pane
-                1 => {
-                    if let Some(new_sort_order) = SortOrder::iter().nth(y) {
-                        *sort = new_sort_order;
+                match y {
+                    0 => {
+                        (vis.hidden, vis.hidden_only) = if vis.hidden_only {
+                            vis.files = false;
+                            (false, false)
+                        } else if vis.hidden {
+                            if !vis.dirs {
+                                vis.files = true;
+                            }
+                            (false, true)
+                        } else {
+                            (true, false)
+                        }
                     }
-                }
-
-                2 => STACK::with_current_mut(|p| match p {
-                    FsPane::Search {
-                        context,
-                        case,
-                        one_line,
-                        fixed_strings,
-                        ..
-                    } => match y {
-                        1 => {
-                            context[0] += 1;
-                            context[1] += 1;
+                    1 => vis.ignore = !vis.ignore,
+                    2 => {
+                        if vis.files {
+                            vis.files = !vis.files;
+                        } else {
+                            vis.dirs = !vis.dirs
                         }
-                        2 => {
-                            reload = *context != [0, 0];
-                            context[0].ssub(1);
-                            context[1].ssub(1);
-                        }
-                        4 => case.cycle(),
-                        5 => *one_line = !(*one_line),
-                        6 => *fixed_strings = !(*fixed_strings),
-                        _ => {}
-                    },
-
+                    }
+                    3 => vis.toggle_all(),
                     _ => {}
-                }),
+                }
+            }),
+
+            // sort pane: the pane is the source of truth for sort
+            1 => {
+                if let Some(new_sort_order) = SortOrder::iter().nth(y) {
+                    STACK::with_current_mut(|p| *p.sort_mut() = new_sort_order);
+                }
+            }
+
+            2 => STACK::with_current_mut(|p| match p {
+                FsPane::Search {
+                    context,
+                    case,
+                    one_line,
+                    fixed_strings,
+                    ..
+                } => match y {
+                    1 => {
+                        context[0] += 1;
+                        context[1] += 1;
+                    }
+                    2 => {
+                        reload = *context != [0, 0];
+                        context[0].ssub(1);
+                        context[1].ssub(1);
+                    }
+                    4 => case.cycle(),
+                    5 => *one_line = !(*one_line),
+                    6 => *fixed_strings = !(*fixed_strings),
+                    _ => {}
+                },
 
                 _ => {}
-            }
-        });
+            }),
+
+            _ => {}
+        }
         if refilter {
-            FILTERS::refilter();
+            GLOBAL::send_action(FsAction::Refilter);
         };
         if reload {
             GLOBAL::send_action(FsAction::Reload);
@@ -416,10 +421,28 @@ impl Overlay for FilterOverlay {
         match c {
             'q' => return OverlayEffect::Disable,
 
+            // sort toggles: write the pane's sort, dispatch Refilter
+            'n' | 'm' | 'a' | 's' if self.pane_lens[1] > 0 => {
+                let target = match c {
+                    'n' => SortOrder::name,
+                    'm' => SortOrder::mtime,
+                    'a' => SortOrder::atime,
+                    _ => SortOrder::size,
+                };
+                STACK::with_current_mut(|p| {
+                    let sort = p.sort_mut();
+                    *sort = if *sort == target {
+                        SortOrder::none
+                    } else {
+                        target
+                    };
+                });
+            }
+
             // visibility toggles
-            'h' | 'H' | 'I' | 'a' | 'd' | 'D' if self.pane_lens[0] > 0 => {
-                FILTERS::with_mut(|_sort, vis| {
-                    if !matches!(c, 'D' | 'a') {
+            'h' | 'H' | 'I' | 'd' | 'D' if self.pane_lens[0] > 0 => {
+                FILTERS::with_mut(|vis| {
+                    if !matches!(c, 'D') {
                         vis.set_all(false);
                     }
                     match c {
@@ -440,29 +463,9 @@ impl Overlay for FilterOverlay {
                             }
                         }
                         'I' => vis.ignore = !vis.ignore,
-                        'a' => vis.toggle_all(),
                         _ => {}
                     }
                 });
-            }
-
-            'n' | 'm' | 's' if self.pane_lens[1] > 0 => {
-                let toggle_sort = |target: SortOrder| {
-                    FILTERS::with_mut(|sort, _| {
-                        *sort = if *sort == target {
-                            SortOrder::none
-                        } else {
-                            target
-                        };
-                    });
-                };
-
-                match c {
-                    'n' => toggle_sort(SortOrder::name),
-                    'm' => toggle_sort(SortOrder::mtime),
-                    's' => toggle_sort(SortOrder::size),
-                    _ => {}
-                }
             }
 
             _ if self.pane_lens[2] > 0 => {
@@ -505,7 +508,7 @@ impl Overlay for FilterOverlay {
         }
 
         if refilter {
-            FILTERS::refilter();
+            GLOBAL::send_action(FsAction::Refilter);
         };
         if reload {
             GLOBAL::send_action(FsAction::Reload);
@@ -627,7 +630,7 @@ impl Overlay for FilterOverlay {
             .map(|_| Constraint::Length(PANE_WIDTH))
             .collect();
 
-        let mut inner_area = self.border().inner(area);
+        let mut inner_area = self.border().as_block().inner(area);
 
         let chunks = Layout::default()
             .direction(Direction::Horizontal)

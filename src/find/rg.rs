@@ -83,6 +83,9 @@ pub fn build_rg_args(
         SortOrder::mtime => {
             ret.push("--sortr=modified".into());
         }
+        SortOrder::atime => {
+            ret.push("--sortr=accessed".into());
+        }
         SortOrder::name => {
             ret.push("--sort=path".into());
         }

@@ -1,27 +1,27 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_fs_global_optspecs
-	string join \n verbosity= override= config= mm-config= dump-config style= fullscreen= enter-prompt= alt-accept sort= h= I= a= F= f= A/no-all cd t/types= no-read reset-visibility list help V/version
+    string join \n verbosity= override= config= mm-config= dump-config style= fullscreen= enter-prompt= alt-accept sep= format= opener= sort= h= I= a= F= f= A/no-all cd t/types= path-transforms= reset-visibility list help V/version
 end
 
 function __fish_fs_needs_command
-	# Figure out if the current invocation already has a command.
-	set -l cmd (commandline -opc)
-	set -e cmd[1]
-	argparse -s (__fish_fs_global_optspecs) -- $cmd 2>/dev/null
-	or return
-	if set -q argv[1]
-		# Also print the command, so this can be used to figure out what it is.
-		echo $argv[1]
-		return 1
-	end
-	return 0
+    # Figure out if the current invocation already has a command.
+    set -l cmd (commandline -opc)
+    set -e cmd[1]
+    argparse -s (__fish_fs_global_optspecs) -- $cmd 2>/dev/null
+    or return
+    if set -q argv[1]
+        # Also print the command, so this can be used to figure out what it is.
+        echo $argv[1]
+        return 1
+    end
+    return 0
 end
 
 function __fish_fs_using_subcommand
-	set -l cmd (__fish_fs_needs_command)
-	test -z "$cmd"
-	and return 1
-	contains -- $cmd[1] $argv
+    set -l cmd (__fish_fs_needs_command)
+    test -z "$cmd"
+    and return 1
+    contains -- $cmd[1] $argv
 end
 
 complete -c fs -n "__fish_fs_needs_command" -l verbosity -r
@@ -38,10 +38,14 @@ complete -c fs -n "__fish_fs_needs_command" -l fullscreen -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_needs_command" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_needs_command" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_needs_command" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_needs_command" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_needs_command" -l sort -r -f -a "name\t''
 mtime\t''
-none\t''
-size\t'Not always supported'"
+atime\t''
+size\t''
+none\t''"
 complete -c fs -n "__fish_fs_needs_command" -s h -d 'show hidden files and folders' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_needs_command" -s I -d 'HIDE ignored files' -r -f -a "true\t''
@@ -53,11 +57,11 @@ false\t''"
 complete -c fs -n "__fish_fs_needs_command" -s f -d 'show only files' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_needs_command" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
+complete -c fs -n "__fish_fs_needs_command" -l path-transforms -d 'Lua function remapping each result path before rendering/filtering. Values starting with `@` are read from that file' -r
 complete -c fs -n "__fish_fs_needs_command" -l dump-config -d 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.'
 complete -c fs -n "__fish_fs_needs_command" -l alt-accept
 complete -c fs -n "__fish_fs_needs_command" -s A -l no-all
 complete -c fs -n "__fish_fs_needs_command" -l cd -d 'print the first match'
-complete -c fs -n "__fish_fs_needs_command" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_needs_command" -l reset-visibility
 complete -c fs -n "__fish_fs_needs_command" -l list
 complete -c fs -n "__fish_fs_needs_command" -l help
@@ -68,6 +72,8 @@ complete -c fs -n "__fish_fs_needs_command" -a ":file" -d 'Recent files'
 complete -c fs -n "__fish_fs_needs_command" -a ":dir" -d 'Recent folders'
 complete -c fs -n "__fish_fs_needs_command" -a ":fd" -d 'Find and browse. (Default)'
 complete -c fs -n "__fish_fs_needs_command" -a "::" -d 'Find and browse. (Default)'
+complete -c fs -n "__fish_fs_needs_command" -a ":custom" -d 'Browse a piped listing or a command\'s output'
+complete -c fs -n "__fish_fs_needs_command" -a ":c" -d 'Browse a piped listing or a command\'s output'
 complete -c fs -n "__fish_fs_needs_command" -a ":rg" -d 'Full text search'
 complete -c fs -n "__fish_fs_needs_command" -a ":" -d 'Full text search'
 complete -c fs -n "__fish_fs_needs_command" -a ":tool" -d 'Plugins and utilities'
@@ -88,6 +94,9 @@ complete -c fs -n "__fish_fs_using_subcommand :open" -l fullscreen -r -f -a "tru
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :open" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :open" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :open" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :open" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :open" -l list
 complete -c fs -n "__fish_fs_using_subcommand :open" -l help -d 'initial query'
 complete -c fs -n "__fish_fs_using_subcommand :open" -l alt-accept
@@ -106,13 +115,16 @@ complete -c fs -n "__fish_fs_using_subcommand :o" -l fullscreen -r -f -a "true\t
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :o" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :o" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :o" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :o" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :o" -l list
 complete -c fs -n "__fish_fs_using_subcommand :o" -l help -d 'initial query'
 complete -c fs -n "__fish_fs_using_subcommand :o" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :file" -l sort -d 'history sort order' -r -f -a "name\t''
+mtime\t''
 atime\t''
-frecency\t'Weighted frequency + recency'
-count\t''
+size\t''
 none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :file" -s l -l list -r -f -a "_\t''
 all\t''"
@@ -131,12 +143,15 @@ complete -c fs -n "__fish_fs_using_subcommand :file" -l fullscreen -r -f -a "tru
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :file" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :file" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :file" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :file" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :file" -l help
 complete -c fs -n "__fish_fs_using_subcommand :file" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l sort -d 'history sort order' -r -f -a "name\t''
+mtime\t''
 atime\t''
-frecency\t'Weighted frequency + recency'
-count\t''
+size\t''
 none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -s l -l list -r -f -a "_\t''
 all\t''"
@@ -155,13 +170,17 @@ complete -c fs -n "__fish_fs_using_subcommand :dir" -l fullscreen -r -f -a "true
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :dir" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :dir" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :dir" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l help
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l sort -r -f -a "name\t''
 mtime\t''
-none\t''
-size\t'Not always supported'"
+atime\t''
+size\t''
+none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s h -d 'show hidden files and folders' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s I -d 'HIDE ignored files' -r -f -a "true\t''
@@ -173,6 +192,7 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s f -d 'show only files' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l path-transforms -d 'Lua function remapping each result path before rendering/filtering. Values starting with `@` are read from that file' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l config -d 'config path' -r -F
@@ -187,17 +207,20 @@ complete -c fs -n "__fish_fs_using_subcommand :fd" -l fullscreen -r -f -a "true\
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s A -l no-all
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l cd -d 'print the first match'
-complete -c fs -n "__fish_fs_using_subcommand :fd" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l reset-visibility
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l list
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l help
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand ::" -l sort -r -f -a "name\t''
 mtime\t''
-none\t''
-size\t'Not always supported'"
+atime\t''
+size\t''
+none\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -s h -d 'show hidden files and folders' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -s I -d 'HIDE ignored files' -r -f -a "true\t''
@@ -209,6 +232,7 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -s f -d 'show only files' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
+complete -c fs -n "__fish_fs_using_subcommand ::" -l path-transforms -d 'Lua function remapping each result path before rendering/filtering. Values starting with `@` are read from that file' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l config -d 'config path' -r -F
@@ -223,13 +247,95 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -l fullscreen -r -f -a "true\t
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand ::" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand ::" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand ::" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -s A -l no-all
 complete -c fs -n "__fish_fs_using_subcommand ::" -l cd -d 'print the first match'
-complete -c fs -n "__fish_fs_using_subcommand ::" -l no-read -d 'Never stream input from stdin'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l reset-visibility
 complete -c fs -n "__fish_fs_using_subcommand ::" -l list
 complete -c fs -n "__fish_fs_using_subcommand ::" -l help
 complete -c fs -n "__fish_fs_using_subcommand ::" -l alt-accept
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s h -d 'show hidden files and folders' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s I -d 'HIDE ignored files' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s a -d 'show all' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s F -d 'only show directories' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s f -d 'show only files' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l sort -r -f -a "name\t''
+mtime\t''
+atime\t''
+size\t''
+none\t''"
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l lua-renderer -d 'Lua function rendering the item\'s path into its display tail (column 2). Values starting with `@` are read from that file' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l lua-render-tail -d 'Lua function rendering the item\'s tail column. Values starting with `@` are read from that file' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l path-transforms -d 'Lua function remapping each path before rendering/filtering. Values starting with `@` are read from that file' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l delim -d 'Field separator within a record: text after the first occurrence is the tail' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l record-sep -d 'Split the stream into records on this char instead of newlines' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l verbosity -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l override -d 'config override' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l config -d 'config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l mm-config -d 'matchmaker config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l style -r -f -a "icons\t''
+icon-colors\t''
+colors\t''
+none\t''
+all\t''
+auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l fullscreen -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l enter-prompt -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l cd -d 'print the first match'
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l help
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l alt-accept
+complete -c fs -n "__fish_fs_using_subcommand :c" -s h -d 'show hidden files and folders' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :c" -s I -d 'HIDE ignored files' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :c" -s a -d 'show all' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :c" -s F -d 'only show directories' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :c" -s f -d 'show only files' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :c" -l sort -r -f -a "name\t''
+mtime\t''
+atime\t''
+size\t''
+none\t''"
+complete -c fs -n "__fish_fs_using_subcommand :c" -l lua-renderer -d 'Lua function rendering the item\'s path into its display tail (column 2). Values starting with `@` are read from that file' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l lua-render-tail -d 'Lua function rendering the item\'s tail column. Values starting with `@` are read from that file' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l path-transforms -d 'Lua function remapping each path before rendering/filtering. Values starting with `@` are read from that file' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l delim -d 'Field separator within a record: text after the first occurrence is the tail' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l record-sep -d 'Split the stream into records on this char instead of newlines' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l verbosity -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l override -d 'config override' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l config -d 'config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :c" -l mm-config -d 'matchmaker config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :c" -l style -r -f -a "icons\t''
+icon-colors\t''
+colors\t''
+none\t''
+all\t''
+auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :c" -l fullscreen -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :c" -l enter-prompt -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :c" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l cd -d 'print the first match'
+complete -c fs -n "__fish_fs_using_subcommand :c" -l help
+complete -c fs -n "__fish_fs_using_subcommand :c" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s h -d 'show hidden files and folders' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s I -d 'HIDE ignored files' -r -f -a "true\t''
@@ -242,8 +348,9 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s f -d 'show only files' -r 
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l sort -r -f -a "name\t''
 mtime\t''
-none\t''
-size\t'Not always supported'"
+atime\t''
+size\t''
+none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s p -l path -d 'Files or directories to search in' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s A -l after-context -d 'Show NUM lines after each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s B -l before-context -d 'Show NUM lines before each match' -r
@@ -265,6 +372,9 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -l fullscreen -r -f -a "true\
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s i -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s S -l smart-case
@@ -290,8 +400,9 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s f -d 'show only files' -r -f
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -l sort -r -f -a "name\t''
 mtime\t''
-none\t''
-size\t'Not always supported'"
+atime\t''
+size\t''
+none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -s p -l path -d 'Files or directories to search in' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :" -s A -l after-context -d 'Show NUM lines after each match' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -s B -l before-context -d 'Show NUM lines before each match' -r
@@ -313,6 +424,9 @@ complete -c fs -n "__fish_fs_using_subcommand :" -l fullscreen -r -f -a "true\t'
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -s i -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :" -s S -l smart-case
@@ -340,6 +454,9 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcomm
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l help
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "colors"
@@ -365,6 +482,9 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l override -d 'config override' -r
@@ -380,6 +500,9 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l override -d 'config override' -r
@@ -395,6 +518,9 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l override -d 'config override' -r
@@ -410,6 +536,9 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l override -d 'config override' -r
@@ -425,6 +554,9 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l override -d 'config override' -r
@@ -440,6 +572,9 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l override -d 'config override' -r
@@ -455,6 +590,9 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l override -d 'config override' -r
@@ -470,6 +608,9 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l override -d 'config override' -r
@@ -485,6 +626,9 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l override -d 'config override' -r
@@ -500,6 +644,9 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l help
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "colors"
@@ -525,6 +672,9 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l override -d 'config override' -r
@@ -540,6 +690,9 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l override -d 'config override' -r
@@ -555,6 +708,9 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l override -d 'config override' -r
@@ -570,6 +726,9 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l override -d 'config override' -r
@@ -585,6 +744,9 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l override -d 'config override' -r
@@ -600,6 +762,9 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l override -d 'config override' -r
@@ -615,6 +780,9 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l override -d 'config override' -r
@@ -630,6 +798,9 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l override -d 'config override' -r
@@ -645,11 +816,14 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :info" -l sort -d 'history sort order' -r -f -a "name\t''
+mtime\t''
 atime\t''
-frecency\t'Weighted frequency + recency'
-count\t''
+size\t''
 none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :info" -s l -l limit -d 'maximum history entries to display' -r
 complete -c fs -n "__fish_fs_using_subcommand :info" -l verbosity -r
@@ -666,6 +840,9 @@ complete -c fs -n "__fish_fs_using_subcommand :info" -l fullscreen -r -f -a "tru
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :info" -l enter-prompt -r -f -a "true\t''
 false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :info" -l sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :info" -l format -d 'Output template for printed results (same syntax as the old `FS_OPTS output_template`)' -r
+complete -c fs -n "__fish_fs_using_subcommand :info" -l opener -d 'Program used to open files on accept (replaces `FS_OPTS opener`)' -r
 complete -c fs -n "__fish_fs_using_subcommand :info" -s m -l minimal -d 'Don\'t print decorations'
 complete -c fs -n "__fish_fs_using_subcommand :info" -l help
 complete -c fs -n "__fish_fs_using_subcommand :info" -l alt-accept

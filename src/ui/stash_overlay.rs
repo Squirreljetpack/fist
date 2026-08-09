@@ -1,7 +1,7 @@
 use crate::{
     abspath::AbsPath,
     cli::paths::__home,
-    find::size::format_size,
+    display::human_size,
     run::{
         action::FsAction,
         stash::{STASH, STASH_STATE, StashItem, StashItemState, StashItemStatus},
@@ -107,7 +107,7 @@ impl TableSelection {
     ) {
         self.dirty = false;
         if let Some((_, col, input)) = &mut self.editing {
-            let val_width = input.inner.input.width() as u16;
+            let val_width = input.inner.input().width() as u16;
             let original_col_w = widths[*col];
 
             input.update_width(original_col_w + 1);
@@ -831,6 +831,6 @@ impl StashItemStatus {
             StashItemState::CompleteErr => Style::default().fg(Color::Red),
         };
 
-        Line::styled(format_size(size).pad_to(10, Alignment::Left), style)
+        Line::styled(human_size(size, true).pad_to(10, Alignment::Left), style)
     }
 }

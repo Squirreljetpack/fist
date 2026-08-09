@@ -7,8 +7,15 @@ use crate::lessfilter::file_rule::FileRuleKind;
 
 define_collection_wrapper!(
     #[derive(Debug, serde::Deserialize, serde::Serialize)]
+    #[serde(transparent)]
     MenuActions: HashMap<String, MenuAction>
 );
+
+impl Default for MenuActions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 // todo: custom deserialize impl
 
 /// A menu action is activated through the [`crate::ui::menu_overlay::MenuOverlay`], and executes a user-defined script.

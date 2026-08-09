@@ -1,7 +1,11 @@
 use cba::bring::split::split_whitespace_preserve_single_quotes;
-use fist_types::{filters::Visibility, git::in_git_repo};
+use fist_types::{
+    filters::{SortOrder, Visibility},
+    git::in_git_repo,
+};
 use matchmaker::{
     acs,
+    config::StringOrInt,
     message::{BindDirective, Event},
     nucleo::Modifier,
     ui::StatusUI,
@@ -15,7 +19,7 @@ use crate::{
         FsAction, FsPane,
         stash::STASH,
         state::{
-            FILTERS, GLOBAL, STACK, STORE, TOAST,
+            FILTERS, GLOBAL, STACK, STORE, TOAST, sort,
             ui::{global_ui, prompt_main_style},
         },
     },
@@ -99,9 +103,7 @@ pub fn enter_dir_pane(
     GLOBAL::db().bump_path(true, path.clone());
 
     // apply specific settings
-    if STACK::with_current(FsPane::should_cancel_input_entering_dir) {
-        state.picker_ui.query.cancel();
-    }
+    // (query cancel is handled internally by the new pattern machinery)
 
     // always clear selections
     state.picker_ui.selector.clear();
@@ -133,7 +135,7 @@ pub fn enter_dir_pane(
         }
     }
 
-    let pane = FsPane::new_nav(path, vis, FILTERS::sort());
+    let pane = FsPane::new_nav(path, vis, sort::get_sort().order.unwrap_or_default());
     STACK::push(pane);
     fs_reload(state, is_new);
 }
@@ -164,7 +166,6 @@ pub fn fs_reload(
                 let new_sort = c.panes.default_sort(pane);
                 match pane {
                     FsPane::Custom { sort, vis, .. }
-                    | FsPane::Stream { sort, vis, .. }
                     | FsPane::Find { sort, vis, .. }
                     | FsPane::Search { sort, vis, .. }
                     | FsPane::Nav { sort, vis, .. } => {
@@ -174,12 +175,10 @@ pub fn fs_reload(
                             *sort = new_sort;
                         }
 
-                        // update to prevent reload
-                        FILTERS::set(*sort, *vis);
+                        // update to prevent reload (visibility only; the pane owns its sort)
+                        FILTERS::set(*vis);
                     }
-                    FsPane::Files { sort: _, .. }
-                    | FsPane::Folders { sort: _, .. }
-                    | FsPane::Apps { sort: _, .. } => {
+                    FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. } => {
                         // logically we should add configurable default but i don't think anything besides frecency is desirable [for the default]
                     }
                 }
@@ -187,15 +186,12 @@ pub fn fs_reload(
         });
     }
 
-    // set stability after sort is updated
+    // apply the pane's sort (mode + stability) after it may have been updated
     // clear worker entries
-    state
-        .picker_ui
-        .worker
-        .set_stability(STACK::with_current(FsPane::stability_threshold));
-    state.restart_worker();
+    sort::update_sort(state);
+    state.worker_restart();
 
-    let injector = IndexedInjector::new_globally_indexed(state.injector());
+    let injector = state.injector();
 
     // if !is_new, update state from UI
     // if new, update UI from state: the creator needs ensure the state is correct on creation.
@@ -211,10 +207,10 @@ pub fn fs_reload(
         } => {
             if !is_new && !is_initial.take() {
                 if *filtering {
-                    input.0 = state.picker_ui.query.input.clone(); // input is saved anyway
+                    input.0 = state.picker_ui.query.input(); // input is saved anyway
                 } else {
                     *patterns =
-                        split_whitespace_preserve_single_quotes(&state.picker_ui.query.input);
+                        split_whitespace_preserve_single_quotes(&state.picker_ui.query.input());
                 };
             }
         }
@@ -222,6 +218,14 @@ pub fn fs_reload(
     });
 
     STACK::populate(injector, || {});
+
+    // if the pane opened hard-sorted, order the injected items
+    match sort::get_sort().order {
+        // sizes compute async after injection; SetSort applies them once ready
+        Some(SortOrder::size) => sort::wait_sizes_then_resort(),
+        Some(_) => GLOBAL::send_action(FsAction::SetSort),
+        None => {}
+    }
 
     // stash the saved index to restore it once synced
     // The index is only saved through FsAction::Undo/Redo/Restart, see [`STACK::save_input`]
@@ -232,10 +236,11 @@ pub fn fs_reload(
     if is_new {
         fs_post_reload_new(state);
     } else {
-        if !state.picker_ui.results.cursor_disabled {
+        if !state.picker_ui.results.cursor_disabled() {
             state.picker_ui.results.cursor_jump(0);
         }
-        state.picker_ui.selector.revalidate();
+        // selections can't be revalidated across a worker restart — clear them
+        state.picker_ui.selector.clear();
         fs_post_reload(state);
     }
 }
@@ -269,7 +274,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
             if let Some(enter) = c.panes.enter_prompt(pane) {
                 // this hides the preview if needed
                 enter_prompt(state, enter);
-            } else if state.picker_ui.results.cursor_disabled {
+            } else if state.picker_ui.results.cursor_disabled() {
                 // rebuild for cwd
                 enter_prompt(state, true)
             } else {
@@ -363,7 +368,7 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
             } => {
                 let f = *filtering;
                 if let Some(p) = state.preview_ui {
-                    p.config.initial.index = Some("3".to_string().into())
+                    p.config.initial.index = Some(StringOrInt::String("3".to_string()))
                 }
                 let r = &mut state.picker_ui.results;
                 let s = &mut state.picker_ui.status;
@@ -405,7 +410,7 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
                     ));
                 }
 
-                state.filtering = f;
+                state.picker_ui.filtering = f;
             }
             _ => {
                 // match pane {
@@ -424,7 +429,7 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
                     state.picker_ui.status.set(None);
                 }
 
-                state.filtering = true;
+                state.picker_ui.filtering = true;
                 GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()))
             }
         }

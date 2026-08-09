@@ -53,7 +53,7 @@ impl PromptOverlay {
     ) -> Rect {
         let ui_w = ui_area.width;
         let content_w =
-            self.input.inner.input.width() as u16 + self.input.config.border.width() + 2;
+            self.input.inner.input().width() as u16 + self.input.config.border.width() + 2;
 
         // 1. Calculate interpolation factor 't' based on screen width [40, 150]
         let t = ((ui_w as f32 - 40.0) / (150.0 - 40.0)).clamp(0.0, 1.0);
@@ -93,7 +93,7 @@ impl Overlay for PromptOverlay {
     type A = FsAction;
 
     fn on_disable(&mut self) {
-        self.input.inner.cancel();
+        self.input.inner.clear();
     }
 
     fn handle_input(

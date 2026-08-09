@@ -30,7 +30,6 @@ pub struct PanesConfig {
     pub app: AppPaneSettings,
     pub history: HistoryPaneSettings,
     pub nav: NavPaneSettings,
-    pub stream: PaneSettings,
     pub find: FdPaneSettings,
     pub search: RgPaneSettings,
     pub custom: PaneSettings,
@@ -56,9 +55,6 @@ impl Default for PanesConfig {
                 ..Default::default()
             },
             custom: PaneSettings {
-                ..Default::default()
-            },
-            stream: PaneSettings {
                 ..Default::default()
             },
 
@@ -251,7 +247,6 @@ impl PanesConfig {
     ) -> Option<String> {
         match pane {
             FsPane::Custom { .. } => self.custom.prompt.clone(),
-            FsPane::Stream { .. } => self.stream.prompt.clone(),
             FsPane::Find { .. } => self.find.prompt.clone(),
             FsPane::Files { .. } | FsPane::Folders { .. } => self.history.prompt.clone(),
             FsPane::Apps { .. } => self.app.prompt.clone(),
@@ -266,7 +261,6 @@ impl PanesConfig {
     ) -> Option<bool> {
         match pane {
             FsPane::Custom { .. } => self.custom.enter_prompt,
-            FsPane::Stream { .. } => self.stream.enter_prompt,
             FsPane::Find { .. } => self.find.enter_prompt,
             FsPane::Files { .. } | FsPane::Folders { .. } => self.history.enter_prompt,
             FsPane::Apps { .. } => self.app.enter_prompt,
@@ -281,7 +275,6 @@ impl PanesConfig {
     ) -> Option<ShowCondition> {
         match pane {
             FsPane::Custom { .. } => self.custom.show_preview,
-            FsPane::Stream { .. } => self.stream.show_preview,
             FsPane::Find { .. } => self.find.show_preview,
             FsPane::Files { .. } | FsPane::Folders { .. } => self.history.show_preview,
             FsPane::Apps { .. } => self.app.show_preview,
@@ -297,7 +290,6 @@ impl PanesConfig {
         match pane {
             // todo: lowpri: maybe we aggregate more than just apps later, and add visibility
             FsPane::Custom { .. }
-            | FsPane::Stream { .. }
             | FsPane::Apps { .. }
             | FsPane::Files { .. }
             | FsPane::Folders { .. } => None,
@@ -325,7 +317,6 @@ impl PanesConfig {
     ) -> u8 {
         match pane {
             FsPane::Custom { .. } => self.custom.preview_layout_index,
-            FsPane::Stream { .. } => self.stream.preview_layout_index,
             FsPane::Find { .. } => self.find.preview_layout_index,
             FsPane::Files { .. } | FsPane::Folders { .. } => self.history.preview_layout_index,
             FsPane::Apps { .. } => self.app.preview_layout_index,

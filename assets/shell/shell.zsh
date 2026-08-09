@@ -17,8 +17,8 @@ function $${Z_NAME}() {
   fi
 
   results="$(case "$last" in
-    "." | "..") $${BINARY_PATH} :: $${Z_DOT_ARGS} --no-read --cd -- $@ ;;
-    "./") $${BINARY_PATH} :: $${Z_SLASH_ARGS} --no-read --cd -- $@ ;;
+    "." | "..") $${BINARY_PATH} :: $${Z_DOT_ARGS} --cd -- $@ ;;
+    "./") $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd -- $@ ;;
     *)
       $${BINARY_PATH} :dir $${Z_DIR_ARGS} --cd --initial-input="$FS_INITIAL_INPUT" -- $@
       ;;
@@ -52,10 +52,10 @@ function $${OPEN_NAME}() {
     # treat arguments as keywords, browse/open best match
     case "$last" in
       ".")
-        FS_OPTS="opener=[$${OPEN_CMD}] $FS_OPTS" $${BINARY_PATH} :: $${Z_DOT_ARGS} --no-read "${@}" .
+        FS_OPTS="opener=[$${OPEN_CMD}] $FS_OPTS" $${BINARY_PATH} :: $${Z_DOT_ARGS} "${@}" .
       ;;
       "./")
-        FS_OPTS="opener=[$${OPEN_CMD}] $FS_OPTS" $${BINARY_PATH} :: $${Z_SLASH_ARGS} --no-read "${@}" .
+        FS_OPTS="opener=[$${OPEN_CMD}] $FS_OPTS" $${BINARY_PATH} :: $${Z_SLASH_ARGS} "${@}" .
       ;;
       *)
         z "$@" "$last" && $${OPEN_CMD} .
@@ -80,7 +80,7 @@ __fist_dir_widget() {
   emulate -L zsh
   local line dir
 
-  $${BINARY_PATH} :: $${DIRW_ARGS} --no-read --cd -- .. | {
+  $${BINARY_PATH} :: $${DIRW_ARGS} --cd -- .. | {
     read -r line
     [ -n "$line" ] || { zle push-line && zle accept-line; return 1; }
     if [ -d "$line" ]; then
@@ -99,7 +99,7 @@ __fist_file_widget() {
   setopt localoptions pipefail
   local line results
 
-  results="$(FS_OPTS="opener=[$${FILEW_CMD}] $FS_OPTS" $${BINARY_PATH} :: --no-read $${FILEW_ARGS})" || { zle push-line && zle accept-line; return 1; }
+  results="$(FS_OPTS="opener=[$${FILEW_CMD}] $FS_OPTS" $${BINARY_PATH} :: $${FILEW_ARGS})" || { zle push-line && zle accept-line; return 1; }
 
   read -r LBUFFER <<< "$LBUFFER"
   while IFS= read -r line; do

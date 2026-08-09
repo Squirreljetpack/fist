@@ -3,7 +3,10 @@
 
 use std::path::PathBuf;
 
-use cba::{bait::ResultExt, bath::PathExt, bring::split::join_with_single_quotes, unwrap, wbog};
+use cba::{
+    bait::ResultExt, bath::PathExt, bring::split::join_with_single_quotes, broc::shell_quote,
+    unwrap, wbog,
+};
 use matchmaker::{
     acs,
     action::{Action, Actions},
@@ -25,7 +28,7 @@ use crate::{
         stash::STASH,
         state::{
             ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, MenuPrompt, STACK, STORE, TASKS,
-            TOAST, context::ActionContext, ui::prompt_main_style,
+            TOAST, context::ActionContext, sort, ui::prompt_main_style,
         },
     },
     spawn::open_wrapped,
@@ -138,6 +141,10 @@ pub enum FsAction {
     SetHeader(Option<Text<'static>>),
     SetFooter(Option<Text<'static>>),
     Reload,
+    /// Apply the current pane sort to the worker (also lands pending fill values).
+    SetSort,
+    /// Sync visibility pane ← global, then reload (db/rg/vis change) or fill+resort (sort change).
+    Refilter,
     AcceptPrompt,
     AcceptPrint,
     Filtering(Option<bool>),
@@ -211,9 +218,49 @@ pub fn fsaction_aliaser(
                 fs_reload(state, false);
                 acs![]
             }
+            FsAction::SetSort => {
+                sort::update_sort(state);
+                state.worker_resort();
+                acs![]
+            }
+            FsAction::Refilter => {
+                // 1. sync visibility pane <- global
+                let vis_changed =
+                    STACK::with_current(|p| p.vis().is_some_and(|v| v != FILTERS::visibility()));
+                if vis_changed {
+                    let vis = FILTERS::visibility();
+                    STACK::with_current_mut(|p| {
+                        if let Some(v) = p.vis_mut() {
+                            *v = vis;
+                        }
+                    });
+                }
+                // 2. db/rg panes order from their data source (SQL ORDER BY / rg --sort)
+                let db_or_rg = STACK::with_current(|p| {
+                    matches!(
+                        p,
+                        FsPane::Files { .. }
+                            | FsPane::Folders { .. }
+                            | FsPane::Apps { .. }
+                            | FsPane::Search { .. }
+                    )
+                });
+                if vis_changed || db_or_rg {
+                    // populate re-reads pane sort/vis; fs_reload -> update_sort applies the mode
+                    fs_reload(state, false);
+                } else {
+                    let pane_sort = STACK::with_current(|p| p.sort());
+                    if pane_sort != sort::get_sort().order.unwrap_or(SortOrder::none) {
+                        // 3. sort changed mid-pane: fill metadata + resort, no reload
+                        sort::set_sort(pane_sort);
+                        sort::fill_and_resort(state, pane_sort);
+                    }
+                }
+                acs![]
+            }
             FsAction::SaveInput => {
                 let (content, index) = (
-                    state.picker_ui.query.input.clone(),
+                    state.picker_ui.query.input(),
                     state.picker_ui.results.index(),
                 );
                 log::debug!("Saved: {content}, {index}");
@@ -239,9 +286,9 @@ pub fn fsaction_aliaser(
             }
             FsAction::Filtering(s) => {
                 if let Some(s) = s {
-                    state.filtering = s
+                    state.picker_ui.filtering = s
                 } else {
-                    state.filtering = !state.filtering
+                    state.picker_ui.filtering = !state.picker_ui.filtering
                 };
                 acs![]
             }
@@ -367,7 +414,7 @@ pub fn fsaction_aliaser(
                     return acs![];
                 }
                 if let Some(item) = state.current_raw() {
-                    let prepop_value = item.tail.to_string();
+                    let prepop_value = item.tail_text().to_string();
                     STORE::set_menu_prompt(Some(
                         MenuPrompt::new(PromptKind::SetAlias).initial(prepop_value),
                     ));
@@ -490,7 +537,8 @@ pub fn fsaction_aliaser(
             }
 
             Action::Reload(s)
-                if s.is_empty() && STACK::with_current(|c| matches!(c, FsPane::Stream { .. })) =>
+                if s.is_empty()
+                    && STACK::with_current(|c| matches!(c, FsPane::Custom { cmd: None, .. })) =>
             {
                 TOAST::msg("Cannot reload streams", false);
                 acs![]
@@ -515,7 +563,11 @@ pub fn fsaction_handler(
             STACK::save_input(content, index);
 
             // pane
-            let pane = FsPane::new_fd(STACK::_cwd(), FILTERS::sort(), FILTERS::visibility());
+            let pane = FsPane::new_fd(
+                STACK::_cwd(),
+                sort::get_sort().order.unwrap_or_default(),
+                FILTERS::visibility(),
+            );
 
             // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
             // todo: there is a problem
@@ -565,7 +617,7 @@ pub fn fsaction_handler(
                         // entering rg:
 
                         // save query
-                        input.0 = state.picker_ui.query.input.clone();
+                        input.0 = state.picker_ui.query.input();
                         // set picker.input to previous patterns
                         join_with_single_quotes(patterns)
                     };
@@ -590,7 +642,7 @@ pub fn fsaction_handler(
                 let cwd = STACK::_cwd();
 
                 //
-                let paths = state.picker_ui.selector.map_to_vec(|i, x| x.path.inner());
+                let paths = state.map_selected_to_vec(|_i, x| x.path.inner());
 
                 let query = String::new();
                 let filtering = false;
@@ -600,7 +652,7 @@ pub fn fsaction_handler(
 
                 let pane = FsPane::new_rg(
                     cwd,
-                    FILTERS::sort(),
+                    sort::get_sort().order.unwrap_or_default(),
                     FILTERS::visibility(),
                     //
                     paths,
@@ -1002,24 +1054,17 @@ pub fn fsaction_handler(
         // filters
         FsAction::FsToggle => {
             if STACK::with_current(|p| matches!(p, FsPane::Files { .. } | FsPane::Folders { .. })) {
-                let p_str = FILTERS::with_mut(|sort, _vis| {
+                let label = STACK::with_current_mut(|p| {
+                    let sort = p.sort_mut();
                     sort.cycle();
-                    match sort {
-                        SortOrder::mtime => "atime: ",
-                        SortOrder::name => "name: ",
-                        SortOrder::none => "score: ",
-                        _ => "score: ",
-                    }
+                    sort.label(true)
                 });
-
-                if !p_str.is_empty() {
-                    let prompt = Line::styled(p_str, prompt_main_style());
-                    state.picker_ui.query.set_prompt_line(prompt);
-                } else {
-                    state.picker_ui.query.set_prompt(None);
-                }
+                state
+                    .picker_ui
+                    .query
+                    .set_prompt_line(Line::styled(format!("{label}: "), prompt_main_style()));
             } else {
-                FILTERS::with_mut(|_sort, vis| {
+                FILTERS::with_mut(|vis| {
                     (vis.dirs, vis.files) = match (vis.dirs, vis.files) {
                         (false, false) => (false, true),
                         (false, true) => (true, false),
@@ -1046,10 +1091,10 @@ pub fn fsaction_handler(
                     }
                 });
             }
-            FILTERS::refilter();
+            GLOBAL::send_action(FsAction::Refilter);
         }
         FsAction::ToggleHidden => {
-            FILTERS::with_mut(|_sort, vis| {
+            FILTERS::with_mut(|vis| {
                 let style = Style::new().add_modifier(Modifier::DIM).italic();
                 if vis.hidden || vis.all() {
                     vis.set_default();
@@ -1059,7 +1104,7 @@ pub fn fsaction_handler(
                     TOAST::msg(Span::styled("Showing hidden", style), true);
                 }
             });
-            FILTERS::refilter();
+            GLOBAL::send_action(FsAction::Refilter);
         }
         // ------------------------------------------------------
         // Execute/Accept
@@ -1098,7 +1143,7 @@ pub fn fsaction_handler(
 
             if paging {
                 // we need to use the renderer because the first pass of renderer won't render when it sees it is being piped
-                if let Some(pp) = text_renderer_path().shell_quote() {
+                if let Some(pp) = shell_quote(text_renderer_path()) {
                     // Match the special code to its corresponding environment variable setting
                     let env_var = match special {
                         1 => Some("PG_LANG=ini"),
@@ -1293,7 +1338,7 @@ macro_rules! enum_from_str_display {
                                         )
                                     }
                                 }
-                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | Confirm => Ok(()), // internal
+                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | SetSort | Refilter | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | Confirm => Ok(()), // internal
                                 Lessfilter { preset, paging, header: _, special, } => {
                                     if *special == 1 {
                                         write!(f, "Help")

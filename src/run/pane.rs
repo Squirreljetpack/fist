@@ -9,9 +9,9 @@ use matchmaker::preview::AppendOnly;
 
 use crate::{
     abspath::AbsPath,
-    db::DbSortOrder,
     run::{
         item::PathItem,
+        lua::{LuaFn, compile_script},
         state::{GLOBAL, InitialPreserveWhitespaceInSearch, STORE},
     },
 };
@@ -22,28 +22,25 @@ use fist_types::{
 };
 
 /// PartialEq is defined by discriminant
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum FsPane {
     Custom {
         cwd: AbsPath,
         stored: Option<AppendOnly<PathItem>>,
-        cmd: (OsString, Vec<OsString>),
+        /// Some = spawn and read its stdout; None = read stdin
+        cmd: Option<(OsString, Vec<OsString>)>,
         complete: Arc<AtomicBool>,
         input: (String, u32), // input, INDEX
 
         // experimental
         sort: SortOrder,
         vis: Visibility,
-    },
-    Stream {
-        cwd: AbsPath,
-        stored: Option<AppendOnly<PathItem>>,
-        complete: Arc<AtomicBool>,
-        input: (String, u32), // input, INDEX
 
-        // experimental
-        sort: SortOrder,
-        vis: Visibility,
+        lua_renderer: Option<LuaFn>,
+        lua_render_tail: Option<LuaFn>,
+        lua_path_transform: Option<LuaFn>,
+        delim: Option<char>,
+        record_sep: Option<char>,
     },
     Find {
         cwd: AbsPath,
@@ -55,6 +52,7 @@ pub enum FsPane {
         types: Vec<FileTypeArg>,
         paths: Vec<OsString>,
         fd_args: Vec<OsString>,
+        lua_path_transform: Option<LuaFn>,
     },
     Search {
         cwd: AbsPath,
@@ -76,15 +74,15 @@ pub enum FsPane {
         is_initial: std::cell::RefCell<bool>,
     },
     Files {
-        sort: DbSortOrder,
+        sort: SortOrder,
         input: (String, u32), // input, INDEX
     },
     Folders {
-        sort: DbSortOrder,
+        sort: SortOrder,
         input: (String, u32), // input, INDEX
     },
     Apps {
-        sort: DbSortOrder,
+        sort: SortOrder,
     },
     Nav {
         cwd: AbsPath,
@@ -102,38 +100,34 @@ impl FsPane {
     pub fn new_custom(
         cwd: AbsPath,
         visibility: Visibility,
-        cmd: (OsString, Vec<OsString>),
+        cmd: Option<(OsString, Vec<OsString>)>,
         keep_store: bool,
+        sort: SortOrder,
+        lua_renderer: Option<String>,
+        lua_render_tail: Option<String>,
+        lua_path_transform: Option<String>,
+        delim: Option<char>,
+        record_sep: Option<char>,
     ) -> Self {
         Self::Custom {
             cwd,
             stored: keep_store.then(Default::default),
             cmd,
             vis: visibility,
-            sort: SortOrder::none,
+            sort,
             complete: Default::default(),
             input: Default::default(),
+            lua_renderer: compile_script("--lua-renderer", lua_renderer),
+            lua_render_tail: compile_script("--lua-render-tail", lua_render_tail),
+            lua_path_transform: compile_script("--path-transforms", lua_path_transform),
+            delim,
+            record_sep,
         }
     }
 
     pub fn new_launch() -> Self {
         Self::Apps {
-            sort: DbSortOrder::frecency,
-        }
-    }
-
-    pub fn new_stream(
-        cwd: AbsPath,
-        visibility: Visibility,
-        keep_store: bool,
-    ) -> Self {
-        Self::Stream {
-            cwd,
-            stored: keep_store.then(Default::default),
-            vis: visibility,
             sort: SortOrder::none,
-            complete: Default::default(),
-            input: Default::default(),
         }
     }
 
@@ -144,6 +138,7 @@ impl FsPane {
         types: Vec<FileTypeArg>,
         paths: Vec<OsString>,
         fd: Vec<OsString>,
+        lua_path_transform: Option<String>,
     ) -> Self {
         Self::Find {
             cwd,
@@ -154,6 +149,7 @@ impl FsPane {
             types,
             paths,
             fd_args: fd,
+            lua_path_transform: compile_script("--path-transforms", lua_path_transform),
         }
     }
 
@@ -172,6 +168,7 @@ impl FsPane {
             vis: vis.validated(),
             types: Default::default(),
             fd_args: vec![],
+            lua_path_transform: None,
         }
     }
 
@@ -233,7 +230,7 @@ impl FsPane {
 
     pub fn new_history(
         folders: bool,
-        sort: DbSortOrder,
+        sort: SortOrder,
     ) -> Self {
         if folders {
             Self::Folders {
@@ -252,6 +249,44 @@ impl FsPane {
 // ------ Utilities
 impl FsPane {
     #[inline]
+    pub fn sort(&self) -> SortOrder {
+        match self {
+            FsPane::Custom { sort, .. }
+            | FsPane::Find { sort, .. }
+            | FsPane::Search { sort, .. }
+            | FsPane::Files { sort, .. }
+            | FsPane::Folders { sort, .. }
+            | FsPane::Apps { sort }
+            | FsPane::Nav { sort, .. } => *sort,
+        }
+    }
+
+    #[inline]
+    pub fn sort_mut(&mut self) -> &mut SortOrder {
+        match self {
+            FsPane::Custom { sort, .. }
+            | FsPane::Find { sort, .. }
+            | FsPane::Search { sort, .. }
+            | FsPane::Files { sort, .. }
+            | FsPane::Folders { sort, .. }
+            | FsPane::Apps { sort }
+            | FsPane::Nav { sort, .. } => sort,
+        }
+    }
+
+    #[inline]
+    pub fn vis(&self) -> Option<Visibility> {
+        match self {
+            FsPane::Custom { vis, .. }
+            | FsPane::Find { vis, .. }
+            | FsPane::Search { vis, .. }
+            | FsPane::Nav { vis, .. } => Some(*vis),
+
+            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. } => None,
+        }
+    }
+
+    #[inline]
     pub fn supports_vis(&self) -> bool {
         matches!(
             self,
@@ -269,7 +304,7 @@ impl FsPane {
         //         | FsPane::Launch { .. })
         //     || matches!(
         //         self,
-        //         FsPane::Fd { .. } | FsPane::Custom { .. } | FsPane::Stream { .. }
+        //         FsPane::Fd { .. } | FsPane::Custom { .. }
         //     )
         true
     }
@@ -292,7 +327,7 @@ impl FsPane {
                     u32::MAX
                 }
             }
-            FsPane::Custom { .. } | FsPane::Stream { .. } => 40, // maybe
+            FsPane::Custom { .. } => 40, // maybe
             FsPane::Nav { sort, .. } | FsPane::Find { sort, .. } => {
                 if matches!(sort, SortOrder::none) {
                     0
@@ -313,7 +348,6 @@ impl FsPane {
     pub fn get_input(&self) -> String {
         match self {
             FsPane::Custom { input, .. }
-            | FsPane::Stream { input, .. }
             | FsPane::Find { input, .. }
             | FsPane::Nav { input, .. }
             | FsPane::Files { input, .. }
@@ -346,7 +380,6 @@ impl FsPane {
     pub fn vis_mut(&mut self) -> Option<&mut Visibility> {
         match self {
             FsPane::Custom { vis, .. }
-            | FsPane::Stream { vis, .. }
             | FsPane::Find { vis, .. }
             | FsPane::Search { vis, .. }
             | FsPane::Nav { vis, .. } => Some(vis),

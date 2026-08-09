@@ -9,7 +9,7 @@ use crate::{
     abspath::AbsPath,
     run::{
         FsInjector, FsPane,
-        state::{FILTERS, GLOBAL, InitialRelativePathSetting, STORE, ui::global_ui_mut},
+        state::{FILTERS, GLOBAL, InitialRelativePathSetting, STORE, sort, ui::global_ui_mut},
     },
     watcher::WatcherMessage,
 };
@@ -103,13 +103,6 @@ impl STACK {
         })
     }
 
-    pub fn current() -> FsPane {
-        STACK.with(|cell| {
-            let Self { stack, index, .. } = &*cell.borrow();
-            stack[*index].clone()
-        })
-    }
-
     /// returns true if newly entering history pane
     pub fn swap_history() -> bool {
         STACK.with(|cell| {
@@ -131,7 +124,7 @@ impl STACK {
             // otherwise, create a new pane: folders unless we are already in it.
             let ret = !matches!(stack[*index], FsPane::Folders { .. } | FsPane::Files { .. });
             let folders = !matches!(stack[*index], FsPane::Folders { .. });
-            let pane = FsPane::new_history(folders, FILTERS::sort().into());
+            let pane = FsPane::new_history(folders, sort::get_sort().order.unwrap_or_default());
 
             //push
             stack.truncate(*index + 1);
@@ -228,8 +221,7 @@ impl STACK {
                     FsPane::Nav { cwd, .. }
                     | FsPane::Custom { cwd, .. }
                     | FsPane::Find { cwd, .. }
-                    | FsPane::Search { cwd, .. }
-                    | FsPane::Stream { cwd, .. } => {
+                    | FsPane::Search { cwd, .. } => {
                         return Some(cwd.clone());
                     }
                     FsPane::Apps { .. } => return None,
@@ -293,7 +285,6 @@ impl STACK {
             let Self { stack, index, .. } = &mut *cell.borrow_mut();
             match &mut stack[*index] {
                 FsPane::Custom { input, .. }
-                | FsPane::Stream { input, .. }
                 | FsPane::Find { input, .. }
                 | FsPane::Search { input, .. }
                 | FsPane::Nav { input, .. }

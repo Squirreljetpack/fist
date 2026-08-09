@@ -117,10 +117,6 @@ pub struct MiscConfig {
     pub tools_append_mode_logging: bool,
     /// Pass the spawning command to this instead of invoking it directly.
     pub spawn_with: Vec<String>,
-    /// The default output fromat when calling [FsAction::Print]
-    pub output_template: Option<String>,
-    /// The seperator used between calls to [FsAction::Print]
-    pub output_separator: String,
     pub list_absolute_paths: bool,
 }
 
@@ -131,8 +127,6 @@ impl Default for MiscConfig {
             append_mode_logging: false,
             tools_append_mode_logging: false,
             spawn_with: Vec::new(),
-            output_template: None,
-            output_separator: "\n".into(),
             list_absolute_paths: false,
         }
     }

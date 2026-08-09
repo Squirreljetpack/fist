@@ -1,6 +1,7 @@
 use crate::errors::DbError;
 use crate::{abspath::OsStringWrapper, db::*};
 use cba::bait::ResultExt;
+use fist_types::filters::SortOrder;
 use log::trace;
 use sqlx::Acquire;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -181,6 +182,21 @@ impl Connection {
         Ok(())
     }
 
+    /// cmd string for the app at `path` (apps table), if any.
+    pub async fn get_cmd(
+        &mut self,
+        path: &AbsPath,
+    ) -> Result<Option<String>, DbError> {
+        let sql = format!("SELECT cmd FROM {} WHERE path = ?", self.table);
+        let cmd: Option<OsStringWrapper> = sqlx::query_scalar(sqlx::AssertSqlSafe(sql))
+            .bind(path)
+            .fetch_optional(&mut *self.conn)
+            .await?;
+        Ok(cmd
+            .filter(|c| !c.is_empty())
+            .map(|c| c.to_string_lossy().into_owned()))
+    }
+
     pub async fn bump_entry(
         &mut self,
         entry: &Entry,
@@ -270,13 +286,13 @@ impl Connection {
         &mut self,
         start: u32,
         end: u32,
-        sort_by: DbSortOrder,
+        sort_by: SortOrder,
     ) -> Result<Vec<Entry>, DbError> {
         let order_by = match sort_by {
-            DbSortOrder::name => "ORDER BY name".to_string(),
-            DbSortOrder::atime => "ORDER BY atime DESC".to_string(),
-            DbSortOrder::count => "ORDER BY count DESC".to_string(),
-            DbSortOrder::frecency => {
+            SortOrder::name => "ORDER BY name".to_string(),
+            SortOrder::atime => "ORDER BY atime DESC".to_string(),
+            SortOrder::size => "ORDER BY count DESC".to_string(),
+            SortOrder::none => {
                 // Frecency = decayed score
                 if let Some(lambda) = self.lambda {
                     // EMS
@@ -297,7 +313,8 @@ impl Connection {
                     )
                 }
             }
-            DbSortOrder::none => "ORDER BY 1".to_string(),
+            // acts as none: insertion order
+            SortOrder::mtime => "ORDER BY 1".to_string(),
         };
 
         let limit = if end == 0 {
@@ -416,14 +433,14 @@ mod tests {
         db.set_entry(&entry2).await.unwrap();
 
         // Test sort by name
-        let entries_by_name = db.get_entries_range(0, 2, DbSortOrder::name).await.unwrap();
+        let entries_by_name = db.get_entries_range(0, 2, SortOrder::name).await.unwrap();
         assert_eq!(entries_by_name.len(), 2);
         assert_eq!(entries_by_name[0].name, "a_entry");
         assert_eq!(entries_by_name[1].name, "b_entry");
 
         // Newest atime first
         let entries_by_time = db
-            .get_entries_range(0, 2, DbSortOrder::atime)
+            .get_entries_range(0, 2, SortOrder::atime)
             .await
             .unwrap();
         assert_eq!(entries_by_time.len(), 2);
@@ -432,7 +449,7 @@ mod tests {
 
         // Full range
         let entries_by_time = db
-            .get_entries_range(0, 0, DbSortOrder::atime)
+            .get_entries_range(0, 0, SortOrder::atime)
             .await
             .unwrap();
         assert_eq!(entries_by_time.len(), 2);

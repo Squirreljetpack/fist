@@ -3,6 +3,7 @@ pub mod abspath;
 pub mod cli;
 pub mod config;
 pub mod db;
+pub mod display;
 pub mod errors;
 pub mod find;
 pub mod fs;

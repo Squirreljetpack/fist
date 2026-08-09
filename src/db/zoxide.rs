@@ -4,9 +4,10 @@ use std::path::Path;
 
 use crate::{
     abspath::AbsPath,
-    db::{Connection, DbSortOrder, DbTable, Entry, Epoch},
+    db::{Connection, DbTable, Entry, Epoch},
     errors::DbError,
 };
+use fist_types::filters::SortOrder;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -330,7 +331,7 @@ impl Connection {
         let mut found = None;
 
         let entries = self
-            .get_entries_range(0, 0, DbSortOrder::frecency)
+            .get_entries_range(0, 0, SortOrder::none)
             .await
             .__ebog();
 
@@ -384,7 +385,7 @@ impl Connection {
         let mut found = None;
 
         let entries = self
-            .get_entries_range(0, 0, DbSortOrder::frecency)
+            .get_entries_range(0, 0, SortOrder::none)
             .await
             .__ebog();
 
@@ -443,7 +444,7 @@ impl Connection {
         use chrono::Utc;
 
         // Get all entries
-        let entries = self.get_entries_range(0, 0, DbSortOrder::none).await?;
+        let entries = self.get_entries_range(0, 0, SortOrder::mtime).await?;
 
         // Compute 'now' for scoring
         let now = if self.lambda.is_some() {

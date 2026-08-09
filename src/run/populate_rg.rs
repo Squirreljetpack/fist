@@ -100,7 +100,9 @@ fn push_match_from_buffer<F>(
     let [before, after] = ctx;
     let match_item = &buffer[mid_idx];
     let mut item = PathItem::new(match_item.path.clone(), cwd);
-    item.cmd = Some(match_item.loc.clone());
+    if let Some((line, col)) = crate::utils::text::parse_loc(&match_item.loc) {
+        item.set_loc(line, col);
+    }
 
     let start = mid_idx.saturating_sub(before);
     let end = std::cmp::min(buffer.len(), mid_idx + after + 1);
@@ -110,6 +112,6 @@ fn push_match_from_buffer<F>(
         lines.push(b.line.clone());
     }
 
-    item.tail = Text::from(lines);
+    item.tail = Err(Text::from(lines));
     on_item(item);
 }

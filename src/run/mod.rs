@@ -11,6 +11,7 @@ pub use start::*;
 // logic
 pub mod action;
 pub use action::FsAction;
+pub mod lua;
 mod populate;
 mod populate_rg;
 

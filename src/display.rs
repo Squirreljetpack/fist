@@ -77,3 +77,35 @@ pub fn display_epoch(epoch: Epoch) -> String {
     let local_dt: DateTime<Local> = DateTime::from(naive);
     local_dt.format("%d-%m-%y %H:%M:%S").to_string()
 }
+
+/// Formats a byte count as a human-readable size, with a `decimal`
+/// flag selecting the unit system:
+/// - `decimal = true`  -> 1000-based SI units (B, KB, MB, GB, TB, PB)
+/// - `decimal = false` -> 1024-based IEC units (B, KiB, MiB, GiB, TiB, PiB)
+pub fn human_size(
+    bytes: u64,
+    decimal: bool,
+) -> String {
+    const DECIMAL_UNITS: [&str; 6] = ["B", "KB", "MB", "GB", "TB", "PB"];
+    const BINARY_UNITS: [&str; 6] = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
+
+    if bytes == 0 {
+        return "0 B".to_string();
+    }
+
+    let base = if decimal { 1000.0 } else { 1024.0 };
+    let units = if decimal { DECIMAL_UNITS } else { BINARY_UNITS };
+
+    let mut size = bytes as f64;
+    let mut unit_idx = 0;
+    while size >= base && unit_idx < units.len() - 1 {
+        size /= base;
+        unit_idx += 1;
+    }
+
+    if unit_idx == 0 {
+        format!("{bytes} {}", units[0])
+    } else {
+        format!("{size:.1} {}", units[unit_idx])
+    }
+}

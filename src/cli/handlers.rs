@@ -4,7 +4,6 @@ use cba::{
     bath::PathExt,
     bo::{map_chunks, read_to_chunks},
     broc::CommandExt,
-    bs::sort_by_mtime,
     ibog, wbog,
 };
 use clap::Parser;
@@ -34,9 +33,10 @@ use super::{
 };
 use crate::{
     abspath::AbsPath,
-    cli::{SubTool, clap_helpers::ListMode, env::EnvOpts, paths::text_renderer_path},
+    cli::{SubTool, clap_helpers::ListMode, paths::text_renderer_path},
     config::Config,
-    db::{DbSortOrder, DbTable, Pool, display_entries, zoxide::RetryStrat},
+    db::{DbTable, Pool, zoxide::RetryStrat},
+    display::display_entries,
     errors::{CliError, DbError},
     find::{
         fd::{build_fd_args, last_query_starts_with_dot},
@@ -77,6 +77,7 @@ pub async fn handle_subcommand(
         SubCmd::Files(cmd) => handle_files(cli.opts, cmd, cfg).await,
         SubCmd::Dirs(cmd) => handle_dirs(cli.opts, cmd, cfg).await,
         SubCmd::Default(cmd) => handle_default(cli.opts, cmd, cfg).await,
+        SubCmd::Custom(cmd) => handle_custom(cli.opts, cmd, cfg).await,
         SubCmd::Tools(cmd) => handle_tools(cli.opts, cmd, cfg).await,
         SubCmd::Info(cmd) => handle_info(cli.opts, cmd, cfg).await,
         SubCmd::Rg(cmd) => handle_rg(cli.opts, cmd, cfg).await,
@@ -102,7 +103,7 @@ async fn handle_open(
 
         let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
 
-        start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
+        start(pane, cfg, mm_cfg, pool, cli).await
     } else {
         let conn = pool.get_conn(DbTable::apps).await?;
 
@@ -117,7 +118,7 @@ async fn handle_open(
 
 // todo: partitioned info
 async fn handle_info(
-    _cli: CliOpts,
+    cli: CliOpts,
     cmd: InfoCmd,
     cfg: Config,
 ) -> Result<(), CliError> {
@@ -133,9 +134,8 @@ async fn handle_info(
             entries.truncate(limit);
         }
 
-        let template = EnvOpts::with_env(|s| s.output_template.clone());
-        let output_separator =
-            EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
+        let template = cli.output.format.clone();
+        let output_separator = cli.output.sep.clone().unwrap_or_else(|| "\n".into());
         if cmd.minimal {
             for entry in entries {
                 print(&entry.path, &template, &output_separator);
@@ -173,7 +173,7 @@ async fn handle_files(
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
     let pool = Pool::new_from_cfg(&cfg).await?;
-    start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
+    start(pane, cfg, mm_cfg, pool, cli).await
 }
 
 async fn handle_rg(
@@ -240,9 +240,8 @@ async fn handle_rg(
             None => return Err(CliError::Handled),
         };
 
-        let template = EnvOpts::with_env(|s| s.output_template.clone());
-        let output_separator =
-            EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
+        let template = cli.output.format.clone();
+        let output_separator = cli.output.sep.clone().unwrap_or_else(|| "\n".into());
 
         let _ = map_chunks::<CliError>(
             read_to_chunks(stdout, '\0'),
@@ -286,7 +285,7 @@ async fn handle_rg(
     );
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-    start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
+    start(pane, cfg, mm_cfg, pool, cli).await
 }
 
 async fn handle_dirs(
@@ -365,7 +364,7 @@ async fn handle_dirs(
     };
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-    start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
+    start(pane, cfg, mm_cfg, pool, cli).await
 }
 
 #[allow(unused)] // is_default_dir is not read
@@ -412,23 +411,7 @@ async fn handle_default(
 
     let pool = Pool::new_from_cfg(&cfg).await?;
 
-    let pane = if
-    // piped input
-    !atty::is(atty::Stream::Stdin) && !cmd.no_read && !cmd.list {
-        if cmd.cd {
-            cfg.global.interface.alt_accept = true;
-            cfg.history.show_missing = false;
-
-            // stream can only occur as the first pane, this ensures paths are not modified in display
-            STORE::set(cfg.styles.path.relative);
-            cfg.styles.path.relative = false;
-        };
-        FsPane::new_stream(
-            AbsPath::new_unchecked(__cwd()),
-            cmd.vis.into_resolved(Some(Default::default())),
-            true,
-        )
-    } else if cmd.cd {
+    let pane = if cmd.cd {
         if !cmd.fd.is_empty() && !cmd.paths.is_empty() {
             wbog!(
                 "fd_args are not supported with --cd: to avoid confusion, specify all paths after --."
@@ -478,7 +461,7 @@ async fn handle_default(
                         });
 
                         let cmd = DirsCmd {
-                            sort: sort.into(),
+                            sort,
                             cd: true,
                             query: kw,
                             ..Default::default()
@@ -537,7 +520,15 @@ async fn handle_default(
         // interactively search the best match
         {
             let vis = resolve_fd_visibility(cmd.vis, &cmd, &cfg);
-            FsPane::new_fd_full(cwd, vis, cmd.sort, cmd.types, cmd.paths, cmd.fd)
+            FsPane::new_fd_full(
+                cwd,
+                vis,
+                cmd.sort,
+                cmd.types,
+                cmd.paths,
+                cmd.fd,
+                cmd.lua_path_transform,
+            )
         }
     } else if
     // any fd arg is specified
@@ -611,9 +602,8 @@ async fn handle_default(
                 None => return Err(CliError::Handled),
             };
 
-            let template = EnvOpts::with_env(|s| s.output_template.clone());
-            let output_separator =
-                EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
+            let template = cli.output.format.clone();
+            let output_separator = cli.output.sep.clone().unwrap_or_else(|| "\n".into());
 
             let _ = map_chunks::<CliError>(
                 read_to_chunks(stdout, '\0'),
@@ -636,7 +626,15 @@ async fn handle_default(
         };
 
         let vis = resolve_fd_visibility(cmd.vis, &cmd, &cfg);
-        FsPane::new_fd_full(cwd, vis, cmd.sort, cmd.types, cmd.paths, cmd.fd)
+        FsPane::new_fd_full(
+            cwd,
+            vis,
+            cmd.sort,
+            cmd.types,
+            cmd.paths,
+            cmd.fd,
+            cmd.lua_path_transform,
+        )
     } else {
         let DefaultCommand { sort, .. } = cmd;
         let cwd = __cwd();
@@ -651,9 +649,8 @@ async fn handle_default(
         if cmd.list {
             let iter = list_dir(cwd, vis, 1); // cwd is abs so we can add results as unchecked
             let sort = sort.unwrap_or_default();
-            let template = EnvOpts::with_env(|s| s.output_template.clone());
-            let output_separator =
-                EnvOpts::with_env(|s| s.output_separator.clone()).unwrap_or("\n".into());
+            let template = cli.output.format.clone();
+            let output_separator = cli.output.sep.clone().unwrap_or_else(|| "\n".into());
 
             match sort {
                 SortOrder::none => {
@@ -666,7 +663,18 @@ async fn handle_default(
 
                     match sort {
                         SortOrder::name => files.sort_by(|a, b| a.file_name().cmp(&b.file_name())),
-                        SortOrder::mtime => sort_by_mtime(&mut files),
+                        SortOrder::mtime => todo!(),
+                        SortOrder::atime => files.sort_by(|a, b| {
+                            let aa = std::fs::metadata(a).and_then(|m| m.accessed());
+                            let ab = std::fs::metadata(b).and_then(|m| m.accessed());
+                            match (aa, ab) {
+                                (Ok(a), Ok(b)) => b.cmp(&a),
+                                (Ok(_), Err(_)) => std::cmp::Ordering::Less,
+                                (Err(_), Ok(_)) => std::cmp::Ordering::Greater,
+                                (Err(_), Err(_)) => std::cmp::Ordering::Equal,
+                            }
+                        }),
+                        SortOrder::size => crate::find::size::sort_by_size(&mut files),
                         _ => unreachable!(),
                     }
 
@@ -686,7 +694,51 @@ async fn handle_default(
     };
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-    start(pane, cfg, mm_cfg, pool, cli.enter_prompt).await
+    start(pane, cfg, mm_cfg, pool, cli).await
+}
+
+async fn handle_custom(
+    cli: CliOpts,
+    cmd: CustomCommand,
+    mut cfg: Config,
+) -> Result<(), CliError> {
+    let cmd_ = (!cmd.cmd.is_empty()).then(|| (cmd.cmd[0].clone(), cmd.cmd[1..].to_vec()));
+    if cmd_.is_none() && atty::is(atty::Stream::Stdin) {
+        ebog!(":custom expects a command or piped stdin");
+        return Err(CliError::Handled);
+    }
+
+    if cmd.cd {
+        cfg.global.interface.alt_accept = true;
+        cfg.history.show_missing = false;
+
+        // custom can only occur as the first pane, this ensures paths are not modified in display
+        STORE::set(cfg.styles.path.relative);
+        cfg.styles.path.relative = false;
+    };
+
+    let pool = Pool::new_from_cfg(&cfg).await?;
+
+    let sort = cmd.sort.unwrap_or_default();
+    let vis = cmd.vis.into_resolved(Some(Default::default()));
+    let cwd = AbsPath::new_unchecked(__cwd());
+
+    let keep_store = cmd_.is_none();
+    let pane = FsPane::new_custom(
+        cwd,
+        vis,
+        cmd_,
+        keep_store,
+        sort,
+        cmd.lua_renderer,
+        cmd.lua_render_tail,
+        cmd.lua_path_transform,
+        cmd.delim,
+        cmd.record_sep,
+    );
+
+    let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
+    start(pane, cfg, mm_cfg, pool, cli).await
 }
 
 async fn handle_tools(
@@ -890,7 +942,7 @@ async fn handle_tools(
 
                 let db_filter = cfg.history.clone();
                 let entries = conn
-                    .get_entries(DbSortOrder::none, &db_filter, table)
+                    .get_entries(SortOrder::mtime, &db_filter, table)
                     .await
                     .__ebog();
 
