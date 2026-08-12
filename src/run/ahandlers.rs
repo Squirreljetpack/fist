@@ -1,4 +1,4 @@
-use cba::bring::split::split_whitespace_preserve_single_quotes;
+use cba::{_trace, bring::split::split_whitespace_preserve_single_quotes};
 use fist_types::{
     filters::{SortOrder, Visibility},
     git::in_git_repo,
@@ -7,7 +7,6 @@ use matchmaker::{
     acs,
     config::StringOrInt,
     message::{BindDirective, Event},
-    nucleo::Modifier,
     ui::StatusUI,
 };
 use ratatui::text::Line;
@@ -16,10 +15,10 @@ use crate::{
     abspath::AbsPath,
     aliases::MMState,
     run::{
-        FsAction, FsPane,
+        FsAction, FsPane, selection,
         stash::STASH,
         state::{
-            FILTERS, GLOBAL, STACK, STORE, TOAST, sort,
+            FILTERS, GLOBAL, HideMetadata, InPrompt, STACK, STORE, TOAST, sort,
             ui::{global_ui, prompt_main_style},
         },
     },
@@ -32,7 +31,10 @@ pub fn paste_handler(
 ) -> String {
     if let Some(c) = STACK::nav_cwd()
         && !(GLOBAL::with_cfg(|c| c.interface.always_paste)
-            || state.picker_ui.results.cursor_disabled()
+            // paste-inside-the-prompt: while the prompt mode is on (raw
+            // marker — set by lock_prompt under prompt_locking, by
+            // enter_prompt always), paste inserts into the query
+            || STORE::contains::<InPrompt>()
             || state.overlay_index().is_some())
     {
         STASH::execute_all_impl(c, false, None);
@@ -42,54 +44,103 @@ pub fn paste_handler(
     }
 }
 
-/// sets in state: cursor (jump/disable), stashes preview, sets prompt
-pub fn enter_prompt(
+/// Declarative prompt:
+/// - cursor disabled (prompt mode): the directory prompt (falls back to the
+///   configured default prompt when there is no cwd);
+/// - otherwise: "d: " / "f: " when visibility is dirs-only / files-only,
+///   else the pane's configured prompt.
+pub fn refresh_prompt(state: &mut MMState<'_, '_>) {
+    if state.picker_ui.results.cursor_disabled() {
+        if let Some(cwd) = STACK::cwd() {
+            let content =
+                format_prompt(&GLOBAL::with_cfg(|c| c.interface.cwd_prompt.clone()), &cwd);
+            state
+                .picker_ui
+                .query
+                .set_prompt_line(Line::styled(content, prompt_main_style()));
+        } else {
+            state.picker_ui.query.set_prompt(None);
+        };
+    } else {
+        let vis = FILTERS::visibility();
+        if vis.dirs && !vis.files {
+            state
+                .picker_ui
+                .query
+                .set_prompt_line(Line::styled("d: ", prompt_main_style()));
+        } else if vis.files && !vis.dirs {
+            state
+                .picker_ui
+                .query
+                .set_prompt_line(Line::styled("f: ", prompt_main_style()));
+        } else {
+            state.picker_ui.query.set_prompt(None); // restore stored prompt
+        }
+    }
+}
+
+/// Toggle the prompt mode (raw flag): the query bar is active while in the
+/// prompt — edit-actions (left/right, Delete, paste) edit the query instead
+/// of navigating, the border marks the mode, and `enter = false` also
+/// restores the cursor if it was disabled. Entering is gated on
+/// `interface.prompt_locking` — with locking off, `enter = true` is a no-op
+/// (the only way into the prompt is the cwd lock, [`enter_prompt`]) —
+/// leaving is never gated. The cwd lock implies the prompt mode and
+/// additionally makes actions apply to the cwd.
+pub fn lock_prompt(
     state: &mut MMState<'_, '_>,
     enter: bool,
 ) {
-    log::trace!("ep: {enter}");
-    // unfortunately, dim is kinda weak/can make things brighter, but we still want some indication
-    if GLOBAL::with_cfg(|c| c.interface.dim_prompt) {
-        let mods = &mut state.picker_ui.results.config.style.modifier;
-        let border_mods = &mut state.picker_ui.results.config.border.modifier;
-
-        if enter {
-            *mods |= Modifier::DIM;
-            *border_mods |= Modifier::DIM;
-        } else {
-            mods.remove(Modifier::DIM);
-            border_mods.remove(Modifier::DIM);
-        }
+    if enter && !GLOBAL::with_cfg(|c| c.interface.prompt_locking) {
+        return;
     }
-    if GLOBAL::with_cfg(|c| c.interface.dim_status) {
-        state.picker_ui.status.dim = Some(enter)
-    }
-    // set prompt
+    _trace!(enter);
+    // the marker tracks the raw prompt state (query bar active)
     if enter {
-        let prompt = if let Some(cwd) = STACK::cwd() {
-            let content =
-                format_prompt(&GLOBAL::with_cfg(|c| c.interface.cwd_prompt.clone()), &cwd);
-            Line::styled(content, prompt_main_style())
-        } else {
-            let content = state.picker_ui.query.config.prompt.clone();
-            Line::styled(content, prompt_main_style())
-        };
-        // state.picker_ui.results.cursor_jump(0);
-        if let Some(p) = state.preview_ui
-            && p.is_vertical()
-        {
-            state.stash_preview_visibility(Some(false));
-        } else {
-            // dim preview?
-        }
-        state.picker_ui.query.set_prompt_line(prompt);
+        STORE::set(InPrompt);
     } else {
-        state.stash_preview_visibility(None);
-        state.picker_ui.query.set_prompt(None);
+        STORE::take::<InPrompt>();
     }
-    state.picker_ui.results.disable_cursor(enter);
+    // the query bar border is the prompt-mode indicator: shown only while
+    // in the prompt, hidden otherwise
+    state.picker_ui.query.show_border = enter;
 
-    log::debug!("entered prompt: {enter}");
+    if !enter {
+        state.stash_preview_visibility(None);
+        // leaving the prompt restores the cursor (the caller may still move
+        // it afterwards)
+        if state.picker_ui.results.cursor_disabled() {
+            state.picker_ui.results.disable_cursor(false);
+        }
+    }
+    refresh_prompt(state);
+}
+
+/// Prompt entry for a "cursor-disabling pathway" (Up/Down past the ends,
+/// first Accept, AutoJump(0)): enters the prompt and locks the active item
+/// onto the cwd — actions then apply to the cwd. Returns `false` (and does
+/// nothing) when there is no cwd to point at — Apps panes — in which case
+/// the caller passes the triggering key through.
+///
+/// Reimplements lock_prompt's entry branch rather than deferring to it,
+/// because lock_prompt gates entry on `interface.prompt_locking` and this
+/// is the ungated entry.
+pub fn enter_prompt(state: &mut MMState<'_, '_>) -> bool {
+    if STACK::cwd().is_none() {
+        return false;
+    }
+    if !state.picker_ui.results.cursor_disabled()
+        && GLOBAL::with_cfg(|c| c.interface.hide_preview_when_cursor_disabled)
+        && let Some(p) = state.preview_ui
+    {
+        state.stash_preview_visibility(Some(false));
+    }
+    // enter the prompt mode unconditionally
+    STORE::set(InPrompt);
+    state.picker_ui.query.show_border = true;
+    state.picker_ui.results.disable_cursor(true);
+    refresh_prompt(state);
+    true
 }
 
 pub fn enter_dir_pane(
@@ -103,7 +154,11 @@ pub fn enter_dir_pane(
     GLOBAL::db().bump_path(true, path.clone());
 
     // apply specific settings
-    // (query cancel is handled internally by the new pattern machinery)
+    // cancel the query when leaving a pane that wants it — the input was
+    // saved above, so Undo/Back restores it for the dir we're leaving
+    if STACK::with_current(FsPane::should_cancel_input_entering_dir) {
+        state.picker_ui.query.clear();
+    }
 
     // always clear selections
     state.picker_ui.selector.clear();
@@ -112,9 +167,16 @@ pub fn enter_dir_pane(
     // start pane
     let old = STACK::nav_cwd();
     let is_new = old.is_none();
+    // enter_dir_pane is the only fs_reload caller that sets dir_changed = true.
+    // is_new && dir_changed is a reserved combination for history pane
+    let dir_changed = if is_new {
+        false
+    } else {
+        old.as_ref().is_some_and(|o| o != &path)
+    };
 
     // apply smart git visibility on entering a git repo
-    // default_vis is_some is handled seperately in fs_reload
+    // default_vis is_some is handled separately in fs_reload
     let mut vis = FILTERS::visibility();
     if GLOBAL::with_cfg(|c| c.panes.nav.default_visibility.is_none()) {
         match (
@@ -135,17 +197,22 @@ pub fn enter_dir_pane(
         }
     }
 
-    let pane = FsPane::new_nav(path, vis, sort::get_sort().order.unwrap_or_default());
+    let pane = FsPane::new_nav(path, vis, sort::get_sort().order);
     STACK::push(pane);
-    fs_reload(state, is_new);
+    fs_reload(state, is_new, dir_changed);
 }
 
 pub fn fs_reload(
     state: &mut MMState<'_, '_>,
     is_new: bool,
+    // whether the reload re-reads a different directory than
+    // the pane currently shows. is_new || dir_changed gates the selection refill and dir-size clear.
+    // is_new && dir_changed (Undo/Redo): don't apply default visibility/sort.
+    // dir_changed matters only for `enter_dir` and `undo/redo`
+    dir_changed: bool,
 ) {
-    if is_new {
-        // apply vis/sort changes
+    // apply vis/sort changes
+    if is_new && !dir_changed {
         STACK::with_current_mut(|pane| {
             GLOBAL::with_cfg(|c| {
                 // apply on non-initial new pane: update visibility
@@ -175,10 +242,12 @@ pub fn fs_reload(
                             *sort = new_sort;
                         }
 
-                        // update to prevent reload (visibility only; the pane owns its sort)
                         FILTERS::set(*vis);
                     }
-                    FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. } => {
+                    FsPane::Files { .. }
+                    | FsPane::Folders { .. }
+                    | FsPane::Apps { .. }
+                    | FsPane::Stash { .. } => {
                         // logically we should add configurable default but i don't think anything besides frecency is desirable [for the default]
                     }
                 }
@@ -186,9 +255,34 @@ pub fn fs_reload(
         });
     }
 
-    // apply the pane's sort (mode + stability) after it may have been updated
-    // clear worker entries
-    sort::update_sort(state);
+    // snapshot hashes of the selected paths
+    // before the worker restart wipes the current listing. Refill only if the
+    // reload re-reads the same directory.
+    {
+        let refill =
+            GLOBAL::with_cfg(|c| c.fs.refill_selections_after_reload) && !is_new && !dir_changed;
+        if refill && !state.picker_ui.selector.is_empty() {
+            let hashes: Vec<u64> = state
+                .picker_ui
+                .selector
+                .iter()
+                .filter_map(|&idx| state.picker_ui.worker.get_by_idx(idx))
+                .map(|item| selection::hash_path(&item.path))
+                .collect();
+            STORE::set(selection::PendingSelections(hashes));
+        } else {
+            STORE::take::<selection::PendingSelections>();
+        }
+        state.picker_ui.selector.clear();
+    }
+
+    // apply the pane's sort
+    sort::set_sort_from_pane(state);
+    if sort::get_sort().order == SortOrder::size // don't clear dirsize cache for auto-reloads (todo: lowpri: configurable)
+    && (is_new || dir_changed)
+    {
+        sort::clear_dir_sizes();
+    }
     state.worker_restart();
 
     let injector = state.injector();
@@ -219,28 +313,20 @@ pub fn fs_reload(
 
     STACK::populate(injector, || {});
 
-    // if the pane opened hard-sorted, order the injected items
-    match sort::get_sort().order {
-        // sizes compute async after injection; SetSort applies them once ready
-        Some(SortOrder::size) => sort::wait_sizes_then_resort(),
-        Some(_) => GLOBAL::send_action(FsAction::SetSort),
-        None => {}
-    }
-
+    // --- some post-reload stuff init doesn't need to go through
     // stash the saved index to restore it once synced
     // The index is only saved through FsAction::Undo/Redo/Restart, see [`STACK::save_input`]
     if let Some(i) = STACK::take_maybe_index() {
         STORE::set(i);
     }
+    if !state.picker_ui.results.cursor_disabled() {
+        state.picker_ui.results.cursor_jump(0);
+    }
 
     if is_new {
-        fs_post_reload_new(state);
+        fs_post_reload_new(state); // called by init
     } else {
-        if !state.picker_ui.results.cursor_disabled() {
-            state.picker_ui.results.cursor_jump(0);
-        }
         // selections can't be revalidated across a worker restart — clear them
-        state.picker_ui.selector.clear();
         fs_post_reload(state);
     }
 }
@@ -248,7 +334,7 @@ pub fn fs_reload(
 /// Call iff the pane type changes.
 ///
 /// 1. Set pane specific config overrides:
-/// - Read the current pane's enter_prompt and default prompt values to appropriately invoke [`enter_prompt`].
+/// - Read the current pane's lock_prompt and default prompt values to appropriately invoke [`lock_prompt`].
 /// 2. Reset transient state settings without any configuration knob
 /// 3. Set input from pane, clear selections
 pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
@@ -271,29 +357,11 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
                 }
             }
 
-            if let Some(enter) = c.panes.enter_prompt(pane) {
+            if let Some(enter) = c.panes.locks_prompt(pane) {
                 // this hides the preview if needed
-                enter_prompt(state, enter);
-            } else if state.picker_ui.results.cursor_disabled() {
-                // rebuild for cwd
-                enter_prompt(state, true)
+                lock_prompt(state, enter);
             } else {
-                state.picker_ui.query.set_prompt(None);
-
-                // match pane {
-                //     FsPane::Find { input, .. }
-                //     | FsPane::Search { input, .. }
-                //     | FsPane::Files { input, .. }
-                //     | FsPane::Folders { input, .. }
-                //         if input.0.is_empty() =>
-                //     {
-                //         enter_prompt(state, true);
-                //     }
-                //     _ if !state.picker_ui.results.cursor_disabled => {
-                //         state.picker_ui.query.set_prompt(None);
-                //     }
-                //     _ => {}
-                // }
+                refresh_prompt(state);
             }
 
             #[cfg(feature = "mm_overrides")]
@@ -322,6 +390,15 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
             }
         });
     });
+
+    // a pane whose sort matches its configured default override (startup
+    // pane, pane switch with apply_default_sort, undo/redo) hides the
+    // metadata column until the user explicitly re-sorts (ReSort takes it)
+    if STACK::with_current(|pane| {
+        GLOBAL::with_cfg(|c| c.panes.default_sort(pane).is_some_and(|d| pane.sort() == d))
+    }) {
+        STORE::set(HideMetadata);
+    }
 
     // Reset transient state settings without any configuration knob
     // ----
@@ -433,6 +510,6 @@ pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
                 GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()))
             }
         }
-        log::trace!("{pane:?}");
+        _trace!(pane);
     });
 }

@@ -33,6 +33,7 @@ pub struct PanesConfig {
     pub find: FdPaneSettings,
     pub search: RgPaneSettings,
     pub custom: PaneSettings,
+    pub stash: StashPaneSettings,
 
     pub settings: PanesSettings,
 }
@@ -57,6 +58,9 @@ impl Default for PanesConfig {
             custom: PaneSettings {
                 ..Default::default()
             },
+            stash: StashPaneSettings {
+                ..Default::default()
+            },
 
             settings: PanesSettings::default(),
         }
@@ -71,7 +75,7 @@ pub struct PaneSettings {
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
-    pub enter_prompt: Option<bool>,
+    pub lock_prompt: Option<bool>,
 
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
@@ -81,7 +85,7 @@ pub struct PaneSettings {
 //         Self {
 //             prompt: None,
 //             show_preview: None,
-//             enter_prompt: Some(true),
+//             lock_prompt: Some(true),
 //             preview_layout_index: 0,
 //         }
 //     }
@@ -95,7 +99,7 @@ pub struct FdPaneSettings {
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
-    pub enter_prompt: Option<bool>,
+    pub lock_prompt: Option<bool>,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
@@ -116,7 +120,7 @@ impl Default for FdPaneSettings {
         Self {
             prompt: None,
             show_preview: None,
-            enter_prompt: None,
+            lock_prompt: None,
             preview_layout_index: 0,
             default_visibility: None,
             on_leave_unset_dirs_only: false,
@@ -134,7 +138,7 @@ pub struct RgPaneSettings {
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
-    pub enter_prompt: Option<bool>,
+    pub lock_prompt: Option<bool>,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
@@ -163,7 +167,7 @@ pub struct RgPaneSettings {
 //     fn default() -> Self {
 //         Self {
 //             prompt: None,
-//             enter_prompt: Some(true),
+//             lock_prompt: Some(true),
 //             show_preview: Some(ShowCondition::Free(20)),
 //             preview_layout_index: 1,
 
@@ -185,7 +189,7 @@ pub struct NavPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to enter the prompt when switching to this pane
-    pub enter_prompt: Option<bool>,
+    pub lock_prompt: Option<bool>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Default preview layout index for this pane
@@ -202,7 +206,7 @@ impl Default for NavPaneSettings {
     fn default() -> Self {
         Self {
             prompt: None,
-            enter_prompt: None,
+            lock_prompt: None,
             show_preview: Some(ShowCondition::Free(50)),
             preview_layout_index: 0,
 
@@ -219,9 +223,40 @@ pub struct HistoryPaneSettings {
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
-    pub enter_prompt: Option<bool>,
+    pub lock_prompt: Option<bool>,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct StashPaneSettings {
+    /// Input prompt
+    pub prompt: Option<String>,
+    /// Whether to show the preview when switching to this pane. (Default: inherit).
+    pub show_preview: Option<ShowCondition>,
+    /// Whether to enter the prompt when switching to this pane
+    pub lock_prompt: Option<bool>,
+    /// Default preview layout index for this pane
+    pub preview_layout_index: u8,
+    // ----------------------------
+    /// Hide stash entries whose path no longer exists while populating.
+    pub filter_missing: bool,
+    /// Stashes cleared on startup. Default: the unnamed stash.
+    pub transient_stash_panes: Vec<String>,
+}
+
+impl Default for StashPaneSettings {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            show_preview: None,
+            lock_prompt: None,
+            preview_layout_index: 0,
+            filter_missing: true,
+            transient_stash_panes: vec![String::new()],
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -231,7 +266,7 @@ pub struct AppPaneSettings {
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
-    pub enter_prompt: Option<bool>,
+    pub lock_prompt: Option<bool>,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
@@ -252,20 +287,22 @@ impl PanesConfig {
             FsPane::Apps { .. } => self.app.prompt.clone(),
             FsPane::Nav { .. } => self.nav.prompt.clone(),
             FsPane::Search { .. } => self.search.prompt.clone(),
+            FsPane::Stash { .. } => self.stash.prompt.clone(),
         }
     }
 
-    pub fn enter_prompt(
+    pub fn locks_prompt(
         &self,
         pane: &FsPane,
     ) -> Option<bool> {
         match pane {
-            FsPane::Custom { .. } => self.custom.enter_prompt,
-            FsPane::Find { .. } => self.find.enter_prompt,
-            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.enter_prompt,
-            FsPane::Apps { .. } => self.app.enter_prompt,
-            FsPane::Nav { .. } => self.nav.enter_prompt,
-            FsPane::Search { .. } => self.search.enter_prompt,
+            FsPane::Custom { .. } => self.custom.lock_prompt,
+            FsPane::Find { .. } => self.find.lock_prompt,
+            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.lock_prompt,
+            FsPane::Apps { .. } => self.app.lock_prompt,
+            FsPane::Nav { .. } => self.nav.lock_prompt,
+            FsPane::Search { .. } => self.search.lock_prompt,
+            FsPane::Stash { .. } => self.stash.lock_prompt,
         }
     }
 
@@ -280,6 +317,7 @@ impl PanesConfig {
             FsPane::Apps { .. } => self.app.show_preview,
             FsPane::Nav { .. } => self.nav.show_preview,
             FsPane::Search { .. } => self.search.show_preview,
+            FsPane::Stash { .. } => self.stash.show_preview,
         }
     }
 
@@ -292,7 +330,8 @@ impl PanesConfig {
             FsPane::Custom { .. }
             | FsPane::Apps { .. }
             | FsPane::Files { .. }
-            | FsPane::Folders { .. } => None,
+            | FsPane::Folders { .. }
+            | FsPane::Stash { .. } => None,
             FsPane::Find { .. } => self.find.default_visibility,
             FsPane::Nav { .. } => self.nav.default_visibility,
             FsPane::Search { .. } => self.search.default_visibility,
@@ -322,6 +361,7 @@ impl PanesConfig {
             FsPane::Apps { .. } => self.app.preview_layout_index,
             FsPane::Nav { .. } => self.nav.preview_layout_index,
             FsPane::Search { .. } => self.search.preview_layout_index,
+            FsPane::Stash { .. } => self.stash.preview_layout_index,
         }
     }
 }

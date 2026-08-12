@@ -27,17 +27,23 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(alt - shift - '/') => FsAction::LessfilterPreview(Preset::Display, When::Always),
         // Keybind help
         key!(alt-h) => FsAction::help(),
+        key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete(false),
     );
 
     // cmd+backspace is traditional for trash on mac
     #[cfg(target_os = "macos")]
     let ext = bindmap!(
         key!(ctrl-h), key!(cmd-backspace) => FsAction::Trash(false),
+        key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete(false),
         key!(alt-backspace) => Action::DeleteWord,
+    );
+
+    // default binds for when without delete key
+    #[cfg(not(target_os = "macos"))]
+    let ext = bindmap!(
+        key!(alt-backspace) => FsAction::Trash(false),
         key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete(false),
     );
-    #[cfg(not(target_os = "macos"))]
-    let ext = bindmap!();
 
     fs.extend(ext);
     fs.extend_from(BindMap::default_binds());
@@ -51,16 +57,16 @@ fn config_as_code() -> BindMap<FsAction> {
     bindmap!(
         // MM
         // ----------------------------------
-        key!(shift-right) => Action::ForwardChar,
-        key!(shift-left) => Action::BackwardChar,
+        key!(right) => Action::ForwardChar,
+        key!(left) => Action::BackwardChar,
         key!(tab) => [Action::ToggleSelection, Action::Down(1)],
         key!(alt-enter) => Action::Print("".into()),
         key!(alt-r) => Action::Reload("".to_string()),
 
         // Panes
         // ----------------------------------
-        key!(right) => FsAction::Advance,
-        key!(left) => FsAction::Parent,
+        key!(shift-right) => FsAction::Advance,
+        key!(shift-left) => FsAction::Parent,
         key!(ctrl-f) => FsAction::Find,
         key!(ctrl-r) => FsAction::Search,
         key!(ctrl-g) => FsAction::History,
@@ -97,9 +103,13 @@ fn config_as_code() -> BindMap<FsAction> {
         // ----------------------------------
         key!(alt-s) => FsAction::Push,
 
+        // Prompt
+        // ----------------------------------
+        key!(alt-space) => FsAction::LockPrompt(None), // None toggles the prompt
+
         // Autojump
         // --------------------------------
-        key!(ctrl-0), key!(ctrl-enter), key!(alt-space) => FsAction::AutoJump(0),
+        key!(ctrl-0), key!(ctrl-enter) => FsAction::AutoJump(0),
         key!(ctrl-1) => FsAction::AutoJump(1),
         key!(ctrl-2) => FsAction::AutoJump(2),
         key!(ctrl-3) => FsAction::AutoJump(3),

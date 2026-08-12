@@ -169,7 +169,57 @@ pub fn build_rg_args(
     ret.extend_from_slice(rg_args);
 
     // rg [OPTIONS] -e PATTERN ... [PATH ...]
-    ret.extend(paths.iter().map(Into::into));
+    if paths.is_empty() {
+        ret.push(".".into()); // avoid rg falling back to reading stdin
+    } else {
+        ret.extend(paths.iter().map(Into::into));
+    }
 
     ret
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_build_rg_args_paths() {
+        let cfg = RgConfig {
+            empty_pattern: Some(".*".into()),
+            ..Default::default()
+        };
+
+        // When paths is empty, fallback to "."
+        let args_empty = build_rg_args(
+            Default::default(),
+            SortOrder::none,
+            [0, 0],
+            When::Auto,
+            true,
+            false,
+            &[],
+            &[],
+            &[],
+            &cfg,
+        );
+        assert_eq!(args_empty.last().unwrap(), ".");
+
+        // When paths has items, pass them without duplication
+        let paths = vec![PathBuf::from("foo/bar")];
+        let args_paths = build_rg_args(
+            Default::default(),
+            SortOrder::none,
+            [0, 0],
+            When::Auto,
+            true,
+            false,
+            &[],
+            &paths,
+            &[],
+            &cfg,
+        );
+        assert_eq!(args_paths.last().unwrap(), "foo/bar");
+        assert_ne!(args_paths[args_paths.len() - 2], "foo/bar");
+    }
 }

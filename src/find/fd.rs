@@ -222,3 +222,27 @@ pub fn last_query_starts_with_dot(paths: &[OsString]) -> bool {
         s.len() > 1 && chars.next() == Some('.') && chars.all(|c| c.is_alphanumeric())
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_fd_args_multiple_search_paths() {
+        let paths = vec![
+            OsString::from("/path/one"),
+            OsString::from("/path/two"),
+            OsString::from(r"\.git$"),
+        ];
+        let cfg = FdConfig::default();
+        let args = build_fd_args(Visibility::default(), &[], &paths, &[], &cfg);
+
+        let search_paths: Vec<_> = args
+            .windows(2)
+            .filter(|w| w[0] == "--search-path")
+            .map(|w| w[1].to_str().unwrap())
+            .collect();
+
+        assert_eq!(search_paths, vec!["/path/one", "/path/two"]);
+    }
+}

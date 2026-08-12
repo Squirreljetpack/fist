@@ -28,15 +28,15 @@
 
 [rules]
 default = [
-    [["Metadata"], ["1|*/*"]],
-    [["Image"], ["1|image/*"]],
+    [["Directory"], ["1|directory/*"]],
+    [["Application"], ["application"]],
     [["Text"], ["1|type:text"]],
+    [["Image"], ["1|image/*"]],
     [
         ["Extract", "Metadata"],
         ["1|cat:document", "1|cat:spreadsheet", "1|cat:email", "1|cat:academic"],
     ], # try extracting, with fallback to metadata
-    [["Application"], ["application"]],
-    [["Directory"], ["1|directory/*"]],
+    [["Metadata"], ["1|*/*"]],
 ]
 preview = [
     [["sqlite"], ["application/vnd.sqlite3", "have:sqlite3"]],

@@ -41,11 +41,18 @@ pub struct CliWithDefault {
 
 impl Cli {
     pub fn parse_custom() -> Self {
-        let CliWithDefault { subcommand, opts, dopts } = CliWithDefault::parse();
+        let CliWithDefault {
+            subcommand,
+            opts,
+            dopts,
+        } = CliWithDefault::parse();
         if let Some(subcommand) = subcommand {
             Cli { subcommand, opts }
         } else {
-            Cli { subcommand: SubCmd::Default(dopts), opts }
+            Cli {
+                subcommand: SubCmd::Default(dopts),
+                opts,
+            }
         }
     }
 }
@@ -107,7 +114,8 @@ Otherwise, this will OVERWRITE your main config."#
     pub fullscreen: Option<Option<bool>>,
 
     #[arg(long, global = true)]
-    pub enter_prompt: Option<bool>,
+    /// See `interface.prompt_locking`
+    pub lock_prompt: Option<bool>,
 
     #[arg(long, global = true)]
     pub alt_accept: bool,
@@ -119,12 +127,12 @@ Otherwise, this will OVERWRITE your main config."#
 #[derive(Debug, Args, Default, Clone)]
 pub struct OutputOpts {
     /// Separator printed after each result.
-    #[arg(long, global = true)]
-    pub sep: Option<String>,
-    /// Output template for printed results (same syntax as the old `FS_OPTS output_template`).
+    #[arg(long, alias = "os", global = true)]
+    pub output_sep: Option<String>,
+    /// Output template for printed results.
     #[arg(long, global = true)]
     pub format: Option<String>,
-    /// Program used to open files on accept (replaces `FS_OPTS opener`).
+    /// Program used to open files on accept.
     #[arg(long, global = true)]
     pub opener: Option<String>,
 }
@@ -265,7 +273,6 @@ pub struct SearchCommand {
     // todo: lowpri: rg supports -t and globs, but its a bit awkward so we currently require users to specify manually thru rg_args
     // #[arg(short = 't', long = "types", value_delimiter = ',')]
     // pub types: Vec<FileTypeArg>,
-
     /// Files or directories to search in.
     #[arg(short = 'p', long = "path")]
     pub paths: Vec<PathBuf>,
@@ -290,15 +297,15 @@ pub struct SearchCommand {
 
     /// Enable fixed string matching
     #[arg(
-        long = "fixed-strings", 
-        action = ArgAction::SetTrue, 
+        long = "fixed-strings",
+        action = ArgAction::SetTrue,
         overrides_with = "no_fixed_strings"
     )]
     fixed_strings: bool,
 
     /// Disable fixed string matching
     #[arg(
-        long = "no-fixed-strings", 
+        long = "no-fixed-strings",
         action = ArgAction::SetTrue, // Both set to true when passed
         overrides_with = "fixed_strings"
     )]
@@ -374,10 +381,11 @@ pub struct DefaultCommand {
     // its neat that this works: using -- passes to fd only if paths has entries which is exactly what we want
     pub fd: Vec<OsString>,
 
-    /// Lua function remapping each result path before rendering/filtering.
-    /// Values starting with `@` are read from that file.
-    #[arg(long = "path-transforms")]
-    pub lua_path_transform: Option<String>,
+    /// Lua transform (path, tail) -> (path, display, tail).
+    /// Missing display/tail keep the current values; a missing path omits the entry.
+    /// Accepts a file when prefixed with @.
+    #[arg(long)]
+    pub transform: Option<String>,
 
     #[arg(long, default_value_t)]
     pub reset_visibility: bool,
@@ -404,28 +412,19 @@ pub struct CustomCommand {
     #[arg(long)]
     pub sort: Option<SortOrder>,
 
-    /// Lua function rendering the item's path into its display tail (column 2).
-    /// Values starting with `@` are read from that file.
+    /// Lua transform (path, tail) -> (path, display, tail).
+    /// Missing display/tail keep the current values; a missing path omits the entry.
+    /// Accepts a file when prefixed with @.
     #[arg(long)]
-    pub lua_renderer: Option<String>,
-
-    /// Lua function rendering the item's tail column.
-    /// Values starting with `@` are read from that file.
-    #[arg(long)]
-    pub lua_render_tail: Option<String>,
-
-    /// Lua function remapping each path before rendering/filtering.
-    /// Values starting with `@` are read from that file.
-    #[arg(long = "path-transforms")]
-    pub lua_path_transform: Option<String>,
+    pub transform: Option<String>,
 
     /// Field separator within a record: text after the first occurrence is the tail.
-    #[arg(long)]
-    pub delim: Option<char>,
+    #[arg(long, alias = "ts")]
+    pub tail_sep: Option<char>,
 
     /// Split the stream into records on this char instead of newlines.
-    #[arg(long)]
-    pub record_sep: Option<char>,
+    #[arg(long, alias = "is")]
+    pub input_sep: Option<char>,
 
     #[arg(long, action = ArgAction::Help)]
     pub help: (),

@@ -1,6 +1,6 @@
 #![allow(clippy::upper_case_acronyms)]
 
-use std::{cell::RefCell, mem::discriminant};
+use std::{cell::RefCell, mem::discriminant, sync::RwLock};
 
 use log::{self};
 use matchmaker::SSS;
@@ -8,14 +8,36 @@ use matchmaker::SSS;
 use crate::{
     abspath::AbsPath,
     run::{
+        state::{sort, InitialNoRelative, FILTERS, GLOBAL, STORE},
         FsInjector, FsPane,
-        state::{FILTERS, GLOBAL, InitialRelativePathSetting, STORE, sort, ui::global_ui_mut},
     },
     watcher::WatcherMessage,
 };
 
 thread_local! {
     static STACK: RefCell<STACK> = const { RefCell::new(STACK::new()) }
+}
+
+/// The cwd used by [`crate::run::item::PathItem::render`] for relative-path
+/// display. Set once per populate ([`STACK::populate`]); `None` disables
+/// relative display (initial pane, or no cwd).
+///
+/// Replaces the per-render `STACK::cwd()` lookup: render runs on background
+/// threads (injector/worker) that do not share the main thread's `STACK`
+/// thread-local, so the value is snapshotted here on the main thread instead.
+static RENDER_PATH: RwLock<Option<AbsPath>> = RwLock::new(None);
+
+/// Set the render cwd for the ongoing populate. `None` disables relative
+/// path display (see [`render_path`]).
+pub fn set_render_path(path: Option<AbsPath>) {
+    if let Ok(mut lock) = RENDER_PATH.write() {
+        *lock = path;
+    }
+}
+
+/// The render cwd for the ongoing populate, or `None` (no relative display).
+pub fn render_path() -> Option<AbsPath> {
+    RENDER_PATH.read().ok().and_then(|g| g.clone())
 }
 
 pub struct STACK {
@@ -46,11 +68,6 @@ impl STACK {
     pub fn push(pane: FsPane) -> bool {
         STACK.with(|cell| {
             let Self { stack, index } = &mut *cell.borrow_mut();
-            if *index == 0 {
-                if let Some(o) = STORE::get::<InitialRelativePathSetting>() {
-                    global_ui_mut().path.relative = o.0;
-                }
-            }
             stack.truncate(*index + 1);
 
             let same = discriminant(&stack[*index]) == discriminant(&pane);
@@ -78,12 +95,6 @@ impl STACK {
             let Self { index, .. } = &mut *cell.borrow_mut();
             if *index > 0 {
                 *index -= 1;
-
-                if *index == 0 && STORE::get::<InitialRelativePathSetting>().is_some()
-                // original is backed up
-                {
-                    global_ui_mut().path.relative = false;
-                }
                 true
             } else {
                 false
@@ -124,7 +135,7 @@ impl STACK {
             // otherwise, create a new pane: folders unless we are already in it.
             let ret = !matches!(stack[*index], FsPane::Folders { .. } | FsPane::Files { .. });
             let folders = !matches!(stack[*index], FsPane::Folders { .. });
-            let pane = FsPane::new_history(folders, sort::get_sort().order.unwrap_or_default());
+            let pane = FsPane::new_history(folders, sort::get_sort().order);
 
             //push
             stack.truncate(*index + 1);
@@ -148,6 +159,21 @@ impl STACK {
         STACK.with(|cell| {
             let Self { stack, index, .. } = &*cell.borrow();
             f(&stack[*index])
+        })
+    }
+
+
+    /// Whether changing the current pane's sort requires repopulating it.
+    pub fn reloads_by_sorting() -> bool {
+        Self::with_current(|pane| {
+            matches!(
+                pane,
+                FsPane::Files { .. }
+                    | FsPane::Folders { .. }
+                    | FsPane::Apps { .. }
+                    | FsPane::Stash { .. }
+                    | FsPane::Search { .. }
+            )
         })
     }
 
@@ -189,6 +215,15 @@ impl STACK {
         injector: FsInjector,
         callback: impl FnOnce() + SSS,
     ) {
+        // the render cwd for this populate: the initial pane (index 0) with
+        // the InitialNoRelative marker renders without one — path.relative
+        // never triggers — otherwise the stack cwd
+        let no_relative = STACK.with(|cell| {
+            let Self { stack, index, .. } = &*cell.borrow();
+            *index == 0 && STORE::contains::<InitialNoRelative>()
+        });
+        set_render_path(if no_relative { None } else { Self::cwd() });
+
         let cfg = GLOBAL::with_cfg(|c| c.clone());
         Self::with_current(|pane| {
             let msg = match &pane {
@@ -214,10 +249,15 @@ impl STACK {
     pub fn cwd() -> Option<AbsPath> {
         STACK.with(|cell| {
             let Self { stack, index, .. } = &*cell.borrow();
+            if stack.is_empty() {
+                return None;
+            }
             let mut seen = false;
             for s in stack[0..=*index].iter().rev() {
                 match s {
-                    FsPane::Files { .. } | FsPane::Folders { .. } => seen = true,
+                    FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Stash { .. } => {
+                        seen = true
+                    }
                     FsPane::Nav { cwd, .. }
                     | FsPane::Custom { cwd, .. }
                     | FsPane::Find { cwd, .. }
@@ -268,7 +308,8 @@ impl STACK {
                 FsPane::Custom { input, .. }
                 | FsPane::Nav { input, .. }
                 | FsPane::Files { input, .. }
-                | FsPane::Folders { input, .. } => {
+                | FsPane::Folders { input, .. }
+                | FsPane::Stash { input, .. } => {
                     log::debug!("saving: {content} {cursor}");
                     *input = (content, cursor)
                 }
@@ -289,7 +330,8 @@ impl STACK {
                 | FsPane::Search { input, .. }
                 | FsPane::Nav { input, .. }
                 | FsPane::Files { input, .. }
-                | FsPane::Folders { input, .. } => {
+                | FsPane::Folders { input, .. }
+                | FsPane::Stash { input, .. } => {
                     let ret = std::mem::take(&mut input.1);
                     // 0 -> None because we only store index
                     (ret != 0).then_some(ret)
@@ -308,5 +350,46 @@ impl STACK {
     }
     pub fn in_rg() -> bool {
         STACK::with_current(|x| matches!(x, FsPane::Search { .. }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_cwd() {
+        let p1 = AbsPath::new_unchecked(Path::new("/tmp/test_dir1"));
+        let p2 = AbsPath::new_unchecked(Path::new("/tmp/test_dir2"));
+
+        STACK::init(FsPane::Nav {
+            cwd: p1.clone(),
+            sort: Default::default(),
+            vis: Default::default(),
+            depth: 1,
+            input: (String::new(), 0),
+            complete: Default::default(),
+        });
+
+        assert_eq!(STACK::cwd(), Some(p1.clone()));
+
+        // Push new pane
+        STACK::push(FsPane::Nav {
+            cwd: p2.clone(),
+            sort: Default::default(),
+            vis: Default::default(),
+            depth: 1,
+            input: (String::new(), 0),
+            complete: Default::default(),
+        });
+
+        assert_eq!(STACK::cwd(), Some(p2.clone()));
+
+        // the thread-local stack is main-thread only: `STACK::cwd()` on a
+        // background thread sees an empty stack (the ACTIVE_CWD sync was
+        // replaced by RENDER_PATH — see set_render_path/populate)
+        let bg_cwd = std::thread::spawn(STACK::cwd).join().unwrap();
+        assert_eq!(bg_cwd, None);
     }
 }

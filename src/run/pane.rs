@@ -36,11 +36,9 @@ pub enum FsPane {
         sort: SortOrder,
         vis: Visibility,
 
-        lua_renderer: Option<LuaFn>,
-        lua_render_tail: Option<LuaFn>,
-        lua_path_transform: Option<LuaFn>,
-        delim: Option<char>,
-        record_sep: Option<char>,
+        transform: Option<LuaFn>,
+        tail_sep: Option<char>,
+        input_sep: Option<char>,
     },
     Find {
         cwd: AbsPath,
@@ -52,7 +50,7 @@ pub enum FsPane {
         types: Vec<FileTypeArg>,
         paths: Vec<OsString>,
         fd_args: Vec<OsString>,
-        lua_path_transform: Option<LuaFn>,
+        transform: Option<LuaFn>,
     },
     Search {
         cwd: AbsPath,
@@ -84,6 +82,13 @@ pub enum FsPane {
     Apps {
         sort: SortOrder,
     },
+    /// Listing of a named stash from the `stashes` db table.
+    /// No visibility: entries are explicit additions, not directory contents.
+    Stash {
+        stash_name: String,
+        sort: SortOrder,
+        input: (String, u32), // input, INDEX
+    },
     Nav {
         cwd: AbsPath,
         sort: SortOrder,
@@ -103,11 +108,9 @@ impl FsPane {
         cmd: Option<(OsString, Vec<OsString>)>,
         keep_store: bool,
         sort: SortOrder,
-        lua_renderer: Option<String>,
-        lua_render_tail: Option<String>,
-        lua_path_transform: Option<String>,
-        delim: Option<char>,
-        record_sep: Option<char>,
+        transform: Option<String>,
+        tail_sep: Option<char>,
+        input_sep: Option<char>,
     ) -> Self {
         Self::Custom {
             cwd,
@@ -117,17 +120,26 @@ impl FsPane {
             sort,
             complete: Default::default(),
             input: Default::default(),
-            lua_renderer: compile_script("--lua-renderer", lua_renderer),
-            lua_render_tail: compile_script("--lua-render-tail", lua_render_tail),
-            lua_path_transform: compile_script("--path-transforms", lua_path_transform),
-            delim,
-            record_sep,
+            transform: compile_script("--transform", transform),
+            tail_sep,
+            input_sep,
         }
     }
 
     pub fn new_launch() -> Self {
         Self::Apps {
             sort: SortOrder::none,
+        }
+    }
+
+    pub fn new_stash(
+        stash_name: String,
+        sort: SortOrder,
+    ) -> Self {
+        Self::Stash {
+            stash_name,
+            sort,
+            input: (String::new(), 0),
         }
     }
 
@@ -138,7 +150,7 @@ impl FsPane {
         types: Vec<FileTypeArg>,
         paths: Vec<OsString>,
         fd: Vec<OsString>,
-        lua_path_transform: Option<String>,
+        transform: Option<String>,
     ) -> Self {
         Self::Find {
             cwd,
@@ -149,7 +161,7 @@ impl FsPane {
             types,
             paths,
             fd_args: fd,
-            lua_path_transform: compile_script("--path-transforms", lua_path_transform),
+            transform: compile_script("--transform", transform),
         }
     }
 
@@ -168,7 +180,7 @@ impl FsPane {
             vis: vis.validated(),
             types: Default::default(),
             fd_args: vec![],
-            lua_path_transform: None,
+            transform: None,
         }
     }
 
@@ -257,6 +269,7 @@ impl FsPane {
             | FsPane::Files { sort, .. }
             | FsPane::Folders { sort, .. }
             | FsPane::Apps { sort }
+            | FsPane::Stash { sort, .. }
             | FsPane::Nav { sort, .. } => *sort,
         }
     }
@@ -270,6 +283,7 @@ impl FsPane {
             | FsPane::Files { sort, .. }
             | FsPane::Folders { sort, .. }
             | FsPane::Apps { sort }
+            | FsPane::Stash { sort, .. }
             | FsPane::Nav { sort, .. } => sort,
         }
     }
@@ -282,7 +296,10 @@ impl FsPane {
             | FsPane::Search { vis, .. }
             | FsPane::Nav { vis, .. } => Some(*vis),
 
-            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. } => None,
+            FsPane::Files { .. }
+            | FsPane::Folders { .. }
+            | FsPane::Apps { .. }
+            | FsPane::Stash { .. } => None,
         }
     }
 
@@ -299,21 +316,74 @@ impl FsPane {
 
     #[inline]
     pub fn supports_sort(&self) -> bool {
-        // matches!(self, FsPane::Nav { .. } | FsPane::Rg { .. })
-        //     || matches!(self, |FsPane::Files { .. }| FsPane::Folders { .. }
-        //         | FsPane::Launch { .. })
-        //     || matches!(
-        //         self,
-        //         FsPane::Fd { .. } | FsPane::Custom { .. }
-        //     )
-        true
+        !self.sort_options().is_empty()
+    }
+
+    /// The sort orders this pane type can engage — the single source of
+    /// truth for the overlay list, the `n/m/a/s` keys, CLI/config validation,
+    /// and [`Self::supports_sort`].
+    ///
+    /// - Search panes delegate to rg's own flags (`--sort`/`--sortr`), which
+    ///   have no size sort.
+    /// - db panes order via SQL; `size` means entry count, `none` frecency,
+    ///   and mtime has no SQL arm (see [`SortOrder::label`]).
+    pub fn sort_options(&self) -> &'static [SortOrder] {
+        match self {
+            FsPane::Search { .. } => Self::search_sort_options(),
+            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. } => &[
+                SortOrder::name,
+                SortOrder::atime,
+                SortOrder::size,
+                SortOrder::none,
+            ],
+            // db pane: `atime` orders by add time; no size/frecency arms
+            FsPane::Stash { .. } => &[SortOrder::name, SortOrder::atime, SortOrder::none],
+            FsPane::Nav { .. } | FsPane::Find { .. } | FsPane::Custom { .. } => &[
+                SortOrder::name,
+                SortOrder::mtime,
+                SortOrder::atime,
+                SortOrder::size,
+                SortOrder::none,
+            ],
+        }
+    }
+
+    /// Sort options of [`FsPane::Search`] — usable without a pane instance
+    /// (CLI/config validation chokepoint).
+    pub fn search_sort_options() -> &'static [SortOrder] {
+        &[
+            SortOrder::name,
+            SortOrder::mtime,
+            SortOrder::atime,
+            SortOrder::none,
+        ]
+    }
+
+    /// Whether populate has finished injecting items — used by the selection
+    /// refill to wait out async populates. db panes populate in one batch and
+    /// don't track completion.
+    #[inline]
+    pub fn is_complete(&self) -> bool {
+        match self {
+            FsPane::Custom { complete, .. }
+            | FsPane::Find { complete, .. }
+            | FsPane::Search { complete, .. }
+            | FsPane::Nav { complete, .. } => complete.load(std::sync::atomic::Ordering::Acquire),
+            FsPane::Files { .. }
+            | FsPane::Folders { .. }
+            | FsPane::Apps { .. }
+            | FsPane::Stash { .. } => true,
+        }
     }
 
     #[inline]
     pub fn stability_threshold(&self) -> u32 {
         // 0 -> always sort
         match self {
-            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. } => 5,
+            FsPane::Files { .. }
+            | FsPane::Folders { .. }
+            | FsPane::Apps { .. }
+            | FsPane::Stash { .. } => 5,
             FsPane::Search {
                 filtering, sort, ..
             } => {
@@ -351,7 +421,8 @@ impl FsPane {
             | FsPane::Find { input, .. }
             | FsPane::Nav { input, .. }
             | FsPane::Files { input, .. }
-            | FsPane::Folders { input, .. } => input.0.clone(),
+            | FsPane::Folders { input, .. }
+            | FsPane::Stash { input, .. } => input.0.clone(),
 
             FsPane::Search {
                 input,
@@ -384,7 +455,10 @@ impl FsPane {
             | FsPane::Search { vis, .. }
             | FsPane::Nav { vis, .. } => Some(vis),
 
-            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. } => None,
+            FsPane::Files { .. }
+            | FsPane::Folders { .. }
+            | FsPane::Apps { .. }
+            | FsPane::Stash { .. } => None,
         }
     }
 }

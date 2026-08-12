@@ -6,7 +6,7 @@ use log::trace;
 use sqlx::Acquire;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const MAX_PLACEHOLDERS: usize = 200;
+pub(crate) const MAX_PLACEHOLDERS: usize = 200;
 
 // try not to use these externally
 impl Connection {

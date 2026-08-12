@@ -2,7 +2,6 @@
 use cba::{
     bait::{MaybeExt, TransformExt},
     bath::PathExt,
-    bo::{map_chunks, read_to_chunks},
     broc::CommandExt,
     ibog, wbog,
 };
@@ -38,18 +37,14 @@ use crate::{
     db::{DbTable, Pool, zoxide::RetryStrat},
     display::display_entries,
     errors::{CliError, DbError},
-    find::{
-        fd::{build_fd_args, last_query_starts_with_dot},
-        rg::build_rg_args,
-        walker::list_dir,
-    },
+    find::fd::last_query_starts_with_dot,
     lessfilter::{self, LessfilterConfig},
     run::{
         FsPane,
         mm_config::{get_mm_binds, get_mm_cfg},
         start,
         stash::STASH,
-        state::{InitialPreserveWhitespaceInSearch, InitialRelativePathSetting, STORE},
+        state::{InitialNoRelative, InitialPreserveWhitespaceInSearch, STORE},
     },
     shell::print_shell,
     spawn::{Program, open_wrapped},
@@ -135,10 +130,10 @@ async fn handle_info(
         }
 
         let template = cli.output.format.clone();
-        let output_separator = cli.output.sep.clone().unwrap_or_else(|| "\n".into());
+        let output_sep = cli.output.output_sep.clone().unwrap_or_else(|| "\n".into());
         if cmd.minimal {
             for entry in entries {
-                print(&entry.path, &template, &output_separator);
+                print(&entry.path, &template, &output_sep);
             }
         } else {
             // `now` must match the SQL order-by reference time:
@@ -193,6 +188,10 @@ async fn handle_rg(
             .unwrap_or(SortOrder::none),
     );
 
+    if !FsPane::search_sort_options().contains(&sort) {
+        return Err(CliError::UnsupportedSort(sort.to_string(), "rg"));
+    }
+
     if !cmd.no_read && !atty::is(atty::Stream::Stdin) {
         let valid_paths = std::io::stdin()
             .lock()
@@ -219,49 +218,19 @@ async fn handle_rg(
         .unwrap_or(cfg.global.panes.search.fixed_strings);
 
     if cmd.list {
-        let (prog, args) = (
-            "rg",
-            build_rg_args(
-                vis,
-                sort,
-                cmd.context.resolve(),
-                cmd.case.resolve(),
-                no_heading,
-                fixed_strings,
-                &cmd.patterns,
-                &cmd.paths,
-                &cmd.rg,
-                &cfg.global.rg,
-            ),
+        return super::list::rg_list(
+            vis,
+            sort,
+            cmd.context.resolve(),
+            cmd.case.resolve(),
+            no_heading,
+            fixed_strings,
+            &cmd.patterns,
+            &cmd.paths,
+            &cmd.rg,
+            &cfg,
+            &cli.output,
         );
-
-        let (_child, stdout) = match Command::new(prog).args(args).spawn_piped()._ebog() {
-            Some(s) => s,
-            None => return Err(CliError::Handled),
-        };
-
-        let template = cli.output.format.clone();
-        let output_separator = cli.output.sep.clone().unwrap_or_else(|| "\n".into());
-
-        let _ = map_chunks::<CliError>(
-            read_to_chunks(stdout, '\0'),
-            move |line| {
-                let path = if cfg.misc.list_absolute_paths {
-                    __cwd().join(PathBuf::from(line))
-                } else {
-                    PathBuf::from(line)
-                };
-
-                let push = vis.post_fd_filter(&path);
-
-                if push {
-                    print(&path, &template, &output_separator)
-                }
-                Ok(())
-            },
-            true,
-        );
-        return Ok(());
     };
 
     let pool = Pool::new_from_cfg(&cfg).await?;
@@ -323,8 +292,7 @@ async fn handle_dirs(
         // fallback to interactive if no match
         cfg.global.interface.alt_accept = true;
         cfg.global.interface.no_multi_accept = true;
-        STORE::set(InitialRelativePathSetting(cfg.styles.path.relative));
-        cfg.styles.path.relative = false;
+        STORE::set(InitialNoRelative);
     } else if let Some(all) = cmd.list {
         let mut conn = pool.get_conn(DbTable::dirs).await?;
 
@@ -333,22 +301,7 @@ async fn handle_dirs(
         }
         let db_filter = cfg.history.clone().with_keywords(cmd.query.clone());
 
-        for e in conn
-            .get_entries(cmd.sort, &db_filter, DbTable::dirs)
-            .await?
-        {
-            match e.path.to_str() {
-                Some(s) => {
-                    prints!(s)
-                }
-                None => {
-                    if matches!(all, ListMode::All) {
-                        prints!(e.path.to_string_lossy())
-                    }
-                }
-            }
-        }
-        return Ok(());
+        return super::list::dirs_list(&mut conn, cmd.sort, &db_filter, all, &cli.output).await;
     }
 
     let input = if !cmd.initial_input.is_empty() {
@@ -527,7 +480,7 @@ async fn handle_default(
                 cmd.types,
                 cmd.paths,
                 cmd.fd,
-                cmd.lua_path_transform,
+                cmd.transform,
             )
         }
     } else if
@@ -561,7 +514,9 @@ async fn handle_default(
             AbsPath::new_unchecked(if cfg.global.fd.reduce_paths {
                 paths_base(&cmd.paths[0..cmd.paths.len() - 1])
             } else {
-                cmd.paths.remove(0).abs(current_dir().__ebog())
+                let ret = cmd.paths[0].abs(current_dir().__ebog());
+                cmd.paths[0] = ".".into();
+                ret
             })
         };
 
@@ -592,37 +547,7 @@ async fn handle_default(
                 vis.hidden = true;
             }
 
-            let (prog, args) = (
-                "fd",
-                build_fd_args(vis, &cmd.types, &cmd.paths, &cmd.fd, &cfg.global.fd),
-            );
-
-            let (_child, stdout) = match Command::new(prog).args(args).spawn_piped()._ebog() {
-                Some(s) => s,
-                None => return Err(CliError::Handled),
-            };
-
-            let template = cli.output.format.clone();
-            let output_separator = cli.output.sep.clone().unwrap_or_else(|| "\n".into());
-
-            let _ = map_chunks::<CliError>(
-                read_to_chunks(stdout, '\0'),
-                move |line| {
-                    let path = if cfg.misc.list_absolute_paths {
-                        __cwd().join(PathBuf::from(line))
-                    } else {
-                        PathBuf::from(line)
-                    };
-                    let push = vis.post_fd_filter(&path);
-
-                    if push {
-                        print(&path, &template, &output_separator)
-                    }
-                    Ok(())
-                },
-                true,
-            );
-            return Ok(());
+            return super::list::fd_list(vis, &cmd.types, &cmd.paths, &cmd.fd, &cfg, &cli.output);
         };
 
         let vis = resolve_fd_visibility(cmd.vis, &cmd, &cfg);
@@ -633,7 +558,7 @@ async fn handle_default(
             cmd.types,
             cmd.paths,
             cmd.fd,
-            cmd.lua_path_transform,
+            cmd.transform,
         )
     } else {
         let DefaultCommand { sort, .. } = cmd;
@@ -647,42 +572,7 @@ async fn handle_default(
             );
 
         if cmd.list {
-            let iter = list_dir(cwd, vis, 1); // cwd is abs so we can add results as unchecked
-            let sort = sort.unwrap_or_default();
-            let template = cli.output.format.clone();
-            let output_separator = cli.output.sep.clone().unwrap_or_else(|| "\n".into());
-
-            match sort {
-                SortOrder::none => {
-                    for path in iter {
-                        print(&path, &template, &output_separator)
-                    }
-                }
-                _ => {
-                    let mut files: Vec<PathBuf> = iter.collect();
-
-                    match sort {
-                        SortOrder::name => files.sort_by(|a, b| a.file_name().cmp(&b.file_name())),
-                        SortOrder::mtime => todo!(),
-                        SortOrder::atime => files.sort_by(|a, b| {
-                            let aa = std::fs::metadata(a).and_then(|m| m.accessed());
-                            let ab = std::fs::metadata(b).and_then(|m| m.accessed());
-                            match (aa, ab) {
-                                (Ok(a), Ok(b)) => b.cmp(&a),
-                                (Ok(_), Err(_)) => std::cmp::Ordering::Less,
-                                (Err(_), Ok(_)) => std::cmp::Ordering::Greater,
-                                (Err(_), Err(_)) => std::cmp::Ordering::Equal,
-                            }
-                        }),
-                        SortOrder::size => crate::find::size::sort_by_size(&mut files),
-                        _ => unreachable!(),
-                    }
-
-                    for path in files.into_iter() {
-                        print(&path, &template, &output_separator)
-                    }
-                }
-            }
+            super::list::nav_list(cwd, vis, sort.unwrap_or_default(), &cli.output);
             return Ok(());
         };
 
@@ -711,10 +601,7 @@ async fn handle_custom(
     if cmd.cd {
         cfg.global.interface.alt_accept = true;
         cfg.history.show_missing = false;
-
-        // custom can only occur as the first pane, this ensures paths are not modified in display
-        STORE::set(cfg.styles.path.relative);
-        cfg.styles.path.relative = false;
+        STORE::set(InitialNoRelative);
     };
 
     let pool = Pool::new_from_cfg(&cfg).await?;
@@ -730,11 +617,9 @@ async fn handle_custom(
         cmd_,
         keep_store,
         sort,
-        cmd.lua_renderer,
-        cmd.lua_render_tail,
-        cmd.lua_path_transform,
-        cmd.delim,
-        cmd.record_sep,
+        cmd.transform,
+        cmd.tail_sep,
+        cmd.input_sep,
     );
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
@@ -1144,14 +1029,14 @@ async fn handle_tools(
 pub fn print(
     path: &std::path::Path,
     template: &Option<String>,
-    output_separator: &str,
+    output_sep: &str,
 ) {
     let mut display = if let Some(template) = &template {
         format_path(template, &AbsPath::new(path))
     } else {
         path.to_string_lossy().into()
     };
-    display.push_str(output_separator);
+    display.push_str(output_sep);
     print!("{display}")
 }
 

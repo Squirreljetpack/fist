@@ -1,17 +1,16 @@
 ### PANES ###
-#
 [panes.nav]
 show_preview = 60
-enter_prompt = false
+lock_prompt = false
 
 # default_visibility = { hidden = true }
 
 [panes.find]
 show_preview = 60
-enter_prompt = true
+lock_prompt = true
 
 [panes.search]
-enter_prompt = true
+lock_prompt = true
 show_preview = 20
 preview_layout_index = 1
 
@@ -30,10 +29,10 @@ preview_layout_index = 3
 show_preview = true
 
 ### STYLES ####
-#
+
 [styles]
 ### SETTINGS ###
-#
+
 [fd]
 dot_query_show_hidden = "Always"
 
@@ -51,5 +50,8 @@ refind = "Search"
 
 [actions]
 ### MISC ###
+
 [interface]
-move_cursor_with_advance_and_parent_in_prompt = true
+prompt_locking = true
+# hide the preview while locked onto the cwd (cursor_disabled)
+hide_preview_when_cursor_disabled = false

@@ -1,19 +1,19 @@
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::OnceLock;
 
 use crate::config::ui::StyleConfig;
 use ratatui::style::Style;
 
-static PATH_DISPLAY_CONFIG: RwLock<StyleConfig> = RwLock::new(StyleConfig::DEFAULT);
+static PATH_DISPLAY_CONFIG: OnceLock<StyleConfig> = OnceLock::new();
 
 pub fn global_ui_init(style_cfg: StyleConfig) {
-    *PATH_DISPLAY_CONFIG.write().unwrap() = style_cfg
+    PATH_DISPLAY_CONFIG
+        .set(style_cfg)
+        .expect("global UI config initialized more than once");
 }
-pub fn global_ui_mut() -> RwLockWriteGuard<'static, StyleConfig> {
-    PATH_DISPLAY_CONFIG.write().unwrap()
-}
-
-pub fn global_ui() -> RwLockReadGuard<'static, StyleConfig> {
-    PATH_DISPLAY_CONFIG.read().unwrap()
+pub fn global_ui() -> &'static StyleConfig {
+    PATH_DISPLAY_CONFIG
+        .get()
+        .expect("global UI config not initialized")
 }
 
 pub fn prompt_main_style() -> Style {

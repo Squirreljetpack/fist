@@ -89,7 +89,7 @@ _fs() {
 
     case "${cmd}" in
         fs)
-            opts="-h -I -a -F -f -A -t -V --verbosity --override --config --mm-config --dump-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener --sort --no-all --cd --types --path-transforms --reset-visibility --list --help --version :open :o :file :dir :fd :: :custom :c :rg : :tool :t :info"
+            opts="-h -I -a -F -f -A -t -V --verbosity --override --config --mm-config --dump-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener --sort --no-all --cd --types --transform --reset-visibility --list --help --version :open :o :file :dir :fd :: :custom :c :rg : :tool :t :info"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -119,11 +119,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -167,7 +167,7 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --path-transforms)
+                --transform)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -179,7 +179,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:custom)
-            opts="-h -I -a -F -f --cd --sort --lua-renderer --lua-render-tail --path-transforms --delim --record-sep --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="-h -I -a -F -f --cd --sort --transform --tail-sep --input-sep --help --verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -209,23 +209,15 @@ _fs() {
                     COMPREPLY=($(compgen -W "name mtime atime size none" -- "${cur}"))
                     return 0
                     ;;
-                --lua-renderer)
+                --transform)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --lua-render-tail)
+                --tail-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --path-transforms)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --delim)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --record-sep)
+                --input-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -253,11 +245,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -277,7 +269,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:dir)
-            opts="-l --sort --list --cd --initial-input --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="-l --sort --list --cd --initial-input --help --verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -323,11 +315,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -347,7 +339,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:fd)
-            opts="-h -I -a -F -f -A -t --sort --no-all --cd --types --path-transforms --reset-visibility --list --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="-h -I -a -F -f -A -t --sort --no-all --cd --types --transform --reset-visibility --list --help --verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -385,7 +377,7 @@ _fs() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --path-transforms)
+                --transform)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -413,11 +405,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -437,7 +429,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:file)
-            opts="-l --sort --list --query --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="-l --sort --list --query --help --verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -483,11 +475,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -507,7 +499,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:info)
-            opts="-l -m --sort --limit --minimal --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener apps files dirs"
+            opts="-l -m --sort --limit --minimal --help --verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener apps files dirs"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -549,11 +541,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -573,7 +565,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:open)
-            opts="-w --with --list --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="-w --with --list --help --verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -611,11 +603,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -635,7 +627,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:rg)
-            opts="-h -I -a -F -f -p -i -s -S -A -B -C -1 --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --one-line --fixed-strings --no-fixed-strings --preserve-whitespace --rebase --filtering --no-heading --list --query --no-read --help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="-h -I -a -F -f -p -i -s -S -A -B -C -1 --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --one-line --fixed-strings --no-fixed-strings --preserve-whitespace --rebase --filtering --no-heading --list --query --no-read --help --verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -729,11 +721,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -753,7 +745,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool)
-            opts="--help --verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener colors liza shell lessfilter pager bump trash show-binds types"
+            opts="--help --verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener colors liza shell lessfilter pager bump trash show-binds types"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -783,11 +775,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -807,7 +799,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool__subcmd__bump)
-            opts="--verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="--verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -837,11 +829,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -861,7 +853,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool__subcmd__colors)
-            opts="--verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="--verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -891,11 +883,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -915,7 +907,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool__subcmd__lessfilter)
-            opts="--verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="--verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -945,11 +937,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -969,7 +961,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool__subcmd__liza)
-            opts="--verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="--verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -999,11 +991,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1023,7 +1015,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool__subcmd__pager)
-            opts="--verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="--verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1053,11 +1045,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1077,7 +1069,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool__subcmd__shell)
-            opts="--verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="--verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1107,11 +1099,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1131,7 +1123,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool__subcmd__show__subcmd__binds)
-            opts="--verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="--verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1161,11 +1153,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1185,7 +1177,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool__subcmd__trash)
-            opts="--verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="--verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1215,11 +1207,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -1239,7 +1231,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool__subcmd__types)
-            opts="--verbosity --override --config --mm-config --style --fullscreen --enter-prompt --alt-accept --sep --format --opener"
+            opts="--verbosity --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1269,11 +1261,11 @@ _fs() {
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --enter-prompt)
+                --lock-prompt)
                     COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
-                --sep)
+                --output-sep)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

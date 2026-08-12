@@ -1,6 +1,6 @@
 mod program;
 use std::ffi::OsString;
-use std::sync::RwLock;
+use std::sync::Mutex;
 pub mod menu_action;
 pub mod utils;
 
@@ -126,17 +126,17 @@ pub fn open(
     (!words.is_empty()).then(|| spawn(&words))
 }
 
-static SPAWN_WITH: RwLock<Vec<String>> = RwLock::new(Vec::new());
+static SPAWN_WITH: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 pub fn init_spawn_with(cmd: Vec<String>) {
-    let mut guard = SPAWN_WITH.write().unwrap();
+    let mut guard = SPAWN_WITH.lock().unwrap();
     *guard = cmd;
 }
 
 /// Requires words is nonempty
 /// submit words for shell/spawn_with to execute
 pub fn spawn(words: &[OsString]) -> Command {
-    if let Ok(with) = SPAWN_WITH.read().as_ref()
+    if let Ok(with) = SPAWN_WITH.lock().as_ref()
         && !with.is_empty()
     {
         let script = format_sh_command(words, false);

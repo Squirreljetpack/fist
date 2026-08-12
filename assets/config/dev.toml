@@ -2,18 +2,18 @@
 #
 [panes.nav]
 show_preview = 60
-enter_prompt = false
+lock_prompt = false
 
 default_visibility = { hidden = true }
 
 [panes.find]
 show_preview = 60
-enter_prompt = true
+lock_prompt = true
 
 on_leave_unset_dirs_only = true
 
 [panes.search]
-enter_prompt = true
+lock_prompt = true
 show_preview = 20
 preview_layout_index = 1
 

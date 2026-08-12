@@ -10,17 +10,17 @@ use cba::{
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
-    cli::{CliOpts, paths::*},
-    lessfilter::Preset,
-    spawn::menu_action::MenuActions,
-};
-use crate::{
     cli::{
         clap_helpers::ClapStyleOverride,
         paths::{liza_path, text_renderer_path},
     },
     db::zoxide::HistoryConfig,
     watcher::WatcherConfig,
+};
+use crate::{
+    cli::{paths::*, CliOpts},
+    lessfilter::Preset,
+    spawn::menu_action::MenuActions,
 };
 use fist_types::When;
 
@@ -148,7 +148,15 @@ pub struct InterfaceConfig {
     pub no_multi_accept: bool,
     /// When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
-    pub move_cursor_with_advance_and_parent_in_prompt: bool,
+    /// When false, entering the prompt mode is disabled: `lock_prompt`
+    /// no-ops on entry, so the direct pathways — the LockPrompt action
+    /// (alt-space), the per-pane `lock_prompt` config, and `--lock-prompt`
+    /// — do nothing, and the prompt exists only as the cwd lock
+    /// ([`crate::run::ahandlers::enter_prompt`], entered via Up/Down past
+    /// the ends or AutoJump(0)). Leaving the prompt is never gated.
+    pub prompt_locking: bool,
+    /// Hide the preview while the cursor is disabled (locked onto the cwd).
+    pub hide_preview_when_cursor_disabled: bool,
 
     // display
     /// The prefix to display when the cursor is in the prompt.
@@ -157,8 +165,6 @@ pub struct InterfaceConfig {
     pub toast_on_empty: bool,
     /// If [AutoJump](`crate::run::FsAction::AutoJump`) should accept or advance
     pub autojump_advance: bool,
-    pub dim_prompt: bool,
-    pub dim_status: bool,
 }
 
 impl Default for InterfaceConfig {
@@ -171,9 +177,8 @@ impl Default for InterfaceConfig {
             cwd_prompt: "{} ".into(),
             toast_on_empty: true,
             autojump_advance: false,
-            dim_prompt: false,
-            dim_status: true,
-            move_cursor_with_advance_and_parent_in_prompt: false,
+            prompt_locking: false,
+            hide_preview_when_cursor_disabled: false,
         }
     }
 }
@@ -242,10 +247,23 @@ impl Default for RgConfig {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FsConfig {
     pub rename_policy: RenamePolicy,
+    /// Preserve selections across reloads: selections are saved as hashed
+    /// absolute paths before the worker restart and rehydrated once the
+    /// fresh listing lands (see [`crate::run::selection`]).
+    pub refill_selections_after_reload: bool,
+}
+
+impl Default for FsConfig {
+    fn default() -> Self {
+        Self {
+            rename_policy: Default::default(),
+            refill_selections_after_reload: true,
+        }
+    }
 }
 
 // -------------- IMPL --------------------------
@@ -384,5 +402,46 @@ mod tests {
             toml::from_str(include_str!("../../assets/config/lessfilter.dev.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.dev.toml")).unwrap();
+    }
+
+    #[test]
+    fn deserialize_tui_clipboard_options() {
+        let cfg: MMConfig = toml::from_str(
+            r#"
+            [tui]
+            osc52 = false
+            copy_trailing_newline = true
+            "#,
+        )
+        .unwrap();
+        assert!(!cfg.tui.osc52);
+        assert!(cfg.tui.copy_trailing_newline);
+
+        let defaults: MMConfig = toml::from_str("[tui]").unwrap();
+        assert!(defaults.tui.osc52);
+        assert!(!defaults.tui.copy_trailing_newline);
+    }
+
+    #[test]
+    fn deserialize_notify_thrash() {
+        let cfg: Config = toml::from_str(
+            r#"
+            [notify]
+            [notify.thrash_threshold]
+            count = 3
+            duration_ms = 1000
+            resume_delay_ms = 500
+            "#,
+        )
+        .unwrap();
+        assert_eq!(cfg.notify.thrash_threshold.count, 3);
+        assert_eq!(
+            cfg.notify.thrash_threshold.duration_ms,
+            std::time::Duration::from_secs(1)
+        );
+        assert_eq!(
+            cfg.notify.thrash_threshold.resume_delay_ms,
+            std::time::Duration::from_millis(500)
+        );
     }
 }

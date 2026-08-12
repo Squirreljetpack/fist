@@ -6,13 +6,10 @@
 
 #[cfg(feature = "mm_overrides")]
 use {
-    crate::cli::mm_partial_parse::{get_pairs, try_split_kv},
+    crate::cli::mm_partial::{get_pairs, try_split_kv},
     anyhow::bail,
     cba::{
-        bait::ResultExt,
-        bog::BogOkExt,
-        bring::split::split_whitespace_preserving_nesting,
-        wbog,
+        bait::ResultExt, bog::BogOkExt, bring::split::split_whitespace_preserving_nesting, wbog,
     },
     matchmaker::config::PartialRenderConfig,
     matchmaker_partial::Set,
@@ -63,8 +60,7 @@ fn parse_mm_overrides(args: Vec<String>) -> anyhow::Result<PartialRenderConfig> 
         let parts =
             match split_whitespace_preserving_nesting(&val, Some(['(', ')']), Some(['[', ']'])) {
                 Ok(mut parts) => {
-                    let is_binds =
-                        parts.len() == 1 && ["binds", "b"].contains(&parts[0].as_ref());
+                    let is_binds = parts.len() == 1 && ["binds", "b"].contains(&parts[0].as_ref());
                     try_split_kv(&mut parts, is_binds)?;
                     parts
                 }

@@ -1,8 +1,8 @@
 use cba::{bath::find_root, bog::BogUnwrapExt, ebog, expr_as_path_fn};
 use std::{env, ffi::OsString, path::PathBuf};
 
-pub static BINARY_FULL: &str = "fist";
-pub static BINARY_SHORT: &str = "fs";
+pub const BINARY_FULL: &str = "fist";
+pub const BINARY_SHORT: &str = "fs";
 
 // ---------------------- DIRS ----------------------
 // config defaults

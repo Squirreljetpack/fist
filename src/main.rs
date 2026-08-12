@@ -11,7 +11,7 @@ use fist::{
     cli::{
         Cli, SubCmd, ToolsCmd,
         handlers::handle_subcommand,
-        paths::{BINARY_FULL, config_path, lessfilter_cfg_path},
+        paths::{BINARY_FULL, lessfilter_cfg_path},
     },
     config::Config,
     errors::CliError,
@@ -21,9 +21,10 @@ use matchmaker::MatchError;
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
     let cli = Cli::parse_custom();
-    let verbosity = cli.opts.verbosity();
+    #[allow(unused)]
+    let mut verbosity = cli.opts.verbosity();
 
-    bog::init_bogger(true, false);
+    bog::init_bogger(true, true);
     if matches!(
         cli.subcommand,
         SubCmd::Tools(ToolsCmd {
@@ -36,20 +37,24 @@ async fn main() {
 
     // update configs when debug
     #[cfg(debug_assertions)]
-    use fist::cli::paths::mm_cfg_path;
-    #[cfg(debug_assertions)]
-    if cli.opts.mm_config == mm_cfg_path() && cli.opts.config == config_path() {
-        write_str(config_path(), include_str!("../assets/config/dev.toml"))._ebog();
-        write_str(mm_cfg_path(), include_str!("../assets/config/mm.dev.toml"))._ebog();
-        write_str(
-            lessfilter_cfg_path(),
-            include_str!("../assets/config/lessfilter.dev.toml"),
-        )
-        ._ebog();
+    {
+        use fist::cli::paths::{config_path, mm_cfg_path};
+
+        verbosity = 10;
+
+        if cli.opts.mm_config == mm_cfg_path() && cli.opts.config == config_path() {
+            write_str(config_path(), include_str!("../assets/config/dev.toml"))._ebog();
+            write_str(mm_cfg_path(), include_str!("../assets/config/mm.dev.toml"))._ebog();
+            write_str(
+                lessfilter_cfg_path(),
+                include_str!("../assets/config/lessfilter.dev.toml"),
+            )
+            ._ebog();
+        }
     }
 
     // load config
-    let mut cfg: Config = load_type_or_default(config_path(), |s| toml::from_str(s));
+    let mut cfg: Config = load_type_or_default(&cli.opts.config, |s| toml::from_str(s));
     cfg.override_from(&cli.opts);
 
     if cli.opts.dump_config {
@@ -58,8 +63,6 @@ async fn main() {
 
     // ensure necessary directories/files (scripts) exist
     check(&cfg);
-
-    // skip tool logging when not in append mode (mainly lessfilter)
 
     let (log_path, append) = if matches!(
         cli.subcommand,
@@ -99,6 +102,7 @@ fn init_logger(
     append: bool,
 ) {
     // init bogger
+    #[allow(unused_imports)]
     use log::LevelFilter::*;
     bog::init_bogger(true, true);
     bog::init_filter(verbosity);

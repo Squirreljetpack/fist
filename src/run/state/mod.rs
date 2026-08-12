@@ -1,5 +1,8 @@
 #![allow(non_snake_case)]
-use std::{cell::RefCell, sync::Mutex};
+use std::{
+    cell::OnceCell,
+    sync::{Mutex, OnceLock},
+};
 
 use cba::bait::ResultExt;
 use log::debug;
@@ -8,7 +11,6 @@ use ratatui::{
     style::{Color, Style},
     text::{Line, Span},
 };
-use tokio;
 
 use crate::config::GlobalConfig;
 use crate::{
@@ -32,9 +34,7 @@ pub use temp::*;
 
 // ------------- TRACKING -----------------------
 
-// just try different kinds of locks :p
-pub static DB_FILTER: tokio::sync::Mutex<Option<HistoryConfig>> =
-    const { tokio::sync::Mutex::const_new(None) };
+pub static DB_FILTER: OnceLock<HistoryConfig> = OnceLock::new();
 // ------------- READ_ONLY ------------------------
 pub mod GLOBAL {
     use matchmaker::{event::BindSender, message::BindDirective};
@@ -43,15 +43,15 @@ pub mod GLOBAL {
 
     use super::*;
     thread_local! {
-        static CONFIG: RefCell<Option<GlobalConfig>> = const { RefCell::new(None) };
-        static DB: RefCell<Option<Pool>> = const { RefCell::new(None) };
-        static BIND_TX: RefCell<Option<BindSender<FsAction>>> = const { RefCell::new(None) };
+        static CONFIG: OnceCell<GlobalConfig> = const { OnceCell::new() };
+        static DB: OnceCell<Pool> = const { OnceCell::new() };
+        static BIND_TX: OnceCell<BindSender<FsAction>> = const { OnceCell::new() };
     }
-    static RENDER_TX: Mutex<Option<RenderSender<FsAction>>> = const { Mutex::new(None) };
-    static WATCHER_TX: Mutex<Option<WatcherSender>> = const { Mutex::new(None) };
+    static RENDER_TX: OnceLock<RenderSender<FsAction>> = OnceLock::new();
+    static WATCHER_TX: OnceLock<WatcherSender> = OnceLock::new();
 
     /// All global methods can be called iff this has been called
-    /// DB_FILTER needs to be initialized seperately with async
+    /// DB_FILTER needs to be initialized separately
     pub fn init(
         cfg: GlobalConfig,
         stash_cfg: StashLogicConfig,
@@ -71,16 +71,17 @@ pub mod GLOBAL {
             _ => Default::default(),
         };
         debug!("Initial filters: {sort}, {visibility:?}");
-        sort::set_sort(sort);
         FILTERS::set(visibility);
 
         crate::run::stash::STASH::init(stash_cfg.modes.clone());
 
-        CONFIG.with(|c| *c.borrow_mut() = Some(cfg));
-        *RENDER_TX.lock().unwrap() = Some(render_tx);
-        *WATCHER_TX.lock().unwrap() = Some(watcher_tx);
-        DB.with(|d| *d.borrow_mut() = Some(db_pool));
-        BIND_TX.with(|d| *d.borrow_mut() = Some(bind_tx));
+        CONFIG.with(|c| c.set(cfg).expect("GLOBAL::init called twice"));
+        RENDER_TX.set(render_tx).expect("GLOBAL::init called twice");
+        WATCHER_TX
+            .set(watcher_tx)
+            .expect("GLOBAL::init called twice");
+        DB.with(|d| d.set(db_pool).expect("GLOBAL::init called twice"));
+        BIND_TX.with(|d| d.set(bind_tx).expect("GLOBAL::init called twice"));
         STACK::init(pane);
     }
 
@@ -89,51 +90,50 @@ pub mod GLOBAL {
     where
         F: FnOnce(&GlobalConfig) -> R,
     {
-        CONFIG.with(|c| f(c.borrow().as_ref().unwrap()))
+        CONFIG.with(|c| f(c.get().expect("GLOBAL::init not called")))
     }
 
     // ------------ SENDERS --------------
     pub fn send_action(action: impl Into<Action<FsAction>>) {
-        let guard = RENDER_TX.lock().unwrap();
-        let tx = guard.as_ref().expect("render tx missing");
-
-        tx.send(matchmaker::message::RenderCommand::Action(action.into()))
+        RENDER_TX
+            .get()
+            .expect("render tx missing")
+            .send(matchmaker::message::RenderCommand::Action(action.into()))
             ._elog();
     }
 
     pub fn send_mm(msg: matchmaker::message::RenderCommand<FsAction>) {
-        let guard = RENDER_TX.lock().unwrap();
-        let tx = guard.as_ref().expect("render tx missing");
-
-        tx.send(msg)._elog();
+        RENDER_TX
+            .get()
+            .expect("render tx missing")
+            .send(msg)
+            ._elog();
     }
 
-    /// must be called in initializing thread
     pub fn send_watcher(msg: WatcherMessage) {
-        let guard = WATCHER_TX.lock().unwrap();
-        let tx = guard.as_ref().expect("watcher tx missing");
-        tx.send(msg)._elog();
+        WATCHER_TX
+            .get()
+            .expect("watcher tx missing")
+            .send(msg)
+            ._elog();
     }
     pub fn send_bind(msg: BindDirective<FsAction>) {
         BIND_TX.with(|tx| {
-            let guard = tx.borrow();
-            let tx = guard.as_ref().expect("bind tx missing");
-            tx.send(msg)._elog();
+            tx.get().expect("bind tx missing").send(msg)._elog();
         });
     }
 
     // ------------ DB ---------------------------
     /// must be called in initializing thread
     pub fn db() -> Pool {
-        DB.with(|cell| cell.borrow().as_ref().unwrap().clone())
+        DB.with(|cell| cell.get().expect("GLOBAL::init not called").clone())
     }
 
     pub async fn get_db_entries(
         conn: &mut Connection,
         sort: SortOrder,
     ) -> Result<Vec<crate::db::Entry>, DbError> {
-        let guard = DB_FILTER.lock().await;
-        let config = guard.as_ref().unwrap();
+        let config = DB_FILTER.get().expect("DB_FILTER not initialized");
         conn.get_entries(sort, config, conn.table).await
     }
 }
