@@ -88,7 +88,6 @@ async fn handle_open(
 
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
-        STASH::set_scratch("app");
         for path in cmd.files {
             STASH::stash("app", AbsPath::new_unchecked(path));
         }

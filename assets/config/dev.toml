@@ -47,19 +47,4 @@ refind = "Search"
 
 ### ACTIONS ####
 
-[stash.backup]
-scratch = false
-target = true
-strategy = "copy"
-
-[stash.work]
-scratch = true
-target = false
-strategy = "none"
-
-[stash.scripts]
-scratch = true
-target = true
-strategy = { command = "echo {1} to {2}" }
-
 [actions]

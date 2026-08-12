@@ -30,17 +30,18 @@ pub fn write_osc52(text: &str) -> io::Result<()> {
     // Over SSH, $SSH_TTY points at the exact device file; otherwise use the
     // process's controlling terminal.
     let tty_path = env::var("SSH_TTY").unwrap_or_else(|_| "/dev/tty".to_string());
+    let is_tmux = env::var("TMUX").is_ok();
+    let seq = sequence(text, is_tmux);
 
     match OpenOptions::new().write(true).open(&tty_path) {
         Ok(mut tty_file) => {
-            // A direct TTY write bypasses stdout and any multiplexer stream.
-            tty_file.write_all(sequence(text, false).as_bytes())?;
+            // Write to controlling TTY device (wrapped for tmux if inside tmux)
+            tty_file.write_all(seq.as_bytes())?;
             tty_file.flush()?;
         }
         Err(_) => {
             // Fallback when the TTY is unavailable (e.g. Windows): stdout,
             // wrapped for tmux if we are inside it.
-            let seq = sequence(text, env::var("TMUX").is_ok());
             let mut stdout = io::stdout();
             stdout.write_all(seq.as_bytes())?;
             stdout.flush()?;

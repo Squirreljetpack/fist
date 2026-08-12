@@ -6,37 +6,39 @@ use ratatui::text::Span;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use crate::osc52;
 use crate::run::item::short_display;
 use crate::run::state::{GLOBAL, TASKS, TOAST};
+use crate::utils::osc52;
 use crate::utils::text::ToastStyle;
 
-/// The clipboard slot: `Some` = local arboard backend, `None` = OSC52.
-///
-/// The backend is chosen once in [`init`] and is authoritative: with
-/// `[tui].osc52` enabled arboard is never initialized; with it disabled a
-/// failed arboard initialization is logged and the slot stays `None`, so copy
-/// dispatch falls back to OSC52 (the only remaining route).
-pub type FsClipboard = Option<Clipboard>;
+/// Holds the local arboard handle (if active) and configuration options.
+pub struct FsClipboard {
+    pub arboard: Option<Clipboard>,
+    pub copy_trailing_newline: bool,
+    pub item_delay: Duration,
+}
 
-pub static CLIPBOARD: Mutex<FsClipboard> = Mutex::new(None);
-pub static CLIPBOARD_SLEEP_MS: AtomicU64 = AtomicU64::new(20);
+pub static CLIPBOARD: Mutex<Option<FsClipboard>> = Mutex::new(None);
 
 pub fn init(
     cb_sleep: u64,
     osc52: bool,
+    copy_trailing_newline: bool,
 ) {
     let err_prefix = "Failed to initialize clipboard";
-    CLIPBOARD_SLEEP_MS.store(cb_sleep, Ordering::Release);
     if let Ok(mut cb) = CLIPBOARD.lock().ok().elog(err_prefix) {
-        *cb = if osc52 {
+        let arboard = if osc52 {
             None
         } else {
             Clipboard::new().prefix(err_prefix)._elog()
         };
+        *cb = Some(FsClipboard {
+            arboard,
+            copy_trailing_newline,
+            item_delay: Duration::from_millis(cb_sleep),
+        });
     }
 }
 
@@ -83,8 +85,17 @@ fn report_osc52(
     }
 }
 
-fn item_delay() -> Duration {
-    Duration::from_millis(CLIPBOARD_SLEEP_MS.load(Ordering::Relaxed))
+pub fn apply_newline_policy(
+    text: &mut String,
+    copy_trailing_newline: bool,
+) {
+    if !copy_trailing_newline && text.ends_with('\n') {
+        text.pop();
+
+        if text.ends_with('\r') {
+            text.pop();
+        }
+    }
 }
 
 pub fn copy_texts(
@@ -96,7 +107,11 @@ pub fn copy_texts(
     }
     TASKS::spawn_blocking(move || {
         let mut guard = CLIPBOARD.lock().unwrap();
-        match guard.as_mut() {
+        let item_delay = guard
+            .as_ref()
+            .map_or(Duration::from_millis(20), |fcb| fcb.item_delay);
+        let arboard_opt = guard.as_mut().and_then(|fcb| fcb.arboard.as_mut());
+        match arboard_opt {
             Some(cb) => {
                 let mut success = Vec::new();
                 let mut failed = Vec::new();
@@ -106,7 +121,7 @@ pub fn copy_texts(
                         Err(_) => failed.push(Span::from(text.clone())),
                     }
                     if i + 1 < texts.len() {
-                        std::thread::sleep(item_delay());
+                        std::thread::sleep(item_delay);
                     }
                 }
                 drop(guard);
@@ -137,7 +152,11 @@ pub fn copy_paths_as_text(
     TASKS::spawn_blocking(move || {
         let spans: Vec<Span<'static>> = paths.iter().map(|p| short_display(p)).collect();
         let mut guard = CLIPBOARD.lock().unwrap();
-        match guard.as_mut() {
+        let item_delay = guard
+            .as_ref()
+            .map_or(Duration::from_millis(20), |fcb| fcb.item_delay);
+        let arboard_opt = guard.as_mut().and_then(|fcb| fcb.arboard.as_mut());
+        match arboard_opt {
             Some(cb) => {
                 let mut success = Vec::new();
                 let mut failed = Vec::new();
@@ -147,7 +166,7 @@ pub fn copy_paths_as_text(
                         Err(_) => failed.push(short_display(path)),
                     }
                     if i + 1 < paths.len() {
-                        std::thread::sleep(item_delay());
+                        std::thread::sleep(item_delay);
                     }
                 }
                 drop(guard);
@@ -177,7 +196,11 @@ pub fn copy_files(
     TASKS::spawn_blocking(move || {
         let spans: Vec<Span<'static>> = paths.iter().map(|p| short_display(p)).collect();
         let mut guard = CLIPBOARD.lock().unwrap();
-        match guard.as_mut() {
+        let item_delay = guard
+            .as_ref()
+            .map_or(Duration::from_millis(20), |fcb| fcb.item_delay);
+        let arboard_opt = guard.as_mut().and_then(|fcb| fcb.arboard.as_mut());
+        match arboard_opt {
             Some(cb) => {
                 let mut success = Vec::new();
                 let mut failed = Vec::new();
@@ -215,7 +238,7 @@ pub fn copy_files(
                     }
 
                     if i + 1 < paths.len() {
-                        std::thread::sleep(item_delay());
+                        std::thread::sleep(item_delay);
                     }
                 }
                 drop(guard);
@@ -240,16 +263,21 @@ pub fn copy_files(
 /// backend. Owns the whole lock boundary: lock `CLIPBOARD`, write, unlock,
 /// then toast/redraw.
 pub fn copy_text(
-    text: String,
+    mut text: String,
     toast: bool,
 ) {
-    if text.is_empty() {
-        return;
-    }
     TASKS::spawn_blocking(move || {
-        let span = text_summary(&text);
         let mut guard = CLIPBOARD.lock().unwrap();
-        match guard.as_mut() {
+        let copy_trailing_newline = guard
+            .as_ref()
+            .map_or(false, |fcb| fcb.copy_trailing_newline);
+        apply_newline_policy(&mut text, copy_trailing_newline);
+        if text.is_empty() {
+            return;
+        }
+        let span = text_summary(&text);
+        let arboard_opt = guard.as_mut().and_then(|fcb| fcb.arboard.as_mut());
+        match arboard_opt {
             Some(cb) => {
                 let result = cb.set_text(text);
                 drop(guard);
@@ -285,10 +313,7 @@ mod tests {
 
     #[test]
     fn serialize_paths_single_no_final_newline() {
-        assert_eq!(
-            serialize_paths(&[PathBuf::from("/tmp/a")]),
-            "/tmp/a"
-        );
+        assert_eq!(serialize_paths(&[PathBuf::from("/tmp/a")]), "/tmp/a");
     }
 
     #[test]

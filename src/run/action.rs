@@ -27,6 +27,7 @@ use crate::{
         item::short_display,
         pane::FsPane,
         stash::STASH,
+        stash::show_stash_variant,
         state::{
             AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, HideMetadata,
             InPrompt, MenuPrompt, STACK, STORE, TASKS, TOAST, context::ActionContext, sort,
@@ -81,14 +82,11 @@ pub enum FsAction {
     /// Clear the stack.
     ClearStash,
 
-    CycleStash(bool),
-    SwitchStash(String),
     /// Add the selection (or cwd) to the named stash and switch to its pane.
-    /// Empty name = the unnamed stash.
+    /// Switch to the named stash pane. Empty name = the unnamed stash.
     Stash(String),
-    /// Add the selection (or cwd) to the named stash without switching panes.
+    /// Add the selection (or cwd) to the named stash.
     AddStash(String),
-    ShowScratch,
 
     /// Show available actions on the current item(s).
     ShowMenu,
@@ -362,7 +360,6 @@ pub fn fsaction_aliaser(
 
             //  ------------- Overlay aliases --------------
             FsAction::ShowStash
-            | FsAction::ShowScratch
             | FsAction::ShowFilters
             | FsAction::Confirm
             | FsAction::ShowMenu
@@ -371,10 +368,8 @@ pub fn fsaction_aliaser(
                 acs![fa]
             }
             FsAction::ShowStash => {
-                acs![Action::Overlay(0)]
-            }
-            FsAction::ShowScratch => {
-                acs![Action::Overlay(1)]
+                // the stash overlay in a nav pane, the app view in the app pane
+                acs![Action::Overlay(show_stash_variant() as usize)]
             }
             FsAction::ShowFilters => {
                 acs![Action::Overlay(2)]
@@ -710,8 +705,6 @@ pub fn fsaction_handler(
             let (content, index) = state.get_content_and_index();
             STACK::save_input(content, index);
 
-            STORE::set(STASH::current_scratch());
-
             let pane = FsPane::new_launch();
             if STACK::set_or_push(pane) {
                 fs_reload(state, true, false);
@@ -892,15 +885,21 @@ pub fn fsaction_handler(
         }
 
         // Named stash actions: add the selection (or cwd) to the `stashes`
-        // db table; `Stash` additionally switches to the stash pane. The
-        // db task triggers a reload once the inserts complete.
-        fa @ (FsAction::Stash(_) | FsAction::AddStash(_)) => {
-            let (name, switch) = match fa {
-                FsAction::Stash(n) => (n, true),
-                FsAction::AddStash(n) => (n, false),
-                _ => unreachable!(),
-            };
+        // Switch to the named stash pane; does not stash anything — adding
+        // the selection is `AddStash`.
+        FsAction::Stash(name) => {
+            let (content, index) = state.get_content_and_index();
+            STACK::save_input(content, index);
+            // a same-variant current pane is replaced in place, which
+            // also covers switching between stash names
+            STACK::set_or_push(FsPane::new_stash(name, sort::get_sort().order));
+            fs_reload(state, true, false);
+        }
 
+        // Add the selection (or cwd) to the named stash (no pane switch);
+        // the db task reloads afterwards only when this stash pane was
+        // current at the time of stashing.
+        FsAction::AddStash(name) => {
             let mut toast_vec = vec![];
             let items = if state.picker_ui.results.cursor_disabled() {
                 STACK::cwd()
@@ -917,19 +916,10 @@ pub fn fsaction_handler(
                 return;
             }
 
-            if switch {
-                let (content, index) = state.get_content_and_index();
-                STACK::save_input(content, index);
-                // a same-variant current pane is replaced in place, which
-                // also covers switching between stash names
-                STACK::set_or_push(FsPane::new_stash(name.clone(), sort::get_sort().order));
-            }
-
-            db_stash(name.clone(), items);
-
-            if switch {
-                fs_reload(state, true, false);
-            }
+            let reload = STACK::with_current(
+                |p| matches!(p, FsPane::Stash { stash_name, .. } if stash_name == &name),
+            );
+            db_stash(name.clone(), items, reload);
 
             let mut line = Line::from(vec![Span::styled(
                 format!("Stashed ({}): ", name),
@@ -937,21 +927,6 @@ pub fn fsaction_handler(
             )]);
             line.spans.extend(toast_vec);
             TOAST::msg(line, false);
-        }
-
-        FsAction::CycleStash(forwards) => {
-            STASH::cycle_scratch(forwards);
-            TOAST::notice(
-                ToastStyle::Normal,
-                format!("Scratch: {}", STASH::current_scratch()),
-            );
-        }
-        FsAction::SwitchStash(s) => {
-            if STASH::set_scratch(&s) {
-                TOAST::notice(ToastStyle::Info, format!("Scratch: {s}"));
-            } else {
-                TOAST::notice(ToastStyle::Error, format!("No such Scratch: {s}"));
-            }
         }
 
         FsAction::Backup => {
@@ -1148,7 +1123,12 @@ pub fn fsaction_handler(
         }
         // filters
         FsAction::FsToggle => {
-            if STACK::with_current(|p| matches!(p, FsPane::Files { .. } | FsPane::Folders { .. })) {
+            if STACK::with_current(|p| {
+                matches!(
+                    p,
+                    FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Stash { .. }
+                )
+            }) {
                 STACK::with_current_mut(|p| p.sort_mut().cycle());
             } else {
                 FILTERS::with_mut(|vis| {
@@ -1319,27 +1299,22 @@ pub fn fsaction_handler(
     }
 }
 
-/// Insert `paths` into the named stash, then reload once the inserts
-/// complete ("AddStash adds it, then triggers a reload after added").
+/// Insert `paths` into the named stash. Reloads after completion if reload = true.
 fn db_stash(
     name: String,
     paths: Vec<AbsPath>,
+    reload: bool,
 ) {
     let pool = GLOBAL::db();
     TASKS::spawn(async move {
-        match pool.get_conn(crate::db::DbTable::stashes).await {
-            Ok(mut conn) => {
-                for path in paths {
-                    if let Err(e) = conn.add_stash_entry(&name, &path).await {
-                        log::error!("Error adding stash entry: {e}");
-                    }
-                }
-            }
-            Err(e) => {
-                log::error!("Error getting connection: {e}");
+        if let Some(mut conn) = pool.get_conn(crate::db::DbTable::stashes).await._elog() {
+            for path in paths {
+                conn.add_stash_entry(&name, &path).await._elog();
             }
         }
-        GLOBAL::send_action(FsAction::Reload);
+        if reload {
+            GLOBAL::send_action(FsAction::Reload);
+        }
     });
 }
 
@@ -1351,10 +1326,7 @@ fn db_stash_remove(
 ) {
     let pool = GLOBAL::db();
     TASKS::spawn(async move {
-        let paths: Vec<AbsPath> = paths
-            .iter()
-            .map(|p| AbsPath::new_unchecked(p))
-            .collect();
+        let paths: Vec<AbsPath> = paths.iter().map(AbsPath::new_unchecked).collect();
         match pool.get_conn(crate::db::DbTable::stashes).await {
             Ok(mut conn) => match conn.remove_stash_entries(&name, &paths).await {
                 Ok(n) => {
@@ -1383,17 +1355,17 @@ enum_from_str_display! {
     units:
     Advance, Parent, Find, Search, History, App,
     Undo, Redo, Push,
-    ShowFilters, ShowStash, ShowScratch,
+    ShowFilters, ShowStash,
     ShowMenu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir, Rename,
     Backup, ClearStash;
 
     tuples:
-    AutoJump, SwitchStash, SetAlias,
+    AutoJump, SetAlias,
     ExecPaged, ExecTTY, ExecDetached, ExecSilent, CopyCommand, CopyCommandAsync;
 
     defaults:
-    (Delete, false), (Trash, false), (Stash, String::new()), (AddStash, String::new()), (CycleStash, true)
+    (Delete, false), (Trash, false), (Stash, String::new()), (AddStash, String::new())
     ;
     options:
     LockPrompt;

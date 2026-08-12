@@ -16,5 +16,4 @@ pub mod watcher;
 
 pub mod aliases;
 pub mod clipboard;
-pub mod osc52;
 pub mod shell;

@@ -424,9 +424,6 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
 
     if STACK::in_app() {
         TOAST::clear();
-        STASH::set_scratch("app");
-    } else if let Some(cas) = STORE::get::<String>() {
-        STASH::set_scratch(&cas);
     }
 
     fs_post_reload(state);
