@@ -69,10 +69,6 @@ pub struct Config {
     /// Custom actions which appear in the menu
     #[serde(default)]
     pub actions: MenuActions,
-
-    /// Custom stash modes
-    #[serde(default)]
-    pub stash: StashLogicConfig,
 }
 
 impl Default for Config {

@@ -53,5 +53,7 @@ refind = "Search"
 
 [interface]
 prompt_locking = true
-# hide the preview while locked onto the cwd (cursor_disabled)
-hide_preview_when_cursor_disabled = false
+# hide the preview when in the query bar
+hide_preview_when_cursor_disabled = true
+# prompt prefix when in the query bar; {s:e} = first s + … + last e components of the path
+# cwd_prompt = '{2:2} '

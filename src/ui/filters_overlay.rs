@@ -136,9 +136,13 @@ impl FilterOverlay {
     // Returns items as Vec<(Vec<Span>, bool)> so make_widgets can add checkboxes
     fn get_sort_items(&self) -> Vec<(Vec<Span<'static>>, Option<bool>)> {
         let (current_sort_order, db) = STACK::with_current(|p| {
+            // Stash is a db pane: SQL-side sorting, name/frecency labels
             let db = matches!(
                 p,
-                FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
+                FsPane::Files { .. }
+                    | FsPane::Folders { .. }
+                    | FsPane::Apps { .. }
+                    | FsPane::Stash { .. }
             );
             (p.sort(), db)
         });
@@ -482,7 +486,10 @@ impl Overlay for FilterOverlay {
                 let is_db = STACK::with_current(|p| {
                     matches!(
                         p,
-                        FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
+                        FsPane::Files { .. }
+                            | FsPane::Folders { .. }
+                            | FsPane::Apps { .. }
+                            | FsPane::Stash { .. }
                     )
                 });
                 let named = match (c, is_db) {

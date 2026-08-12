@@ -1,6 +1,6 @@
 pub mod colors;
-pub mod flag;
 pub mod formatter;
+pub mod osc52;
 pub mod path;
 pub mod prompt;
 pub mod serde;

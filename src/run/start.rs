@@ -38,7 +38,7 @@ use crate::{
         confirm_overlay::ConfirmOverlay,
         filters_overlay::FilterOverlay,
         menu_overlay::MenuOverlay,
-        stash_overlay::{ScratchOverlay, StashOverlay},
+        stash_overlay::{AppOverlay, StashOverlay},
     },
     watcher::FsWatcher,
 };
@@ -208,7 +208,7 @@ pub async fn start(
         render,
         binds,
         stash,
-        scratch,
+        app,
         filters,
         prompt,
         menu,
@@ -231,6 +231,7 @@ pub async fn start(
     // the clipboard backend is fixed for the process: read the OSC52 choice
     // before `tui` is moved into make_mm
     let osc52 = tui.osc52;
+    let copy_trailing_newline = tui.copy_trailing_newline;
     let (mut mm, injector) = make_mm(
         render,
         tui,
@@ -280,7 +281,7 @@ pub async fn start(
         .matcher(MATCHER_CONFIG)
         .overlay_config(overlay)
         .overlay(StashOverlay::new(stash.clone()))
-        .overlay(ScratchOverlay::new(stash))
+        .overlay(AppOverlay::new(app))
         .overlay(FilterOverlay::new(filters))
         .overlay(ConfirmOverlay::new(confirm))
         .overlay(MenuOverlay::new(menu, prompt, cfg.actions));
@@ -300,10 +301,8 @@ pub async fn start(
     // needs before that call.
     let transient_stash_panes = cfg.global.panes.stash.transient_stash_panes.clone();
     let pool = db_pool.clone();
-    GLOBAL::init(
-        cfg.global, cfg.stash, render_tx, watcher_tx, db_pool, pane, bind_tx,
-    );
-    clipboard::init(cfg.misc.clipboard_delay_ms, osc52);
+    GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane, bind_tx);
+    clipboard::init(cfg.misc.clipboard_delay_ms, osc52, copy_trailing_newline);
     crate::spawn::init_spawn_with(cfg.misc.spawn_with);
     global_ui_init(cfg.styles);
 

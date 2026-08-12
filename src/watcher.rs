@@ -39,7 +39,7 @@ impl Default for ThrashSetting {
         Self {
             count: 5,
             duration_ms: Duration::from_millis(5000),
-            resume_delay_ms: Duration::from_millis(5000),
+            resume_delay_ms: Duration::from_millis(10000),
         }
     }
 }

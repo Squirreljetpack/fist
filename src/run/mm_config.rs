@@ -41,8 +41,9 @@ pub struct MMConfig {
     // overlays
     #[serde(default)]
     pub stash: StashConfig,
+    /// UI config of the app view (overlay index 1).
     #[serde(default)]
-    pub scratch: StashConfig,
+    pub app: StashConfig,
     #[serde(default)]
     pub filters: FiltersConfig,
     #[serde(default)]
@@ -182,10 +183,10 @@ pub fn get_mm_cfg(
         full.apply(p);
         mm_cfg.stash.border = Ok(full)
     }
-    if let Err(p) = mm_cfg.scratch.border {
+    if let Err(p) = mm_cfg.app.border {
         let mut full = mm_cfg.overlay.border.clone();
         full.apply(p);
-        mm_cfg.scratch.border = Ok(full)
+        mm_cfg.app.border = Ok(full)
     }
     if let Err(p) = mm_cfg.confirm.border {
         let mut full = mm_cfg.overlay.border.clone();

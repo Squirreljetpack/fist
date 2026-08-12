@@ -39,8 +39,6 @@ pub static DB_FILTER: OnceLock<HistoryConfig> = OnceLock::new();
 pub mod GLOBAL {
     use matchmaker::{event::BindSender, message::BindDirective};
 
-    use crate::config::StashLogicConfig;
-
     use super::*;
     thread_local! {
         static CONFIG: OnceCell<GlobalConfig> = const { OnceCell::new() };
@@ -54,7 +52,6 @@ pub mod GLOBAL {
     /// DB_FILTER needs to be initialized separately
     pub fn init(
         cfg: GlobalConfig,
-        stash_cfg: StashLogicConfig,
         render_tx: RenderSender<FsAction>,
         watcher_tx: WatcherSender,
         db_pool: Pool,
@@ -72,8 +69,6 @@ pub mod GLOBAL {
         };
         debug!("Initial filters: {sort}, {visibility:?}");
         FILTERS::set(visibility);
-
-        crate::run::stash::STASH::init(stash_cfg.modes.clone());
 
         CONFIG.with(|c| c.set(cfg).expect("GLOBAL::init called twice"));
         RENDER_TX.set(render_tx).expect("GLOBAL::init called twice");

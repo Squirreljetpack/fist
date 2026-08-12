@@ -4,7 +4,7 @@ use crate::{
     display::human_size,
     run::{
         action::FsAction,
-        stash::{STASH, STASH_STATE, StashItem, StashItemState, StashItemStatus},
+        stash::{STASH, STASH_STATE, StashItem, StashItemState, StashItemStatus, StashView},
         state::TOAST,
     },
     ui::input::{InputWidget, InputWidgetConfig},
@@ -24,7 +24,11 @@ use ratatui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use std::{collections::BTreeSet, ffi::OsString, fmt::Alignment, sync::atomic::Ordering};
+use std::{
+    collections::BTreeSet,
+    fmt::Alignment,
+    sync::atomic::Ordering,
+};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -69,13 +73,15 @@ impl Default for StashConfig {
     }
 }
 
+/// Shared table-selection state for the stash overlays. The shared stash
+/// edits source/destination columns `[1, 2]`; the app view is a single
+/// editable path column `[0, 0]` (dst edits are not offered).
 pub struct TableSelection {
     pub state: TableState,
     pub selected: BTreeSet<usize>,
     pub editing: Option<(usize, usize, InputWidget)>,
 
-    pub scratch: bool,
-    // exclusive and shared have different columns for src/dst
+    pub view: StashView,
     pub path_dst_cols: [usize; 2],
     pub available_w: u16,
     pub initial_widths: Vec<u16>,
@@ -84,12 +90,15 @@ pub struct TableSelection {
 }
 
 impl TableSelection {
-    pub fn new(scratch: bool) -> Self {
-        let path_dst_cols = if scratch { [0, 1] } else { [1, 2] };
+    pub fn new(view: StashView) -> Self {
+        let path_dst_cols = match view {
+            StashView::Shared => [1, 2],
+            StashView::Apps => [0, 0],
+        };
         Self {
             state: TableState::new(),
             selected: BTreeSet::new(),
-            scratch,
+            view,
             editing: None,
             path_dst_cols,
             available_w: 0,
@@ -158,12 +167,7 @@ impl TableSelection {
         &mut self,
         action: &Action<FsAction>,
     ) -> OverlayEffect {
-        let len = if self.scratch {
-            let state = STASH_STATE.lock().unwrap();
-            state.scratch[state.current_scratch].1.len()
-        } else {
-            STASH_STATE.lock().unwrap().shared.len()
-        };
+        let len = STASH::view_len(self.view);
         if len == 0 {
             return OverlayEffect::Disable;
         }
@@ -175,14 +179,14 @@ impl TableSelection {
                     if *col == self.path_dst_cols[0] {
                         let path = AbsPath::new_unchecked(std::path::PathBuf::from(value));
                         if std::fs::symlink_metadata(&path).is_ok() {
-                            STASH::update(self.scratch, *row, Some(path), None);
+                            STASH::view_update(self.view, *row, Some(path), None);
                             self.editing = None;
                         } else {
                             TOAST::notice(ToastStyle::Error, "Path does not exist");
                         }
                     } else {
                         // dst was updated
-                        STASH::update(self.scratch, *row, None, Some(value.into()));
+                        STASH::view_update(self.view, *row, None, Some(value.into()));
                         self.editing = None;
                     }
                 } else {
@@ -228,7 +232,7 @@ impl TableSelection {
             Action::PreviewUp(_) => {
                 if let Some(i) = self.state.selected() {
                     if i > 0 {
-                        STASH::swap(self.scratch, i, i - 1);
+                        STASH::view_swap(self.view, i, i - 1);
                         self.state.select(Some(i - 1));
                     }
                 }
@@ -236,27 +240,32 @@ impl TableSelection {
             Action::PreviewDown(_) => {
                 if let Some(i) = self.state.selected() {
                     if i + 1 < len {
-                        STASH::swap(self.scratch, i, i + 1);
+                        STASH::view_swap(self.view, i, i + 1);
                         self.state.select(Some(i + 1));
                     }
                 }
             }
             Action::DeleteChar | Action::Custom(FsAction::Trash(_) | FsAction::Delete(_)) => {
                 if let Some(i) = self.state.selected() {
-                    STASH::remove(self.scratch, i);
+                    STASH::view_remove(self.view, i);
                 }
             }
             Action::Accept => {
-                if !self.selected.is_empty() {
-                    STASH::execute_all(self.scratch, &self.selected);
+                if self.view == StashView::Shared {
+                    if !self.selected.is_empty() {
+                        STASH::execute_all(&self.selected);
+                        self.selected.clear();
+                    } else if let Some(i) = self.state.selected() {
+                        STASH::execute(i);
+                    }
+                } else {
+                    // app entries are not executable — they are files to open
                     self.selected.clear();
-                } else if let Some(i) = self.state.selected() {
-                    STASH::execute(self.scratch, i);
                 }
             }
             Action::Custom(FsAction::ShowMenu) => {
                 if let Some(i) = self.state.selected() {
-                    if let Some((p, _)) = STASH::get(self.scratch, i) {
+                    if let Some((p, _)) = STASH::view_get(self.view, i) {
                         let mut input = InputWidget::new(InputWidgetConfig {
                             ..Default::default()
                         });
@@ -269,9 +278,9 @@ impl TableSelection {
                     }
                 }
             }
-            Action::Custom(FsAction::Rename) => {
+            Action::Custom(FsAction::Rename) if self.view == StashView::Shared => {
                 if let Some(i) = self.state.selected() {
-                    if let Some((_, d)) = STASH::get(self.scratch, i) {
+                    if let Some((_, d)) = STASH::view_get(self.view, i) {
                         let mut input = InputWidget::new(InputWidgetConfig {
                             ..Default::default()
                         });
@@ -283,12 +292,6 @@ impl TableSelection {
                         return OverlayEffect::None;
                     }
                 }
-            }
-            Action::Custom(FsAction::Undo) if self.scratch => {
-                STASH::cycle_scratch(false);
-            }
-            Action::Custom(FsAction::Redo) if self.scratch => {
-                STASH::cycle_scratch(true);
             }
             Action::Quit(_) => return OverlayEffect::Disable,
             _ => {}
@@ -341,7 +344,7 @@ pub struct StashOverlay {
 impl StashOverlay {
     pub fn new(config: StashConfig) -> Self {
         Self {
-            state: TableSelection::new(false),
+            state: TableSelection::new(StashView::Shared),
             config,
             widths: Default::default(),
             headers: [
@@ -591,7 +594,10 @@ impl Overlay for StashOverlay {
     }
 }
 
-pub struct ScratchOverlay {
+/// The app view (overlay index 1): single-column list of the paths collected
+/// while in the app pane, titled "App (To open)". Repurposed from the old
+/// 2-column scratch overlay; app entries have no destination column.
+pub struct AppOverlay {
     state: TableSelection,
     config: StashConfig,
     widths: Vec<u16>,
@@ -600,10 +606,10 @@ pub struct ScratchOverlay {
     extra: (OverlayLayoutSettings, Rect),
 }
 
-impl ScratchOverlay {
+impl AppOverlay {
     pub fn new(config: StashConfig) -> Self {
         Self {
-            state: TableSelection::new(true),
+            state: TableSelection::new(StashView::Apps),
             config,
             widths: Vec::new(),
             area: Rect::default(),
@@ -615,42 +621,27 @@ impl ScratchOverlay {
         self.config.border.as_ref().unwrap()
     }
 
-    pub fn width(&self) -> u16 {
-        self.area.width.saturating_sub(self.border().width())
-    }
-
     fn update_widths(
         &mut self,
-        items: &[(AbsPath, OsString)],
-        target: bool,
+        items: &[std::path::PathBuf],
+        available_ui_w: u16,
     ) {
         if self.state.editing.is_some() {
             return;
         }
 
         let mut path_w = 16u16;
-        for (p, _) in items {
+        for p in items {
             path_w = path_w.max(p.display_short(__home()).width() as u16);
         }
-
-        if target {
-            let mut dst_w = 16u16;
-            for (_, d) in items {
-                dst_w = dst_w.max(d.to_string_lossy().width() as u16);
-            }
-            self.widths = vec![path_w, dst_w];
-        } else {
-            self.widths = vec![path_w];
-        }
+        self.widths = vec![path_w.min(available_ui_w.max(16))];
         self.state.initial_widths = self.widths.to_vec();
     }
 
     fn set_area(&mut self) {
         log::trace!("new widths {:?}", self.widths);
 
-        let width = self.widths.iter().sum::<u16>()
-            + self.border().width()
-            + self.widths.len().saturating_sub(1) as u16;
+        let width = self.widths.iter().sum::<u16>() + self.border().width();
         self.area = utils::default_area(
             [width.into(), SizeHint::Min(self.border().height() + 4)],
             &self.extra.0,
@@ -659,7 +650,7 @@ impl ScratchOverlay {
     }
 }
 
-impl Overlay for ScratchOverlay {
+impl Overlay for AppOverlay {
     type A = FsAction;
 
     fn on_enable(
@@ -667,7 +658,7 @@ impl Overlay for ScratchOverlay {
         _area: &Rect,
     ) {
         self.state.state.select(Some(0));
-        self.config.border.as_mut().unwrap().title = STASH::scratch_title();
+        self.config.border.as_mut().unwrap().title = "App (To open)".into();
     }
 
     fn on_disable(&mut self) {}
@@ -690,17 +681,12 @@ impl Overlay for ScratchOverlay {
         ui_area: &Rect,
         layout: &OverlayLayoutSettings,
     ) {
+        let state = STASH_STATE.lock().unwrap();
         self.state.available_w = ui_area
             .width
             .saturating_sub(self.border().width())
             .saturating_sub(self.widths.len().saturating_sub(1) as u16);
-
-        {
-            let state = STASH_STATE.lock().unwrap();
-            let (kind, list) = &state.scratch[state.current_scratch];
-            let target = state.has_target(kind);
-            self.update_widths(list.as_slice().as_slice(), target);
-        }
+        self.update_widths(&state.apps, self.state.available_w);
 
         self.extra = (layout.clone(), *ui_area);
         self.set_area();
@@ -718,13 +704,10 @@ impl Overlay for ScratchOverlay {
         frame: &mut matchmaker::ui::Frame<'_>,
     ) {
         let state = STASH_STATE.lock().unwrap();
-        let (kind, list) = &state.scratch[state.current_scratch];
-        let items = list.as_slice();
-
-        let target = state.has_target(kind);
+        let items = &state.apps;
 
         if self.state.reiinit {
-            self.update_widths(&items, target);
+            self.update_widths(items, self.state.available_w);
             self.set_area();
 
             self.state.dirty = false;
@@ -751,7 +734,7 @@ impl Overlay for ScratchOverlay {
         let rows: Vec<Row> = items
             .iter()
             .enumerate()
-            .map(|(i, (p, d))| {
+            .map(|(i, p)| {
                 let is_current = self.state.state.selected() == Some(i);
                 let is_selected = self.state.selected.contains(&i);
                 let is_editing = editing_info.is_some_and(|(r, _)| r == i);
@@ -772,16 +755,7 @@ impl Overlay for ScratchOverlay {
                 } else {
                     Cell::from(p.display_short(__home()))
                 };
-                if self.widths.len() > 1 {
-                    let dst = if is_editing && editing_info.unwrap().1 == 1 {
-                        Cell::from("")
-                    } else {
-                        Cell::from(d.to_string_lossy().into_owned())
-                    };
-                    Row::new(vec![path, dst]).style(row_style)
-                } else {
-                    Row::new(vec![path]).style(row_style)
-                }
+                Row::new(vec![path]).style(row_style)
             })
             .collect();
 
