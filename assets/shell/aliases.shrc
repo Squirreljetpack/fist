@@ -36,5 +36,5 @@ $${NAV_NAME}() {
 }
 
 # recent files
-alias zf="fs :file --sort atime --enter-prompt=false"
+alias zf="fs :file --sort atime --lock-prompt=false"
 

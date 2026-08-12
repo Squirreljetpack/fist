@@ -1,11 +1,10 @@
 pub mod line_column {
-    use std::cell::RefCell;
     use std::env;
+    use std::sync::OnceLock;
 
-    thread_local! {
-        static LINE_COLUMN: RefCell<(Option<isize>, Option<isize>)> =
-        const { RefCell::new((None, None)) };
-    }
+    /// Line/column highlight position, populated once from the
+    /// HIGHLIGHT_LINE / HIGHLIGHT_COLUMN environment variables.
+    pub static LINE_COLUMN: OnceLock<(Option<isize>, Option<isize>)> = OnceLock::new();
 
     /// Populate from environment variables:
     /// HIGHLIGHT_LINE and HIGHLIGHT_COLUMN
@@ -18,14 +17,9 @@ pub mod line_column {
             .ok()
             .and_then(|v| v.parse::<isize>().ok());
 
-        LINE_COLUMN.with(|lc| {
-            *lc.borrow_mut() = (line, column);
-        });
-    }
-
-    /// Get the current (line, column)
-    pub fn get() -> (Option<isize>, Option<isize>) {
-        LINE_COLUMN.with(|lc| *lc.borrow())
+        LINE_COLUMN
+            .set((line, column))
+            .expect("line/column initialized more than once");
     }
 
     // /// Parse line/column string like "10:3" or "10,3"

@@ -52,10 +52,10 @@ function $${OPEN_NAME}() {
     # treat arguments as keywords, browse/open best match
     case "$last" in
       ".")
-        FS_OPTS="opener=[$${OPEN_CMD}] $FS_OPTS" $${BINARY_PATH} :: $${Z_DOT_ARGS} "${@}" .
+         $${BINARY_PATH} --opener="$${OPEN_CMD}" :: $${Z_DOT_ARGS} "${@}" .
       ;;
       "./")
-        FS_OPTS="opener=[$${OPEN_CMD}] $FS_OPTS" $${BINARY_PATH} :: $${Z_SLASH_ARGS} "${@}" .
+         $${BINARY_PATH} --opener="$${OPEN_CMD}" :: $${Z_SLASH_ARGS} "${@}" .
       ;;
       *)
         z "$@" "$last" && $${OPEN_CMD} .
@@ -99,7 +99,7 @@ __fist_file_widget() {
   setopt localoptions pipefail
   local line results
 
-  results="$(FS_OPTS="opener=[$${FILEW_CMD}] $FS_OPTS" $${BINARY_PATH} :: $${FILEW_ARGS})" || { zle push-line && zle accept-line; return 1; }
+  results="$($${BINARY_PATH} --opener="$${FILEW_CMD}" :: $${FILEW_ARGS})" || { zle push-line && zle accept-line; return 1; }
 
   read -r LBUFFER <<< "$LBUFFER"
   while IFS= read -r line; do
@@ -114,7 +114,7 @@ __fist_rg_widget() {
   emulate -L zsh
   setopt localoptions pipefail
 
-  results="$(FS_OPTS="opener=[$${RGW_CMD}] $FS_OPTS" $${BINARY_PATH} :rg $${RGW_ARGS})" || { zle push-line && zle accept-line; return 1; }
+  results="$($${BINARY_PATH} --opener="$${RGW_CMD}" :rg $${RGW_ARGS})" || { zle push-line && zle accept-line; return 1; }
 
   read -r LBUFFER <<< "$LBUFFER"
   while IFS= read -r line; do

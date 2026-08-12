@@ -14,6 +14,7 @@ pub use action::FsAction;
 pub mod lua;
 mod populate;
 mod populate_rg;
+pub mod selection;
 
 // globals
 mod pane;

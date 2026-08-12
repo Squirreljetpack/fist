@@ -49,6 +49,16 @@ impl Entry {
     }
 }
 
+/// Row of the `stashes` table backing the [`crate::run::FsPane::Stash`] pane.
+#[derive(Debug, Clone, FromRow)]
+pub struct StashEntry {
+    pub id: i64,
+    pub name: String,
+    pub stash: AbsPath,
+    pub tail: String,
+    pub add_time: Epoch,
+}
+
 impl Type<Sqlite> for AbsPath {
     fn type_info() -> sqlx::sqlite::SqliteTypeInfo {
         <Vec<u8> as Type<Sqlite>>::type_info()

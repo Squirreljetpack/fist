@@ -4,6 +4,12 @@ F:ist is a fast and intuitive search tool for the filesystem.
 
 // video
 
+> *Interviewer: Okay and, what would you say is your biggest strength?*
+>
+>> Speed, simplicity, power, capability, extensibility, customizability, adaptability, minimalism, flexibility, utility, efficiency, versatility, robustness, reliability, precision, clarity, elegance, performance, responsiveness, portability, composability, modularity, interoperability, scalability, maintainability, resilience, configurability, programmability, expressiveness, concision, practicality, pragmatism, openness, autonomy, control, freedom, agency, coherence, consistency, discoverability, usability, intuitiveness, observability.
+>>
+>> <p align="right">— <b>f:ist</b></p>
+
 # Installation
 
 Install from GitHub releases[^20]:
@@ -30,7 +36,7 @@ Call as:
 
 - `fs`: Directory navigation
 - `fs [..paths] pattern`: interactive find
-- `generate_paths | fs`: enriched fuzzy searching of paths
+- `generate_paths | fs :custom`: enriched fuzzy searching of paths
 - `z [query]`: directory jump (requires [shell integration](#shell-integration))
 
 [^20]: f:ist is also on cargo: `cargo install fist`, but this method is not recommended as fist is currently missing features
@@ -144,7 +150,7 @@ This pane operates in a query and a filter mode, which can be switched between[^
 
 ### Stream/Custom
 
-f:ist can also accept **arbitrary lists of files from a command** or **input stream**, where all the usual operations are available:
+f:ist can also accept **arbitrary lists of files from a command** or **input stream** through the `:custom` subcommand (`fs :custom [CMD]...`, where an empty command reads from stdin), where all the usual operations are available:
 
 - directory traversal
 - file create/edit/delete/custom actions relative to the current item/directory.
@@ -158,7 +164,7 @@ f:ist can also accept **arbitrary lists of files from a command** or **input str
 The following is an example script for browsing directories of markdown notes:
 
 ```zsh
-### --- ob.notes -- ###
+### --- ob-notes -- ###
 
 #!/bin/zsh
 
@@ -177,29 +183,37 @@ while read -r line; do
   # `:` targets the current item and adds single quotes around it
   # `=` targets the current item without single quotes
   # `.` targets the current working directory without single quotes
-  # Finally, `{}` prints the full path, and `{_}` the context.
+  # `{}` prints the full path.
   #
   # Here, the effect is to print alongside each note their containing "vault".
-  #
-  # --no-read is needed because fs tries to read from stdin if it detects incoming input
-  FS_OUTPUT="{=}\t{-1.}" fs -t .md --list --no-read $line .
+  fs -t .md --list --format '{=}\t{-1.}' $line .
 done |
-# This command browses the results:
-# opener: use this program to open the selected file
-# delim: use this delimiter to split the input into a Path and a Context
-# display: run this script to determine how the input item is rendered given its Path and Context. The given shell command strips path components up to and including the "vault" directory.
-FS_OPTS="opener=ob.open display=[echo ${${1#*/$2/}%.md}] delim=\t" fs
-
-# Note:
-# For better performance, you should use in the last command instead of display,
-# display-batch=[while (($#)); do echo ${${1#*/$2/}%.md}; shift 2; done]
-# which should be a script that consumes a batch of PathItems,
-# each of which correspond to 2 input arguments: the Path and the Context,
-# and outputs the desired display representation in order.
+# This command browses the results. Note that a bare `fs` call no longer
+# consumes piped input -- browsing a listing is now an explicit `fs :custom`:
+# --opener: use this program to open the selected file
+# --tail-sep: use this delimiter to split each input line into a Path
+#                   and a Context (the tail column)
+# --transform: a lua function (path, tail) -> (path, display, tail). The input path
+#                 is absolute, the input tail is the --tail-sep remainder; a missing
+#                 path omits the entry; missing display/tail keep the current values.
+#                 Note: Files can be supplied with the `@` prefix.
+fs :custom --opener ob-open \
+  --tail-sep $'\t' \
+  --transform '
+return function(path, tail)
+local home = (os.getenv("OBSIDIAN_HOME") or ""):gsub("/+$", "")
+local display = path
+if home ~= "" and display:find(home, 1, true) == 1 then
+    display = display:sub(#home + 2) -- strip "<home>/"
+end
+display = display:gsub("^[^/]+/", "") -- strip the vault directory
+return path, display:gsub("%.md$", ""), tail
+end
+'
 ```
 
 ```shell
-### --- ob.open -- ###
+### --- ob-open -- ###
 
 # This script takes a filepath, and opens it with Obsidian.
 # We pass the uri to fs :o so that it records it in our history, which we can later access using `fs :file`.
@@ -458,7 +472,6 @@ Conversely, fist integrates into [CommandSpace](https://github.com/Squirreljetpa
 ### Notes
 
 - The `New` action creates a directory if the target ends with a path seperator[^11].
-
 - The command that spawns programs can be delegated to a process manager. For example, using [pueue](https://github.com/Nukesor/pueue):
 
 ```toml
@@ -480,9 +493,27 @@ Replacements:
 - `{+}`
 - `{_}`
 
+### Examples
+
+List every git repository (by locating its `.git` directory) under a couple of directories, sorted by last modification, mapping each `.git` folder to its parent:
+
+```shell
+fs -a --transform '
+return function(path, tail)
+local parent = path:gsub("/%.git$", "")
+if parent ~= path then
+    return parent, parent:match("[^/]+$")
+end
+return path, path
+end
+' --sort mtime $HOME/gh $SSdir '\\.git$'
+```
+
 # Configuration
 
 Configuration is presently only documented in the source files: [Main Config](./src/config/mod.rs), [Panes](./src/config/panes.rs), [Styling](./src/config/styles.rs), [Miscellaneous UI](./src/config/ui.rs), [Lessfilter](./src/lessfilter/config.rs), [Lessfilter](./src/lessfilter/config.rs), [Matchmaker Config](./src/run/mm_config.rs)[^12].
+
+---
 
 [^12]: For more information on this one, you can refer to the matchmaker documentation [here](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/src/config.rs).
 
@@ -497,7 +528,3 @@ Configuration is presently only documented in the source files: [Main Config](./
     **Pruning**: Pruning happens automatically and lazily once db exceeds a certain size. For more information, see `fs :tool bump --help`.
 
     **Interactive fallback**: When no match is found, or when the top result is the current directory, f:ist can be configured to start an interactive search interface instead of failing.
-
-### Notes
-
-- Variant values such as `RetryStrat` or `SortOrder` should be given in CamelCase.

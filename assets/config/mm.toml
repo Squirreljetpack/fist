@@ -2,6 +2,14 @@
 percentage = 50
 min = 10
 max = 25
+# copy via OSC52 escape sequences (text/path data only, not image bytes);
+# set to false on terminals without OSC52 support to use the system clipboard
+# osc52 = true
+# keep one trailing newline when copying command output (CopyCommand/CopyCommandAsync)
+# copy_trailing_newline = false
+
+[ui]
+mouse_events = true
 
 [results]
 wrap = true
@@ -46,11 +54,22 @@ scroll_wrap = true
 [overlay]
 border = { type = "Rounded", color = "darkGrey", padding = 1 }
 
+[query]
+border = { type = "Rounded", sides = "ALL", color = "blue" }
+
 [binds]
-### MM
-"shift-right" = "ForwardChar"
+# Alternate scheme:
+# "shift-left" = "Parent"
+# "shift-right" = "Advance"
+# config.toml: interface.prompt_locking = false
 "shift-left" = "BackwardChar"
-"space" = ["EnterPrompt", "InsertQuery( )"]
+"shift-right" = "ForwardChar"
+"left" = "Parent"
+"right" = "Advance"
+"alt-space" = "LockPrompt"
+"ctrl-space" = "LockPrompt"
+
+### MM
 "tab" = ["ToggleSelection", "Down"]
 "ctrl-a" = "CycleSelections"
 "ctrl-shift-a" = "ClearSelections"
@@ -73,8 +92,7 @@ border = { type = "Rounded", color = "darkGrey", padding = 1 }
 "alt-down" = "VScroll(-1)"
 
 ### Panes
-"right" = "Advance"
-"left" = "Parent"
+
 "ctrl-f" = "Find"
 "ctrl-r" = "Search"
 "ctrl-g" = "History"
@@ -102,6 +120,9 @@ border = { type = "Rounded", color = "darkGrey", padding = 1 }
 "delete" = "Trash"
 "shift-delete" = "Delete"
 "ctrl-shift-r" = "Rename"
+# alternative if no delete key:
+"ctrl-shift-backspace" = "Delete"
+"shift-cmd-backspace" = "Delete"
 
 ### Stash
 "alt-s" = "Push"
@@ -133,7 +154,6 @@ border = { type = "Rounded", color = "darkGrey", padding = 1 }
 
 ### Autojump
 "ctrl-0" = "AutoJump(0)"
-"alt-space" = "AutoJump(0)"
 "ctrl-1" = "AutoJump(1)"
 "ctrl-2" = "AutoJump(2)"
 "ctrl-3" = "AutoJump(3)"

@@ -22,13 +22,14 @@ use crate::{
     clipboard::{copy_files, copy_paths_as_text},
     lessfilter::Preset,
     run::{
-        ahandlers::{enter_dir_pane, enter_prompt, fs_reload},
+        ahandlers::{enter_dir_pane, enter_prompt, fs_reload, lock_prompt, refresh_prompt},
+        dhandlers::{COPY_COMMAND, ExecutionMode},
         item::short_display,
         pane::FsPane,
         stash::STASH,
         state::{
-            ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, MenuPrompt, STACK, STORE, TASKS,
-            TOAST, context::ActionContext, sort, ui::prompt_main_style,
+            AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, HideMetadata,
+            InPrompt, MenuPrompt, STACK, STORE, TASKS, TOAST, context::ActionContext, sort,
         },
     },
     spawn::open_wrapped,
@@ -39,7 +40,6 @@ use crate::{
     utils::{text::ToastStyle, trash::trash},
 };
 use fist_types::When;
-use fist_types::filters::SortOrder;
 
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -65,7 +65,7 @@ pub enum FsAction {
     /// The char is emitted instead of jumping if the index is in the prompt.
     Jump(Vec<PathBuf>),
     /// Enter app launching pane.
-    App, // if u want to push selections, u can compose clearstack/pushstack before/after
+    App,
 
     /// Go back
     Undo,
@@ -83,7 +83,11 @@ pub enum FsAction {
 
     CycleStash(bool),
     SwitchStash(String),
+    /// Add the selection (or cwd) to the named stash and switch to its pane.
+    /// Empty name = the unnamed stash.
     Stash(String),
+    /// Add the selection (or cwd) to the named stash without switching panes.
+    AddStash(String),
     ShowScratch,
 
     /// Show available actions on the current item(s).
@@ -134,7 +138,22 @@ pub enum FsAction {
     /// Preview a file using a preset
     LessfilterPreview(Preset, When),
     // Execute
-    Execute(String, usize),
+    // ----------------------------------
+    /// Execute a command template formatted against the current item (or the
+    /// cwd while the cursor is disabled), waiting for it to exit.
+    Execute(String),
+    /// Like [`Self::Execute`], but pipe stdout through the pager.
+    ExecPaged(String),
+    /// Like [`Self::Execute`], but connect stdin/stdout/stderr to the tty.
+    ExecTTY(String),
+    /// Execute silently (null stdio, no wait) and detached (`.detach()`).
+    ExecDetached(String),
+    /// Execute silently (null stdio, no wait) without detaching.
+    ExecSilent(String),
+    /// Execute a command synchronously and copy its stdout to the clipboard.
+    CopyCommand(String),
+    /// Execute a command in the background and copy its stdout to the clipboard.
+    CopyCommandAsync(String),
     // Nonbindable
     // ----------------------------------
     SaveInput,
@@ -142,19 +161,19 @@ pub enum FsAction {
     SetFooter(Option<Text<'static>>),
     Reload,
     /// Apply the current pane sort to the worker (also lands pending fill values).
-    SetSort,
+    ReSort,
     /// Sync visibility pane ← global, then reload (db/rg/vis change) or fill+resort (sort change).
     Refilter,
     AcceptPrompt,
-    AcceptPrint,
     Filtering(Option<bool>),
     SetStatus(Option<Line<'static>>),
 
     // Other
     // ----------------------------------
+    /// Enter (Some(true)) / leave (Some(false)) the prompt; None toggles.
+    LockPrompt(Option<bool>),
     /// Jump and accept;
     /// 0 jumps to menu.
-    EnterPrompt(bool),
     AutoJump(u8),
 }
 // print, accept
@@ -207,7 +226,11 @@ pub fn fsaction_aliaser(
     a: Action<FsAction>,
     state: &mut MMState<'_, '_>,
 ) -> Actions<FsAction> {
-    let in_prompt = state.picker_ui.results.cursor_disabled();
+    // prompt-mode state: the raw InPrompt marker (the query bar is active).
+    // With prompt_locking on, the direct pathways (LockPrompt action, pane
+    // lock_prompt config, --lock-prompt) set it; with locking off they are
+    // no-ops, so only the cwd lock (enter_prompt) does.
+    let in_prompt = STORE::contains::<InPrompt>();
     let raw_input = in_prompt || state.overlay_index().is_some();
 
     match a {
@@ -215,45 +238,41 @@ pub fn fsaction_aliaser(
             // handle nonbindable events here so that overlays don't intercept them.
             // -------------------------------------------------
             FsAction::Reload => {
-                fs_reload(state, false);
+                fs_reload(state, false, false);
                 acs![]
             }
-            FsAction::SetSort => {
-                sort::update_sort(state);
+            // user sets sort => ::Refilter => set_sort_from_pane => fill_and_resort => ::ReSort => set_sort_from_pane
+            // problem: we set global sort to tell what to inject, but rendered sizes may be stale, this is not a big problem as this only
+            // conflates mtime/atime, the other sort modes don't depend on the Atomic metadata field.
+            FsAction::ReSort => {
+                // sort explicitly set: unhide the metadata column
+                STORE::take::<HideMetadata>();
+                sort::set_sort_from_pane(state);
                 state.worker_resort();
+                state.picker_ui.results.set_dirty();
                 acs![]
             }
             FsAction::Refilter => {
                 // 1. sync visibility pane <- global
-                let vis_changed =
-                    STACK::with_current(|p| p.vis().is_some_and(|v| v != FILTERS::visibility()));
-                if vis_changed {
-                    let vis = FILTERS::visibility();
-                    STACK::with_current_mut(|p| {
-                        if let Some(v) = p.vis_mut() {
-                            *v = vis;
-                        }
-                    });
-                }
-                // 2. db/rg panes order from their data source (SQL ORDER BY / rg --sort)
-                let db_or_rg = STACK::with_current(|p| {
-                    matches!(
-                        p,
-                        FsPane::Files { .. }
-                            | FsPane::Folders { .. }
-                            | FsPane::Apps { .. }
-                            | FsPane::Search { .. }
-                    )
+                let vis_changed = STACK::with_current_mut(|p| {
+                    p.vis_mut().is_some_and(|v| {
+                        let vis = FILTERS::visibility();
+                        let changed = *v != vis;
+                        *v = vis;
+                        changed
+                    })
                 });
-                if vis_changed || db_or_rg {
-                    // populate re-reads pane sort/vis; fs_reload -> update_sort applies the mode
-                    fs_reload(state, false);
+                if vis_changed {
+                    // populate re-reads pane sort/vis; fs_reload -> set_sort_in_nucleo applies the mode
+                    fs_reload(state, false, false);
                 } else {
-                    let pane_sort = STACK::with_current(|p| p.sort());
-                    if pane_sort != sort::get_sort().order.unwrap_or(SortOrder::none) {
-                        // 3. sort changed mid-pane: fill metadata + resort, no reload
-                        sort::set_sort(pane_sort);
-                        sort::fill_and_resort(state, pane_sort);
+                    // db/rg panes
+                    // order via SQL/rg, so a reload is required; everything
+                    // else fills metadata and dispatches ReSort.
+                    if STACK::reloads_by_sorting() {
+                        fs_reload(state, false, false);
+                    } else {
+                        sort::fill_then_resort(state);
                     }
                 }
                 acs![]
@@ -296,32 +315,21 @@ pub fn fsaction_aliaser(
                 state.picker_ui.status.set(s);
                 acs![]
             }
-            FsAction::EnterPrompt(enter) => {
-                enter_prompt(state, enter);
-                acs![]
-            }
 
             // Actions which only trigger when not in the prompt:
             // -------------------------------------------------
             FsAction::Parent => {
-                if raw_input
-                    && GLOBAL::with_cfg(|c| {
-                        c.interface.move_cursor_with_advance_and_parent_in_prompt
-                    })
-                {
+                if raw_input {
                     acs![Action::BackwardChar]
                 } else if STACK::in_app() {
+                    // todo()
                     acs![]
                 } else {
                     acs![Action::Custom(fa)]
                 }
             }
             FsAction::Advance => {
-                if raw_input
-                    && GLOBAL::with_cfg(|c| {
-                        c.interface.move_cursor_with_advance_and_parent_in_prompt
-                    })
-                {
+                if raw_input {
                     acs![Action::ForwardChar]
                 } else if STACK::in_app() {
                     // todo!()
@@ -332,7 +340,9 @@ pub fn fsaction_aliaser(
             }
             FsAction::Delete(no_confirm) => {
                 // lowpri: maybe should require a global_config
-                if in_prompt && !no_confirm {
+                // edit-actions edit the query while the prompt mode is on,
+                // regardless of prompt_locking (raw marker, not in_prompt)
+                if STORE::contains::<InPrompt>() && !no_confirm {
                     acs![Action::DeleteWord]
                 } else if STACK::in_app() {
                     acs![]
@@ -438,26 +448,30 @@ pub fn fsaction_aliaser(
                 } else if digit == 0
                 // 0 -> TogglePrompt
                 {
-                    enter_prompt(state, !in_prompt);
+                    if in_prompt {
+                        lock_prompt(state, false);
+                    } else {
+                        enter_prompt(state);
+                    }
                     acs![]
                 } else if in_prompt
                 // in prompt => jump out
                 {
-                    enter_prompt(state, false);
+                    lock_prompt(state, false);
                     acs![Action::Pos(digit as i32 - 1)]
                 } else if (digit - 1) as u32 == state.picker_ui.results.index()
                 // not in prompt + on pos => accept
                 {
-                    acs![
-                        Action::Pos((digit - 1) as i32),
+                    let accept: Action<FsAction> =
                         if GLOBAL::with_cfg(|c| c.interface.autojump_advance) {
                             FsAction::Advance.into()
-                        } else if GLOBAL::with_cfg(|c| c.interface.alt_accept) && !STACK::in_app() {
-                            FsAction::AcceptPrint.into()
                         } else {
+                            if GLOBAL::with_cfg(|c| c.interface.alt_accept) && !STACK::in_app() {
+                                STORE::set(AcceptFlavor);
+                            }
                             Action::Accept
-                        }
-                    ]
+                        };
+                    acs![Action::Pos((digit - 1) as i32), accept]
                 } else {
                     acs![Action::Pos((digit - 1) as i32),]
                 }
@@ -471,17 +485,19 @@ pub fn fsaction_aliaser(
 
                 if state.overlay_index().is_some() {
                     acs![a]
-                } else if in_prompt {
-                    enter_prompt(state, false);
+                } else if state.picker_ui.results.cursor_disabled() {
+                    // locked onto the cwd: leave the prompt (unlocks) and move
+                    lock_prompt(state, false);
                     if !state.picker_ui.reverse() {
                         acs![a]
                     } else {
                         acs![Action::Up(i.saturating_sub(1))]
                     }
                 } else if i as u32 > state.picker_ui.results.index() && !state.picker_ui.reverse() {
-                    // entering the prompt
-                    enter_prompt(state, true);
-                    acs![]
+                    // going up past the first item: enter the prompt and lock
+                    // the active item onto the cwd. Apps panes never enter
+                    // the prompt — the Up then passes through untouched.
+                    if enter_prompt(state) { acs![] } else { acs![a] }
                 } else {
                     acs![a]
                 }
@@ -491,47 +507,53 @@ pub fn fsaction_aliaser(
 
                 if state.overlay_index().is_some() {
                     acs![a]
-                } else if in_prompt {
-                    enter_prompt(state, false);
+                } else if state.picker_ui.results.cursor_disabled() {
+                    // locked onto the cwd: leave the prompt (unlocks) and move
+                    lock_prompt(state, false);
                     if state.picker_ui.reverse() {
                         acs![a]
                     } else {
                         acs![Action::Down(i.saturating_sub(1))]
                     }
                 } else if i as u32 > state.picker_ui.results.index() && state.picker_ui.reverse() {
-                    // entering the prompt
-                    enter_prompt(state, true);
-                    acs![]
+                    // mirror of Up: past the last item in reverse mode enters
+                    // the prompt and locks onto the cwd (Apps panes pass the
+                    // Down through untouched)
+                    if enter_prompt(state) { acs![] } else { acs![a] }
                 } else {
                     acs![a]
                 }
             }
-            Action::Pos(_) if state.overlay_index().is_none() && in_prompt => {
-                enter_prompt(state, false);
-                acs![a]
-            }
 
-            // there's a bit of an edge case where this doesn't detect whether to be in prompt correctly for consecutive actions but for expediency we'll leave as is
-            Action::Accept => {
-                if state.overlay_index().is_some() {
+            // Accept (enter) and Print("") (alt-enter) share one arm: the
+            // print-vs-open decision lives in the make_mm accept hook, which
+            // reads the AcceptFlavor flag set here. Non-empty Print payloads
+            // pass through to the interrupt handler untouched.
+            Action::Accept | Action::Print(_) => {
+                // non-empty Print payloads pass through to the interrupt handler;
+                // overlays own accept keys while open
+                if matches!(a, Action::Print(ref s) if !s.is_empty())
+                    || state.overlay_index().is_some()
+                {
                     acs![a]
                 } else if in_prompt {
-                    acs![FsAction::AcceptPrompt]
-                } else if GLOBAL::with_cfg(|c| c.interface.alt_accept) && !STACK::in_app() {
-                    acs![FsAction::AcceptPrint]
+                    if state.picker_ui.results.cursor_disabled() {
+                        // already locked: accept on the cwd
+                        acs![FsAction::AcceptPrompt]
+                    } else if enter_prompt(state) {
+                        // first accept in the prompt: lock onto the cwd, swallow
+                        acs![]
+                    } else {
+                        acs![a]
+                    }
                 } else {
-                    acs![Action::Accept]
-                }
-            }
-
-            Action::Print(ref s) if s.is_empty() => {
-                if state.overlay_index().is_some() {
-                    acs![a]
-                } else if in_prompt {
-                    acs![FsAction::AcceptPrompt]
-                } else if !GLOBAL::with_cfg(|c| c.interface.alt_accept) && !STACK::in_app() {
-                    acs![FsAction::AcceptPrint]
-                } else {
+                    // alt_accept swaps the two flavors (XOR); apps always open
+                    let is_print = matches!(a, Action::Print(_));
+                    let print_flavor = (GLOBAL::with_cfg(|c| c.interface.alt_accept) ^ is_print)
+                        && !STACK::in_app();
+                    if print_flavor {
+                        STORE::set(AcceptFlavor);
+                    }
                     acs![Action::Accept]
                 }
             }
@@ -543,6 +565,17 @@ pub fn fsaction_aliaser(
                 TOAST::msg("Cannot reload streams", false);
                 acs![]
             }
+
+            Action::ForwardChar | Action::BackwardChar
+                if !state.picker_ui.results.cursor_disabled() && STORE::contains::<InPrompt>() =>
+            {
+                acs![if matches!(a, Action::ForwardChar) {
+                    FsAction::Advance
+                } else {
+                    FsAction::Parent
+                }]
+            }
+
             _ => acs![a],
         },
     }
@@ -554,28 +587,26 @@ pub fn fsaction_handler(
     context: &mut ActionContext,
 ) {
     let print_handle = &context.print_handle;
-    let in_prompt = state.picker_ui.results.cursor_disabled();
 
     match a {
+        FsAction::LockPrompt(enter) => {
+            lock_prompt(state, enter.unwrap_or(!STORE::contains::<InPrompt>()));
+        }
         FsAction::Find => {
             // save input
             let (content, index) = state.get_content_and_index();
             STACK::save_input(content, index);
 
             // pane
-            let pane = FsPane::new_fd(
-                STACK::_cwd(),
-                sort::get_sort().order.unwrap_or_default(),
-                FILTERS::visibility(),
-            );
+            let pane = FsPane::new_fd(STACK::_cwd(), sort::get_sort().order, FILTERS::visibility());
 
             // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
             // todo: there is a problem
             if STACK::with_current(|p| *p == pane) {
-                fs_reload(state, false);
+                fs_reload(state, false, false);
             } else {
                 STACK::push(pane);
-                fs_reload(state, true);
+                fs_reload(state, true, false);
             }
 
             // not this because this erases current settings when the intutive behavior is to just reload
@@ -594,7 +625,7 @@ pub fn fsaction_handler(
 
             let _ = STACK::swap_history();
 
-            fs_reload(state, true);
+            fs_reload(state, true, false);
         }
 
         FsAction::Search => {
@@ -630,7 +661,7 @@ pub fn fsaction_handler(
                 }
                 _ => false,
             }) {
-                fs_reload(state, false);
+                fs_reload(state, false, false);
             } else {
                 // save input
                 let (content, index) = state.get_content_and_index();
@@ -641,8 +672,11 @@ pub fn fsaction_handler(
 
                 let cwd = STACK::_cwd();
 
-                //
-                let paths = state.map_selected_to_vec(|_i, x| x.path.inner());
+                let paths = if state.selections().is_empty() {
+                    vec![]
+                } else {
+                    state.map_selected_to_vec(|_i, x| x.path.inner())
+                };
 
                 let query = String::new();
                 let filtering = false;
@@ -652,7 +686,7 @@ pub fn fsaction_handler(
 
                 let pane = FsPane::new_rg(
                     cwd,
-                    sort::get_sort().order.unwrap_or_default(),
+                    sort::get_sort().order,
                     FILTERS::visibility(),
                     //
                     paths,
@@ -667,7 +701,7 @@ pub fn fsaction_handler(
                     vec![],
                 );
                 STACK::push(pane);
-                fs_reload(state, true);
+                fs_reload(state, true, false);
             }
         }
 
@@ -680,9 +714,9 @@ pub fn fsaction_handler(
 
             let pane = FsPane::new_launch();
             if STACK::set_or_push(pane) {
-                fs_reload(state, true);
+                fs_reload(state, true, false);
             } else {
-                fs_reload(state, false);
+                fs_reload(state, false, false);
             }
         }
 
@@ -693,7 +727,7 @@ pub fn fsaction_handler(
 
             // adjust stack
             if STACK::stack_prev() {
-                fs_reload(state, true);
+                fs_reload(state, true, true);
             };
         }
         FsAction::Redo => {
@@ -703,7 +737,7 @@ pub fn fsaction_handler(
 
             // adjust stack
             if STACK::stack_next() {
-                fs_reload(state, true);
+                fs_reload(state, true, true);
             };
         }
 
@@ -785,15 +819,25 @@ pub fn fsaction_handler(
 
         // File actions
         // --------------------------------
-        // todo: if cursor_disabled, used STACK::cwd
+        // the active item is the cwd while cursor_disabled (see Push)
         FsAction::Cut => {
             let mut toast_vec = vec![];
             let mut cb_vec = vec![];
-            let items = state.map_selected_to_vec(|_i, s| {
-                toast_vec.push(short_display(&s.path));
-                cb_vec.push(s.path.inner());
-                s.path.clone()
-            });
+            let items = if state.picker_ui.results.cursor_disabled() {
+                STACK::cwd()
+                    .into_iter()
+                    .inspect(|p| {
+                        toast_vec.push(short_display(p));
+                        cb_vec.push(p.inner());
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                state.map_selected_to_vec(|_i, s| {
+                    toast_vec.push(short_display(&s.path));
+                    cb_vec.push(s.path.inner());
+                    s.path.clone()
+                })
+            };
             if !items.is_empty() {
                 STASH::extend("cut", items);
                 TOAST::push(ToastStyle::Normal, "Cut: ", toast_vec);
@@ -803,11 +847,21 @@ pub fn fsaction_handler(
         FsAction::Copy => {
             let mut toast_vec = vec![];
             let mut cb_vec = vec![];
-            let items = state.map_selected_to_vec(|_, s| {
-                toast_vec.push(short_display(&s.path));
-                cb_vec.push(s.path.inner());
-                s.path.clone()
-            });
+            let items = if state.picker_ui.results.cursor_disabled() {
+                STACK::cwd()
+                    .into_iter()
+                    .inspect(|p| {
+                        toast_vec.push(short_display(p));
+                        cb_vec.push(p.inner());
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                state.map_selected_to_vec(|_, s| {
+                    toast_vec.push(short_display(&s.path));
+                    cb_vec.push(s.path.inner());
+                    s.path.clone()
+                })
+            };
             if !items.is_empty() {
                 STASH::extend("copy", items);
                 TOAST::push(ToastStyle::Normal, "Copied: ", toast_vec);
@@ -819,7 +873,7 @@ pub fn fsaction_handler(
         FsAction::Push => {
             let mut toast_vec = vec![];
 
-            if !in_prompt {
+            if !state.picker_ui.results.cursor_disabled() {
                 let items = state.map_selected_to_vec(|_, s| {
                     toast_vec.push(short_display(&s.path));
                     s.path.clone()
@@ -837,33 +891,52 @@ pub fn fsaction_handler(
             };
         }
 
-        FsAction::Stash(mode) => {
-            let mut toast_vec = vec![];
-            let mode = if mode.is_empty() {
-                STASH::current_scratch()
-            } else {
-                mode
+        // Named stash actions: add the selection (or cwd) to the `stashes`
+        // db table; `Stash` additionally switches to the stash pane. The
+        // db task triggers a reload once the inserts complete.
+        fa @ (FsAction::Stash(_) | FsAction::AddStash(_)) => {
+            let (name, switch) = match fa {
+                FsAction::Stash(n) => (n, true),
+                FsAction::AddStash(n) => (n, false),
+                _ => unreachable!(),
             };
-            if !in_prompt {
-                let items = state.map_selected_to_vec(|_, s| {
+
+            let mut toast_vec = vec![];
+            let items = if state.picker_ui.results.cursor_disabled() {
+                STACK::cwd()
+                    .into_iter()
+                    .inspect(|p| toast_vec.push(short_display(p)))
+                    .collect::<Vec<_>>()
+            } else {
+                state.map_selected_to_vec(|_, s| {
                     toast_vec.push(short_display(&s.path));
                     s.path.clone()
-                });
-                if !items.is_empty() {
-                    STASH::extend(&mode, items);
-                }
-            } else if let Some(p) = STACK::cwd() {
-                toast_vec.push(short_display(&p));
-                STASH::stash(&mode, p);
+                })
             };
-            if !toast_vec.is_empty() {
-                let mut line = Line::from(vec![Span::styled(
-                    format!("Stashed ({}): ", mode),
-                    ToastStyle::Normal,
-                )]);
-                line.spans.extend(toast_vec);
-                TOAST::msg(line, false);
-            };
+            if items.is_empty() {
+                return;
+            }
+
+            if switch {
+                let (content, index) = state.get_content_and_index();
+                STACK::save_input(content, index);
+                // a same-variant current pane is replaced in place, which
+                // also covers switching between stash names
+                STACK::set_or_push(FsPane::new_stash(name.clone(), sort::get_sort().order));
+            }
+
+            db_stash(name.clone(), items);
+
+            if switch {
+                fs_reload(state, true, false);
+            }
+
+            let mut line = Line::from(vec![Span::styled(
+                format!("Stashed ({}): ", name),
+                ToastStyle::Normal,
+            )]);
+            line.spans.extend(toast_vec);
+            TOAST::msg(line, false);
         }
 
         FsAction::CycleStash(forwards) => {
@@ -886,6 +959,12 @@ pub fn fsaction_handler(
         }
 
         FsAction::Trash(no_confirm) => {
+            // in a stash pane, Trash removes from the stash, not the actual path
+            let stash_name = STACK::with_current(|p| match p {
+                FsPane::Stash { stash_name, .. } => Some(stash_name.clone()),
+                _ => None,
+            });
+
             let mut items = vec![];
             state.map_selected_to_vec(|_, s| {
                 items.push(s.path.inner());
@@ -929,6 +1008,11 @@ pub fn fsaction_handler(
                 return;
             }
 
+            if let Some(name) = stash_name {
+                db_stash_remove(name, items);
+                return;
+            }
+
             // not heavy computationally, but still blocking...
             TASKS::spawn_blocking(|| {
                 for path in items {
@@ -949,6 +1033,12 @@ pub fn fsaction_handler(
             });
         }
         FsAction::Delete(no_confirm) => {
+            // in a stash pane, Delete removes from the stash, not the actual path
+            let stash_name = STACK::with_current(|p| match p {
+                FsPane::Stash { stash_name, .. } => Some(stash_name.clone()),
+                _ => None,
+            });
+
             let mut items = vec![];
             state.map_selected_to_vec(|_, s| {
                 items.push(s.path.inner());
@@ -992,6 +1082,11 @@ pub fn fsaction_handler(
                 return;
             }
 
+            if let Some(name) = stash_name {
+                db_stash_remove(name, items);
+                return;
+            }
+
             TASKS::spawn(async move {
                 for path in items {
                     let result = if path.is_dir() {
@@ -1018,7 +1113,7 @@ pub fn fsaction_handler(
         }
         FsAction::Confirm => {}
         FsAction::CopyPath => {
-            let paths = if !in_prompt {
+            let paths = if !state.picker_ui.results.cursor_disabled() {
                 state.map_selected_to_vec(|_, s| s.path.inner())
             } else {
                 STACK::cwd().map(PathBuf::from).into_iter().collect()
@@ -1054,15 +1149,7 @@ pub fn fsaction_handler(
         // filters
         FsAction::FsToggle => {
             if STACK::with_current(|p| matches!(p, FsPane::Files { .. } | FsPane::Folders { .. })) {
-                let label = STACK::with_current_mut(|p| {
-                    let sort = p.sort_mut();
-                    sort.cycle();
-                    sort.label(true)
-                });
-                state
-                    .picker_ui
-                    .query
-                    .set_prompt_line(Line::styled(format!("{label}: "), prompt_main_style()));
+                STACK::with_current_mut(|p| p.sort_mut().cycle());
             } else {
                 FILTERS::with_mut(|vis| {
                     (vis.dirs, vis.files) = match (vis.dirs, vis.files) {
@@ -1074,24 +1161,11 @@ pub fn fsaction_handler(
                             (false, false)
                         }
                     };
-                    if !in_prompt {
-                        if vis.dirs {
-                            state
-                                .picker_ui
-                                .query
-                                .set_prompt_line(Line::styled("d: ", prompt_main_style()));
-                        } else if vis.files {
-                            state
-                                .picker_ui
-                                .query
-                                .set_prompt_line(Line::styled("f: ", prompt_main_style()));
-                        } else {
-                            state.picker_ui.query.set_prompt(None);
-                        }
-                    }
                 });
             }
+            // anyone who modifies pane sort/vis must immediately follow with Refilter
             GLOBAL::send_action(FsAction::Refilter);
+            refresh_prompt(state);
         }
         FsAction::ToggleHidden => {
             FILTERS::with_mut(|vis| {
@@ -1119,7 +1193,7 @@ pub fn fsaction_handler(
                 return;
             }
 
-            if state.current_raw().is_none() && !in_prompt {
+            if state.current_raw().is_none() && !state.picker_ui.results.cursor_disabled() {
                 return;
             };
 
@@ -1175,18 +1249,36 @@ pub fn fsaction_handler(
             }
 
             state.set_interrupt(Interrupt::Execute, template);
-        } // todo: use a special sequence to communicate to handler whether to pipe/silent or detach
+        }
 
-        // See [`crate::run::dhandlers::execute`]
-        FsAction::Execute(mut template, v) => {
-            let prefix = format!("\0\0\0{}", v);
-            template.insert_str(0, &prefix);
-
-            if v == 2 || v == 3 {
-                state.set_interrupt(Interrupt::ExecuteSilent, template);
-            } else {
-                state.set_interrupt(Interrupt::Execute, template);
-            }
+        // See the handlers in [`crate::run::dhandlers`]: the mode is
+        // transported in `state.discriminant_payload`, the template stays
+        // untouched.
+        fa @ (FsAction::Execute(_) | FsAction::ExecPaged(_) | FsAction::ExecTTY(_)) => {
+            let (mode, template) = match fa {
+                FsAction::Execute(t) => (ExecutionMode::Normal, t),
+                FsAction::ExecPaged(t) => (ExecutionMode::Paged, t),
+                FsAction::ExecTTY(t) => (ExecutionMode::Tty, t),
+                _ => unreachable!(),
+            };
+            state.discriminant_payload = Some(mode.discriminant());
+            state.set_interrupt(Interrupt::Execute, template);
+        }
+        FsAction::ExecDetached(template) => {
+            state.discriminant_payload = Some(ExecutionMode::Detached.discriminant());
+            state.set_interrupt(Interrupt::ExecuteSilent, template);
+        }
+        FsAction::ExecSilent(template) => {
+            state.discriminant_payload = Some(ExecutionMode::Silent.discriminant());
+            state.set_interrupt(Interrupt::ExecuteSilent, template);
+        }
+        FsAction::CopyCommand(template) => {
+            state.discriminant_payload = Some(COPY_COMMAND);
+            state.set_interrupt(Interrupt::ExecuteSilent, template);
+        }
+        FsAction::CopyCommandAsync(template) => {
+            state.discriminant_payload = Some(COPY_COMMAND);
+            state.set_interrupt(Interrupt::ExecuteAsync, template);
         }
 
         FsAction::AcceptPrompt => {
@@ -1220,42 +1312,68 @@ pub fn fsaction_handler(
             }
         }
 
-        FsAction::AcceptPrint => {
-            if in_prompt && let Some(p) = STACK::cwd() {
-                // print cwd
-                let s = p.to_string_lossy().to_string();
-                print_handle.push(s);
-
-                // bump
-                GLOBAL::db().bump_path(true, p);
-            } else {
-                // if alt_accept, this was aliased from Accept, in which case we should respect no_multi_accept
-                if GLOBAL::with_cfg(|c| c.interface.alt_accept && c.interface.no_multi_accept) {
-                    if let Some(item) = state.current_raw() {
-                        GLOBAL::db().bump_path(item.path.is_dir(), item.path.clone());
-
-                        let s = item.display().to_string();
-                        print_handle.push(s);
-                    }
-                } else {
-                    // print selected
-                    state.map_selected_to_vec(|_, item| {
-                        GLOBAL::db().bump_path(item.path.is_dir(), item.path.clone());
-
-                        let s = item.display().to_string();
-                        print_handle.push(s);
-                    });
-                }
-            }
-            state.picker_ui.selector.clear();
-            state.should_quit = true;
-        }
-
         _ => {
             log::error!("Encountered unreachable {a:?}");
             unreachable!()
         }
     }
+}
+
+/// Insert `paths` into the named stash, then reload once the inserts
+/// complete ("AddStash adds it, then triggers a reload after added").
+fn db_stash(
+    name: String,
+    paths: Vec<AbsPath>,
+) {
+    let pool = GLOBAL::db();
+    TASKS::spawn(async move {
+        match pool.get_conn(crate::db::DbTable::stashes).await {
+            Ok(mut conn) => {
+                for path in paths {
+                    if let Err(e) = conn.add_stash_entry(&name, &path).await {
+                        log::error!("Error adding stash entry: {e}");
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("Error getting connection: {e}");
+            }
+        }
+        GLOBAL::send_action(FsAction::Reload);
+    });
+}
+
+/// Remove `paths` from the named stash, then reload once the removals
+/// complete. Used by Trash/Delete inside a stash pane.
+fn db_stash_remove(
+    name: String,
+    paths: Vec<PathBuf>,
+) {
+    let pool = GLOBAL::db();
+    TASKS::spawn(async move {
+        let paths: Vec<AbsPath> = paths
+            .iter()
+            .map(|p| AbsPath::new_unchecked(p))
+            .collect();
+        match pool.get_conn(crate::db::DbTable::stashes).await {
+            Ok(mut conn) => match conn.remove_stash_entries(&name, &paths).await {
+                Ok(n) => {
+                    TOAST::notice(
+                        ToastStyle::Success,
+                        format!("Removed {n} item(s) from stash ({name})"),
+                    );
+                }
+                Err(e) => {
+                    log::error!("Error removing stash entries: {e}");
+                    TOAST::notice(ToastStyle::Error, "Failed to remove stash entries.");
+                }
+            },
+            Err(e) => {
+                log::error!("Error getting connection: {e}");
+            }
+        }
+        GLOBAL::send_action(FsAction::Reload);
+    });
 }
 
 // ------------- BOILERPLATE ---------------
@@ -1271,14 +1389,14 @@ enum_from_str_display! {
     Backup, ClearStash;
 
     tuples:
-    AutoJump, SwitchStash, SetAlias;
+    AutoJump, SwitchStash, SetAlias,
+    ExecPaged, ExecTTY, ExecDetached, ExecSilent, CopyCommand, CopyCommandAsync;
 
     defaults:
-    (Delete, false), (Trash, false), (Stash, String::new()), (CycleStash, true), (EnterPrompt, true)
+    (Delete, false), (Trash, false), (Stash, String::new()), (AddStash, String::new()), (CycleStash, true)
     ;
     options:
-
-    ;
+    LockPrompt;
 
     lossy:
     Paste;
@@ -1338,7 +1456,7 @@ macro_rules! enum_from_str_display {
                                         )
                                     }
                                 }
-                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | SetSort | Refilter | AcceptPrompt | AcceptPrint | Filtering(_) | SetStatus(_) | Confirm => Ok(()), // internal
+                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | Refilter | AcceptPrompt | Filtering(_) | SetStatus(_) | Confirm => Ok(()), // internal
                                 Lessfilter { preset, paging, header: _, special, } => {
                                     if *special == 1 {
                                         write!(f, "Help")
@@ -1350,15 +1468,7 @@ macro_rules! enum_from_str_display {
                                     }
 
                                 },
-                                Execute(s, u) => {
-                                    match u {
-                                        1 => write!(f, "ExecPaged({})", s),
-                                        2 => write!(f, "ExecDetached({})", s),
-                                        3 => write!(f, "ExecSilent({})", s),
-                                        4 => write!(f, "ExecTTY({})", s),
-                                        _ => write!(f, "Execute({})", s),
-                                    }
-                                }
+                                Execute(s) => write!(f, "Execute({})", s),
 
                                 LessfilterPreview(p, _) => {
                                     write!(f, "LFPreview({p})")
@@ -1455,29 +1565,9 @@ macro_rules! enum_from_str_display {
                                 "Help" if data.is_none() => {
                                     Ok(FsAction::help())
                                 }
-                                "Execute" => {
+                                "Execute" | "Exec" => {
                                     let cmd = data.ok_or_else(|| "Missing command for Execute")?;
-                                    Ok(Self::Execute(cmd.into(), 0))
-                                }
-                                "Exec" => {
-                                    let cmd = data.ok_or_else(|| "Missing command for Exec")?;
-                                    Ok(Self::Execute(cmd.into(), 0))
-                                }
-                                "ExecPaged" => {
-                                    let cmd = data.ok_or_else(|| "Missing command for ExecPaged")?;
-                                    Ok(Self::Execute(cmd.into(), 1))
-                                }
-                                "ExecDetached" => {
-                                    let cmd = data.ok_or_else(|| "Missing command for ExecDetached")?;
-                                    Ok(Self::Execute(cmd.into(), 2))
-                                }
-                                "ExecSilent" => {
-                                    let cmd = data.ok_or_else(|| "Missing command for ExecSilent")?;
-                                    Ok(Self::Execute(cmd.into(), 3))
-                                }
-                                "ExecTTY" => {
-                                    let cmd = data.ok_or_else(|| "Missing command for ExecTTY")?;
-                                    Ok(Self::Execute(cmd.into(), 4))
+                                    Ok(Self::Execute(cmd.into()))
                                 }
 
                                 /* ------------------------------------- */

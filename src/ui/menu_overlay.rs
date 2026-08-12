@@ -188,7 +188,7 @@ pub struct MenuOverlay {
     pub area: Rect,
 }
 
-pub static MENU_ITEMS: [MenuItem; 8] = [
+pub const MENU_ITEMS: [MenuItem; 8] = [
     MenuItem::New,
     MenuItem::Rename,
     MenuItem::Cut,

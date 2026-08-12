@@ -10,6 +10,9 @@ use crate::{abspath::AbsPath, errors::DbError, run::state::TASKS};
 use cba::{bait::ResultExt, bath::PathExt};
 use fist_types::filters::SortOrder;
 
+use crud::MAX_PLACEHOLDERS;
+use std::time::{SystemTime, UNIX_EPOCH};
+
 pub type Epoch = i64;
 
 impl Pool {
@@ -209,5 +212,103 @@ impl Connection {
         }
 
         Ok(removed)
+    }
+}
+
+// ----------------------------------------------------------------
+// stashes table — backing store of the [`crate::run::FsPane::Stash`] pane
+// ----------------------------------------------------------------
+
+impl Connection {
+    pub async fn add_stash_entry(
+        &mut self,
+        name: &str,
+        path: &AbsPath,
+    ) -> Result<(), DbError> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as Epoch;
+        sqlx::query("INSERT INTO stashes (name, stash, add_time) VALUES (?, ?, ?)")
+            .bind(name)
+            .bind(path)
+            .bind(now)
+            .execute(&mut *self.conn)
+            .await?;
+        Ok(())
+    }
+
+    /// All entries of the named stash. `SortOrder::name` orders by path,
+    /// everything else by most recently added first.
+    pub async fn get_stash_entries(
+        &mut self,
+        name: &str,
+        sort: SortOrder,
+    ) -> Result<Vec<StashEntry>, DbError> {
+        let order_by = match sort {
+            SortOrder::name => "ORDER BY stash",
+            _ => "ORDER BY add_time DESC",
+        };
+        let sql = format!("SELECT * FROM stashes WHERE name = ? {order_by}");
+        sqlx::query_as::<_, StashEntry>(sqlx::AssertSqlSafe(sql))
+            .bind(name)
+            .fetch_all(&mut *self.conn)
+            .await
+            .cast()
+    }
+
+    /// Remove the entries of the named stash whose path is contained in
+    /// `paths` — used by Trash/Delete inside the stash pane, which remove
+    /// from the stash instead of deleting the actual path.
+    pub async fn remove_stash_entries(
+        &mut self,
+        name: &str,
+        paths: &[AbsPath],
+    ) -> Result<u64, DbError> {
+        if paths.is_empty() {
+            return Ok(0);
+        }
+
+        let mut total = 0;
+        for chunk in paths.chunks(MAX_PLACEHOLDERS) {
+            let mut query = sqlx::QueryBuilder::new("DELETE FROM stashes WHERE name = ");
+            query.push_bind(name);
+            query.push(" AND stash IN (");
+            let mut separated = query.separated(", ");
+            for path in chunk {
+                separated.push_bind(path);
+            }
+            query.push(")");
+            total += query.build().execute(&mut *self.conn).await?.rows_affected();
+        }
+        Ok(total)
+    }
+
+    pub async fn clear_stash(
+        &mut self,
+        name: &str,
+    ) -> Result<u64, DbError> {
+        let result = sqlx::query("DELETE FROM stashes WHERE name = ?")
+            .bind(name)
+            .execute(&mut *self.conn)
+            .await?;
+        Ok(result.rows_affected())
+    }
+
+    /// Set the tail (alias analogue of the apps pane) of the entries of the
+    /// named stash whose path matches.
+    pub async fn set_stash_tail(
+        &mut self,
+        name: &str,
+        path: &AbsPath,
+        tail: &str,
+    ) -> Result<(), DbError> {
+        sqlx::query("UPDATE stashes SET tail = ? WHERE name = ? AND stash = ?")
+            .bind(tail)
+            .bind(name)
+            .bind(path)
+            .execute(&mut *self.conn)
+            .await?;
+        Ok(())
     }
 }

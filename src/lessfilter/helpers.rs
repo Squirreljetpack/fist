@@ -265,7 +265,7 @@ pub fn infer_editor(path: &Path) -> Vec<OsString> {
     // Try to apply line/column if supported
     let editor_name = cmd.first().unwrap().to_str().unwrap();
 
-    let (line, col) = line_column::get();
+    let (line, col) = line_column::LINE_COLUMN.get().copied().unwrap_or((None, None));
 
     if let Some(line) = line
         && line >= 0

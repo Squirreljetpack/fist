@@ -19,7 +19,6 @@ use ratatui::{
     prelude::*,
     widgets::{Clear, Paragraph},
 };
-use strum::IntoEnumIterator;
 
 // todo: support compact
 const PANE_WIDTH: u16 = const { 4 + 17 + 1 };
@@ -120,6 +119,19 @@ impl FilterOverlay {
 
     // ----------------- MAKE WIDGETS -------------------------------
 
+    /// The sort orders the modal lists: the pane's options with `atime`
+    /// hidden — atime is only shown by replacing the mtime row while it
+    /// is the active sort.
+    fn sort_orders(&self) -> Vec<SortOrder> {
+        STACK::with_current(|p| {
+            p.sort_options()
+                .iter()
+                .copied()
+                .filter(|so| *so != SortOrder::atime)
+                .collect::<Vec<_>>()
+        })
+    }
+
     // Returns Vec<Span> for sort options
     // Returns items as Vec<(Vec<Span>, bool)> so make_widgets can add checkboxes
     fn get_sort_items(&self) -> Vec<(Vec<Span<'static>>, Option<bool>)> {
@@ -130,11 +142,28 @@ impl FilterOverlay {
             );
             (p.sort(), db)
         });
-        SortOrder::iter()
+        // the pane's options are the list — atime is hidden, replacing the
+        // mtime row's label while it is the active sort
+        self.sort_orders()
+            .iter()
             .map(|so| {
-                let label = so.label(db);
-                let spans = bold_indices(label, [0], self.item_style());
-                let checked = so == current_sort_order;
+                // while atime is active, the mtime row shows 'atime' and
+                // stays checked — the two share one time slot
+                let label =
+                    if *so == SortOrder::mtime && current_sort_order == SortOrder::atime {
+                        "atime"
+                    } else {
+                        so.label(db)
+                    };
+                // the time row highlights its second letter — the 't' in
+                // mtime/atime — the cycle key; other rows keep their first
+                let spans = bold_indices(
+                    label,
+                    if *so == SortOrder::mtime { [1] } else { [0] },
+                    self.item_style(),
+                );
+                let checked = *so == current_sort_order
+                    || (*so == SortOrder::mtime && current_sort_order == SortOrder::atime);
                 (spans, Some(checked))
             })
             .collect()
@@ -243,7 +272,8 @@ impl FilterOverlay {
 
         match x {
             2 => matches!(y, 0 | 3),
-            1 => STACK::in_rg() && y == 2,
+            // the sort pane only lists orders the current pane supports,
+            // so no row is inactive there
             _ => false,
         }
     }
@@ -365,9 +395,12 @@ impl FilterOverlay {
 
             // sort pane: the pane is the source of truth for sort
             1 => {
-                if let Some(new_sort_order) = SortOrder::iter().nth(y) {
-                    STACK::with_current_mut(|p| *p.sort_mut() = new_sort_order);
-                }
+                let orders = self.sort_orders();
+                STACK::with_current_mut(|p| {
+                    if let Some(&new_sort_order) = orders.get(y) {
+                        *p.sort_mut() = new_sort_order;
+                    }
+                });
             }
 
             2 => STACK::with_current_mut(|p| match p {
@@ -421,14 +454,53 @@ impl Overlay for FilterOverlay {
         match c {
             'q' => return OverlayEffect::Disable,
 
-            // sort toggles: write the pane's sort, dispatch Refilter
-            'n' | 'm' | 'a' | 's' if self.pane_lens[1] > 0 => {
-                let target = match c {
-                    'n' => SortOrder::name,
-                    'm' => SortOrder::mtime,
-                    'a' => SortOrder::atime,
-                    _ => SortOrder::size,
+            // time-sort cycle key (the highlighted 't'): any other sort ->
+            // mtime, mtime -> atime, atime -> none, none -> mtime.
+            // Unsupported targets fall back to none (mtime on db panes).
+            't' if self.pane_lens[1] > 0 => {
+                let next = STACK::with_current(|p| match p.sort() {
+                    SortOrder::mtime => SortOrder::atime,
+                    SortOrder::atime => SortOrder::none,
+                    _ => SortOrder::mtime,
+                });
+                // keys target their named order when the pane supports it,
+                // else fall back to none (mtime on db panes)
+                let target = STACK::with_current(|p| {
+                    if p.sort_options().contains(&next) {
+                        next
+                    } else {
+                        SortOrder::none
+                    }
+                });
+                STACK::with_current_mut(|p| *p.sort_mut() = target);
+            }
+
+            // sort toggles: write the pane's sort, dispatch Refilter.
+            // db panes (Files/Folders/Apps) label their sorts name/count/
+            // frecency and key them n/c/f; other panes key name/size n/s.
+            'n' | 's' | 'c' | 'f' if self.pane_lens[1] > 0 => {
+                let is_db = STACK::with_current(|p| {
+                    matches!(
+                        p,
+                        FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
+                    )
+                });
+                let named = match (c, is_db) {
+                    ('n', _) => SortOrder::name,
+                    ('s', false) => SortOrder::size,
+                    ('c', true) => SortOrder::size,
+                    ('f', true) => SortOrder::none,
+                    _ => return OverlayEffect::None,
                 };
+                // keys target their named order when the pane supports it,
+                // else fall back to none ('s' on an rg pane toggles none)
+                let target = STACK::with_current(|p| {
+                    if p.sort_options().contains(&named) {
+                        named
+                    } else {
+                        SortOrder::none
+                    }
+                });
                 STACK::with_current_mut(|p| {
                     let sort = p.sort_mut();
                     *sort = if *sort == target {
@@ -440,12 +512,14 @@ impl Overlay for FilterOverlay {
             }
 
             // visibility toggles
-            'h' | 'H' | 'I' | 'd' | 'D' if self.pane_lens[0] > 0 => {
+            'h' | 'H' | 'I' | 'd' | 'D' | 'a' if self.pane_lens[0] > 0 => {
                 FILTERS::with_mut(|vis| {
-                    if !matches!(c, 'D') {
+                    if !matches!(c, 'D' | 'a') {
                         vis.set_all(false);
                     }
                     match c {
+                        // 'a' is the highlighted key of the 'all' row
+                        'a' => vis.toggle_all(),
                         'h' => (vis.hidden, vis.hidden_only) = (!vis.hidden, false),
                         'H' => {
                             if !vis.dirs {

@@ -10,7 +10,7 @@ pub enum ParseError {
     MissingValue { path: String },
 }
 
-static ALIASES: &[(&str, &str)] = &[
+const ALIASES: &[(&str, &str)] = &[
     ("i", "start.input_separator"),
     ("o", "start.output_template"),
     ("x", "start.command"),

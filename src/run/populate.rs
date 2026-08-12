@@ -14,6 +14,7 @@ use std::{
 use ansi_to_tui::IntoText;
 use cba::{
     bait::ResultExt,
+    bath::PathExt,
     bo::{map_chunks, map_reader_lines, read_to_chunks},
     bog::BogOkExt,
     bring::StrExt,
@@ -35,12 +36,13 @@ use crate::{
     utils::text::{extract_rg_line_no_path, scrub_text_styles, text_to_lines},
 };
 use crate::{
+    abspath::AbsPath,
     db::DbTable,
     find::{apps::collect_apps, fd::build_fd_args, walker::list_dir},
     run::{
         FsAction,
         item::PathItem,
-        lua::{call_lua, transform_path},
+        lua::call_transform,
         start::FsInjector,
         state::{APP, GLOBAL, STACK, TASKS, sort},
     },
@@ -67,19 +69,15 @@ impl FsPane {
                 stored,
                 cwd,
                 complete,
-                delim,
-                record_sep,
-                lua_renderer,
-                lua_render_tail,
-                lua_path_transform,
+                tail_sep: delim,
+                input_sep: record_sep,
+                transform,
                 ..
             } => {
                 complete.store(false, Ordering::SeqCst);
                 if let Some(stored) = stored {
                     stored.map_to_vec(|item| {
-                        if let Some(order) = sort::get_sort().order {
-                            sort::store_sort_value(item, order);
-                        }
+                        sort::store_sort_value(item, sort::get_sort().order);
                         injector.push(item.clone())
                     });
                     if complete.load(Ordering::SeqCst) {
@@ -91,9 +89,7 @@ impl FsPane {
                 let cwd = cwd.clone();
                 let stored = stored.clone();
                 let complete = complete.clone();
-                let lua_renderer = lua_renderer.clone();
-                let lua_render_tail = lua_render_tail.clone();
-                let lua_path_transform = lua_path_transform.clone();
+                let transform = transform.clone();
 
                 // Some = spawn and read its stdout; None = read stdin
                 let stdout: Box<dyn Read + Send + Sync> = match cmd {
@@ -115,22 +111,23 @@ impl FsPane {
                     stdout,
                     *record_sep,
                     move |line| {
-                        let [first, tail] = line.split_delim(delim);
-                        let first = transform_path(lua_path_transform.as_ref(), first, &cwd);
-                        let mut item = PathItem::new_from_split([first.as_str(), tail], &cwd);
-                        if let Some(f) = lua_render_tail.as_ref()
-                            && let Ok([s, _]) = &mut item.tail
-                        {
-                            *s = call_lua(f, &item.path);
-                        }
-                        if let Some(f) = lua_renderer.as_ref()
-                            && let Ok([_, o]) = &mut item.tail
-                        {
-                            *o = call_lua(f, &item.path);
-                        }
-                        if let Some(order) = sort::get_sort().order {
-                            sort::store_sort_value(&item, order);
-                        }
+                        let [first, raw_tail] = line.split_delim(delim);
+                        let (path, display, tail) = if let Some(f) = transform.as_ref() {
+                            let p = AbsPath::new_unchecked(first.abs(&cwd));
+                            let (path, display, tail) = call_transform(f, &p, raw_tail)?;
+                            // A missing path omits the entry from the listing.
+                            let Some(path) = path else { return anyhow::Ok(()) };
+                            (
+                                path,
+                                display.unwrap_or_default(),
+                                tail.unwrap_or_else(|| raw_tail.to_string()),
+                            )
+                        } else {
+                            (first.to_string(), String::new(), raw_tail.to_string())
+                        };
+                        let mut item = PathItem::new_unchecked(path.abs(&cwd));
+                        item.tail = Ok([tail, display]);
+                        sort::store_sort_value(&item, sort::get_sort().order);
                         if let Some(stored) = &stored {
                             stored.push(item.clone());
                         };
@@ -155,7 +152,7 @@ impl FsPane {
                 types,
                 paths,
                 fd_args,
-                lua_path_transform,
+                transform,
                 ..
             } => {
                 let vis = *vis;
@@ -182,26 +179,29 @@ impl FsPane {
 
                 let _complete = complete.clone();
                 let _cwd = cwd.clone();
-                let lua_path_transform = lua_path_transform.clone();
+                let transform = transform.clone();
                 map_reader(
                     stdout,
                     Some('\0'),
                     move |line| {
-                        let item = if let Some(f) = lua_path_transform.as_ref() {
-                            PathItem::new(transform_path(Some(f), &line, &cwd), &cwd)
+                        let item = if let Some(f) = transform.as_ref() {
+                            let p = AbsPath::new_unchecked(line.abs(&cwd));
+                            let (path, display, tail) = call_transform(f, &p, "")?;
+                            // A missing path omits the entry from the listing.
+                            let Some(path) = path else { return anyhow::Ok(()) };
+                            let mut item = PathItem::new(path, &cwd);
+                            item.tail = Ok([tail.unwrap_or_default(), display.unwrap_or_default()]);
+                            item
                         } else {
                             PathItem::new(line, &cwd)
                         };
                         let push = vis.post_fd_filter(&item.path);
 
                         if push {
-                            if let Some(order) = sort::get_sort().order {
-                                sort::store_sort_value(&item, order);
-                            }
-                            injector.push(item)
-                        } else {
-                            Ok(())
+                            sort::store_sort_value(&item, sort::get_sort().order);
+                            injector.push(item)?;
                         }
+                        anyhow::Ok(())
                     },
                     move |count| {
                         if count == Some(0) {
@@ -396,7 +396,6 @@ impl FsPane {
             }
             Self::Files { sort, .. } => {
                 let sort = *sort;
-                let cwd = STACK::_cwd();
                 let pool = GLOBAL::db();
 
                 tokio::spawn(async move {
@@ -407,7 +406,7 @@ impl FsPane {
                     }
 
                     for e in entries {
-                        let item = PathItem::new_unchecked(e.path.into(), &cwd);
+                        let item = PathItem::new_unchecked(e.path.into());
                         injector.push(item)?;
                     }
 
@@ -433,14 +432,39 @@ impl FsPane {
                         if let Some(e) = entries.next()
                             && e.path != cwd
                         {
-                            let item = PathItem::new_unchecked(e.path.into(), &cwd);
+                            let item = PathItem::new_unchecked(e.path.into());
                             injector.push(item)?
                         }
                     }
 
                     for e in entries {
-                        let item = PathItem::new_unchecked(e.path.into(), &cwd);
+                        let item = PathItem::new_unchecked(e.path.into());
                         injector.push(item)?
+                    }
+
+                    Ok(())
+                })
+            }
+            Self::Stash { stash_name, sort, .. } => {
+                let sort = *sort;
+                let stash_name = stash_name.clone();
+                let filter_missing = cfg.panes.stash.filter_missing;
+                let pool = GLOBAL::db();
+
+                tokio::spawn(async move {
+                    let mut conn = pool.get_conn(DbTable::stashes).await.elog()?;
+                    let entries = conn.get_stash_entries(&stash_name, sort).await.elog()?;
+                    if entries.is_empty() && toast_on_empty {
+                        TOAST::toast_empty();
+                    }
+
+                    for e in entries {
+                        if filter_missing && !e.stash.exists() {
+                            continue;
+                        }
+                        let mut item = PathItem::new_unchecked(e.stash.into());
+                        item.tail = Ok([e.tail, String::new()]);
+                        injector.push(item)?;
                     }
 
                     Ok(())
@@ -503,10 +527,8 @@ impl FsPane {
 
                     for path in list_dir(&cwd, vis, depth) {
                         empty = false;
-                        let item = PathItem::new_unchecked(path, &cwd);
-                        if let Some(order) = sort::get_sort().order {
-                            sort::store_sort_value(&item, order);
-                        }
+                        let item = PathItem::new_unchecked(path);
+                        sort::store_sort_value(&item, sort::get_sort().order);
                         injector.push(item)?
                     }
 

@@ -31,6 +31,7 @@ pub enum DbTable {
     apps,
     files,
     dirs,
+    stashes,
 }
 
 impl Pool {
@@ -124,6 +125,18 @@ impl Pool {
             );
             query.build().execute(&mut *conn.conn).await?;
         }
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS stashes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                stash BLOB NOT NULL,
+                tail TEXT NOT NULL DEFAULT '',
+                add_time INTEGER NOT NULL
+            )",
+        )
+        .execute(&mut *conn.conn)
+        .await?;
 
         Ok(())
     }

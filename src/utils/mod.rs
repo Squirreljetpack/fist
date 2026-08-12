@@ -1,4 +1,5 @@
 pub mod colors;
+pub mod flag;
 pub mod formatter;
 pub mod path;
 pub mod prompt;

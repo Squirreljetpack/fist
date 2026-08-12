@@ -14,14 +14,43 @@ thread_local! {
 #[derive(Debug)]
 pub struct ExecuteHandlerShouldProcessParent;
 
+/// Set by [`crate::run::ahandlers::fs_reload`] when a new pane's sort
+/// override (panesetting `default_sort`) is applied; consumed by
+/// [`crate::run::FsAction::ReSort`]. While present, the column-2 metadata
+/// override (the sort-value display) is skipped (see [`crate::run::start::format_tail`]).
+#[derive(Debug, Clone)]
+pub struct HideMetadata;
+
 #[derive(Debug, Clone)]
 pub struct ShouldNotAbortOnEmpty;
 
-#[derive(Clone, Debug)]
-pub struct InitialRelativePathSetting(pub bool);
+/// Set by [`crate::cli::handlers`] (cd-mode dirs/custom panes): while it is set,
+/// populating at stack index 0 renders without a cwd (`RENDER_PATH = None`),
+/// so `path.relative` never triggers on the initial pane.
+#[derive(Debug, Clone)]
+pub struct InitialNoRelative;
 
 #[derive(Debug)]
 pub struct InitialPreserveWhitespaceInSearch;
+
+/// Prompt-mode flag (raw): the query bar is active (border shown, left/right
+/// edit the query, Accept is intercepted). Set on entry by
+/// [`crate::run::ahandlers::lock_prompt`] — gated on
+/// `interface.prompt_locking`, so with locking off only the cwd lock
+/// ([`crate::run::ahandlers::enter_prompt`]) sets it — and taken on leave
+/// (never gated).
+///
+/// Invariant: cursor_disabled ⇒ cwd exists — the cursor is only disabled by
+/// [`crate::run::ahandlers::enter_prompt`], which requires a cwd.
+#[derive(Debug, Clone)]
+pub struct InPrompt;
+
+/// Set by the action aliaser when an accept keypress resolves to the *print*
+/// flavor (`alt_accept` XOR alt-enter, outside app panes); consumed by the
+/// [`matchmaker::Matchmaker`] accept hook, which then emits the selection and
+/// returns nothing for the opener/apps to consume.
+#[derive(Debug)]
+pub struct AcceptFlavor;
 
 /// Menu prompt configuration for the overlay input bar
 #[derive(Debug, Clone)]
@@ -85,6 +114,10 @@ impl STORE {
 
     pub fn get<T: Clone + 'static>() -> Option<T> {
         TLS_MAP.with(|map| map.borrow().get::<T>().cloned())
+    }
+
+    pub fn contains<T: Clone + 'static>() -> bool {
+        TLS_MAP.with(|map| map.borrow().get::<T>().is_some())
     }
 
     pub fn take<T: 'static + Debug>() -> Option<T> {

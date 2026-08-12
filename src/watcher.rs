@@ -4,7 +4,7 @@ use notify::{
     Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher,
     event::ModifyKind,
 };
-use std::{path::PathBuf, time::Duration};
+use std::{collections::VecDeque, path::PathBuf, time::Duration};
 use tokio::sync::watch;
 
 // ----------------- WatcherMessage -----------------
@@ -16,6 +16,34 @@ pub enum WatcherMessage {
 }
 
 // ----------------- WatcherConfig -----------------
+/// Thrash throttle: when `count` or more filesystem events land within
+/// `duration`, the watcher stops emitting reloads until the filesystem has
+/// been quiet for `resume_delay`, then emits one authoritative reload.
+/// Bounds recompute storms
+/// (auto-save, periodic build output).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ThrashSetting {
+    /// Number of events within `duration` that trips the throttle.
+    pub count: usize,
+    /// Sliding window for counting events.
+    #[serde(with = "serde_duration_ms")]
+    pub duration_ms: Duration,
+    /// Quiet period after the last event before processing resumes.
+    #[serde(with = "serde_duration_ms")]
+    pub resume_delay_ms: Duration,
+}
+
+impl Default for ThrashSetting {
+    fn default() -> Self {
+        Self {
+            count: 5,
+            duration_ms: Duration::from_millis(5000),
+            resume_delay_ms: Duration::from_millis(5000),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct WatcherConfig {
@@ -25,6 +53,9 @@ pub struct WatcherConfig {
     /// Drop events within this interval
     #[serde(with = "serde_duration_ms")]
     pub debounce_ms: Duration,
+    /// Event-storm throttle (see [`ThrashSetting`])
+    #[serde(default)]
+    pub thrash_threshold: ThrashSetting,
 }
 
 impl Default for WatcherConfig {
@@ -32,6 +63,7 @@ impl Default for WatcherConfig {
         Self {
             fs_poll_ms: Duration::from_secs(2),
             debounce_ms: Duration::from_millis(100),
+            thrash_threshold: Default::default(),
         }
     }
 }
@@ -87,14 +119,28 @@ impl FsWatcher {
         )
     }
 
-    /// Start the filesystem watcher on a seperate thread, then listen for events to change the watched directory.
+    /// Start the filesystem watcher on a separate thread, then listen for events to change the watched directory.
     pub fn spawn(mut self) -> notify::Result<()> {
         let mut watcher = self.start_watcher()?;
 
         tokio::spawn(async move {
-            let debounce_timer = tokio::time::sleep(Duration::from_secs(3600 * 24 * 365));
+            const FAR_FUTURE: Duration = Duration::from_secs(3600 * 24 * 365);
+            let far_future = || tokio::time::Instant::now() + FAR_FUTURE;
+
+            let debounce_timer = tokio::time::sleep(FAR_FUTURE);
             tokio::pin!(debounce_timer);
             let mut pending_reload = false;
+
+            // thrash throttle: raw event timestamps within the sliding
+            // window, plus a resume timer that is (re)armed on every event
+            // while throttled — so it fires resume_delay after the FS goes
+            // quiet, and the settle reload is the one authoritative
+            // recompute per storm.
+            let thrash = self.config.thrash_threshold.clone();
+            let mut events: VecDeque<tokio::time::Instant> = VecDeque::new();
+            let resume_timer = tokio::time::sleep(FAR_FUTURE);
+            tokio::pin!(resume_timer);
+            let mut throttled = false;
 
             loop {
                 tokio::select! {
@@ -118,24 +164,67 @@ impl FsWatcher {
                                         }
                                     }
                                 }
-                                pending_reload = false
+                                // the old storm belongs to the old path
+                                pending_reload = false;
+                                events.clear();
+                                throttled = false;
                             }
                             WatcherMessage::Pause => {
                                 if let Some(old_path) = self.current_path.take() {
                                     let _ = watcher.unwatch(&old_path);
                                 }
-                                pending_reload = false
+                                pending_reload = false;
+                                events.clear();
+                                throttled = false;
                             }
                             WatcherMessage::Reload => {
-                                pending_reload = true;
-                                debounce_timer.as_mut().reset(tokio::time::Instant::now() + self.config.debounce_ms);
+                                let now = tokio::time::Instant::now();
+
+                                if throttled {
+                                    // storm ongoing: stay quiet; resume once
+                                    // the FS has settled
+                                    resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
+                                    continue;
+                                }
+
+                                // slide the window, count this event
+                                while events.front().is_some_and(|t| now - *t > thrash.duration_ms) {
+                                    events.pop_front();
+                                }
+                                events.push_back(now);
+
+                                if events.len() >= thrash.count {
+                                    // threshold tripped: drop the pending
+                                    // debounced reload, go quiet
+                                    log::debug!(
+                                        "Watcher throttling: {} events in {:?}",
+                                        events.len(),
+                                        thrash.duration_ms
+                                    );
+                                    throttled = true;
+                                    pending_reload = false;
+                                    debounce_timer.as_mut().reset(far_future());
+                                    resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
+                                } else {
+                                    pending_reload = true;
+                                    debounce_timer.as_mut().reset(now + self.config.debounce_ms);
+                                }
                             }
                         }
                     }
-                    _ = &mut debounce_timer, if pending_reload => {
-                        // debounce_timer expires, send events
+                    _ = &mut debounce_timer, if pending_reload && !throttled => {
+                        // debounce window closed without tripping the throttle
                         pending_reload = false;
-                        debounce_timer.as_mut().reset(tokio::time::Instant::now() + Duration::from_secs(3600 * 24 * 365));
+                        debounce_timer.as_mut().reset(far_future());
+
+                        let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::SaveInput)));
+                        let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::Reload)));
+                    }
+                    _ = &mut resume_timer, if throttled => {
+                        // the FS settled after a storm: one authoritative reload
+                        throttled = false;
+                        events.clear();
+                        resume_timer.as_mut().reset(far_future());
 
                         let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::SaveInput)));
                         let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::Reload)));

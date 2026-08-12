@@ -154,14 +154,40 @@ impl MenuOverlay {
             PromptKind::SetAlias => {
                 let path = self.target_path();
                 let alias = self.prompt.input.value();
-                let pool = GLOBAL::db();
-                let table = if path.is_dir() {
-                    DbTable::dirs
-                } else {
-                    DbTable::files
-                };
 
-                pool.set_path_alias(path.clone(), alias.clone(), table);
+                // in a stash pane this edits the entry's tail column instead
+                let stash_name = STACK::with_current(|p| match p {
+                    crate::run::FsPane::Stash { stash_name, .. } => Some(stash_name.clone()),
+                    _ => None,
+                });
+
+                if let Some(name) = stash_name {
+                    let pool = GLOBAL::db();
+                    let tail = alias.clone();
+                    let path = path.clone();
+                    TASKS::spawn(async move {
+                        match pool.get_conn(DbTable::stashes).await {
+                            Ok(mut conn) => {
+                                if let Err(e) = conn.set_stash_tail(&name, &path, &tail).await {
+                                    log::error!("Error setting stash tail: {e}");
+                                }
+                            }
+                            Err(e) => {
+                                log::error!("Error getting connection: {e}");
+                            }
+                        }
+                        GLOBAL::send_action(FsAction::Reload);
+                    });
+                } else {
+                    let pool = GLOBAL::db();
+                    let table = if path.is_dir() {
+                        DbTable::dirs
+                    } else {
+                        DbTable::files
+                    };
+
+                    pool.set_path_alias(path.clone(), alias.clone(), table);
+                }
 
                 if alias.is_empty() {
                     TOAST::push(

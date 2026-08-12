@@ -12,8 +12,9 @@ use matchmaker::nucleo::{Color, Line, Span, Style, Text};
 use crate::{
     abspath::AbsPath,
     cli::paths::__home,
+    config::ui::PathDisplayConfig,
     db::Entry,
-    run::state::{STACK, ui::global_ui},
+    run::state::{render_path, ui::global_ui},
 };
 use fist_types::{
     FileCategory,
@@ -72,11 +73,8 @@ impl PathItem {
         }
     }
 
-    /// cwd is used for reductions in rendering
-    pub fn new_unchecked(
-        path: PathBuf,
-        cwd: &Path,
-    ) -> Self {
+    /// Construct from an already-absolute path.
+    pub fn new_unchecked(path: PathBuf) -> Self {
         let path = AbsPath::new_unchecked(path);
         Self {
             path,
@@ -85,37 +83,8 @@ impl PathItem {
         }
     }
 
-    pub fn display(&self) -> Cow<'_, str> {
-        self.path.to_string_lossy()
-    }
-
-    pub fn new_from_split(
-        [first, tail]: [&str; 2],
-        cwd: &Path,
-    ) -> Self {
-        let path = AbsPath::new_unchecked(first.abs(cwd));
-
-        Self {
-            path,
-            metadata: AtomicU64::new(u64::MAX),
-            tail: Ok([tail.to_string(), String::new()]),
-        }
-    }
-
-    pub fn _uninit() -> Self {
-        PathItem::new_unchecked(
-            crate::cli::paths::__cwd().into(),
-            crate::cli::paths::__cwd(),
-        )
-    }
-
     pub fn render(&self) -> Text<'static> {
-        let cwd_owned = STACK::cwd();
-        let cwd: &Path = match cwd_owned.as_deref() {
-            Some(p) => Path::new(p),
-            None => crate::cli::paths::__cwd(),
-        };
-        render(&self.path, cwd)
+        render(&self.path, render_path().as_ref().map(|p| p.as_ref()))
     }
 
     pub fn tail_text(&self) -> Text<'static> {
@@ -133,10 +102,25 @@ impl PathItem {
                 return o.clone();
             }
         }
-        self.path.to_string_lossy().into_owned()
+        self.render().to_string()
     }
 
-    pub fn set_loc(&self, line: u32, col: u32) {
+    /// Col-1 sort key: tries the `tail[1]` display override first when non-empty,
+    /// else returns `self.path.to_string_lossy()`.
+    pub fn sort_name(&self) -> Cow<'_, str> {
+        if let Ok([_, o]) = &self.tail {
+            if !o.is_empty() {
+                return Cow::Borrowed(o.as_str());
+            }
+        }
+        self.path.to_string_lossy()
+    }
+
+    pub fn set_loc(
+        &self,
+        line: u32,
+        col: u32,
+    ) {
         let v = ((line as u64) << 32) | (col as u64);
         self.metadata.store(v, Ordering::Relaxed);
     }
@@ -146,7 +130,10 @@ impl PathItem {
         ((v >> 32) as u32, (v & 0xFFFF_FFFF) as u32)
     }
 
-    pub fn set_value(&self, v: u64) {
+    pub fn set_value(
+        &self,
+        v: u64,
+    ) {
         self.metadata.store(v, Ordering::Relaxed);
     }
 
@@ -167,13 +154,26 @@ pub fn short_display(path: &Path) -> Span<'static> {
 }
 
 fn render(
+    path: &Path,
+    cwd: Option<&Path>,
+) -> Text<'static> {
+    render_with(&global_ui().path, path, cwd)
+}
+
+/// Pure rendering logic, given the display config.
+///
+/// `cwd: None` (no render path — initial pane) disables relative display:
+/// `path.relative` never triggers and paths render absolute.
+fn render_with(
+    cfg: &PathDisplayConfig,
     mut path: &Path,
-    cwd: &Path,
+    cwd: Option<&Path>,
 ) -> Text<'static> {
     let full_path = path;
-    let cfg = global_ui().path.clone();
+    let relative = cfg.relative;
 
-    if cfg.relative
+    if relative
+        && let Some(cwd) = cwd
         && let Ok(stripped) = path.strip_prefix(cwd)
     {
         path = if stripped.is_empty() {
@@ -326,22 +326,16 @@ mod tests {
     use super::*;
     use crate::cli::paths::{__cwd, __home};
     use crate::config::ui::{PathDisplayConfig, StyleConfig};
+    use crate::run::state::set_render_path;
     use crate::run::state::ui::global_ui_init;
     use std::path::Path;
+    use std::sync::Once;
 
-    fn with_config<F>(
-        config: PathDisplayConfig,
-        test_fn: F,
-    ) where
-        F: FnOnce(),
-    {
-        let original_config = global_ui().clone();
-        global_ui_init(StyleConfig {
-            path: config,
-            ..Default::default()
-        });
-        test_fn();
-        global_ui_init(original_config);
+    /// `render()`/`display_name()` read the global UI config; initialize it once
+    /// (OnceLock set is one-shot — per-test swaps are impossible).
+    static INIT_GLOBAL_UI: Once = Once::new();
+    fn init_global_ui_once() {
+        INIT_GLOBAL_UI.call_once(|| global_ui_init(StyleConfig::DEFAULT));
     }
 
     #[test]
@@ -355,23 +349,21 @@ mod tests {
 
         let config = PathDisplayConfig::DEFAULT;
 
-        with_config(config, || {
-            eprintln!();
-            let rendered = render(&path_in_cwd, cwd);
-            eprintln!("{}", rendered);
-            let icon = icon_for_file(&path_in_cwd);
-            assert_eq!(rendered.to_string(), format!("{} src/main.rs", icon));
+        eprintln!();
+        let rendered = render_with(&config, &path_in_cwd, Some(cwd));
+        eprintln!("{}", rendered);
+        let icon = icon_for_file(&path_in_cwd);
+        assert_eq!(rendered.to_string(), format!("{} src/main.rs", icon));
 
-            let rendered = render(&path_in_home, cwd);
-            eprintln!("{}", rendered);
-            let icon = icon_for_file(&path_in_home);
-            assert_eq!(rendered.to_string(), format!("{} ~/.config/app.conf", icon));
+        let rendered = render_with(&config, &path_in_home, Some(cwd));
+        eprintln!("{}", rendered);
+        let icon = icon_for_file(&path_in_home);
+        assert_eq!(rendered.to_string(), format!("{} ~/.config/app.conf", icon));
 
-            let rendered = render(absolute_path, cwd);
-            eprintln!("{}", rendered);
-            let icon = icon_for_file(absolute_path);
-            assert_eq!(rendered.to_string(), format!("{} /var/log/syslog", icon));
-        });
+        let rendered = render_with(&config, absolute_path, Some(cwd));
+        eprintln!("{}", rendered);
+        let icon = icon_for_file(absolute_path);
+        assert_eq!(rendered.to_string(), format!("{} /var/log/syslog", icon));
 
         let config = PathDisplayConfig {
             collapse_home: false,
@@ -382,19 +374,17 @@ mod tests {
             dir_colors: false,
             ..Default::default()
         };
-        with_config(config, || {
-            let rendered = render(&path_in_home, cwd);
-            assert_eq!(
-                rendered.to_string(),
-                path_in_home.to_string_lossy().to_string()
-            );
+        let rendered = render_with(&config, &path_in_home, Some(cwd));
+        assert_eq!(
+            rendered.to_string(),
+            path_in_home.to_string_lossy().to_string()
+        );
 
-            let rendered = render(&path_in_cwd, cwd);
-            assert_eq!(
-                rendered.to_string(),
-                path_in_cwd.to_string_lossy().to_string()
-            );
-        });
+        let rendered = render_with(&config, &path_in_cwd, Some(cwd));
+        assert_eq!(
+            rendered.to_string(),
+            path_in_cwd.to_string_lossy().to_string()
+        );
 
         let config = PathDisplayConfig {
             relative: true,
@@ -405,13 +395,11 @@ mod tests {
             dir_colors: false,
             ..Default::default()
         };
-        with_config(config, || {
-            let rendered = render(&path_in_cwd, cwd);
-            assert_eq!(rendered.to_string(), "src/main.rs");
+        let rendered = render_with(&config, &path_in_cwd, Some(cwd));
+        assert_eq!(rendered.to_string(), "src/main.rs");
 
-            let rendered = render(home, cwd);
-            assert_eq!(rendered.to_string(), "~");
-        });
+        let rendered = render_with(&config, home, Some(cwd));
+        assert_eq!(rendered.to_string(), "~");
     }
 
     #[test]
@@ -425,15 +413,13 @@ mod tests {
             file_icons: true,
             ..PathDisplayConfig::DEFAULT
         };
-        with_config(config, || {
-            let rendered = render(&path_in_cwd, cwd);
-            assert_eq!(rendered.lines.len(), 1);
-            let line = &rendered.lines[0];
-            assert_eq!(line.spans.len(), 2);
-            assert!(line.spans[0].style.fg.is_some());
-            assert!(line.spans[1].style.fg.is_none());
-            assert_eq!(line.spans[1].content, " src/main.rs");
-        });
+        let rendered = render_with(&config, &path_in_cwd, Some(cwd));
+        assert_eq!(rendered.lines.len(), 1);
+        let line = &rendered.lines[0];
+        assert_eq!(line.spans.len(), 2);
+        assert!(line.spans[0].style.fg.is_some());
+        assert!(line.spans[1].style.fg.is_none());
+        assert_eq!(line.spans[1].content, " src/main.rs");
 
         let config = PathDisplayConfig {
             file_colors: true,
@@ -441,13 +427,11 @@ mod tests {
             file_icons: true,
             ..PathDisplayConfig::DEFAULT
         };
-        with_config(config, || {
-            let rendered = render(&path_in_cwd, cwd);
-            assert_eq!(rendered.lines.len(), 1);
-            let line = &rendered.lines[0];
-            assert_eq!(line.spans.len(), 1);
-            assert!(line.spans[0].style.fg.is_some());
-        });
+        let rendered = render_with(&config, &path_in_cwd, Some(cwd));
+        assert_eq!(rendered.lines.len(), 1);
+        let line = &rendered.lines[0];
+        assert_eq!(line.spans.len(), 1);
+        assert!(line.spans[0].style.fg.is_some());
     }
 
     #[test]
@@ -462,15 +446,30 @@ mod tests {
             dir_icons: true,
             ..PathDisplayConfig::DEFAULT
         };
-        with_config(config, || {
-            let rendered = render(home, cwd);
-            assert_eq!(rendered.lines.len(), 1);
-            let line = &rendered.lines[0];
-            assert_eq!(line.spans.len(), 2);
-            assert!(line.spans[0].style.fg.is_some());
-            assert_eq!(line.spans[0].content, Icons::HOME.to_string());
-            assert!(line.spans[1].style.fg.is_none());
-            assert_eq!(line.spans[1].content, " ~");
-        });
+        let rendered = render_with(&config, home, Some(cwd));
+        assert_eq!(rendered.lines.len(), 1);
+        let line = &rendered.lines[0];
+        assert_eq!(line.spans.len(), 2);
+        assert!(line.spans[0].style.fg.is_some());
+        assert_eq!(line.spans[0].content, Icons::HOME.to_string());
+        assert!(line.spans[1].style.fg.is_none());
+        assert_eq!(line.spans[1].content, " ~");
+    }
+
+    #[test]
+    fn test_display_name_relative() {
+        init_global_ui_once();
+        let cwd = __cwd();
+        // render() reads the global render path (set per populate) — point it
+        // at the cwd so relative display is exercised
+        set_render_path(Some(AbsPath::new_unchecked(cwd)));
+        let path_in_cwd = cwd.join(".cargo");
+        let item = PathItem::new(path_in_cwd, cwd);
+        assert_eq!(item.display_name(), item.render().to_string());
+        assert!(
+            !item
+                .display_name()
+                .contains(&cwd.to_string_lossy().to_string())
+        );
     }
 }

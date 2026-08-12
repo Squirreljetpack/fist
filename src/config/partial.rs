@@ -22,6 +22,7 @@ pub struct MatchmakerOverrides {
     pub find: PartialRenderConfig,
     pub search: PartialRenderConfig,
     pub custom: PartialRenderConfig,
+    pub stash: PartialRenderConfig,
     pub settings: PartialRenderConfig,
 }
 
@@ -38,6 +39,7 @@ impl MatchmakerOverrides {
             FsPane::Apps { .. } => &self.app,
             FsPane::Nav { .. } => &self.nav,
             FsPane::Search { .. } => &self.search,
+            FsPane::Stash { .. } => &self.stash,
         }
     }
 }

@@ -21,6 +21,8 @@ pub enum CliError {
     Handled,
     #[error("Conflicting flags: --{0} and --{1}")]
     ConflictingFlags(&'static str, &'static str),
+    #[error("Invalid sort order '{0}' for the {1} pane")]
+    UnsupportedSort(String, &'static str),
     #[error(transparent)]
     MatchError(#[from] matchmaker::MatchError),
     #[error(transparent)]

@@ -13,8 +13,8 @@ pub mod mime_helpers;
 
 use arrayvec::ArrayVec;
 use cba::bog::BogUnwrapExt;
+use cba::{_trace, ebog, unwrap};
 use cba::{bog::BogOkExt, broc::CommandExt};
-use cba::{ebog, unwrap};
 use std::process::{Command, Stdio};
 
 use crate::cli::clap_tools::LessfilterCommand;
@@ -101,7 +101,7 @@ pub fn handle(
             };
             let script = format_path(template, &AbsPath::new(path.clone()));
 
-            let mut cmd = Command::from_script(&script).with_args(args.drain(..));
+            let mut cmd = Command::from_script(&script, &[]).with_args(args.drain(..));
             log::trace!("spawning custom: {script}");
 
             if !no_exec && i == rl {
@@ -120,7 +120,7 @@ pub fn handle(
             let pl = (!progs.is_empty()).then_some(progs.len() - 1);
 
             for (pi, mut prog) in progs.into_iter().enumerate() {
-                log::trace!("prog: {prog:?}");
+                _trace!(prog);
                 // filter out headers
                 let current_success = if is_header(&prog) {
                     if header.is_none() {

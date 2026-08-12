@@ -1,10 +1,6 @@
-use std::{
-    path::Path,
-    sync::{Mutex, OnceLock},
-};
+use std::sync::{Mutex, OnceLock};
 
-use cba::bath::PathExt;
-use mlua::Lua;
+use mlua::{Lua, MultiValue};
 
 use crate::abspath::AbsPath;
 
@@ -19,9 +15,7 @@ fn lua_vm() -> &'static Lua {
 }
 
 /// Compile `script` against the process-wide VM (leaked, thread-safe).
-pub fn compile_lua(
-    script: &str,
-) -> Result<LuaFn, String> {
+pub fn compile_lua(script: &str) -> Result<LuaFn, String> {
     let _g = LUA_LOCK.lock().unwrap();
     lua_vm()
         .load(script)
@@ -29,32 +23,30 @@ pub fn compile_lua(
         .map_err(|e| e.to_string())
 }
 
-/// Call a precompiled function with the item's path string; result must be a string.
-/// Never panics on script failure — returns the empty string instead.
-pub fn call_lua(
+/// Call the pane's transform: `(path, tail) -> (path, display, tail)`.
+/// Each return value is optional: a missing or non-string output yields
+/// `None` — a `None` path omits the entry from the listing, `None`
+/// display/tail keep the current values. Script errors are propagated.
+/// Never panics.
+pub fn call_transform(
     f: &LuaFn,
     path: &AbsPath,
-) -> String {
+    tail: &str,
+) -> anyhow::Result<(Option<String>, Option<String>, Option<String>)> {
     let _g = LUA_LOCK.lock().unwrap();
-    f.call::<String>(path.to_string_lossy().as_ref())
-        .unwrap_or_default()
-}
-
-/// Runs the pane's path transform on the raw path string; on error/absence
-/// returns the input unchanged. Applied before `PathItem` construction so
-/// rendering, sorting, and output all see the mapped path.
-pub fn transform_path(
-    script: Option<&LuaFn>,
-    raw: &str,
-    cwd: &Path,
-) -> String {
-    match script {
-        Some(f) => {
-            let p = AbsPath::new_unchecked(raw.abs(cwd));
-            call_lua(f, &p)
-        }
-        None => raw.to_string(),
-    }
+    let path = path.to_string_lossy();
+    let vals = f.call::<MultiValue>((path.as_ref(), tail))?;
+    let mut it = vals.into_iter();
+    let path = it
+        .next()
+        .and_then(|v| v.as_str().as_deref().map(str::to_owned));
+    let display = it
+        .next()
+        .and_then(|v| v.as_str().as_deref().map(str::to_owned));
+    let tail = it
+        .next()
+        .and_then(|v| v.as_str().as_deref().map(str::to_owned));
+    Ok((path, display, tail))
 }
 
 /// `@path` → file contents; anything else → the string itself.
@@ -85,11 +77,13 @@ pub fn compile_script(
     name: &str,
     script: Option<String>,
 ) -> Option<LuaFn> {
-    script.and_then(|s| load_script(&s)).and_then(|s| match compile_lua(&s) {
-        Ok(f) => Some(f),
-        Err(e) => {
-            log::error!("Failed to compile {name} lua script: {e}");
-            None
-        }
-    })
+    script
+        .and_then(|s| load_script(&s))
+        .and_then(|s| match compile_lua(&s) {
+            Ok(f) => Some(f),
+            Err(e) => {
+                log::error!("Failed to compile {name} lua script: {e}");
+                None
+            }
+        })
 }
