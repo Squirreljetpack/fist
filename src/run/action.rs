@@ -23,9 +23,9 @@ use crate::{
     lessfilter::Preset,
     run::{
         ahandlers::{enter_dir_pane, enter_prompt, fs_reload, lock_prompt, refresh_prompt},
-        dhandlers::{COPY_COMMAND, ExecutionMode},
         item::short_display,
         pane::FsPane,
+        register::ExecutionMode,
         stash::STASH,
         stash::show_stash_variant,
         state::{
@@ -1253,11 +1253,11 @@ pub fn fsaction_handler(
             state.set_interrupt(Interrupt::ExecuteSilent, template);
         }
         FsAction::CopyCommand(template) => {
-            state.discriminant_payload = Some(COPY_COMMAND);
+            state.discriminant_payload = Some(ExecutionMode::Copy.discriminant());
             state.set_interrupt(Interrupt::ExecuteSilent, template);
         }
         FsAction::CopyCommandAsync(template) => {
-            state.discriminant_payload = Some(COPY_COMMAND);
+            state.discriminant_payload = Some(ExecutionMode::Copy.discriminant());
             state.set_interrupt(Interrupt::ExecuteAsync, template);
         }
 

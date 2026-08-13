@@ -38,13 +38,21 @@ impl From<FileRuleKind> for FileRule {
 pub enum FileRuleKind {
     /// Matches the file's full path
     /// Priority: 100
-    Glob(Glob), // since we have ext, this is probably used to define filters on custom paths
+    Glob {
+        /// The original pattern, kept for lossless round-trip serialization.
+        pattern: String,
+        matcher: Glob,
+    }, // since we have ext, this is probably used to define filters on custom paths
     /// Matches extension (e.g. "rs")
     /// Priority: 1
     Ext(String),
     /// Matches if the name of any child in the dir matches this glob
     /// Priority: 50
-    Child(Glob), // Higher than Mime [ Directory, _ ]
+    Child {
+        /// The original pattern, kept for lossless round-trip serialization.
+        pattern: String,
+        matcher: Glob,
+    }, // Higher than Mime [ Directory, _ ]
     /// [type, subtype], e.g. ["image", "png"]
     /// Priority: [10, 20]
     ///
@@ -67,6 +75,8 @@ pub enum FileRuleKind {
     FileType(OverloadedFileType),
     /// Platform-specific application bundle/launcher/executable.
     Application,
+    /// Always matches; parsed from the string `"*"`.
+    Any,
 }
 
 /// Overloads FileType to add a Text variant, which is matched on all native text (utf-8/utf-16).
@@ -146,7 +156,7 @@ impl Test<Path> for FileRule {
         data: &FileData,
     ) -> bool {
         let ok = match &self.kind {
-            FileRuleKind::Glob(matcher) => matcher.is_match(&data.path),
+            FileRuleKind::Glob { matcher, .. } => matcher.is_match(&data.path),
 
             FileRuleKind::Ext(target_ext) => {
                 if let Some(e) = item.extension().and_then(|e| e.to_str()) {
@@ -185,10 +195,10 @@ impl Test<Path> for FileRule {
                 }
             }
 
-            FileRuleKind::Child(child_glob) => data
+            FileRuleKind::Child { matcher, .. } => data
                 .children_names()
                 .iter()
-                .any(|child| child_glob.is_match(child)),
+                .any(|child| matcher.is_match(child)),
 
             FileRuleKind::FileType(ft) => match ft {
                 OverloadedFileType::Ft(ft) => ft == &data.ft,
@@ -201,6 +211,8 @@ impl Test<Path> for FileRule {
             FileRuleKind::Application => is_application_path(item),
 
             FileRuleKind::Have(cmd) => has(cmd),
+
+            FileRuleKind::Any => true,
         };
         if ok {
             log::trace!("{self:?} passed")
@@ -213,14 +225,15 @@ impl Test<Path> for FileRule {
 impl DefaultScore for FileRule {
     fn default_score(&self) -> Score {
         match &self.kind {
-            FileRuleKind::Glob(_) => Score::Max(50),
-            FileRuleKind::Child(_) => Score::Max(50),
+            FileRuleKind::Glob { .. } => Score::Max(50),
+            FileRuleKind::Child { .. } => Score::Max(50),
             FileRuleKind::Ext(_) => Score::Max(30),
             FileRuleKind::Mime(_) => Score::Max(20),
             FileRuleKind::Cat(_) => Score::Max(20),
             FileRuleKind::Have(_) => Score::Req,
             FileRuleKind::FileType(_) => Score::Req,
             FileRuleKind::Application => Score::Max(60),
+            FileRuleKind::Any => Score::Max(0),
         }
     }
 }
@@ -282,6 +295,9 @@ impl FromStr for FileRule {
             return if let Some(s) = s.strip_prefix('.') {
                 let kind = FileRuleKind::Ext(s.to_string());
                 Ok(FileRule { kind, invert })
+            } else if s == "*" {
+                let kind = FileRuleKind::Any;
+                Ok(FileRule { kind, invert })
             } else if s.eq_ignore_ascii_case("application") || s.eq_ignore_ascii_case("app") {
                 let kind = FileRuleKind::Application;
                 Ok(FileRule { kind, invert })
@@ -294,8 +310,14 @@ impl FromStr for FileRule {
         };
 
         let kind = match kind {
-            "glob" => FileRuleKind::Glob(GlobBuilder::new(rest)?.compile_matcher()),
-            "child" => FileRuleKind::Child(GlobBuilder::new(rest)?.compile_matcher()),
+            "glob" => FileRuleKind::Glob {
+                pattern: rest.to_string(),
+                matcher: GlobBuilder::new(rest)?.compile_matcher(),
+            },
+            "child" => FileRuleKind::Child {
+                pattern: rest.to_string(),
+                matcher: GlobBuilder::new(rest)?.compile_matcher(),
+            },
             "ext" => FileRuleKind::Ext(rest.to_string()),
             "mime" => FileRuleKind::Mime(rest.parse()?),
             "have" => {
@@ -324,5 +346,57 @@ impl FromStr for FileRule {
         };
 
         Ok(FileRule { kind, invert })
+    }
+}
+
+impl std::fmt::Display for FileRule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let invert = if self.invert { "!" } else { "" };
+        match &self.kind {
+            FileRuleKind::Glob { pattern, .. } => write!(f, "{invert}glob:{pattern}"),
+            FileRuleKind::Ext(e) => write!(f, "{invert}ext:{e}"),
+            FileRuleKind::Child { pattern, .. } => write!(f, "{invert}child:{pattern}"),
+            FileRuleKind::Mime(m) => write!(f, "{invert}mime:{m}"),
+            FileRuleKind::Cat(c) => write!(f, "{invert}cat:{c}"),
+            FileRuleKind::Have(h) => write!(f, "{invert}have:{h}"),
+            FileRuleKind::FileType(ft) => write!(f, "{invert}type:{ft}"),
+            FileRuleKind::Application => write!(f, "{invert}application"),
+            FileRuleKind::Any => write!(f, "{invert}*"),
+        }
+    }
+}
+
+impl std::fmt::Display for OverloadedFileType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Ft(ft) => write!(f, "{ft}"),
+            Self::Text => write!(f, "text"),
+        }
+    }
+}
+
+// -------------- SERDE ----------------
+
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+impl Serialize for FileRule {
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for FileRule {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        s.parse().map_err(serde::de::Error::custom)
     }
 }

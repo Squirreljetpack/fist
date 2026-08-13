@@ -1,4 +1,5 @@
 pub mod colors;
+pub mod command;
 pub mod formatter;
 pub mod osc52;
 pub mod path;
@@ -7,7 +8,6 @@ pub mod serde;
 pub mod string;
 pub mod text;
 pub mod trash;
-
 mod types;
 
 #[macro_export]
