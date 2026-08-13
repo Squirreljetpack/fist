@@ -76,13 +76,12 @@ fn config_as_code() -> BindMap<FsAction> {
 
         // Display
         // ----------------------------------
-        key!(ctrl-t) => FsAction::ShowStash,
-        // stash overhaul: ClearStash kind arg removed (unit variant now)
-        // key!(alt-shift-t) => FsAction::ClearStash,
-        // key!(alt-shift-s) => FsAction::ClearStash, // clear copy kind
+        key!(ctrl-u) => FsAction::ShowQueue,
+        key!(ctrl-shift-u), key!(alt-shift-u) => FsAction::ClearQueue(false),
+        key!(alt-u) => Action::ClearQuery,
         key!(ctrl-e) => FsAction::ShowMenu,
-        // -- filters --
-        key!(ctrl-i) => FsAction::ShowFilters,
+        // -- options --
+        key!(ctrl-p) => FsAction::ShowOptions,
         key!(ctrl-d) => FsAction::FsToggle,
         key!(ctrl-s) => FsAction::ToggleHidden,
 

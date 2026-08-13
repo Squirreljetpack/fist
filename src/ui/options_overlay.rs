@@ -25,7 +25,7 @@ const PANE_WIDTH: u16 = const { 4 + 17 + 1 };
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct FilterBaseConfig {
+pub struct OptionsBaseConfig {
     #[serde(with = "border_result")]
     pub border: Result<BorderSetting, PartialBorderSetting>,
     pub item_fg: Color,
@@ -35,15 +35,15 @@ pub struct FilterBaseConfig {
 
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct FilterPaneConfig {
+pub struct OptionsPaneConfig {
     pub border: BorderSetting,
     pub alignment: Option<HorizontalAlignment>,
 }
 
-impl Default for FilterBaseConfig {
+impl Default for OptionsBaseConfig {
     fn default() -> Self {
         let border = PartialBorderSetting {
-            title: Some("Filters".into()),
+            title: Some("Options".into()),
             ..Default::default()
         };
         Self {
@@ -57,32 +57,32 @@ impl Default for FilterBaseConfig {
 
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct FiltersConfig {
+pub struct OptionsConfig {
     #[serde(flatten)]
-    pub base: FilterBaseConfig,
-    pub filter: FilterPaneConfig,
-    pub sort: FilterPaneConfig,
-    pub pane: FilterPaneConfig,
+    pub base: OptionsBaseConfig,
+    pub filter: OptionsPaneConfig,
+    pub sort: OptionsPaneConfig,
+    pub pane: OptionsPaneConfig,
 }
 
-impl FiltersConfig {
-    pub fn into_tuple(self) -> (FilterBaseConfig, [FilterPaneConfig; 3]) {
+impl OptionsConfig {
+    pub fn into_tuple(self) -> (OptionsBaseConfig, [OptionsPaneConfig; 3]) {
         (self.base, [self.filter, self.sort, self.pane])
     }
 }
 
 #[derive(Default)]
-pub struct FilterOverlay {
+pub struct OptionsOverlay {
     cursor: [usize; 2], // [pane_index, item_index]
     pane_lens: [usize; 3],
-    config: FilterBaseConfig,
-    pub configs: [FilterPaneConfig; 3],
+    config: OptionsBaseConfig,
+    pub configs: [OptionsPaneConfig; 3],
     area: Rect, // inner area
 }
 
-/// Renders a horizontal mural of paragraphs, declared in [`FilterOverlay::make_widgets`]
-impl FilterOverlay {
-    pub fn new(config: FiltersConfig) -> Self {
+/// Renders a horizontal mural of paragraphs, declared in [`OptionsOverlay::make_widgets`]
+impl OptionsOverlay {
+    pub fn new(config: OptionsConfig) -> Self {
         let (config, configs) = config.into_tuple();
         Self {
             config,
@@ -444,7 +444,7 @@ impl FilterOverlay {
     }
 }
 
-impl Overlay for FilterOverlay {
+impl Overlay for OptionsOverlay {
     type A = FsAction;
 
     fn handle_input(

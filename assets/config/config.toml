@@ -49,6 +49,36 @@ refind = "Search"
 ### ACTIONS ####
 
 [actions]
+# Custom actions shown in the menu overlay. A menu action is visible iff at
+# least one condition is satisfied (an empty condition list = always visible).
+# Conditions are evaluated once when the menu opens, against the selection /
+# cursor / prompt state at that moment:
+#   seq = [rule, ...]            positional: rule i must match the i-th
+#                                selected item (exactly as many items selected
+#                                as there are rules)
+#   repeat = { count, condition, strict }
+#                                count 0: prompt-scoped (strict hides the
+#                                action unless the prompt is active; the rule
+#                                is evaluated against the cwd)
+#                                count n: exactly (strict) / at least n items
+#                                selected; the rule must match every one
+#                                no count: cursor-scoped; strict hides the
+#                                action whenever anything is selected; the
+#                                rule must match the cursor item
+# Rule syntax: ext:rs, glob:*.rs, child:src, mime:image/*, type:directory,
+# have:program, cat:name, application, * (any) — prefix with ! to invert.
+# Strategies: "execute" (waited, closes the menu), "execute_silent" (not
+# waited, closes the menu), "stash" (enqueue all targets as one queue item),
+# "batch(n)" (queue items of at most n paths). `close` overrides the
+# strategy's default closing behavior.
+# The command is a lua script (supports the @file syntax); the target path is
+# passed to it as the first argument.
+# log-queuer = {
+#   condition = [{ repeat = { count = 1, condition = "ext:log", strict = true } }],
+#   command = "print('queued a log')",
+#   strategy = "stash",
+# }
+
 ### MISC ###
 
 [interface]

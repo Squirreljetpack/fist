@@ -1,17 +1,32 @@
 #![allow(clippy::upper_case_acronyms)]
 #![allow(non_snake_case)]
-use std::{cell::RefCell, fmt::Debug};
+use std::{cell::RefCell, fmt::Debug, sync::OnceLock};
 
 use anymap::AnyMap;
 use cba::_dbg;
 
 use crate::{
     abspath::AbsPath,
+    cli::paths::lessfilter_cfg_path,
+    lessfilter::LessfilterConfig,
     ui::menu_overlay::{MenuTarget, PromptKind},
 };
 
 thread_local! {
     static TLS_MAP: RefCell<AnyMap> = RefCell::new(AnyMap::new());
+}
+
+/// The user's lessfilter config, loaded on first use so menu action
+/// conditions can build [`FileData`](crate::lessfilter::file_rule::FileData).
+pub static LESSFILTER_CFG: OnceLock<LessfilterConfig> = OnceLock::new();
+
+pub fn lessfilter_cfg() -> &'static LessfilterConfig {
+    LESSFILTER_CFG.get_or_init(|| {
+        std::fs::read_to_string(lessfilter_cfg_path())
+            .ok()
+            .and_then(|s| toml::from_str(&s).ok())
+            .unwrap_or_default()
+    })
 }
 
 #[derive(Debug)]

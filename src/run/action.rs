@@ -26,11 +26,13 @@ use crate::{
         item::short_display,
         pane::FsPane,
         register::ExecutionMode,
-        stash::STASH,
-        stash::show_stash_variant,
+        queue::QUEUE,
+        queue::QueueItems,
+        queue::show_queue_variant,
         state::{
             AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, HideMetadata,
-            InPrompt, MenuPrompt, STACK, STORE, TASKS, TOAST, context::ActionContext, sort,
+            InPrompt, MenuContext, MenuPrompt, STACK, STORE, TASKS, TOAST, context::ActionContext,
+            sort,
         },
     },
     spawn::open_wrapped,
@@ -76,11 +78,11 @@ pub enum FsAction {
     // Display
     // ----------------------------------
     /// Display current filters.
-    ShowFilters,
+    ShowOptions,
     /// Display the current stack.
-    ShowStash,
-    /// Clear the stack.
-    ClearStash,
+    ShowQueue,
+    /// Clear the queue; `true` skips the confirmation.
+    ClearQueue(bool),
 
     /// Add the selection (or cwd) to the named stash and switch to its pane.
     /// Switch to the named stash pane. Empty name = the unnamed stash.
@@ -98,11 +100,11 @@ pub enum FsAction {
 
     // file actions
     // ----------------------------------
-    /// Cut file (to the [`STASH`] and the system clipboard).
+    /// Cut file (to the [`QUEUE`] and the system clipboard).
     Cut,
-    /// Copy file (to the [`STASH`] and the system clipboard).
+    /// Copy file (to the [`QUEUE`] and the system clipboard).
     Copy,
-    /// Save a file to the [`STASH`] under the custom type.
+    /// Save a file to the [`QUEUE`] under the custom type.
     Push,
     /// Copy full path.
     CopyPath,
@@ -152,6 +154,12 @@ pub enum FsAction {
     CopyCommand(String),
     /// Execute a command in the background and copy its stdout to the clipboard.
     CopyCommandAsync(String),
+    /// Execute the lua command of a menu action; the payload is the action
+    /// key, looked up in the global config (discriminant 7, waited).
+    MenuAction(String),
+    /// Execute the lua command of a menu action; the payload is the action's
+    /// command itself (discriminant 8, not waited).
+    MenuActionSilent(String),
     // Nonbindable
     // ----------------------------------
     SaveInput,
@@ -359,19 +367,19 @@ pub fn fsaction_aliaser(
             }
 
             //  ------------- Overlay aliases --------------
-            FsAction::ShowStash
-            | FsAction::ShowFilters
+            FsAction::ShowQueue
+            | FsAction::ShowOptions
             | FsAction::Confirm
             | FsAction::ShowMenu
                 if state.overlay_index().is_some() =>
             {
                 acs![fa]
             }
-            FsAction::ShowStash => {
+            FsAction::ShowQueue => {
                 // the stash overlay in a nav pane, the app view in the app pane
-                acs![Action::Overlay(show_stash_variant() as usize)]
+                acs![Action::Overlay(show_queue_variant() as usize)]
             }
-            FsAction::ShowFilters => {
+            FsAction::ShowOptions => {
                 acs![Action::Overlay(2)]
             }
             FsAction::Confirm => {
@@ -381,13 +389,24 @@ pub fn fsaction_aliaser(
             FsAction::ShowMenu => {
                 if let Some((_, p)) = state.picker_ui.current_indexed() {
                     STORE::set_menu_target(MenuTarget::Item(p.path.clone()));
-                    acs![Action::Overlay(4)]
                 } else if let Some(cwd) = STACK::cwd() {
                     STORE::set_menu_target(MenuTarget::Item(cwd.clone()));
-                    acs![Action::Overlay(4)]
                 } else {
-                    acs![]
+                    return acs![];
                 }
+                // snapshot the state the menu conditions are evaluated
+                // against (frozen for the whole time the menu is open)
+                STORE::set_menu_context(MenuContext {
+                    selected: state.map_selections_to_vec(|_, item| item.path.clone()),
+                    cursor: if state.picker_ui.results.cursor_disabled() {
+                        None
+                    } else {
+                        state.current_raw().map(|item| item.path.clone())
+                    },
+                    in_prompt: STORE::contains::<InPrompt>(),
+                    cwd: STACK::cwd(),
+                });
+                acs![Action::Overlay(4)]
             }
             // todo: support post-creation actions
             FsAction::New => {
@@ -832,7 +851,7 @@ pub fn fsaction_handler(
                 })
             };
             if !items.is_empty() {
-                STASH::extend("cut", items);
+                QUEUE::extend("cut", items);
                 TOAST::push(ToastStyle::Normal, "Cut: ", toast_vec);
                 copy_files(cb_vec, false);
             };
@@ -856,7 +875,7 @@ pub fn fsaction_handler(
                 })
             };
             if !items.is_empty() {
-                STASH::extend("copy", items);
+                QUEUE::extend("copy", items);
                 TOAST::push(ToastStyle::Normal, "Copied: ", toast_vec);
                 copy_files(cb_vec, false);
             };
@@ -872,11 +891,11 @@ pub fn fsaction_handler(
                     s.path.clone()
                 });
                 if !items.is_empty() {
-                    STASH::extend("copy", items);
+                    QUEUE::extend("copy", items);
                 }
             } else if let Some(p) = STACK::cwd() {
                 toast_vec.push(short_display(&p));
-                STASH::stash("copy", p);
+                QUEUE::stash("copy", p);
             };
 
             if !toast_vec.is_empty() {
@@ -1114,12 +1133,28 @@ pub fn fsaction_handler(
                 }
                 AbsPath::new_unchecked(dest_base)
             };
-            STASH::execute_all_impl(base, false, None);
+            QUEUE::execute_all_impl(base, false, None);
         }
-        FsAction::ClearStash => {
-            // STASH::clear(x.as_deref());
-
-            TOAST::notice(ToastStyle::Normal, "Stack cleared");
+        FsAction::ClearQueue(no_confirm) => {
+            if no_confirm {
+                QUEUE::clear(QueueItems::Pending);
+            } else {
+                STORE::set(ConfirmPrompt {
+                    prompt: Line::from("Clear the queue?"),
+                    options: vec![("Yes", 0), ("No", 0)],
+                    option_handler: Box::new(|idx| {
+                        if idx == 0 {
+                            GLOBAL::send_action(FsAction::ClearQueue(true));
+                        }
+                    }),
+                    content: None,
+                    content_above: false,
+                    title_in_border: false,
+                    cursor: 1, // Default to No
+                    scroll: 0,
+                });
+                GLOBAL::send_action(FsAction::Confirm);
+            }
         }
         // filters
         FsAction::FsToggle => {
@@ -1260,6 +1295,17 @@ pub fn fsaction_handler(
             state.discriminant_payload = Some(ExecutionMode::Copy.discriminant());
             state.set_interrupt(Interrupt::ExecuteAsync, template);
         }
+        // menu action execution: the key is looked up in the global config by
+        // the handler (discriminant 7); the silent variant carries the
+        // command itself (discriminant 8).
+        FsAction::MenuAction(key) => {
+            state.discriminant_payload = Some(ExecutionMode::MenuAction.discriminant());
+            state.set_interrupt(Interrupt::Execute, key);
+        }
+        FsAction::MenuActionSilent(command) => {
+            state.discriminant_payload = Some(ExecutionMode::LuaCommand.discriminant());
+            state.set_interrupt(Interrupt::ExecuteSilent, command);
+        }
 
         FsAction::AcceptPrompt => {
             if let Some(p) = STACK::nav_cwd() {
@@ -1355,10 +1401,10 @@ enum_from_str_display! {
     units:
     Advance, Parent, Find, Search, History, App,
     Undo, Redo, Push,
-    ShowFilters, ShowStash,
+    ShowOptions, ShowQueue,
     ShowMenu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir, Rename,
-    Backup, ClearStash;
+    Backup;
 
     tuples:
     AutoJump, SetAlias,
@@ -1366,6 +1412,7 @@ enum_from_str_display! {
 
     defaults:
     (Delete, false), (Trash, false), (Stash, String::new()), (AddStash, String::new())
+    , (ClearQueue, false)
     ;
     options:
     LockPrompt;
@@ -1428,7 +1475,7 @@ macro_rules! enum_from_str_display {
                                         )
                                     }
                                 }
-                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | Refilter | AcceptPrompt | Filtering(_) | SetStatus(_) | Confirm => Ok(()), // internal
+                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | Refilter | AcceptPrompt | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionSilent(_) => Ok(()), // internal
                                 Lessfilter { preset, paging, header: _, special, } => {
                                     if *special == 1 {
                                         write!(f, "Help")
