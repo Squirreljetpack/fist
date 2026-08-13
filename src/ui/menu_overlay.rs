@@ -1,12 +1,16 @@
 use crate::{
     abspath::AbsPath,
+    lessfilter::file_rule::FileData,
     run::{
         action::FsAction,
         item::short_display,
-        stash::STASH,
-        state::{GLOBAL, MenuPrompt, STACK, STORE, TOAST},
+        queue::QUEUE,
+        state::{GLOBAL, MenuContext, MenuPrompt, STACK, STORE, TOAST, lessfilter_cfg},
     },
-    spawn::{menu_action::MenuActions, open_wrapped},
+    spawn::{
+        menu_action::{condition_passes, MenuActions, MenuStrategy},
+        open_wrapped,
+    },
     ui::prompt_overlay::{PromptConfig, PromptOverlay},
     utils::{
         serde::border_result,
@@ -128,12 +132,12 @@ impl MenuItem {
             }
             MenuItem::Cut => {
                 TOAST::push(ToastStyle::Normal, "Cut: ", [short_display(&path)]);
-                STASH::extend("cut", vec![path]);
+                QUEUE::extend("cut", vec![path]);
                 Err(false)
             }
             MenuItem::Copy => {
                 TOAST::push(ToastStyle::Normal, "Copied: ", [short_display(&path)]);
-                STASH::extend("copy", vec![path]);
+                QUEUE::extend("copy", vec![path]);
                 Err(false)
             }
 
@@ -166,12 +170,12 @@ impl MenuItem {
                 Err(false)
             }
             MenuItem::OpenWith => {
-                STASH::stash("app", path);
+                QUEUE::stash("app", path);
                 GLOBAL::send_action(FsAction::App);
                 Err(false)
             }
             MenuItem::Custom { action, .. } => {
-                todo!()
+                unreachable!("custom items are routed through MenuOverlay::run_custom")
             }
         }
     }
@@ -185,6 +189,10 @@ pub struct MenuOverlay {
     pub prompt: PromptOverlay,
     pub target: Option<MenuTarget>,
     pub items: Vec<MenuItem>,
+    /// The custom actions; only those whose conditions pass are listed.
+    pub actions: MenuActions,
+    /// The picker state snapshot the conditions were evaluated against.
+    pub context: MenuContext,
     pub area: Rect,
 }
 
@@ -212,6 +220,8 @@ impl MenuOverlay {
             prompt: PromptOverlay::new(prompt_config),
             target: None,
             items: MENU_ITEMS.to_vec(),
+            actions,
+            context: MenuContext::default(),
             area: Rect::default(),
         }
     }
@@ -283,6 +293,13 @@ impl MenuOverlay {
     }
 
     pub fn accept(&mut self) -> OverlayEffect {
+        let custom_key = match &self.items[self.cursor] {
+            MenuItem::Custom { action, .. } => Some(action.clone()),
+            _ => None,
+        };
+        if let Some(key) = custom_key {
+            return self.run_custom(&key);
+        }
         let item = &self.items[self.cursor];
         let path = self
             .target
@@ -297,6 +314,71 @@ impl MenuOverlay {
             }
             Err(true) => OverlayEffect::None,
             Err(false) => OverlayEffect::Disable,
+        }
+    }
+
+    /// Rebuild the item list: the builtin items plus every custom action
+    /// whose conditions pass against the menu-open snapshot. [`FileData`] is
+    /// computed once per file and reused across all condition evaluations.
+    fn build_items(&mut self) {
+        let lcfg = lessfilter_cfg();
+        let mut cache: Vec<(AbsPath, FileData<'_>)> = Vec::new();
+
+        let mut items = MENU_ITEMS.to_vec();
+        for (key, action) in self.actions.iter() {
+            if condition_passes(
+                &action.condition,
+                &self.context,
+                &mut cache,
+                &lcfg.settings,
+                &lcfg.categories,
+            ) {
+                items.push(MenuItem::Custom {
+                    name: key.clone(),
+                    action: key.clone(),
+                });
+            }
+        }
+        self.items = items;
+    }
+
+    /// Run a custom action on the target items (the menu-open selection, or
+    /// the target item when nothing was selected).
+    fn run_custom(&mut self, key: &str) -> OverlayEffect {
+        let Some(action) = self.actions.get(key) else {
+            log::error!("Menu action not found: {key}");
+            return OverlayEffect::None;
+        };
+        let targets: Vec<AbsPath> = if self.context.selected.is_empty() {
+            vec![self.target_path()]
+        } else {
+            self.context.selected.clone()
+        };
+        let displays: Vec<Span<'static>> = targets.iter().map(|p| short_display(p)).collect();
+
+        match action.strategy {
+            MenuStrategy::Stash => {
+                QUEUE::enqueue(key, targets);
+                TOAST::push(ToastStyle::Normal, "Queued: ", displays);
+            }
+            MenuStrategy::Batch(n) => {
+                for chunk in targets.chunks(n) {
+                    QUEUE::enqueue(key, chunk.to_vec());
+                }
+                TOAST::push(ToastStyle::Normal, "Queued: ", displays);
+            }
+            MenuStrategy::Execute => {
+                GLOBAL::send_action(FsAction::MenuAction(key.to_string()));
+            }
+            MenuStrategy::ExecuteSilent => {
+                GLOBAL::send_action(FsAction::MenuActionSilent(key.to_string()));
+            }
+        }
+
+        if action.closes() {
+            OverlayEffect::Disable
+        } else {
+            OverlayEffect::None
         }
     }
 
@@ -328,6 +410,11 @@ impl Overlay for MenuOverlay {
         }
 
         self.target = STORE::take::<MenuTarget>();
+
+        // snapshot the picker state and list the custom actions whose
+        // conditions pass (evaluated once, at open)
+        self.context = STORE::take::<MenuContext>().unwrap_or_default();
+        self.build_items();
     }
 
     fn on_disable(&mut self) {

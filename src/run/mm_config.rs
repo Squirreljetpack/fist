@@ -20,8 +20,8 @@ use crate::{
     config::Config,
     lessfilter::Preset,
     ui::{
-        confirm_overlay::ConfirmConfig, filters_overlay::FiltersConfig, menu_overlay::MenuConfig,
-        prompt_overlay::PromptConfig, stash_overlay::StashConfig,
+        confirm_overlay::ConfirmConfig, options_overlay::OptionsConfig, menu_overlay::MenuConfig,
+        prompt_overlay::PromptConfig, queue_overlay::QueueConfig,
     },
 };
 use fist_types::When;
@@ -40,12 +40,12 @@ pub struct MMConfig {
 
     // overlays
     #[serde(default)]
-    pub stash: StashConfig,
+    pub queue: QueueConfig,
     /// UI config of the app view (overlay index 1).
     #[serde(default)]
-    pub app: StashConfig,
+    pub app: QueueConfig,
     #[serde(default)]
-    pub filters: FiltersConfig,
+    pub options: OptionsConfig,
     #[serde(default)]
     pub prompt: PromptConfig,
     #[serde(default)]
@@ -168,20 +168,20 @@ pub fn get_mm_cfg(
         tui.clear_on_exit = false;
     }
 
-    if let Err(p) = mm_cfg.filters.base.border {
+    if let Err(p) = mm_cfg.options.base.border {
         let mut full = mm_cfg.overlay.border.clone();
         full.apply(p);
-        mm_cfg.filters.base.border = Ok(full)
+        mm_cfg.options.base.border = Ok(full)
     }
     if let Err(p) = mm_cfg.menu.border {
         let mut full = mm_cfg.overlay.border.clone();
         full.apply(p);
         mm_cfg.menu.border = Ok(full)
     }
-    if let Err(p) = mm_cfg.stash.border {
+    if let Err(p) = mm_cfg.queue.border {
         let mut full = mm_cfg.overlay.border.clone();
         full.apply(p);
-        mm_cfg.stash.border = Ok(full)
+        mm_cfg.queue.border = Ok(full)
     }
     if let Err(p) = mm_cfg.app.border {
         let mut full = mm_cfg.overlay.border.clone();

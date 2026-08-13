@@ -16,7 +16,7 @@ use crate::{
 
 define_collection_wrapper!(
     /// Custom actions, keyed by name. Insertion order is the menu display order.
-    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, serde::Serialize)]
     #[serde(transparent)]
     MenuActions: IndexMap<String, MenuAction>
 );
@@ -24,6 +24,25 @@ define_collection_wrapper!(
 impl Default for MenuActions {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Menu action keys reserved for the builtin queue kinds; defining an action
+/// under one of these is a config error.
+pub const RESERVED_KEYS: [&str; 4] = ["copy", "cut", "symlink", "app"];
+
+impl<'de> Deserialize<'de> for MenuActions {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let map = IndexMap::<String, MenuAction>::deserialize(deserializer)?;
+        if let Some(key) = map.keys().find(|k| RESERVED_KEYS.contains(&k.as_str())) {
+            return Err(serde::de::Error::custom(format!(
+                "menu action key {key:?} is reserved"
+            )));
+        }
+        Ok(Self::new_from(map))
     }
 }
 
@@ -265,5 +284,32 @@ impl MenuCondition {
                 }
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reserved_keys_are_rejected() {
+        let err = toml::from_str::<MenuActions>("\
+            [copy]\n\
+            command = \"print('x')\"\n\
+        ")
+        .unwrap_err();
+        assert!(err.to_string().contains("reserved"), "{err}");
+    }
+
+    #[test]
+    fn non_reserved_keys_parse() {
+        let actions: MenuActions = toml::from_str("\
+            [my-action]\n\
+            command = \"print('x')\"\n\
+            strategy = \"stash\"\n\
+        ")
+        .unwrap();
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions["my-action"].strategy, MenuStrategy::Stash);
     }
 }

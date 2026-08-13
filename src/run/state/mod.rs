@@ -17,6 +17,7 @@ use crate::{
     db::{Connection, Pool, zoxide::HistoryConfig},
     errors::DbError,
     run::{FsPane, action::FsAction},
+    spawn::menu_action::MenuActions,
     utils::text::{ToastContent, ToastStyle, make_toast},
     watcher::{WatcherMessage, WatcherSender},
 };
@@ -35,6 +36,9 @@ pub use temp::*;
 // ------------- TRACKING -----------------------
 
 pub static DB_FILTER: OnceLock<HistoryConfig> = OnceLock::new();
+/// The user's custom menu actions, registered at startup so the execute
+/// handlers can look up an action by key (discriminant 7).
+pub static MENU_ACTIONS: OnceLock<MenuActions> = OnceLock::new();
 // ------------- READ_ONLY ------------------------
 pub mod GLOBAL {
     use matchmaker::{event::BindSender, message::BindDirective};

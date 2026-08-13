@@ -27,18 +27,18 @@ use crate::{
         pane::FsPane,
         previewer::make_previewer,
         register::{MMExt, emit_print, path_formatter, query_handler, sync_handler},
-        stash::STASH,
+        queue::QUEUE,
         state::{
-            AcceptFlavor, DB_FILTER, GLOBAL, HideMetadata, STACK, STORE, TASKS,
+            AcceptFlavor, DB_FILTER, GLOBAL, HideMetadata, MENU_ACTIONS, STACK, STORE, TASKS,
             context::ActionContext, sort, ui::global_ui_init,
         },
     },
     spawn::{Program, open_wrapped},
     ui::{
         confirm_overlay::ConfirmOverlay,
-        filters_overlay::FilterOverlay,
+        options_overlay::OptionsOverlay,
         menu_overlay::MenuOverlay,
-        stash_overlay::{AppOverlay, StashOverlay},
+        queue_overlay::{AppOverlay, QueueOverlay},
     },
     watcher::FsWatcher,
 };
@@ -206,9 +206,9 @@ pub async fn start(
     let MMConfig {
         render,
         binds,
-        stash,
+        queue,
         app,
-        filters,
+        options,
         prompt,
         menu,
         confirm,
@@ -279,11 +279,11 @@ pub async fn start(
         .hidden_columns(vec![2])
         .matcher(MATCHER_CONFIG)
         .overlay_config(overlay)
-        .overlay(StashOverlay::new(stash.clone()))
+        .overlay(QueueOverlay::new(queue.clone()))
         .overlay(AppOverlay::new(app))
-        .overlay(FilterOverlay::new(filters))
+        .overlay(OptionsOverlay::new(options))
         .overlay(ConfirmOverlay::new(confirm))
-        .overlay(MenuOverlay::new(menu, prompt, cfg.actions));
+        .overlay(MenuOverlay::new(menu, prompt, cfg.actions.clone()));
 
     let render_tx = builder.render_tx();
 
@@ -298,6 +298,9 @@ pub async fn start(
     // A7: `cfg.global` (with `panes.stash.transient_stash_panes`) and `db_pool`
     // are both moved into GLOBAL::init, so extract what the startup stash-clear
     // needs before that call.
+    MENU_ACTIONS
+        .set(cfg.actions)
+        .expect("MENU_ACTIONS initialized more than once");
     let transient_stash_panes = cfg.global.panes.stash.transient_stash_panes.clone();
     let pool = db_pool.clone();
     GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane, bind_tx);
@@ -334,7 +337,7 @@ pub async fn start(
         match ret {
             Ok(lines) if !lines.is_empty() => {
                 let prog = &lines[0];
-                let files = STASH::stashed_apps();
+                let files = QUEUE::stashed_apps();
                 let mut conn = GLOBAL::db().get_conn(DbTable::apps).await?;
                 let cmd = conn.get_cmd(&prog.path).await?;
 

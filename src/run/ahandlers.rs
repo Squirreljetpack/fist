@@ -16,7 +16,7 @@ use crate::{
     aliases::MMState,
     run::{
         FsAction, FsPane, selection,
-        stash::STASH,
+        queue::QUEUE,
         state::{
             FILTERS, GLOBAL, HideMetadata, InPrompt, STACK, STORE, TOAST, sort,
             ui::{global_ui, prompt_main_style},
@@ -37,7 +37,7 @@ pub fn paste_handler(
             || STORE::contains::<InPrompt>()
             || state.overlay_index().is_some())
     {
-        STASH::execute_all_impl(c, false, None);
+        QUEUE::execute_all_impl(c, false, None);
         String::new()
     } else {
         content

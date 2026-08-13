@@ -7,7 +7,10 @@ use crate::{
     abspath::AbsPath,
     aliases::MMState,
     cli::paths::text_renderer_path,
-    run::state::{ExecuteHandlerShouldProcessParent, STACK, STORE},
+    run::{
+        lua::compile_lua,
+        state::{ExecuteHandlerShouldProcessParent, MENU_ACTIONS, STACK, STORE},
+    },
     utils::{command::maybe_tty, formatter::format_path},
 };
 
@@ -39,6 +42,8 @@ impl ExecutionMode {
             1 => Some(Self::Normal),
             2 => Some(Self::Paged),
             3 => Some(Self::Tty),
+            7 => Some(Self::MenuAction),
+            8 => Some(Self::LuaCommand),
             _ => None,
         }
     }
@@ -47,8 +52,46 @@ impl ExecutionMode {
             0 => Some(Self::Copy),
             3 => Some(Self::Detached),
             4 => Some(Self::Silent),
+            7 => Some(Self::MenuAction),
+            8 => Some(Self::LuaCommand),
             _ => None,
         }
+    }
+}
+
+/// The lua command for a menu-action payload: a discriminant 7 payload is the
+/// action key (looked up in the registered menu actions), a discriminant 8
+/// payload is the command itself.
+pub(super) fn menu_lua_command(
+    mode: ExecutionMode,
+    payload: &str,
+) -> Option<String> {
+    match mode {
+        ExecutionMode::MenuAction => MENU_ACTIONS
+            .get()
+            .and_then(|actions| actions.get(payload).map(|a| a.command.clone())),
+        ExecutionMode::LuaCommand => Some(payload.to_string()),
+        _ => None,
+    }
+}
+
+/// Run a menu action's lua command with the target path as its argument.
+pub(super) fn run_menu_lua(
+    command: &str,
+    path: &AbsPath,
+) {
+    use mlua::MultiValue;
+
+    let f = match compile_lua(command) {
+        Ok(f) => f,
+        Err(e) => {
+            log::error!("Failed to compile menu action lua command: {e}");
+            return;
+        }
+    };
+    let path = path.to_string_lossy();
+    if let Err(e) = f.call::<MultiValue>((path.as_ref(),)) {
+        log::error!("Menu action lua error: {e}");
     }
 }
 

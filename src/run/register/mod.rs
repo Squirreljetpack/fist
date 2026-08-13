@@ -144,6 +144,12 @@ impl FsMatchmaker {
                 Some(x) => x,
                 _ => ExecutionMode::Normal,
             };
+            // menu action execution (discriminants 7/8): the payload is not a
+            // command template — it is the action key or the command itself.
+            if let Some(lua_cmd) = menu_lua_command(mode, state.payload()) {
+                run_menu_lua(&lua_cmd, &path);
+                return;
+            }
             let cmd = format_path(state.payload(), &path);
             if cmd.is_empty() {
                 warn!("Empty formatted command");
@@ -178,6 +184,13 @@ impl FsMatchmaker {
                 Some(x) => x,
                 _ => ExecutionMode::Silent,
             };
+            // menu action execution (discriminants 7/8): the payload is not a
+            // command template — it is the action key or the command itself.
+            // Fired without waiting, like the other silent modes.
+            if let Some(lua_cmd) = menu_lua_command(mode, state.payload()) {
+                TASKS::spawn_blocking(move || run_menu_lua(&lua_cmd, &path));
+                return;
+            }
             let cmd = format_path(state.payload(), &path);
             if cmd.is_empty() {
                 warn!("Empty formatted command");

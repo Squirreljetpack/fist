@@ -19,5 +19,5 @@ pub mod selection;
 // globals
 mod pane;
 pub use pane::*;
-pub mod stash;
+pub mod queue;
 pub mod state;

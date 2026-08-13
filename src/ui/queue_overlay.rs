@@ -4,7 +4,7 @@ use crate::{
     display::human_size,
     run::{
         action::FsAction,
-        stash::{STASH, STASH_STATE, StashItem, StashItemState, StashItemStatus, StashView},
+        queue::{QUEUE, QUEUE_STATE, QueueItem, QueueItemState, QueueItemStatus, QueueView},
         state::TOAST,
     },
     ui::input::{InputWidget, InputWidgetConfig},
@@ -32,7 +32,7 @@ use std::{
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct StashConfig {
+pub struct QueueConfig {
     #[serde(with = "border_result")]
     pub border: Result<BorderSetting, PartialBorderSetting>,
     // pub bar_width: u16,
@@ -45,10 +45,10 @@ pub struct StashConfig {
     pub editing_row_style: StyleSetting,
 }
 
-impl Default for StashConfig {
+impl Default for QueueConfig {
     fn default() -> Self {
         let border = PartialBorderSetting {
-            title: Some("Stash".into()),
+            title: Some("Queue".into()),
             ..Default::default()
         };
         Self {
@@ -81,7 +81,7 @@ pub struct TableSelection {
     pub selected: BTreeSet<usize>,
     pub editing: Option<(usize, usize, InputWidget)>,
 
-    pub view: StashView,
+    pub view: QueueView,
     pub path_dst_cols: [usize; 2],
     pub available_w: u16,
     pub initial_widths: Vec<u16>,
@@ -90,10 +90,10 @@ pub struct TableSelection {
 }
 
 impl TableSelection {
-    pub fn new(view: StashView) -> Self {
+    pub fn new(view: QueueView) -> Self {
         let path_dst_cols = match view {
-            StashView::Shared => [1, 2],
-            StashView::Apps => [0, 0],
+            QueueView::Shared => [1, 2],
+            QueueView::Apps => [0, 0],
         };
         Self {
             state: TableState::new(),
@@ -167,7 +167,7 @@ impl TableSelection {
         &mut self,
         action: &Action<FsAction>,
     ) -> OverlayEffect {
-        let len = STASH::view_len(self.view);
+        let len = QUEUE::view_len(self.view);
         if len == 0 {
             return OverlayEffect::Disable;
         }
@@ -179,14 +179,14 @@ impl TableSelection {
                     if *col == self.path_dst_cols[0] {
                         let path = AbsPath::new_unchecked(std::path::PathBuf::from(value));
                         if std::fs::symlink_metadata(&path).is_ok() {
-                            STASH::view_update(self.view, *row, Some(path), None);
+                            QUEUE::view_update(self.view, *row, Some(path), None);
                             self.editing = None;
                         } else {
                             TOAST::notice(ToastStyle::Error, "Path does not exist");
                         }
                     } else {
                         // dst was updated
-                        STASH::view_update(self.view, *row, None, Some(value.into()));
+                        QUEUE::view_update(self.view, *row, None, Some(value.into()));
                         self.editing = None;
                     }
                 } else {
@@ -232,7 +232,7 @@ impl TableSelection {
             Action::PreviewUp(_) => {
                 if let Some(i) = self.state.selected() {
                     if i > 0 {
-                        STASH::view_swap(self.view, i, i - 1);
+                        QUEUE::view_swap(self.view, i, i - 1);
                         self.state.select(Some(i - 1));
                     }
                 }
@@ -240,23 +240,23 @@ impl TableSelection {
             Action::PreviewDown(_) => {
                 if let Some(i) = self.state.selected() {
                     if i + 1 < len {
-                        STASH::view_swap(self.view, i, i + 1);
+                        QUEUE::view_swap(self.view, i, i + 1);
                         self.state.select(Some(i + 1));
                     }
                 }
             }
             Action::DeleteChar | Action::Custom(FsAction::Trash(_) | FsAction::Delete(_)) => {
                 if let Some(i) = self.state.selected() {
-                    STASH::view_remove(self.view, i);
+                    QUEUE::view_remove(self.view, i);
                 }
             }
             Action::Accept => {
-                if self.view == StashView::Shared {
+                if self.view == QueueView::Shared {
                     if !self.selected.is_empty() {
-                        STASH::execute_all(&self.selected);
+                        QUEUE::execute_all(&self.selected);
                         self.selected.clear();
                     } else if let Some(i) = self.state.selected() {
-                        STASH::execute(i);
+                        QUEUE::execute(i);
                     }
                 } else {
                     // app entries are not executable — they are files to open
@@ -264,23 +264,25 @@ impl TableSelection {
                 }
             }
             Action::Custom(FsAction::ShowMenu) => {
-                if let Some(i) = self.state.selected() {
-                    if let Some((p, _)) = STASH::view_get(self.view, i) {
-                        let mut input = InputWidget::new(InputWidgetConfig {
-                            ..Default::default()
-                        });
-                        let val = p.to_string_lossy().into_owned();
-                        input.set_value(val.clone());
-                        let col = self.path_dst_cols[0];
-                        self.editing = Some((i, col, input));
-                        self.dirty = true;
-                        return OverlayEffect::None;
-                    }
+                if let Some(i) = self.state.selected()
+                    // multi-path items do not support src editing
+                    && let Some((src, _)) = QUEUE::view_get(self.view, i)
+                    && let [p] = src.as_slice()
+                {
+                    let mut input = InputWidget::new(InputWidgetConfig {
+                        ..Default::default()
+                    });
+                    let val = p.to_string_lossy().into_owned();
+                    input.set_value(val.clone());
+                    let col = self.path_dst_cols[0];
+                    self.editing = Some((i, col, input));
+                    self.dirty = true;
+                    return OverlayEffect::None;
                 }
             }
-            Action::Custom(FsAction::Rename) if self.view == StashView::Shared => {
+            Action::Custom(FsAction::Rename) if self.view == QueueView::Shared => {
                 if let Some(i) = self.state.selected() {
-                    if let Some((_, d)) = STASH::view_get(self.view, i) {
+                    if let Some((_, d)) = QUEUE::view_get(self.view, i) {
                         let mut input = InputWidget::new(InputWidgetConfig {
                             ..Default::default()
                         });
@@ -331,9 +333,9 @@ impl TableSelection {
     }
 }
 
-pub struct StashOverlay {
+pub struct QueueOverlay {
     state: TableSelection,
-    config: StashConfig,
+    config: QueueConfig,
     widths: [u16; 4],
     headers: [String; 4],
     area: Rect,
@@ -341,10 +343,10 @@ pub struct StashOverlay {
     extra: (OverlayLayoutSettings, Rect),
 }
 
-impl StashOverlay {
-    pub fn new(config: StashConfig) -> Self {
+impl QueueOverlay {
+    pub fn new(config: QueueConfig) -> Self {
         Self {
-            state: TableSelection::new(StashView::Shared),
+            state: TableSelection::new(QueueView::Shared),
             config,
             widths: Default::default(),
             headers: [
@@ -368,7 +370,7 @@ impl StashOverlay {
 
     fn update_widths(
         &mut self,
-        items: &[StashItem],
+        items: &[QueueItem],
         available_ui_w: u16,
     ) {
         log::trace!("available: {available_ui_w}");
@@ -451,7 +453,7 @@ impl StashOverlay {
     }
 }
 
-impl Overlay for StashOverlay {
+impl Overlay for QueueOverlay {
     type A = FsAction;
 
     fn on_enable(
@@ -459,11 +461,11 @@ impl Overlay for StashOverlay {
         _area: &Rect,
     ) {
         self.state.state.select(Some(0));
-        STASH::check_validity();
+        QUEUE::check_validity();
     }
 
     fn on_disable(&mut self) {
-        STASH::clear_completed_shared();
+        QUEUE::clear_completed_shared();
     }
 
     fn handle_input(
@@ -484,7 +486,7 @@ impl Overlay for StashOverlay {
         ui_area: &Rect,
         layout: &OverlayLayoutSettings,
     ) {
-        let state = STASH_STATE.lock().unwrap();
+        let state = QUEUE_STATE.lock().unwrap();
         self.state.available_w = ui_area
             .width
             .saturating_sub(self.border().width())
@@ -506,12 +508,12 @@ impl Overlay for StashOverlay {
         &mut self,
         frame: &mut matchmaker::ui::Frame<'_>,
     ) {
-        let state = STASH_STATE.lock().unwrap();
+        let state = QUEUE_STATE.lock().unwrap();
 
         if state.shared.is_empty() {
             frame.render_widget(Clear, self.area);
             frame.render_widget(
-                Paragraph::new("Stash is empty").block(self.border().as_block()),
+                Paragraph::new("Queue is empty").block(self.border().as_block()),
                 self.area,
             );
             return;
@@ -599,7 +601,7 @@ impl Overlay for StashOverlay {
 /// 2-column scratch overlay; app entries have no destination column.
 pub struct AppOverlay {
     state: TableSelection,
-    config: StashConfig,
+    config: QueueConfig,
     widths: Vec<u16>,
     area: Rect,
 
@@ -607,9 +609,9 @@ pub struct AppOverlay {
 }
 
 impl AppOverlay {
-    pub fn new(config: StashConfig) -> Self {
+    pub fn new(config: QueueConfig) -> Self {
         Self {
-            state: TableSelection::new(StashView::Apps),
+            state: TableSelection::new(QueueView::Apps),
             config,
             widths: Vec::new(),
             area: Rect::default(),
@@ -681,7 +683,7 @@ impl Overlay for AppOverlay {
         ui_area: &Rect,
         layout: &OverlayLayoutSettings,
     ) {
-        let state = STASH_STATE.lock().unwrap();
+        let state = QUEUE_STATE.lock().unwrap();
         self.state.available_w = ui_area
             .width
             .saturating_sub(self.border().width())
@@ -703,7 +705,7 @@ impl Overlay for AppOverlay {
         &mut self,
         frame: &mut matchmaker::ui::Frame<'_>,
     ) {
-        let state = STASH_STATE.lock().unwrap();
+        let state = QUEUE_STATE.lock().unwrap();
         let items = &state.apps;
 
         if self.state.reiinit {
@@ -723,7 +725,7 @@ impl Overlay for AppOverlay {
         if items.is_empty() {
             frame.render_widget(Clear, area);
             frame.render_widget(
-                Paragraph::new("Stash is empty").block(self.border().as_block()),
+                Paragraph::new("Queue is empty").block(self.border().as_block()),
                 area,
             );
             return;
@@ -783,26 +785,26 @@ impl Overlay for AppOverlay {
     }
 }
 
-impl StashItemStatus {
+impl QueueItemStatus {
     pub fn render(
         &self,
-        cfg: &StashConfig,
+        cfg: &QueueConfig,
     ) -> Line<'static> {
         let size = self.size.load(Ordering::Relaxed);
         let progress = self.progress.load(Ordering::Relaxed);
         let state = self.state.load();
 
         let style = match state {
-            StashItemState::Pending => Style::default(),
-            StashItemState::Started => {
+            QueueItemState::Pending => Style::default(),
+            QueueItemState::Started => {
                 let percent = progress as f32 / 255.0;
                 let text =
                     format!("{:5.2}%", percent * 100.0).pad_to(10, std::fmt::Alignment::Center);
                 return Line::from(Span::styled(text, Style::default().bg(Color::Cyan)));
             }
-            StashItemState::CompleteOk => Style::default().fg(Color::Green),
-            StashItemState::PendingErr => Style::default().fg(Color::LightRed),
-            StashItemState::CompleteErr => Style::default().fg(Color::Red),
+            QueueItemState::CompleteOk => Style::default().fg(Color::Green),
+            QueueItemState::PendingErr => Style::default().fg(Color::LightRed),
+            QueueItemState::CompleteErr => Style::default().fg(Color::Red),
         };
 
         Line::styled(human_size(size, true).pad_to(10, Alignment::Left), style)

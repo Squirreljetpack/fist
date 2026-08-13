@@ -43,7 +43,7 @@ use crate::{
         FsPane,
         mm_config::{get_mm_binds, get_mm_cfg},
         start,
-        stash::STASH,
+        queue::QUEUE,
         state::{InitialNoRelative, InitialPreserveWhitespaceInSearch, STORE},
     },
     shell::print_shell,
@@ -89,7 +89,7 @@ async fn handle_open(
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
         for path in cmd.files {
-            STASH::stash("app", AbsPath::new_unchecked(path));
+            QUEUE::stash("app", AbsPath::new_unchecked(path));
         }
 
         cfg.global.interface.no_multi_accept = true;
