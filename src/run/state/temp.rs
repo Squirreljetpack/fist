@@ -5,7 +5,10 @@ use std::{cell::RefCell, fmt::Debug};
 use anymap::AnyMap;
 use cba::_dbg;
 
-use crate::ui::menu_overlay::{MenuTarget, PromptKind};
+use crate::{
+    abspath::AbsPath,
+    ui::menu_overlay::{MenuTarget, PromptKind},
+};
 
 thread_local! {
     static TLS_MAP: RefCell<AnyMap> = RefCell::new(AnyMap::new());
@@ -13,6 +16,22 @@ thread_local! {
 
 #[derive(Debug)]
 pub struct ExecuteHandlerShouldProcessParent;
+
+/// Snapshot of the picker state captured when the menu opens. Menu action
+/// conditions are evaluated once against it (see
+/// [`crate::spawn::menu_action`]), so the targets are frozen while the menu
+/// is open.
+#[derive(Debug, Clone, Default)]
+pub struct MenuContext {
+    /// Selected paths in selection order.
+    pub selected: Vec<AbsPath>,
+    /// The cursor item path; `None` when the cursor is disabled or has no item.
+    pub cursor: Option<AbsPath>,
+    /// Whether the query prompt was active when the menu opened.
+    pub in_prompt: bool,
+    /// The current directory (required by prompt-scoped conditions).
+    pub cwd: Option<AbsPath>,
+}
 
 /// Set by [`crate::run::ahandlers::fs_reload`] when a new pane's sort
 /// override (panesetting `default_sort`) is applied; consumed by
@@ -161,6 +180,12 @@ impl STORE {
     pub fn set_menu_target(target: MenuTarget) {
         TLS_MAP.with(|map| {
             map.borrow_mut().insert(target);
+        });
+    }
+
+    pub fn set_menu_context(context: MenuContext) {
+        TLS_MAP.with(|map| {
+            map.borrow_mut().insert(context);
         });
     }
 

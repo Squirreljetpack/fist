@@ -1,14 +1,24 @@
-#![allow(warnings)]
-use std::collections::HashMap;
+use std::{fmt, str::FromStr};
 
 use cba::define_collection_wrapper;
+use indexmap::IndexMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::lessfilter::file_rule::FileRuleKind;
+use crate::{
+    abspath::AbsPath,
+    lessfilter::{
+        Categories, LessfilterSettings,
+        file_rule::{FileData, FileRule},
+        rule_matcher::Test,
+    },
+    run::state::MenuContext,
+};
 
 define_collection_wrapper!(
-    #[derive(Debug, serde::Deserialize, serde::Serialize)]
+    /// Custom actions, keyed by name. Insertion order is the menu display order.
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     #[serde(transparent)]
-    MenuActions: HashMap<String, MenuAction>
+    MenuActions: IndexMap<String, MenuAction>
 );
 
 impl Default for MenuActions {
@@ -16,33 +26,244 @@ impl Default for MenuActions {
         Self::new()
     }
 }
-// todo: custom deserialize impl
 
-/// A menu action is activated through the [`crate::ui::menu_overlay::MenuOverlay`], and executes a user-defined script.
+/// A menu action is activated through [`crate::ui::menu_overlay::MenuOverlay`]
+/// and executes a user-defined lua script on the focused items.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct MenuAction {
-    script: String,
+    /// The action is visible in the menu iff at least one condition is
+    /// satisfied; an empty list means always visible.
     #[serde(default)]
-    exec: ExecuteType,
-    #[serde(default, skip)]
-    conditions: Vec<Condition>,
+    pub condition: Vec<MenuCondition>,
+    /// Lua script executed for this action (`@file` syntax supported).
+    pub command: String,
+    #[serde(default)]
+    pub strategy: MenuStrategy,
+    /// Overrides the strategy's default closing behavior: `Some(true)` always
+    /// closes the menu after the action is chosen, `Some(false)` keeps it
+    /// open, `None` follows the strategy default.
+    #[serde(default)]
+    pub close: Option<bool>,
 }
 
-#[derive(Debug, Clone)]
-pub enum Condition {
-    FileRule(FileRuleKind),
+impl MenuAction {
+    /// Whether choosing this action closes the menu: `close` overrides the
+    /// strategy default (Execute/ExecuteSilent exit, Stash/Batch keep open).
+    pub fn closes(&self) -> bool {
+        self.close.unwrap_or(matches!(
+            self.strategy,
+            MenuStrategy::Execute | MenuStrategy::ExecuteSilent
+        ))
+    }
 }
 
-#[derive(Debug, Default, Clone, serde::Deserialize, serde::Serialize)]
-pub enum ExecuteType {
-    Preview {
-        stdout: bool,
-        stderr: bool,
-    },
-    Execute {
-        wait: bool,
-    },
+/// How a menu action runs.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum MenuStrategy {
+    /// Run the action's command through the lua engine and wait for it.
+    Execute,
+    /// Run the action's command through the lua engine without waiting.
     #[default]
-    Detach,
-    // todo: Queue
+    ExecuteSilent,
+    /// Enqueue all target items into a single queue item and keep the menu open.
+    Stash,
+    /// Enqueue the target items into queue items of at most `n` paths each and
+    /// keep the menu open.
+    Batch(usize),
+}
+
+impl FromStr for MenuStrategy {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim();
+        let (name, data) = if let Some(pos) = s.find('(') {
+            if s.ends_with(')') {
+                (&s[..pos], Some(&s[pos + 1..s.len() - 1]))
+            } else {
+                (s, None)
+            }
+        } else {
+            (s, None)
+        };
+
+        let eq = |other: &str| name.eq_ignore_ascii_case(other);
+        if eq("execute") {
+            if data.is_some() {
+                Err(format!("Unexpected data for strategy {name}"))
+            } else {
+                Ok(Self::Execute)
+            }
+        } else if eq("execute_silent") || eq("silent") {
+            if data.is_some() {
+                Err(format!("Unexpected data for strategy {name}"))
+            } else {
+                Ok(Self::ExecuteSilent)
+            }
+        } else if eq("stash") {
+            if data.is_some() {
+                Err(format!("Unexpected data for strategy {name}"))
+            } else {
+                Ok(Self::Stash)
+            }
+        } else if eq("batch") {
+            let data = data.ok_or_else(|| "batch requires a size, e.g. batch(3)".to_string())?;
+            let n = data
+                .parse::<usize>()
+                .map_err(|_| format!("Invalid batch size: {data}"))?;
+            if n == 0 {
+                Err("batch size must be at least 1".to_string())
+            } else {
+                Ok(Self::Batch(n))
+            }
+        } else {
+            Err(format!("Unknown menu strategy: {s}"))
+        }
+    }
+}
+
+impl fmt::Display for MenuStrategy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Execute => write!(f, "Execute"),
+            Self::ExecuteSilent => write!(f, "ExecuteSilent"),
+            Self::Stash => write!(f, "Stash"),
+            Self::Batch(n) => write!(f, "Batch({n})"),
+        }
+    }
+}
+
+impl Serialize for MenuStrategy {
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for MenuStrategy {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        s.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+/// A criterion evaluated against the state captured when the menu opens.
+/// The action is visible iff at least one condition is satisfied.
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub enum MenuCondition {
+    /// Positional: exactly as many items must be selected as there are rules,
+    /// and rule *i* must match the *i*-th selected item in selection order.
+    Seq(Vec<FileRule>),
+    /// Repetition of a single rule, scoped by count.
+    Repeat {
+        /// `Some(0)`: prompt-scoped — strict requires the prompt to be active,
+        /// non-strict shows outside it too; both require a cwd, and the rule
+        /// is evaluated against the cwd.
+        /// `Some(n ≥ 1)`: selection-scoped — strict requires exactly *n*
+        /// selected items, non-strict at least *n*; the rule must match every
+        /// selected item.
+        /// `None`: cursor-scoped — requires an enabled cursor with an item;
+        /// strict hides the action whenever anything is selected, and the rule
+        /// must match the cursor item.
+        count: Option<usize>,
+        condition: FileRule,
+        #[serde(default)]
+        strict: bool,
+    },
+}
+
+/// Whether at least one condition is satisfied against the menu-open snapshot.
+/// An empty condition list means always visible. `cache` holds the
+/// [`FileData`] computed per file so each file's data is built at most once
+/// per menu open.
+pub fn condition_passes<'a>(
+    conditions: &[MenuCondition],
+    ctx: &MenuContext,
+    cache: &mut Vec<(AbsPath, FileData<'a>)>,
+    settings: &LessfilterSettings,
+    categories: &'a Categories,
+) -> bool {
+    conditions.is_empty()
+        || conditions
+            .iter()
+            .any(|c| c.passes(ctx, cache, settings, categories))
+}
+
+fn data_for<'c, 'a>(
+    cache: &'c mut Vec<(AbsPath, FileData<'a>)>,
+    settings: &LessfilterSettings,
+    categories: &'a Categories,
+    path: &AbsPath,
+) -> Option<&'c FileData<'a>> {
+    if let Some(i) = cache.iter().position(|(p, _)| p == path) {
+        return cache.get(i).map(|(_, d)| d);
+    }
+    cache.push((path.clone(), FileData::new(path.clone(), settings, categories)));
+    cache.last().map(|(_, d)| d)
+}
+
+impl MenuCondition {
+    fn passes<'a>(
+        &self,
+        ctx: &MenuContext,
+        cache: &mut Vec<(AbsPath, FileData<'a>)>,
+        settings: &LessfilterSettings,
+        categories: &'a Categories,
+    ) -> bool {
+        let mut passes_rule = |path: &AbsPath, rule: &FileRule| {
+            data_for(cache, settings, categories, path).is_some_and(|d| rule.passes(path, d))
+        };
+        match self {
+            MenuCondition::Seq(rules) => {
+                ctx.selected.len() == rules.len()
+                    && ctx
+                        .selected
+                        .iter()
+                        .zip(rules)
+                        .all(|(path, rule)| passes_rule(path, rule))
+            }
+            MenuCondition::Repeat {
+                count,
+                condition,
+                strict,
+            } => match count {
+                Some(0) => {
+                    if *strict && !ctx.in_prompt {
+                        return false;
+                    }
+                    ctx.cwd
+                        .as_ref()
+                        .is_some_and(|cwd| passes_rule(cwd, condition))
+                }
+                Some(n) => {
+                    if *strict {
+                        if ctx.selected.len() != *n {
+                            return false;
+                        }
+                    } else if ctx.selected.len() < *n {
+                        return false;
+                    }
+                    ctx.selected
+                        .iter()
+                        .all(|path| passes_rule(path, condition))
+                }
+                None => {
+                    if *strict && !ctx.selected.is_empty() {
+                        return false;
+                    }
+                    ctx.cursor
+                        .as_ref()
+                        .is_some_and(|cursor| passes_rule(cursor, condition))
+                }
+            },
+        }
+    }
 }
