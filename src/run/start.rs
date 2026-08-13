@@ -22,11 +22,11 @@ use crate::{
     run::{
         action::{fsaction_aliaser, fsaction_handler},
         ahandlers::{self, fs_post_reload_new, paste_handler},
-        dhandlers::{MMExt, emit_print, path_formatter, query_handler, sync_handler},
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
         previewer::make_previewer,
+        register::{MMExt, emit_print, path_formatter, query_handler, sync_handler},
         stash::STASH,
         state::{
             AcceptFlavor, DB_FILTER, GLOBAL, HideMetadata, STACK, STORE, TASKS,
@@ -130,7 +130,6 @@ fn make_mm(
     mm.register_execute_handler();
     mm.register_execute_silent_handler();
     mm.register_execute_async_handler();
-    mm.register_copy_command_handler(copy_trailing_newline);
     mm.register_reload_handler();
 
     mm.register_event_handler(Event::Synced, sync_handler);

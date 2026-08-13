@@ -270,7 +270,7 @@ pub fn copy_text(
         let mut guard = CLIPBOARD.lock().unwrap();
         let copy_trailing_newline = guard
             .as_ref()
-            .map_or(false, |fcb| fcb.copy_trailing_newline);
+            .is_some_and(|fcb| fcb.copy_trailing_newline);
         apply_newline_policy(&mut text, copy_trailing_newline);
         if text.is_empty() {
             return;

@@ -1,7 +1,7 @@
 mod ahandlers;
 mod binds;
-mod dhandlers;
 mod previewer;
+mod register;
 
 // mm/init
 pub mod item;
