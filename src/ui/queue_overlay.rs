@@ -597,8 +597,10 @@ impl Overlay for QueueOverlay {
 }
 
 /// The app view (overlay index 1): single-column list of the paths collected
-/// while in the app pane, titled "App (To open)". Repurposed from the old
-/// 2-column scratch overlay; app entries have no destination column.
+/// while in the app pane, titled by its config border title (the "Queue"
+/// default, like the queue overlay), with a bold "To open:" header.
+/// Repurposed from the old 2-column scratch overlay; app entries have no
+/// destination column.
 pub struct AppOverlay {
     state: TableSelection,
     config: QueueConfig,
@@ -660,7 +662,6 @@ impl Overlay for AppOverlay {
         _area: &Rect,
     ) {
         self.state.state.select(Some(0));
-        self.config.border.as_mut().unwrap().title = "App (To open)".into();
     }
 
     fn on_disable(&mut self) {}
@@ -722,15 +723,6 @@ impl Overlay for AppOverlay {
 
         let area = self.area;
 
-        if items.is_empty() {
-            frame.render_widget(Clear, area);
-            frame.render_widget(
-                Paragraph::new("Queue is empty").block(self.border().as_block()),
-                area,
-            );
-            return;
-        }
-
         let editing_info = self.state.editing.as_ref().map(|(r, c, _)| (*r, *c));
 
         let rows: Vec<Row> = items
@@ -761,6 +753,9 @@ impl Overlay for AppOverlay {
             })
             .collect();
 
+        let header =
+            Row::new(vec![Cell::from("To open:")]).style(Style::new().add_modifier(Modifier::BOLD));
+
         let table = Table::new(
             rows,
             self.widths
@@ -768,6 +763,7 @@ impl Overlay for AppOverlay {
                 .map(|w| Constraint::Length(*w))
                 .collect::<Vec<_>>(),
         )
+        .header(header)
         .column_spacing(1)
         .block(self.border().as_static_block());
 
