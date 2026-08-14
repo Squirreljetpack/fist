@@ -21,7 +21,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
 
     $completions = @(switch ($command) {
         'fs' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -40,6 +39,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
             [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             [CompletionResult]::new('-A', '-A ', [CompletionResultType]::ParameterName, 'A')
@@ -68,7 +69,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
         'fs;:open' {
             [CompletionResult]::new('-w', '-w', [CompletionResultType]::ParameterName, 'app to open files with')
             [CompletionResult]::new('--with', '--with', [CompletionResultType]::ParameterName, 'app to open files with')
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -80,13 +80,14 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'initial query')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:o' {
             [CompletionResult]::new('-w', '-w', [CompletionResultType]::ParameterName, 'app to open files with')
             [CompletionResult]::new('--with', '--with', [CompletionResultType]::ParameterName, 'app to open files with')
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -98,6 +99,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'initial query')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -106,7 +109,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'l')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--query', '--query', [CompletionResultType]::ParameterName, 'initial query')
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -117,6 +119,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -125,7 +129,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'l')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--initial-input', '--initial-input', [CompletionResultType]::ParameterName, 'initial-input')
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -137,6 +140,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -150,7 +155,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
             [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -166,6 +170,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--reset-visibility', '--reset-visibility', [CompletionResultType]::ParameterName, 'reset-visibility')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -179,7 +185,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
             [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -195,6 +200,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--reset-visibility', '--reset-visibility', [CompletionResultType]::ParameterName, 'reset-visibility')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -208,7 +215,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
             [CompletionResult]::new('--tail-sep', '--tail-sep', [CompletionResultType]::ParameterName, 'Field separator within a record: text after the first occurrence is the tail')
             [CompletionResult]::new('--input-sep', '--input-sep', [CompletionResultType]::ParameterName, 'Split the stream into records on this char instead of newlines')
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -220,6 +226,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -233,7 +241,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
             [CompletionResult]::new('--tail-sep', '--tail-sep', [CompletionResultType]::ParameterName, 'Field separator within a record: text after the first occurrence is the tail')
             [CompletionResult]::new('--input-sep', '--input-sep', [CompletionResultType]::ParameterName, 'Split the stream into records on this char instead of newlines')
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -245,6 +252,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -265,7 +274,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--context', '--context', [CompletionResultType]::ParameterName, 'Show NUM lines before and after each match')
             [CompletionResult]::new('--one-line', '--one-line', [CompletionResultType]::ParameterName, 'Display each match on a separate line. Alias: `-1`')
             [CompletionResult]::new('--query', '--query', [CompletionResultType]::ParameterName, 'initial query')
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -291,6 +299,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Don''t try to read paths from stdin')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -311,7 +321,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--context', '--context', [CompletionResultType]::ParameterName, 'Show NUM lines before and after each match')
             [CompletionResult]::new('--one-line', '--one-line', [CompletionResultType]::ParameterName, 'Display each match on a separate line. Alias: `-1`')
             [CompletionResult]::new('--query', '--query', [CompletionResultType]::ParameterName, 'initial query')
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -337,11 +346,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Don''t try to read paths from stdin')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:tool' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -352,6 +362,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             [CompletionResult]::new('colors', 'colors', [CompletionResultType]::ParameterValue, 'colors')
             [CompletionResult]::new('liza', 'liza', [CompletionResultType]::ParameterValue, 'List directory (eza wrapper)')
@@ -365,7 +377,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -376,6 +387,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             [CompletionResult]::new('colors', 'colors', [CompletionResultType]::ParameterValue, 'colors')
             [CompletionResult]::new('liza', 'liza', [CompletionResultType]::ParameterValue, 'List directory (eza wrapper)')
@@ -389,7 +402,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;colors' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -399,11 +411,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:t;colors' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -413,11 +426,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:tool;liza' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -427,11 +441,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:t;liza' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -441,11 +456,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:tool;shell' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -455,11 +471,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:t;shell' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -469,11 +486,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:tool;lessfilter' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -483,11 +501,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:t;lessfilter' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -497,11 +516,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:tool;pager' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -511,11 +531,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:t;pager' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -525,11 +546,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:tool;bump' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -539,11 +561,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:t;bump' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -553,11 +576,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:tool;trash' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -567,11 +591,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:t;trash' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -581,11 +606,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:tool;show-binds' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -595,11 +621,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:t;show-binds' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -609,11 +636,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:tool;types' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -623,11 +651,12 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
         'fs;:t;types' {
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -637,6 +666,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
             [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
@@ -644,7 +675,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--sort', '--sort', [CompletionResultType]::ParameterName, 'history sort order')
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'maximum history entries to display')
             [CompletionResult]::new('--limit', '--limit', [CompletionResultType]::ParameterName, 'maximum history entries to display')
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -657,6 +687,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-m', '-m', [CompletionResultType]::ParameterName, 'Don''t print decorations')
             [CompletionResult]::new('--minimal', '--minimal', [CompletionResultType]::ParameterName, 'Don''t print decorations')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }

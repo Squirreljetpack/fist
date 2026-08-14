@@ -15,7 +15,6 @@ _fs() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -34,6 +33,8 @@ _fs() {
 '*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.]' \
 '--alt-accept[]' \
 '-A[]' \
@@ -59,7 +60,6 @@ _fs() {
 _arguments "${_arguments_options[@]}" : \
 '-w+[app to open files with]:PROG:_default' \
 '--with=[app to open files with]:PROG:_default' \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -71,6 +71,8 @@ _arguments "${_arguments_options[@]}" : \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--list[]' \
 '--help[initial query]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::files -- files to open:_default' \
 && ret=0
@@ -79,7 +81,6 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-w+[app to open files with]:PROG:_default' \
 '--with=[app to open files with]:PROG:_default' \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -91,6 +92,8 @@ _arguments "${_arguments_options[@]}" : \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--list[]' \
 '--help[initial query]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::files -- files to open:_default' \
 && ret=0
@@ -101,7 +104,6 @@ _arguments "${_arguments_options[@]}" : \
 '-l+[]::LIST:(_ all)' \
 '--list=[]::LIST:(_ all)' \
 '--query=[initial query]:QUERY:_default' \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -112,6 +114,8 @@ _arguments "${_arguments_options[@]}" : \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--help[]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 && ret=0
 ;;
@@ -121,7 +125,6 @@ _arguments "${_arguments_options[@]}" : \
 '-l+[]::LIST:(_ all)' \
 '--list=[]::LIST:(_ all)' \
 '--initial-input=[]:INITIAL_INPUT:_default' \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -133,6 +136,8 @@ _arguments "${_arguments_options[@]}" : \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--cd[print the first match]' \
 '--help[]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::query -- initial query:_default' \
 && ret=0
@@ -148,7 +153,6 @@ _arguments "${_arguments_options[@]}" : \
 '*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -164,6 +168,8 @@ _arguments "${_arguments_options[@]}" : \
 '--reset-visibility[]' \
 '--list[]' \
 '--help[]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::paths -- Paths to search in. Searches the current directory if none specified (and not otherwise configured):_default' \
 && ret=0
@@ -179,7 +185,6 @@ _arguments "${_arguments_options[@]}" : \
 '*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -195,6 +200,8 @@ _arguments "${_arguments_options[@]}" : \
 '--reset-visibility[]' \
 '--list[]' \
 '--help[]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::paths -- Paths to search in. Searches the current directory if none specified (and not otherwise configured):_default' \
 && ret=0
@@ -210,7 +217,6 @@ _arguments "${_arguments_options[@]}" : \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
 '--tail-sep=[Field separator within a record\: text after the first occurrence is the tail]:TAIL_SEP:_default' \
 '--input-sep=[Split the stream into records on this char instead of newlines]:INPUT_SEP:_default' \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -222,6 +228,8 @@ _arguments "${_arguments_options[@]}" : \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--cd[print the first match]' \
 '--help[]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::cmd -- Command to run and read from; empty = read stdin:_default' \
 && ret=0
@@ -237,7 +245,6 @@ _arguments "${_arguments_options[@]}" : \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
 '--tail-sep=[Field separator within a record\: text after the first occurrence is the tail]:TAIL_SEP:_default' \
 '--input-sep=[Split the stream into records on this char instead of newlines]:INPUT_SEP:_default' \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -249,6 +256,8 @@ _arguments "${_arguments_options[@]}" : \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--cd[print the first match]' \
 '--help[]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::cmd -- Command to run and read from; empty = read stdin:_default' \
 && ret=0
@@ -271,7 +280,6 @@ _arguments "${_arguments_options[@]}" : \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
 '--one-line=[Display each match on a separate line. Alias\: \`-1\`]:ONE_LINE:(true false)' \
 '--query=[initial query]:QUERY:_default' \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -297,6 +305,8 @@ _arguments "${_arguments_options[@]}" : \
 '--list[]' \
 '--no-read[Don'\''t try to read paths from stdin]' \
 '--help[]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::patterns -- Patterns to search (`rg -e`):_default' \
 && ret=0
@@ -319,7 +329,6 @@ _arguments "${_arguments_options[@]}" : \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
 '--one-line=[Display each match on a separate line. Alias\: \`-1\`]:ONE_LINE:(true false)' \
 '--query=[initial query]:QUERY:_default' \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -345,13 +354,14 @@ _arguments "${_arguments_options[@]}" : \
 '--list[]' \
 '--no-read[Don'\''t try to read paths from stdin]' \
 '--help[]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::patterns -- Patterns to search (`rg -e`):_default' \
 && ret=0
 ;;
 (:tool)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -362,6 +372,8 @@ _arguments "${_arguments_options[@]}" : \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--help[]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '::args:_default' \
 ":: :_fs__subcmd__:tool_commands" \
@@ -376,7 +388,6 @@ _arguments "${_arguments_options[@]}" : \
         case $line[2] in
             (colors)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -386,12 +397,13 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 && ret=0
 ;;
 (liza)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -401,13 +413,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
 ;;
 (shell)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -417,13 +430,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
 ;;
 (lessfilter)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -433,13 +447,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
 ;;
 (pager)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -449,13 +464,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
 ;;
 (bump)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -465,13 +481,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
 ;;
 (trash)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -481,13 +498,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
 ;;
 (show-binds)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -497,12 +515,13 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 && ret=0
 ;;
 (types)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -512,6 +531,8 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -522,7 +543,6 @@ esac
 ;;
 (:t)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -533,6 +553,8 @@ _arguments "${_arguments_options[@]}" : \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--help[]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '::args:_default' \
 ":: :_fs__subcmd__:tool_commands" \
@@ -547,7 +569,6 @@ _arguments "${_arguments_options[@]}" : \
         case $line[2] in
             (colors)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -557,12 +578,13 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 && ret=0
 ;;
 (liza)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -572,13 +594,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
 ;;
 (shell)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -588,13 +611,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
 ;;
 (lessfilter)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -604,13 +628,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
 ;;
 (pager)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -620,13 +645,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
 ;;
 (bump)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -636,13 +662,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
 ;;
 (trash)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -652,13 +679,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
 ;;
 (show-binds)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -668,12 +696,13 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 && ret=0
 ;;
 (types)
 _arguments "${_arguments_options[@]}" : \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -683,6 +712,8 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '*::args:_default' \
 && ret=0
@@ -696,7 +727,6 @@ _arguments "${_arguments_options[@]}" : \
 '--sort=[history sort order]:SORT:(name mtime atime size none)' \
 '-l+[maximum history entries to display]:LIMIT:_default' \
 '--limit=[maximum history entries to display]:LIMIT:_default' \
-'--verbosity=[]:VERBOSITY:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -709,6 +739,8 @@ _arguments "${_arguments_options[@]}" : \
 '-m[Don'\''t print decorations]' \
 '--minimal[Don'\''t print decorations]' \
 '--help[]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--alt-accept[]' \
 '::table -- history table to display:(apps files dirs)' \
 && ret=0

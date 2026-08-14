@@ -4,8 +4,8 @@ use cba::{bird::transform::camelcase_normalized, define_collection_wrapper};
 use mime_guess::Mime;
 
 use crate::{
-    cli::paths::{BINARY_SHORT, current_exe},
-    lessfilter::{RulesConfig, file_rule::ParseFileRuleError},
+    cli::paths::{current_exe, BINARY_SHORT},
+    lessfilter::{file_rule::ParseFileRuleError, RulesConfig},
 };
 use fist_types::{FileCategory, When};
 
@@ -177,8 +177,11 @@ impl FromStr for MimeString {
 }
 
 impl std::fmt::Display for MimeString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 

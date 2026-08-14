@@ -4,14 +4,17 @@ use crate::{
     fs::{auto_dest, create_all, rename},
     run::{
         FsAction,
-        item::short_display,
+        item::{PathItem, short_display},
         state::{GLOBAL, STACK, TASKS, TOAST},
     },
     utils::text::ToastStyle,
 };
 
 use cba::bath::{PathExt, RenamePolicy, auto_dest_for_src};
-use matchmaker::ui::{Overlay, OverlayEffect};
+use matchmaker::{
+    render::MMState,
+    ui::{Overlay, OverlayEffect},
+};
 use std::path::Path;
 
 use super::menu_overlay::MenuOverlay;
@@ -26,41 +29,36 @@ pub enum PromptKind {
     SetAlias,
 }
 
-#[derive(Debug, Clone)]
-pub enum MenuTarget {
-    Item(AbsPath),
-}
-
-impl MenuTarget {
-    pub fn abs_path(&self) -> &AbsPath {
-        match self {
-            Self::Item(p) => p,
-        }
-    }
-}
-
 impl MenuOverlay {
-    pub fn target_path(&self) -> AbsPath {
-        self.target
-            .as_ref()
-            .map(|t| t.abs_path().clone())
+    /// The current item under the cursor, or the stack cwd when the cursor is
+    /// disabled. The picker state cannot change while the menu overlay is
+    /// open (input is intercepted), so this equals the state at menu open.
+    pub fn target_path(&self, state: &mut MMState<'_, '_, PathItem, ()>) -> AbsPath {
+        state
+            .picker_ui
+            .current_indexed()
+            .map(|(_, p)| p.path.clone())
+            .or_else(STACK::cwd)
             .unwrap_or_else(STACK::_cwd)
     }
 
-    pub fn target_parent(&self) -> AbsPath {
-        self.target
-            .as_ref()
-            .map(|t| t.abs_path()._parent())
+    pub fn target_parent(&self, state: &mut MMState<'_, '_, PathItem, ()>) -> AbsPath {
+        state
+            .picker_ui
+            .current_indexed()
+            .map(|(_, p)| p.path._parent())
+            .or_else(STACK::cwd)
             .unwrap_or_else(STACK::_cwd)
     }
 
     pub fn on_prompt_accept(
         &mut self,
         prompt: PromptKind,
+        state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         match prompt {
             PromptKind::New => {
-                let current_item_parent = self.target_parent();
+                let current_item_parent = self.target_parent(state);
                 let input = self.prompt.input.value();
                 let input_path = Path::new(&input);
                 let dest = auto_dest(input_path, &current_item_parent); // replaced if input is absolute
@@ -88,7 +86,7 @@ impl MenuOverlay {
                 });
             }
             PromptKind::NewDir => {
-                let current_item_parent = self.target_parent();
+                let current_item_parent = self.target_parent(state);
                 let input = self.prompt.input.value();
                 let input_path = Path::new(&input);
                 let dest = AbsPath::new_unchecked(input_path.abs(current_item_parent));
@@ -113,7 +111,7 @@ impl MenuOverlay {
                 });
             }
             PromptKind::Rename => {
-                let old_path = self.target_path();
+                let old_path = self.target_path(state);
                 if old_path.file_name().is_none() {
                     return OverlayEffect::None;
                 }
@@ -152,7 +150,7 @@ impl MenuOverlay {
                 }
             }
             PromptKind::SetAlias => {
-                let path = self.target_path();
+                let path = self.target_path(state);
                 let alias = self.prompt.input.value();
 
                 // in a stash pane this edits the entry's tail column instead

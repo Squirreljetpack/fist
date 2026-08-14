@@ -1,8 +1,10 @@
+use crate::run::item::PathItem;
 use crate::ui::input::InputWidget;
 use crate::{run::action::FsAction, ui::input::InputWidgetConfig};
 use matchmaker::{
     action::Action,
     config::{BorderSetting, OverlayLayoutSettings, Percentage},
+    render::MMState,
     ui::{Overlay, OverlayEffect},
 };
 use ratatui::{
@@ -89,9 +91,7 @@ impl PromptOverlay {
     }
 }
 
-impl Overlay for PromptOverlay {
-    type A = FsAction;
-
+impl Overlay<FsAction, PathItem, ()> for PromptOverlay {
     fn on_disable(&mut self) {
         self.input.inner.clear();
     }
@@ -99,6 +99,7 @@ impl Overlay for PromptOverlay {
     fn handle_input(
         &mut self,
         c: char,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         if c == '\n' {
             return OverlayEffect::Disable;
@@ -138,7 +139,8 @@ impl Overlay for PromptOverlay {
 
     fn handle_action(
         &mut self,
-        action: &Action<Self::A>,
+        action: &Action<FsAction>,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         if let Some(_accept) = self.input.handle_action(action) {
             return OverlayEffect::Disable;

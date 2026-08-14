@@ -3,12 +3,12 @@ use crate::{
     lessfilter::file_rule::FileData,
     run::{
         action::FsAction,
-        item::short_display,
+        item::{PathItem, short_display},
         queue::QUEUE,
-        state::{GLOBAL, MenuContext, MenuPrompt, STACK, STORE, TOAST, lessfilter_cfg},
+        state::{GLOBAL, InPrompt, MenuCommandPaths, MenuPrompt, STACK, STORE, TOAST, lessfilter_cfg},
     },
     spawn::{
-        menu_action::{condition_passes, MenuActions, MenuStrategy},
+        menu_action::{condition_passes, MenuActions, MenuCondition, MenuStrategy},
         open_wrapped,
     },
     ui::prompt_overlay::{PromptConfig, PromptOverlay},
@@ -21,6 +21,7 @@ use crate::{
 use matchmaker::{
     action::Action,
     config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting, StyleSetting},
+    render::MMState,
     ui::{Overlay, OverlayEffect, utils},
 };
 use ratatui::{
@@ -122,7 +123,6 @@ impl MenuItem {
                     .with_file_name(path.file_stem().unwrap_or_default())
                     .to_string_lossy()
                     .len();
-                STORE::set_menu_target(MenuTarget::Item(path));
                 Ok(MenuPrompt {
                     kind: PromptKind::Rename,
                     title: "Rename".to_string(),
@@ -187,12 +187,9 @@ pub struct MenuOverlay {
     pub config: MenuConfig,
     pub prompt_kind: Option<PromptKind>,
     pub prompt: PromptOverlay,
-    pub target: Option<MenuTarget>,
     pub items: Vec<MenuItem>,
     /// The custom actions; only those whose conditions pass are listed.
     pub actions: MenuActions,
-    /// The picker state snapshot the conditions were evaluated against.
-    pub context: MenuContext,
     pub area: Rect,
 }
 
@@ -218,10 +215,8 @@ impl MenuOverlay {
             config,
             prompt_kind: None,
             prompt: PromptOverlay::new(prompt_config),
-            target: None,
             items: MENU_ITEMS.to_vec(),
             actions,
-            context: MenuContext::default(),
             area: Rect::default(),
         }
     }
@@ -253,12 +248,13 @@ impl MenuOverlay {
     fn set_prompt(
         &mut self,
         prompt: MenuPrompt,
+        state: &mut MMState<'_, '_, PathItem, ()>,
     ) {
         self.prompt_kind = Some(prompt.kind);
         if !prompt.title.is_empty() {
             self.prompt.input.config.border.title = prompt.title;
         }
-        self.prompt.on_enable(&Rect::default());
+        self.prompt.on_enable(&Rect::default(), state);
 
         if !prompt.initial.is_empty() {
             self.prompt.input.set_value(prompt.initial);
@@ -269,17 +265,14 @@ impl MenuOverlay {
     fn handle_menu_input(
         &mut self,
         c: char,
+        state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         if let Some(item) = MenuItem::from_key(c) {
-            let path = self
-                .target
-                .as_ref()
-                .map(|t| t.abs_path().clone())
-                .unwrap_or_else(STACK::_cwd);
+            let path = self.target_path(state);
             let action_result = item.action(path);
             match action_result {
                 Ok(prompt) => {
-                    self.set_prompt(prompt);
+                    self.set_prompt(prompt, state);
                     OverlayEffect::None
                 }
                 Err(true) => OverlayEffect::None,
@@ -292,24 +285,20 @@ impl MenuOverlay {
         }
     }
 
-    pub fn accept(&mut self) -> OverlayEffect {
+    pub fn accept(&mut self, state: &mut MMState<'_, '_, PathItem, ()>) -> OverlayEffect {
         let custom_key = match &self.items[self.cursor] {
             MenuItem::Custom { action, .. } => Some(action.clone()),
             _ => None,
         };
         if let Some(key) = custom_key {
-            return self.run_custom(&key);
+            return self.run_custom(&key, state);
         }
         let item = &self.items[self.cursor];
-        let path = self
-            .target
-            .as_ref()
-            .map(|t| t.abs_path().clone())
-            .unwrap_or_else(STACK::_cwd);
+        let path = self.target_path(state);
         let action_result = item.action(path);
         match action_result {
             Ok(prompt) => {
-                self.set_prompt(prompt);
+                self.set_prompt(prompt, state);
                 OverlayEffect::None
             }
             Err(true) => OverlayEffect::None,
@@ -318,17 +307,29 @@ impl MenuOverlay {
     }
 
     /// Rebuild the item list: the builtin items plus every custom action
-    /// whose conditions pass against the menu-open snapshot. [`FileData`] is
-    /// computed once per file and reused across all condition evaluations.
-    fn build_items(&mut self) {
+    /// whose conditions pass against the picker state at open. [`FileData`]
+    /// is computed once per file and reused across all condition evaluations.
+    fn build_items(&mut self, state: &mut MMState<'_, '_, PathItem, ()>) {
         let lcfg = lessfilter_cfg();
         let mut cache: Vec<(AbsPath, FileData<'_>)> = Vec::new();
+
+        let selected: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
+        let cursor = if state.picker_ui.results.cursor_disabled() {
+            None
+        } else {
+            state.current_raw().map(|item| item.path.clone())
+        };
+        let in_prompt = STORE::contains::<InPrompt>();
+        let cwd = STACK::cwd();
 
         let mut items = MENU_ITEMS.to_vec();
         for (key, action) in self.actions.iter() {
             if condition_passes(
                 &action.condition,
-                &self.context,
+                &selected,
+                cursor.as_ref(),
+                in_prompt,
+                cwd.as_ref(),
                 &mut cache,
                 &lcfg.settings,
                 &lcfg.categories,
@@ -342,17 +343,30 @@ impl MenuOverlay {
         self.items = items;
     }
 
-    /// Run a custom action on the target items (the menu-open selection, or
-    /// the target item when nothing was selected).
-    fn run_custom(&mut self, key: &str) -> OverlayEffect {
+    /// Run a custom action on the target items (the current selection, or
+    /// the target item when nothing is selected).
+    fn run_custom(
+        &mut self,
+        key: &str,
+        state: &mut MMState<'_, '_, PathItem, ()>,
+    ) -> OverlayEffect {
         let Some(action) = self.actions.get(key) else {
             log::error!("Menu action not found: {key}");
             return OverlayEffect::None;
         };
-        let targets: Vec<AbsPath> = if self.context.selected.is_empty() {
-            vec![self.target_path()]
+        let selected: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
+        // count = 0 conditions are evaluated against the pane cwd, so their
+        // targets are the cwd (visibility guarantees it exists).
+        let targets: Vec<AbsPath> = if action
+            .condition
+            .iter()
+            .any(|c| matches!(c, MenuCondition::Repeat { count: Some(0), .. }))
+        {
+            STACK::cwd().map(|p| vec![p]).unwrap_or_else(|| vec![self.target_path(state)])
+        } else if selected.is_empty() {
+            vec![self.target_path(state)]
         } else {
-            self.context.selected.clone()
+            selected
         };
         let displays: Vec<Span<'static>> = targets.iter().map(|p| short_display(p)).collect();
 
@@ -362,16 +376,24 @@ impl MenuOverlay {
                 TOAST::push(ToastStyle::Normal, "Queued: ", displays);
             }
             MenuStrategy::Batch(n) => {
+                // a zero batch size parses but chunks of size 0 are invalid
+                let n = n.max(1);
                 for chunk in targets.chunks(n) {
                     QUEUE::enqueue(key, chunk.to_vec());
                 }
                 TOAST::push(ToastStyle::Normal, "Queued: ", displays);
             }
             MenuStrategy::Execute => {
+                STORE::set(MenuCommandPaths::new_from(targets));
                 GLOBAL::send_action(FsAction::MenuAction(key.to_string()));
             }
             MenuStrategy::ExecuteSilent => {
-                GLOBAL::send_action(FsAction::MenuActionSilent(key.to_string()));
+                STORE::set(MenuCommandPaths::new_from(targets));
+                GLOBAL::send_action(FsAction::MenuActionSilent(action.command.clone()));
+            }
+            MenuStrategy::ExecPaged => {
+                STORE::set(MenuCommandPaths::new_from(targets));
+                GLOBAL::send_action(FsAction::MenuActionExecPaged(key.to_string()));
             }
         }
 
@@ -395,26 +417,22 @@ impl MenuOverlay {
     }
 }
 
-impl Overlay for MenuOverlay {
-    type A = FsAction;
-
+impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
     fn on_enable(
         &mut self,
-        area: &Rect,
+        _area: &Rect,
+        state: &mut MMState<'_, '_, PathItem, ()>,
     ) {
         self.cursor = 0;
         self.prompt_kind = None;
 
         if let Some(prompt) = STORE::take::<MenuPrompt>() {
-            self.set_prompt(prompt);
+            self.set_prompt(prompt, state);
         }
 
-        self.target = STORE::take::<MenuTarget>();
-
-        // snapshot the picker state and list the custom actions whose
-        // conditions pass (evaluated once, at open)
-        self.context = STORE::take::<MenuContext>().unwrap_or_default();
-        self.build_items();
+        // list the custom actions whose conditions pass (evaluated once,
+        // against the state at open)
+        self.build_items(state);
     }
 
     fn on_disable(&mut self) {
@@ -424,34 +442,36 @@ impl Overlay for MenuOverlay {
     fn handle_input(
         &mut self,
         c: char,
+        state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         if let Some(p) = self.prompt_kind {
-            if let OverlayEffect::Disable = self.prompt.handle_input(c) {
-                self.on_prompt_accept(p)
+            if let OverlayEffect::Disable = self.prompt.handle_input(c, state) {
+                self.on_prompt_accept(p, state)
             } else {
                 OverlayEffect::None
             }
         } else {
-            self.handle_menu_input(c)
+            self.handle_menu_input(c, state)
         }
     }
 
     fn handle_action(
         &mut self,
-        action: &Action<Self::A>,
+        action: &Action<FsAction>,
+        state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         if let Some(p) = self.prompt_kind {
             // defer to prompt
             match self.prompt.handle_action_(action) {
                 None => {}
                 Some(false) => self.prompt_kind = None,
-                Some(true) => return self.on_prompt_accept(p),
+                Some(true) => return self.on_prompt_accept(p, state),
             }
         } else {
             match action {
                 Action::Up(_) => self.move_cursor_up(),
                 Action::Down(_) => self.move_cursor_down(),
-                Action::Accept => return self.accept(),
+                Action::Accept => return self.accept(state),
                 Action::Quit(_) => return OverlayEffect::Disable,
                 _ => {}
             }

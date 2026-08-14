@@ -40,6 +40,7 @@ async fn main() {
     {
         use fist::cli::paths::{config_path, mm_cfg_path};
 
+        // maximum verbosity in debug
         verbosity = 10;
 
         if cli.opts.mm_config == mm_cfg_path() && cli.opts.config == config_path() {
@@ -123,17 +124,13 @@ fn init_logger(
         }
         #[cfg(not(debug_assertions))]
         {
-            use cba::bait::TransformExt;
-
             // set style
             builder
                 .format_module_path(false)
                 .format_target(false)
                 .format_timestamp(None);
 
-            let level = cba::bother::level_filter::from_verbosity(
-                verbosity.transform_if(verbosity >= 4, |v| v - 1),
-            );
+            let level = cba::bother::level_filter::from_verbosity(verbosity);
             builder
                 .filter(Some("sqlx"), level)
                 .filter(Some("cba"), level)

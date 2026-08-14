@@ -1,6 +1,7 @@
 use cba::{_dbg, bo::load_type_or_default};
 use matchmaker::{
     binds::{BindMap, BindMapExt, ResolvedBindMap},
+    collections::HiddenColumns,
     config::{
         DisplayConfig, HelpDisplayConfig, OverlayConfig, Percentage, PreviewSetting, RenderConfig,
         RowConnectionStyle, TerminalConfig, TerminalLayoutSettings,
@@ -11,7 +12,7 @@ use matchmaker_partial::Apply;
 use ratatui::style::Modifier;
 use std::path::Path;
 
-use super::{FsAction, binds::default_binds};
+use super::{binds::default_binds, FsAction};
 
 #[cfg(feature = "mm_overrides")]
 use crate::cli::env::get_mm_partial;
@@ -20,7 +21,7 @@ use crate::{
     config::Config,
     lessfilter::Preset,
     ui::{
-        confirm_overlay::ConfirmConfig, options_overlay::OptionsConfig, menu_overlay::MenuConfig,
+        confirm_overlay::ConfirmConfig, menu_overlay::MenuConfig, options_overlay::OptionsConfig,
         prompt_overlay::PromptConfig, queue_overlay::QueueConfig,
     },
 };
@@ -122,6 +123,8 @@ pub fn get_mm_cfg(
     results.separator = Default::default();
     results.min_width = results.min_width.max(10);
     results.autoscroll.initial_preserved = 2;
+    // loc column hidden by default (rg panes only)
+    results.hidden_columns = HiddenColumns::from_iter([2]);
 
     if cfg.global.mm.reverse.is_some() {
         results.reverse = cfg.global.mm.reverse

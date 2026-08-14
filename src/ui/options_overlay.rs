@@ -1,18 +1,20 @@
 use crate::{
     run::{
-        FsPane,
         action::FsAction,
+        item::PathItem,
         state::{FILTERS, GLOBAL, STACK},
+        FsPane,
     },
     utils::{serde::border_result, text::bold_indices},
 };
 
 use cba::bum::UsizeExt;
-use fist_types::{When, filters::*};
+use fist_types::{filters::*, When};
 use matchmaker::{
     action::Action,
     config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting},
-    ui::{Overlay, OverlayEffect, utils},
+    render::MMState,
+    ui::{utils, Overlay, OverlayEffect},
 };
 
 use ratatui::{
@@ -153,12 +155,11 @@ impl OptionsOverlay {
             .map(|so| {
                 // while atime is active, the mtime row shows 'atime' and
                 // stays checked — the two share one time slot
-                let label =
-                    if *so == SortOrder::mtime && current_sort_order == SortOrder::atime {
-                        "atime"
-                    } else {
-                        so.label(db)
-                    };
+                let label = if *so == SortOrder::mtime && current_sort_order == SortOrder::atime {
+                    "atime"
+                } else {
+                    so.label(db)
+                };
                 // the time row highlights its second letter — the 't' in
                 // mtime/atime — the cycle key; other rows keep their first
                 let spans = bold_indices(
@@ -444,12 +445,11 @@ impl OptionsOverlay {
     }
 }
 
-impl Overlay for OptionsOverlay {
-    type A = FsAction;
-
+impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
     fn handle_input(
         &mut self,
         c: char,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         let mut refilter = true;
         let mut reload = false;
@@ -601,6 +601,7 @@ impl Overlay for OptionsOverlay {
     fn on_enable(
         &mut self,
         _area: &Rect,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) {
         self.pane_lens[0] = if STACK::with_current(|x| x.supports_vis()) {
             self.get_visibility_items().len()
@@ -636,7 +637,8 @@ impl Overlay for OptionsOverlay {
 
     fn handle_action(
         &mut self,
-        action: &Action<Self::A>,
+        action: &Action<FsAction>,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         let num_panes = self.pane_lens.len();
         if num_panes == 0 {

@@ -25,7 +25,7 @@ use crate::{
         item::PathItem,
         pane::FsPane,
         selection,
-        state::{FILTERS, GLOBAL, STACK, STORE, TASKS, sort},
+        state::{FILTERS, GLOBAL, STACK, STORE, TASKS, MenuCommandPaths, sort},
     },
     utils::{command::tokio_from_script, formatter::format_path},
 };
@@ -133,9 +133,6 @@ impl FsMatchmaker {
             if state.payload().is_empty() {
                 return;
             }
-            let Some(path) = resolve_target(state) else {
-                return;
-            };
             let mode = match state
                 .discriminant_payload
                 .take()
@@ -144,12 +141,24 @@ impl FsMatchmaker {
                 Some(x) => x,
                 _ => ExecutionMode::Normal,
             };
-            // menu action execution (discriminants 7/8): the payload is not a
-            // command template — it is the action key or the command itself.
+            // menu action execution (discriminants 7/8/9): the payload is not a
+            // command template — it is the action key (7/9) or the command
+            // itself (8). The targeted paths were stashed at menu activation.
             if let Some(lua_cmd) = menu_lua_command(mode, state.payload()) {
-                run_menu_lua(&lua_cmd, &path);
+                let Some(paths) = STORE::take::<MenuCommandPaths>() else {
+                    warn!("Menu action executed without targeted paths");
+                    return;
+                };
+                if mode == ExecutionMode::LuaCommandPaged {
+                    run_menu_lua_paged(&lua_cmd, &paths);
+                } else {
+                    run_menu_lua(&lua_cmd, &paths);
+                }
                 return;
             }
+            let Some(path) = resolve_target(state) else {
+                return;
+            };
             let cmd = format_path(state.payload(), &path);
             if cmd.is_empty() {
                 warn!("Empty formatted command");
@@ -173,9 +182,6 @@ impl FsMatchmaker {
             if state.payload().is_empty() {
                 return;
             }
-            let Some(path) = resolve_target(state) else {
-                return;
-            };
             let mode = match state
                 .discriminant_payload
                 .take()
@@ -186,11 +192,19 @@ impl FsMatchmaker {
             };
             // menu action execution (discriminants 7/8): the payload is not a
             // command template — it is the action key or the command itself.
-            // Fired without waiting, like the other silent modes.
+            // Fired without waiting, like the other silent modes. The targeted
+            // paths are taken here on the main thread (STORE is thread-local).
             if let Some(lua_cmd) = menu_lua_command(mode, state.payload()) {
-                TASKS::spawn_blocking(move || run_menu_lua(&lua_cmd, &path));
+                let Some(paths) = STORE::take::<MenuCommandPaths>() else {
+                    warn!("Menu action executed without targeted paths");
+                    return;
+                };
+                TASKS::spawn_blocking(move || run_menu_lua(&lua_cmd, &paths));
                 return;
             }
+            let Some(path) = resolve_target(state) else {
+                return;
+            };
             let cmd = format_path(state.payload(), &path);
             if cmd.is_empty() {
                 warn!("Empty formatted command");

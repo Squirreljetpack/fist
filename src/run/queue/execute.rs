@@ -13,26 +13,30 @@ use cba::{
     bs::symlink,
 };
 use fs_extra::{dir, file};
-use mlua::MultiValue;
 
 use crate::{
     run::{
         item::short_display,
-        lua::{compile_lua, load_script},
-        state::{GLOBAL, TASKS, TOAST},
+        lua::{call_with_paths, compile_lua, load_script},
+        state::{MENU_ACTIONS, TASKS, TOAST},
     },
     utils::text::ToastStyle,
 };
 
 impl QueueItem {
     /// Execute this item according to its kind:
-    /// - `"copy"` / `"cut"` / `"symlink"` run the builtin transfer logic;
-    /// - any other kind is a script reference (`@file` syntax supported) that
-    ///   is fed `(item, dest)`; a script that fails to load/compile is a no-op.
+    /// - `"copy"` / `"cut"` / `"symlink"` run the builtin transfer logic on
+    ///   each source path, using the destination as-is (single-path items
+    ///   are pre-resolved by the caller);
+    /// - `"none"` is a no-op;
+    /// - any other kind is a menu action key: the mapped command runs once
+    ///   with the full path list and the destination (`(paths, dst)`), and
+    ///   `set_progress` writes the item's progress for the duration of the
+    ///   call.
     ///
-    /// Every source path is transferred; single-path items carry a resolved
-    /// destination, multi-path items (menu Stash/Batch) resolve each path's
-    /// destination against the nav cwd.
+    /// A custom kind with no mapping fails the item with an error toast. The
+    /// action history records one entry per executed item that completed
+    /// successfully.
     pub fn execute(self) {
         log::debug!("Transferring: {self:?}");
 
@@ -47,122 +51,133 @@ impl QueueItem {
 
         let is_move = kind == "cut";
 
-        for path in src {
-            let path_dst: OsString = if src.len() == 1 || !dst.is_empty() {
-                dst.clone()
-            } else if let Some(base) = STACK::nav_cwd() {
-                let mut d: OsString = dst.abs(base).into();
-                if dst.is_empty() || dst.to_string_lossy().ends_with(MAIN_SEPARATOR) {
-                    d.push(MAIN_SEPARATOR_STR);
-                };
-                GLOBAL::with_cfg(|c| auto_dest_for_src(path, &d, &c.fs.rename_policy)).into()
-            } else {
-                dst.clone()
-            };
+        let mut any_success = false;
 
-            match kind.as_str() {
-                "symlink" => {
-                    match symlink(path, &path_dst, true) {
-                        Ok(()) => status.state.store(QueueItemState::CompleteOk),
+        match kind.as_str() {
+            "symlink" => {
+                for path in src {
+                    match symlink(path, dst, true) {
+                        Ok(()) => {
+                            status.state.store(QueueItemState::CompleteOk);
+                            any_success = true;
+                        }
                         Err(_) => status.state.store(QueueItemState::CompleteErr),
                     }
-                    continue;
                 }
-                "none" => {
-                    status.state.store(QueueItemState::CompleteOk); // No-op
-                    continue;
-                }
-                "copy" | "cut" => {}
-                // any other kind is a script reference
-                script => {
-                    let result = load_script(script)
-                        .ok_or_else(|| anyhow::anyhow!("failed to load script"))
-                        .and_then(|s| compile_lua(&s).map_err(anyhow::Error::msg))
-                        .and_then(|f| {
-                            let item = path.to_string_lossy();
-                            let dest = path_dst.to_string_lossy();
-                            f.call::<MultiValue>((item.as_ref(), dest.as_ref()))
-                                .map_err(anyhow::Error::from)
-                        });
+            }
+            "none" => {
+                // defensive: the kind is reserved, so nothing creates a
+                // "none" item today; keep the historical no-op behavior
+                status.state.store(QueueItemState::CompleteOk);
+                any_success = true;
+            }
+            "copy" | "cut" => {
+                for path in src {
+                    let QueueItemStatus {
+                        state,
+                        progress,
+                        size,
+                    } = status;
 
-                    match result {
-                        Ok(_) => status.state.store(QueueItemState::CompleteOk),
-                        Err(e) => {
-                            log::error!("Queue script error for {self:?}: {e}");
-                            status.state.store(QueueItemState::CompleteErr);
+                    let result = if path.is_dir() {
+                        let mut options = dir::CopyOptions::new().copy_inside(true);
+                        options.overwrite = true;
+
+                        let progress_handler = move |p: dir::TransitProcess| {
+                            let fraction = if p.total_bytes > 0 {
+                                size.store(p.total_bytes, Ordering::Relaxed);
+                                p.copied_bytes * 255 / p.total_bytes
+                            } else {
+                                0
+                            };
+                            progress
+                                .clone()
+                                .store(fraction as u8, Ordering::Relaxed);
+                            fs_extra::dir::TransitProcessResult::ContinueOrAbort
+                        };
+
+                        if is_move {
+                            dir::move_dir_with_progress(path, dst, &options, progress_handler)
+                        } else {
+                            dir::copy_with_progress(path, dst, &options, progress_handler)
                         }
+                    } else {
+                        let options = file::CopyOptions::new().overwrite(true);
+
+                        let progress_handler = move |p: file::TransitProcess| {
+                            let fraction = if p.total_bytes > 0 {
+                                size.store(p.total_bytes, Ordering::Relaxed);
+                                p.copied_bytes * 255 / p.total_bytes
+                            } else {
+                                0
+                            };
+                            progress
+                                .clone()
+                                .store(fraction as u8, Ordering::Relaxed);
+                        };
+
+                        if let Some(parent) = std::path::Path::new(dst).parent() {
+                            let _ = create_dir_all(parent);
+                        }
+
+                        if is_move {
+                            file::move_file_with_progress(path, dst, &options, progress_handler)
+                        } else {
+                            file::copy_with_progress(path, dst, &options, progress_handler)
+                        }
+                    };
+
+                    if let Err(e) = result {
+                        log::error!("Transfer error for {self:?}: {e}");
+                        state.store(QueueItemState::CompleteErr);
+                        let display = short_display(path);
+                        TOAST::push(ToastStyle::Error, "Failed: ", [display]);
+                        TOAST::notice(ToastStyle::Error, e.to_string());
+                    } else {
+                        state.store(QueueItemState::CompleteOk);
+                        let display = short_display(path);
+                        TOAST::push(ToastStyle::Success, "Complete: ", [display]);
+                        any_success = true;
                     }
-                    continue;
                 }
             }
-
-            // Built-in logic (Copy/Cut)
-            let QueueItemStatus {
-                state,
-                progress,
-                size,
-            } = status;
-
-            let result = if path.is_dir() {
-                let mut options = dir::CopyOptions::new().copy_inside(true);
-                options.overwrite = true;
-
-                let progress_handler = move |p: dir::TransitProcess| {
-                    let fraction = if p.total_bytes > 0 {
-                        size.store(p.total_bytes, Ordering::Relaxed);
-                        p.copied_bytes * 255 / p.total_bytes
-                    } else {
-                        0
-                    };
-                    progress
-                        .clone()
-                        .store(fraction as u8, Ordering::Relaxed);
-                    fs_extra::dir::TransitProcessResult::ContinueOrAbort
+            // any other kind is a menu action key
+            script => {
+                let command = match MENU_ACTIONS.get().and_then(|m| m.get(script)) {
+                    Some(action) => action.command.clone(),
+                    None => {
+                        log::error!("No menu action for queue kind {script:?}: {self:?}");
+                        status.state.store(QueueItemState::CompleteErr);
+                        TOAST::notice(
+                            ToastStyle::Error,
+                            format!("No menu action for kind {script}"),
+                        );
+                        return;
+                    }
                 };
+                let result = load_script(&command)
+                    .ok_or_else(|| anyhow::anyhow!("failed to load script"))
+                    .and_then(|s| compile_lua(&s).map_err(anyhow::Error::msg))
+                    .and_then(|f| {
+                        call_with_paths(&f, src, &dst.to_string_lossy(), Some(&status.progress))
+                            .map_err(anyhow::Error::from)
+                    });
 
-                if is_move {
-                    dir::move_dir_with_progress(path, &path_dst, &options, progress_handler)
-                } else {
-                    dir::copy_with_progress(path, &path_dst, &options, progress_handler)
+                match result {
+                    Ok(_) => {
+                        status.state.store(QueueItemState::CompleteOk);
+                        any_success = true;
+                    }
+                    Err(e) => {
+                        log::error!("Queue script error for {self:?}: {e}");
+                        status.state.store(QueueItemState::CompleteErr);
+                    }
                 }
-            } else {
-                let options = file::CopyOptions::new().overwrite(true);
-
-                let progress_handler = move |p: file::TransitProcess| {
-                    let fraction = if p.total_bytes > 0 {
-                        size.store(p.total_bytes, Ordering::Relaxed);
-                        p.copied_bytes * 255 / p.total_bytes
-                    } else {
-                        0
-                    };
-                    progress
-                        .clone()
-                        .store(fraction as u8, Ordering::Relaxed);
-                };
-
-                if let Some(parent) = std::path::Path::new(&path_dst).parent() {
-                    let _ = create_dir_all(parent);
-                }
-
-                if is_move {
-                    file::move_file_with_progress(path, &path_dst, &options, progress_handler)
-                } else {
-                    file::copy_with_progress(path, &path_dst, &options, progress_handler)
-                }
-            };
-
-            if let Err(e) = result {
-                log::error!("Transfer error for {self:?}: {e}");
-                state.store(QueueItemState::CompleteErr);
-                let display = short_display(path);
-                TOAST::push(ToastStyle::Error, "Failed: ", [display]);
-                TOAST::notice(ToastStyle::Error, e.to_string());
-            } else {
-                state.store(QueueItemState::CompleteOk);
-                let display = short_display(path);
-                TOAST::push(ToastStyle::Success, "Complete: ", [display]);
-                QUEUE_ACTION_HISTORY.lock().unwrap().push(self.clone());
             }
+        }
+
+        if any_success {
+            QUEUE_ACTION_HISTORY.lock().unwrap().push(self.clone());
         }
     }
 }

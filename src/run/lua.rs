@@ -1,4 +1,9 @@
-use std::sync::{Mutex, OnceLock};
+use std::{
+    cell::Cell,
+    ptr::NonNull,
+    sync::atomic::AtomicU8,
+    sync::{Mutex, OnceLock},
+};
 
 use mlua::{Lua, MultiValue};
 
@@ -10,8 +15,43 @@ static VM: OnceLock<&'static Lua> = OnceLock::new();
 // a single Lua state is not internally thread-safe; populate tasks may overlap (reload)
 static LUA_LOCK: Mutex<()> = Mutex::new(());
 
+// The progress cell of the queue item whose command is running on this
+// thread, if any. The target is set only while a queue item's lua command
+// runs (see [`QueueItem::execute`](crate::run::queue::QueueItem)); lua
+// code from any other context (pane transform scripts, Execute/
+// ExecuteSilent menu commands) has no target and `set_progress` is a
+// silent no-op there.
+thread_local! {
+    static PROGRESS_TARGET: Cell<Option<NonNull<AtomicU8>>> = const { Cell::new(None) };
+}
+
 fn lua_vm() -> &'static Lua {
-    VM.get_or_init(|| Box::leak(Box::new(Lua::new())))
+    VM.get_or_init(|| {
+        let lua = Box::leak(Box::new(Lua::new()));
+        register_progress_global(lua);
+        lua
+    })
+}
+
+/// Register the `set_progress(v)` global. `v` is on the internal 0-255
+/// scale and is written to the executing queue item's progress cell; see
+/// [`PROGRESS_TARGET`] for when a target exists.
+fn register_progress_global(lua: &Lua) {
+    let f = lua
+        .create_function(|_, v: u8| {
+            PROGRESS_TARGET.with(|t| {
+                if let Some(target) = t.get() {
+                    // SAFETY: the pointer is valid only while a queue item's
+                    // command runs; the item outlives the call.
+                    unsafe { target.as_ref() }.store(v, std::sync::atomic::Ordering::Relaxed);
+                }
+            });
+            Ok(())
+        })
+        .expect("failed to create set_progress function");
+    lua.globals()
+        .set("set_progress", f)
+        .expect("failed to register set_progress");
 }
 
 /// Compile `script` against the process-wide VM (leaked, thread-safe).
@@ -70,6 +110,30 @@ pub fn load_script(s: &str) -> Option<String> {
         }
         None => Some(s.to_string()),
     }
+}
+
+/// Call `f` with the `(paths, dst)` contract: `paths` is always a table of
+/// path strings (a one-element table for a single path) and `dst` is passed
+/// verbatim. When `progress` is given, `set_progress` writes to it for the
+/// duration of the call; the target is cleared afterwards and is a silent
+/// no-op for callers that pass `None`.
+pub fn call_with_paths(
+    f: &LuaFn,
+    paths: &[AbsPath],
+    dst: &str,
+    progress: Option<&AtomicU8>,
+) -> Result<MultiValue, mlua::Error> {
+    let _g = LUA_LOCK.lock().unwrap();
+    let table = lua_vm().create_table()?;
+    for (i, p) in paths.iter().enumerate() {
+        table.raw_seti(i + 1, p.to_string_lossy().into_owned())?;
+    }
+    if let Some(progress) = progress {
+        PROGRESS_TARGET.with(|t| t.set(Some(NonNull::from(progress))));
+    }
+    let res = f.call::<MultiValue>((table, dst.to_string()));
+    PROGRESS_TARGET.with(|t| t.set(None));
+    res
 }
 
 /// Load (2.2 `@file` syntax) and compile a script; bad scripts are dropped with an error log.

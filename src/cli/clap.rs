@@ -69,8 +69,12 @@ pub struct NavCli {
 
 #[derive(Debug, Args, Default, Clone)]
 pub struct CliOpts {
-    #[arg(long, global = true, default_value = "4")]
-    pub verbosity: Option<u8>,
+    /// Reduce the verbosity level.
+    #[arg(short, global = true, conflicts_with = "verbose", action = ArgAction::Count)]
+    pub quiet: u8,
+    /// Increase the verbosity level.
+    #[arg(short, global = true, conflicts_with = "quiet", action = ArgAction::Count)]
+    pub verbose: u8,
 
     /// config override
     #[arg(long = "override", global = true, value_name = "PATH")]
@@ -138,14 +142,16 @@ pub struct OutputOpts {
 }
 
 impl CliOpts {
+    /// Resolved verbosity level: the default of 4 shifted by `-v`/`-q`,
+    /// or `FS_VERBOSITY` when neither flag is given.
     pub fn verbosity(&self) -> u8 {
-        if let Some(v) = self.verbosity {
-            v
-        } else {
+        if self.quiet == 0 && self.verbose == 0 {
             std::env::var("FS_VERBOSITY")
                 .ok()
                 .and_then(|env| env.parse::<u8>().ok())
                 .unwrap_or(4)
+        } else {
+            (4 + self.verbose).saturating_sub(self.quiet)
         }
     }
 }
