@@ -1298,6 +1298,7 @@ dependencies = [
  "image",
  "indexmap",
  "infer",
+ "libc",
  "log",
  "matchmaker-lib",
  "matchmaker-partial",

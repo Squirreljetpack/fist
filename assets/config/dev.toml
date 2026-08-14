@@ -48,3 +48,13 @@ refind = "Search"
 ### ACTIONS ####
 
 [actions]
+
+[actions."git: diff"]
+condition = { repeat = { condition = "git", strict = true } }
+command = '''os.execute('cd "' .. (...)[1] .. '" 2>/dev/null || cd "$(dirname "' .. (...)[1] .. '")"; git diff -- "' .. (...)[1] .. '"')'''
+strategy = "ExecPaged"
+
+[actions."git: log"]
+condition = { repeat = { count = 0, condition = "git", strict = false } }
+command = '''os.execute('cd "' .. (...)[1] .. '" && git log')'''
+strategy = "ExecPaged"

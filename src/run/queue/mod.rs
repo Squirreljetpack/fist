@@ -10,6 +10,7 @@ use crate::{
     abspath::AbsPath,
     cli::paths::__home,
     run::state::{GLOBAL, STACK, TASKS, TOAST},
+    spawn::menu_action::RESERVED_KEYS,
     utils::text::ToastStyle,
 };
 
@@ -46,9 +47,9 @@ impl QueueItem {
 
 // -------- GLOBAL ---------
 
-/// The shared stash state.
+/// The shared queue state.
 pub struct QueueState {
-    /// Items added under a stash kind (`copy`/`cut`/`symlink` builtins, or a
+    /// Items added under a queue kind (`copy`/`cut`/`symlink` builtins, or a
     /// custom kind which executes as a lua script — see [`QueueItem::execute`]).
     pub shared: Vec<QueueItem>,
     /// Paths collected while in the app pane (`fs :open`, `OpenWith`) — the
@@ -84,7 +85,7 @@ pub enum QueueView {
     Apps,
 }
 
-/// `ShowQueue` dispatches on this: `0` = the shared stash overlay, `1` = the
+/// `ShowQueue` dispatches on this: `0` = the shared queue overlay, `1` = the
 /// app view (overlay index 1).
 pub fn show_queue_variant() -> u8 {
     if STACK::in_app() {
@@ -100,23 +101,20 @@ impl QUEUE {
     // ------------- insert --------------
 
     /// Enqueue all `paths` as a single item under `kind` (used by the menu
-    /// action Stash/Batch strategies). An existing item with the same kind and
-    /// src set is replaced in place.
+    /// action Stash/Batch strategies). Custom kinds always add a fresh item;
+    /// the builtin kinds never reach this path (see [`QUEUE::extend`]).
     pub fn enqueue(
         kind: &str,
         paths: Vec<AbsPath>,
     ) {
+        debug_assert!(
+            !RESERVED_KEYS.contains(&kind),
+            "enqueue is for custom menu action kinds, got {kind:?}"
+        );
         if paths.is_empty() {
             return;
         }
         let mut state = QUEUE_STATE.lock().unwrap();
-        if let Some(i) = state
-            .shared
-            .iter()
-            .position(|s| s.kind == kind && s.src == paths)
-        {
-            state.shared.remove(i);
-        }
         state.shared.push(QueueItem {
             kind: kind.to_string(),
             status: QueueItemStatus::new(&paths[0]),
@@ -126,12 +124,18 @@ impl QUEUE {
     }
 
     /// Stash `paths` under `kind`. `"app"` routes to the apps list (dedup by
-    /// path); everything else goes to the shared list, replacing any item
-    /// with the same `src` + `kind` in place ("stash items now overwrite").
+    /// path); everything else goes to the shared list, replacing an existing
+    /// item with the same `src` + `kind` only while it is pending (moving it
+    /// to the tail); a non-pending item is left alone and a fresh item is
+    /// added.
     pub fn extend(
         kind: &str,
         items: impl IntoIterator<Item = AbsPath>,
     ) {
+        debug_assert!(
+            RESERVED_KEYS.contains(&kind),
+            "extend is for builtin kinds, got {kind:?}"
+        );
         let mut state = QUEUE_STATE.lock().unwrap();
         if kind == "app" {
             for path in items {
@@ -143,7 +147,10 @@ impl QUEUE {
         } else {
             for path in items {
                 if let Some(i) = state.shared.iter().position(|s| {
-                    s.src.len() == 1 && s.src[0] == path && s.kind == kind
+                    s.src.len() == 1
+                        && s.src[0] == path
+                        && s.kind == kind
+                        && s.status.state.load() == QueueItemState::Pending
                 }) {
                     state.shared.remove(i);
                 }

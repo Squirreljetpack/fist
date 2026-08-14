@@ -1,8 +1,8 @@
 use std::{
     path::Path,
     sync::{
+        atomic::{AtomicU64, AtomicU8, Ordering},
         Arc,
-        atomic::{AtomicU8, AtomicU64, Ordering},
     },
 };
 
@@ -138,6 +138,37 @@ impl AtomicQueueItemState {
             2 => QueueItemState::Started,
             3 => QueueItemState::CompleteOk,
             _ => QueueItemState::CompleteErr,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The clearing bitflag of a state is its discriminant shifted into a bit
+    /// position (identity mapping), so the two cannot drift apart.
+    #[test]
+    fn bitflag_round_trip() {
+        for state in [
+            QueueItemState::Pending,
+            QueueItemState::PendingErr,
+            QueueItemState::Started,
+            QueueItemState::CompleteOk,
+            QueueItemState::CompleteErr,
+        ] {
+            assert_eq!(state.to_bitflag().bits(), 1u8 << (state as u8));
+        }
+
+        let flags = [
+            QueueItems::Pending,
+            QueueItems::PendingErr,
+            QueueItems::Started,
+            QueueItems::CompleteOk,
+            QueueItems::CompleteErr,
+        ];
+        for (i, flag) in flags.iter().enumerate() {
+            assert_eq!(flag.bits(), 1u8 << i);
         }
     }
 }

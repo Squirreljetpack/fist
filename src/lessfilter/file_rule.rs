@@ -9,9 +9,9 @@ use fist_types::{categories::FileCategory, filetypes::FileType};
 use crate::{
     abspath::AbsPath,
     lessfilter::{
-        Categories, LessfilterSettings, MimeString,
-        mime_helpers::{Myme, detect_encoding, is_native},
+        mime_helpers::{detect_encoding, is_native, Myme},
         rule_matcher::{DefaultScore, Score, Test},
+        Categories, LessfilterSettings, MimeString,
     },
 };
 
@@ -77,6 +77,9 @@ pub enum FileRuleKind {
     Application,
     /// Always matches; parsed from the string `"*"`.
     Any,
+    /// True if the path is inside a git work tree; parsed from the string
+    /// `"git"`. Directories are checked as-is, files via their parent.
+    Git,
 }
 
 /// Overloads FileType to add a Text variant, which is matched on all native text (utf-8/utf-16).
@@ -213,12 +216,39 @@ impl Test<Path> for FileRule {
             FileRuleKind::Have(cmd) => has(cmd),
 
             FileRuleKind::Any => true,
+
+            FileRuleKind::Git => {
+                // `git -C` chdirs, so directories are checked as-is and files
+                // via their parent. The exit status alone is not enough: a
+                // `.git` entry prints `false` with exit 0.
+                let dir = if item.is_dir() {
+                    item
+                } else {
+                    item.parent().unwrap_or(item)
+                };
+                std::process::Command::new("git")
+                    .arg("-C")
+                    .arg(dir)
+                    .args(["rev-parse", "--is-inside-work-tree"])
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::null())
+                    .output()
+                    .ok()
+                    .is_some_and(|out| {
+                        out.status.success()
+                            && String::from_utf8_lossy(&out.stdout).trim() == "true"
+                    })
+            }
         };
         if ok {
             log::trace!("{self:?} passed")
         }
 
-        if self.invert { !ok } else { ok }
+        if self.invert {
+            !ok
+        } else {
+            ok
+        }
     }
 }
 
@@ -234,6 +264,7 @@ impl DefaultScore for FileRule {
             FileRuleKind::FileType(_) => Score::Req,
             FileRuleKind::Application => Score::Max(60),
             FileRuleKind::Any => Score::Max(0),
+            FileRuleKind::Git => Score::Req,
         }
     }
 }
@@ -298,6 +329,9 @@ impl FromStr for FileRule {
             } else if s == "*" {
                 let kind = FileRuleKind::Any;
                 Ok(FileRule { kind, invert })
+            } else if s.eq_ignore_ascii_case("git") {
+                let kind = FileRuleKind::Git;
+                Ok(FileRule { kind, invert })
             } else if s.eq_ignore_ascii_case("application") || s.eq_ignore_ascii_case("app") {
                 let kind = FileRuleKind::Application;
                 Ok(FileRule { kind, invert })
@@ -350,7 +384,10 @@ impl FromStr for FileRule {
 }
 
 impl std::fmt::Display for FileRule {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         let invert = if self.invert { "!" } else { "" };
         match &self.kind {
             FileRuleKind::Glob { pattern, .. } => write!(f, "{invert}glob:{pattern}"),
@@ -362,12 +399,16 @@ impl std::fmt::Display for FileRule {
             FileRuleKind::FileType(ft) => write!(f, "{invert}type:{ft}"),
             FileRuleKind::Application => write!(f, "{invert}application"),
             FileRuleKind::Any => write!(f, "{invert}*"),
+            FileRuleKind::Git => write!(f, "{invert}git"),
         }
     }
 }
 
 impl std::fmt::Display for OverloadedFileType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self {
             Self::Ft(ft) => write!(f, "{ft}"),
             Self::Text => write!(f, "text"),

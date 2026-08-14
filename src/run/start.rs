@@ -276,7 +276,6 @@ pub async fn start(
             ahandlers::refresh_prompt(state); // defensive
         })
         .paste_handler(paste_handler)
-        .hidden_columns(vec![2])
         .matcher(MATCHER_CONFIG)
         .overlay_config(overlay)
         .overlay(QueueOverlay::new(queue.clone()))

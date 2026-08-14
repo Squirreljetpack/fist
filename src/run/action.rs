@@ -31,14 +31,14 @@ use crate::{
         queue::show_queue_variant,
         state::{
             AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, HideMetadata,
-            InPrompt, MenuContext, MenuPrompt, STACK, STORE, TASKS, TOAST, context::ActionContext,
+            InPrompt, MenuPrompt, STACK, STORE, TASKS, TOAST, context::ActionContext,
             sort,
         },
     },
     spawn::open_wrapped,
     ui::{
         confirm_overlay::ConfirmPrompt,
-        menu_overlay::{MenuTarget, PromptKind},
+        menu_overlay::PromptKind,
     },
     utils::{text::ToastStyle, trash::trash},
 };
@@ -160,6 +160,10 @@ pub enum FsAction {
     /// Execute the lua command of a menu action; the payload is the action's
     /// command itself (discriminant 8, not waited).
     MenuActionSilent(String),
+    /// Execute the lua command of a menu action paged; the payload is the
+    /// action key, looked up in the global config (discriminant 9, waited,
+    /// output paged).
+    MenuActionExecPaged(String),
     // Nonbindable
     // ----------------------------------
     SaveInput,
@@ -387,25 +391,9 @@ pub fn fsaction_aliaser(
             }
             // todo: matchmaker needs to support activating the overlay ourselves so that the activated item is aligned
             FsAction::ShowMenu => {
-                if let Some((_, p)) = state.picker_ui.current_indexed() {
-                    STORE::set_menu_target(MenuTarget::Item(p.path.clone()));
-                } else if let Some(cwd) = STACK::cwd() {
-                    STORE::set_menu_target(MenuTarget::Item(cwd.clone()));
-                } else {
+                if state.picker_ui.current_indexed().is_none() && STACK::cwd().is_none() {
                     return acs![];
                 }
-                // snapshot the state the menu conditions are evaluated
-                // against (frozen for the whole time the menu is open)
-                STORE::set_menu_context(MenuContext {
-                    selected: state.map_selections_to_vec(|_, item| item.path.clone()),
-                    cursor: if state.picker_ui.results.cursor_disabled() {
-                        None
-                    } else {
-                        state.current_raw().map(|item| item.path.clone())
-                    },
-                    in_prompt: STORE::contains::<InPrompt>(),
-                    cwd: STACK::cwd(),
-                });
                 acs![Action::Overlay(4)]
             }
             // todo: support post-creation actions
@@ -442,7 +430,6 @@ pub fn fsaction_aliaser(
                     STORE::set_menu_prompt(Some(
                         MenuPrompt::new(PromptKind::SetAlias).initial(prepop_value),
                     ));
-                    STORE::set_menu_target(MenuTarget::Item(item.path.clone()));
                     acs![Action::Overlay(4)]
                 } else {
                     acs![]
@@ -1306,6 +1293,10 @@ pub fn fsaction_handler(
             state.discriminant_payload = Some(ExecutionMode::LuaCommand.discriminant());
             state.set_interrupt(Interrupt::ExecuteSilent, command);
         }
+        FsAction::MenuActionExecPaged(key) => {
+            state.discriminant_payload = Some(ExecutionMode::LuaCommandPaged.discriminant());
+            state.set_interrupt(Interrupt::Execute, key);
+        }
 
         FsAction::AcceptPrompt => {
             if let Some(p) = STACK::nav_cwd() {
@@ -1475,7 +1466,7 @@ macro_rules! enum_from_str_display {
                                         )
                                     }
                                 }
-                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | Refilter | AcceptPrompt | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionSilent(_) => Ok(()), // internal
+                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | Refilter | AcceptPrompt | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionSilent(_) | MenuActionExecPaged(_) => Ok(()), // internal
                                 Lessfilter { preset, paging, header: _, special, } => {
                                     if *special == 1 {
                                         write!(f, "Help")

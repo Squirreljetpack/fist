@@ -1,11 +1,13 @@
 use crate::run::action::FsAction;
+use crate::run::item::PathItem;
 use crate::run::state::STORE;
 use crate::utils::serde::border_result;
 use cba::bait::TransformExt;
 use matchmaker::{
     action::Action,
     config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting},
-    ui::{Overlay, OverlayEffect, SizeHint, utils},
+    render::MMState,
+    ui::{utils, Overlay, OverlayEffect, SizeHint},
 };
 use ratatui::{
     prelude::*,
@@ -129,12 +131,11 @@ impl ConfirmOverlay {
     }
 }
 
-impl Overlay for ConfirmOverlay {
-    type A = FsAction;
-
+impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
     fn on_enable(
         &mut self,
         _area: &Rect,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) {
         if let Some(prompt) = STORE::take::<ConfirmPrompt>() {
             self.prompt = prompt;
@@ -146,6 +147,7 @@ impl Overlay for ConfirmOverlay {
     fn handle_input(
         &mut self,
         c: char,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         for (i, (name, trigger_idx)) in self.prompt.options.iter().enumerate() {
             if let Some(trigger_char) = name.chars().nth(*trigger_idx) {
@@ -160,7 +162,8 @@ impl Overlay for ConfirmOverlay {
 
     fn handle_action(
         &mut self,
-        action: &Action<Self::A>,
+        action: &Action<FsAction>,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         match action {
             Action::ForwardChar => {

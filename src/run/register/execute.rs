@@ -1,6 +1,6 @@
 use std::process::{Command, Stdio};
 
-use cba::broc::{CommandExt, EnvVars, tty_or_inherit};
+use cba::broc::{tty_or_inherit, CommandExt, EnvVars};
 use log::{info, warn};
 
 use crate::{
@@ -8,7 +8,7 @@ use crate::{
     aliases::MMState,
     cli::paths::text_renderer_path,
     run::{
-        lua::compile_lua,
+        lua::{call_with_paths, compile_lua},
         state::{ExecuteHandlerShouldProcessParent, MENU_ACTIONS, STACK, STORE},
     },
     utils::{command::maybe_tty, formatter::format_path},
@@ -30,6 +30,7 @@ pub enum ExecutionMode {
     Silent = 5,
     MenuAction = 7,
     LuaCommand = 8,
+    LuaCommandPaged = 9,
 }
 
 impl ExecutionMode {
@@ -44,6 +45,7 @@ impl ExecutionMode {
             3 => Some(Self::Tty),
             7 => Some(Self::MenuAction),
             8 => Some(Self::LuaCommand),
+            9 => Some(Self::LuaCommandPaged),
             _ => None,
         }
     }
@@ -59,15 +61,15 @@ impl ExecutionMode {
     }
 }
 
-/// The lua command for a menu-action payload: a discriminant 7 payload is the
-/// action key (looked up in the registered menu actions), a discriminant 8
+/// The lua command for a menu-action payload: discriminant 7/9 payloads are
+/// the action key (looked up in the registered menu actions), a discriminant 8
 /// payload is the command itself.
 pub(super) fn menu_lua_command(
     mode: ExecutionMode,
     payload: &str,
 ) -> Option<String> {
     match mode {
-        ExecutionMode::MenuAction => MENU_ACTIONS
+        ExecutionMode::MenuAction | ExecutionMode::LuaCommandPaged => MENU_ACTIONS
             .get()
             .and_then(|actions| actions.get(payload).map(|a| a.command.clone())),
         ExecutionMode::LuaCommand => Some(payload.to_string()),
@@ -75,13 +77,14 @@ pub(super) fn menu_lua_command(
     }
 }
 
-/// Run a menu action's lua command with the target path as its argument.
+/// Run a menu action's lua command with the `(paths, dst)` contract: the
+/// targeted paths table and an empty destination. `set_progress` has no target
+/// here and is a silent no-op. The command runs in the process cwd — scripts
+/// are responsible for `cd`.
 pub(super) fn run_menu_lua(
     command: &str,
-    path: &AbsPath,
+    paths: &[AbsPath],
 ) {
-    use mlua::MultiValue;
-
     let f = match compile_lua(command) {
         Ok(f) => f,
         Err(e) => {
@@ -89,9 +92,117 @@ pub(super) fn run_menu_lua(
             return;
         }
     };
-    let path = path.to_string_lossy();
-    if let Err(e) = f.call::<MultiValue>((path.as_ref(),)) {
+    if let Err(e) = call_with_paths(&f, paths, "", None) {
         log::error!("Menu action lua error: {e}");
+    }
+}
+
+/// Run a menu action's lua command paged: stdout (from `os.execute`,
+/// `io.popen`, prints, …) is piped into the pager while the script runs. The
+/// command runs in the process cwd — scripts are responsible for `cd`.
+/// `set_progress` has no target here and is a silent no-op.
+pub(super) fn run_menu_lua_paged(
+    command: &str,
+    paths: &[AbsPath],
+) {
+    let f = match compile_lua(command) {
+        Ok(f) => f,
+        Err(e) => {
+            log::error!("Failed to compile menu action lua command: {e}");
+            return;
+        }
+    };
+
+    // The pager is spawned BEFORE the stdout redirect so its inherited
+    // stdout is the terminal (the render loop left the alt screen for the
+    // execute interrupt), not the pipe it reads from.
+    #[cfg(unix)]
+    let pager = std::process::Command::new(text_renderer_path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::inherit())
+        .env("PG_FORCE_TTY", "true")
+        ._spawn();
+    #[cfg(not(unix))]
+    let pager: Option<std::process::Child> = None;
+
+    let mut pager = match pager {
+        Some(p) => p,
+        None => {
+            #[cfg(unix)]
+            warn!(
+                "Failed to spawn pager: {:?}; running unpaged",
+                text_renderer_path()
+            );
+            if let Err(e) = call_with_paths(&f, paths, "", None) {
+                log::error!("Menu action lua error: {e}");
+            }
+            return;
+        }
+    };
+
+    #[cfg(unix)]
+    {
+        let Some(pipe) = pager.stdin.take() else {
+            run_menu_lua(command, paths);
+            return;
+        };
+        let redirect = match stdout_redirect::StdoutRedirect::to(&pipe) {
+            Ok(r) => r,
+            Err(e) => {
+                warn!("Failed to redirect stdout to pager: {e}; running unpaged");
+                drop(pipe);
+                let _ = pager.wait();
+                if let Err(e) = call_with_paths(&f, paths, "", None) {
+                    log::error!("Menu action lua error: {e}");
+                }
+                return;
+            }
+        };
+
+        let result = call_with_paths(&f, paths, "", None);
+        if let Err(e) = result {
+            log::error!("Menu action lua error: {e}");
+        }
+
+        // Restore stdout, then close the pipe: EOF ends the pager.
+        drop(redirect);
+        drop(pipe);
+        let _ = pager.wait();
+    }
+}
+
+#[cfg(unix)]
+mod stdout_redirect {
+    use std::io;
+    use std::os::fd::{AsRawFd, RawFd};
+
+    /// Redirects fd 1 (stdout) to `target` until dropped, then restores it.
+    pub struct StdoutRedirect {
+        saved: RawFd,
+    }
+
+    impl StdoutRedirect {
+        pub fn to(target: &impl AsRawFd) -> io::Result<Self> {
+            let saved = unsafe { libc::dup(1) };
+            if saved < 0 {
+                return Err(io::Error::last_os_error());
+            }
+            if unsafe { libc::dup2(target.as_raw_fd(), 1) } < 0 {
+                let e = io::Error::last_os_error();
+                unsafe { libc::close(saved) };
+                return Err(e);
+            }
+            Ok(Self { saved })
+        }
+    }
+
+    impl Drop for StdoutRedirect {
+        fn drop(&mut self) {
+            unsafe {
+                libc::dup2(self.saved, 1);
+                libc::close(self.saved);
+            }
+        }
     }
 }
 
@@ -142,7 +253,9 @@ pub(super) fn build_exec_command(
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null());
         }
-        ExecutionMode::LuaCommand | ExecutionMode::MenuAction => return None,
+        ExecutionMode::LuaCommand | ExecutionMode::MenuAction | ExecutionMode::LuaCommandPaged => {
+            return None
+        }
     }
 
     Some(builder)

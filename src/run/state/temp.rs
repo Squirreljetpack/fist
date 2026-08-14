@@ -3,13 +3,11 @@
 use std::{cell::RefCell, fmt::Debug, sync::OnceLock};
 
 use anymap::AnyMap;
-use cba::_dbg;
+use cba::{_dbg, define_collection_wrapper};
 
 use crate::{
-    abspath::AbsPath,
-    cli::paths::lessfilter_cfg_path,
-    lessfilter::LessfilterConfig,
-    ui::menu_overlay::{MenuTarget, PromptKind},
+    abspath::AbsPath, cli::paths::lessfilter_cfg_path, lessfilter::LessfilterConfig,
+    ui::menu_overlay::PromptKind,
 };
 
 thread_local! {
@@ -22,31 +20,22 @@ pub static LESSFILTER_CFG: OnceLock<LessfilterConfig> = OnceLock::new();
 
 pub fn lessfilter_cfg() -> &'static LessfilterConfig {
     LESSFILTER_CFG.get_or_init(|| {
-        std::fs::read_to_string(lessfilter_cfg_path())
-            .ok()
-            .and_then(|s| toml::from_str(&s).ok())
-            .unwrap_or_default()
+        let cfg = std::fs::read_to_string(lessfilter_cfg_path()).ok();
+        match cfg.as_deref().and_then(|s| toml::from_str(s).ok()) {
+            Some(cfg) => cfg,
+            None => {
+                log::warn!(
+                    "Failed to parse lessfilter config at {}; using defaults",
+                    lessfilter_cfg_path().display()
+                );
+                LessfilterConfig::default()
+            }
+        }
     })
 }
 
 #[derive(Debug)]
 pub struct ExecuteHandlerShouldProcessParent;
-
-/// Snapshot of the picker state captured when the menu opens. Menu action
-/// conditions are evaluated once against it (see
-/// [`crate::spawn::menu_action`]), so the targets are frozen while the menu
-/// is open.
-#[derive(Debug, Clone, Default)]
-pub struct MenuContext {
-    /// Selected paths in selection order.
-    pub selected: Vec<AbsPath>,
-    /// The cursor item path; `None` when the cursor is disabled or has no item.
-    pub cursor: Option<AbsPath>,
-    /// Whether the query prompt was active when the menu opened.
-    pub in_prompt: bool,
-    /// The current directory (required by prompt-scoped conditions).
-    pub cwd: Option<AbsPath>,
-}
 
 /// Set by [`crate::run::ahandlers::fs_reload`] when a new pane's sort
 /// override (panesetting `default_sort`) is applied; consumed by
@@ -85,6 +74,15 @@ pub struct InPrompt;
 /// returns nothing for the opener/apps to consume.
 #[derive(Debug)]
 pub struct AcceptFlavor;
+
+define_collection_wrapper!(
+    /// The targeted filepaths of the last accepted menu action, set on
+    /// activation for the non-stash strategies and consumed by the execute
+    /// handlers as the lua `paths` table — the paths the condition was
+    /// evaluated against.
+    #[derive(Debug, Clone)]
+    MenuCommandPaths: Vec<AbsPath>
+);
 
 /// Menu prompt configuration for the overlay input bar
 #[derive(Debug, Clone)]
@@ -190,18 +188,6 @@ impl STORE {
                 map.borrow_mut().insert(prompt);
             });
         }
-    }
-
-    pub fn set_menu_target(target: MenuTarget) {
-        TLS_MAP.with(|map| {
-            map.borrow_mut().insert(target);
-        });
-    }
-
-    pub fn set_menu_context(context: MenuContext) {
-        TLS_MAP.with(|map| {
-            map.borrow_mut().insert(context);
-        });
     }
 
     pub fn debug() {

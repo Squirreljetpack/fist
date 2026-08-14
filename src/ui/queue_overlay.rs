@@ -4,6 +4,7 @@ use crate::{
     display::human_size,
     run::{
         action::FsAction,
+        item::PathItem,
         queue::{QUEUE, QUEUE_STATE, QueueItem, QueueItemState, QueueItemStatus, QueueView},
         state::TOAST,
     },
@@ -16,6 +17,7 @@ use cba::bring::StrExt;
 use matchmaker::{
     action::Action,
     config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting, StyleSetting},
+    render::MMState,
     ui::{Overlay, OverlayEffect, SizeHint, utils},
 };
 use ratatui::{
@@ -453,12 +455,12 @@ impl QueueOverlay {
     }
 }
 
-impl Overlay for QueueOverlay {
-    type A = FsAction;
+impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
 
     fn on_enable(
         &mut self,
         _area: &Rect,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) {
         self.state.state.select(Some(0));
         QUEUE::check_validity();
@@ -471,6 +473,7 @@ impl Overlay for QueueOverlay {
     fn handle_input(
         &mut self,
         c: char,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         if self.state.editing.is_some() {
             return self.state.handle_input(c);
@@ -499,7 +502,8 @@ impl Overlay for QueueOverlay {
 
     fn handle_action(
         &mut self,
-        action: &Action<Self::A>,
+        action: &Action<FsAction>,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         self.state.handle_action(action)
     }
@@ -654,12 +658,12 @@ impl AppOverlay {
     }
 }
 
-impl Overlay for AppOverlay {
-    type A = FsAction;
+impl Overlay<FsAction, PathItem, ()> for AppOverlay {
 
     fn on_enable(
         &mut self,
         _area: &Rect,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) {
         self.state.state.select(Some(0));
     }
@@ -669,6 +673,7 @@ impl Overlay for AppOverlay {
     fn handle_input(
         &mut self,
         c: char,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         if self.state.editing.is_some() {
             return self.state.handle_input(c);
@@ -697,7 +702,8 @@ impl Overlay for AppOverlay {
 
     fn handle_action(
         &mut self,
-        action: &Action<Self::A>,
+        action: &Action<FsAction>,
+        _state: &mut MMState<'_, '_, PathItem, ()>,
     ) -> OverlayEffect {
         self.state.handle_action(action)
     }
@@ -722,6 +728,74 @@ impl Overlay for AppOverlay {
         }
 
         let area = self.area;
+
+        if false {
+            // Scaffold for a two-column (path + destination) editable table.
+            // A future data source replaces the dummy rows and flips this to
+            // `true`; the rendering mirrors the old scratch overlay's
+            // two-column view, without scratch-source switching.
+            let dummy: Vec<(std::path::PathBuf, String)> = vec![
+                (std::path::PathBuf::from("~/docs/notes.md"), "~/backup/notes.md".into()),
+                (std::path::PathBuf::from("~/pics/photo.png"), String::new()),
+            ];
+
+            let mut path_w = 16u16;
+            let mut dst_w = 16u16;
+            for (p, d) in &dummy {
+                path_w = path_w.max(p.display_short(__home()).width() as u16);
+                dst_w = dst_w.max(d.width() as u16);
+            }
+            let widths = [path_w, dst_w];
+
+            let editing_info = self.state.editing.as_ref().map(|(r, c, _)| (*r, *c));
+            let rows: Vec<Row> = dummy
+                .iter()
+                .enumerate()
+                .map(|(i, (p, d))| {
+                    let is_current = self.state.state.selected() == Some(i);
+                    let is_editing = editing_info.is_some_and(|(r, _)| r == i);
+
+                    let row_style = if is_current {
+                        if editing_info.is_some() {
+                            self.config.editing_row_style
+                        } else {
+                            self.config.current_style
+                        }
+                    } else {
+                        self.config.cell
+                    };
+                    let path = if is_editing && editing_info.unwrap().1 == 0 {
+                        Cell::from("")
+                    } else {
+                        Cell::from(p.display_short(__home()))
+                    };
+                    let dst = if is_editing && editing_info.unwrap().1 == 1 {
+                        Cell::from("")
+                    } else {
+                        Cell::from(d.as_str())
+                    };
+                    Row::new(vec![path, dst]).style(row_style)
+                })
+                .collect();
+
+            let header = Row::new(vec![Cell::from("To open:"), Cell::from("To:")])
+                .style(Style::new().add_modifier(Modifier::BOLD));
+
+            let table = Table::new(
+                rows,
+                widths
+                    .iter()
+                    .map(|w| Constraint::Length(*w))
+                    .collect::<Vec<_>>(),
+            )
+            .header(header)
+            .column_spacing(1)
+            .block(self.border().as_static_block());
+
+            frame.render_widget(Clear, area);
+            frame.render_stateful_widget(table, area, &mut self.state.state);
+            return;
+        }
 
         let editing_info = self.state.editing.as_ref().map(|(r, c, _)| (*r, *c));
 

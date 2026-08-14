@@ -76,7 +76,7 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 "alt-enter" = "Print"
 "alt-r" = "Reload"
 
-"ctrl-[" = "ToggleWrap" # requires keyboard enhancement
+"ctrl-[" = "ToggleWrap"        # requires keyboard enhancement
 "ctrl-]" = "TogglePreviewWrap" # requires keyboard enhancement
 "alt-{" = "ToggleWrap"
 "alt-}" = "TogglePreviewWrap"
@@ -99,7 +99,7 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 "ctrl-z" = "Undo"
 "ctrl-shift-z" = "Redo" # requires keyboard enhancement
 "alt-z" = "Redo"
-"ctrl-`" = "Jump" # requires keyboard enhancement
+"ctrl-`" = "Jump"       # requires keyboard enhancement
 "alt-`" = "Jump"
 
 ### Display
@@ -110,7 +110,7 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 "alt-u" = "ClearQuery"
 "ctrl-p" = "ShowOptions"
 "ctrl-d" = "FsToggle"
-"ctrl-s" = "ToggleHidden" # if this freezes your terminal, check that you have set stty -ixon
+"ctrl-s" = "ToggleHidden"     # if this freezes your terminal, check that you have set stty -ixon
 
 ### File Actions
 "ctrl-v" = "Paste"
@@ -169,15 +169,18 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 ### Custom menu actions
 # NOTE: [actions] lives in config.toml — the example below documents the
 # schema. Conditions: the action is visible iff at least one condition is
-# satisfied (an empty list = always visible). Strategies:
-#   "execute" / "execute_silent" — run the lua command (waited / not waited);
-#   "stash" — enqueue all target items as one queue item;
-#   "batch(n)" — enqueue queue items of at most n paths each.
+# satisfied (an empty list = always visible; a single condition object is
+# accepted without the array wrapper). Strategies:
+#   "Execute" / "ExecuteSilent" — run the lua command (waited / not waited;
+#   "silent" is accepted as an alias);
+#   "ExecPaged" — run the lua command and page its stdout;
+#   "Stash" — enqueue all target items as one queue item;
+#   { Batch = n } — enqueue queue items of at most n paths each.
 # `close = true`/`false` overrides the strategy default (Stash/Batch keep the
-# menu open; Execute/ExecuteSilent close it).
+# menu open; Execute/ExecuteSilent/ExecPaged close it).
 # [actions]
 # stash-log-files = {
 #   condition = [{ repeat = { count = 1, condition = "ext:log", strict = true } }],
 #   command = "print('queued')",
-#   strategy = "stash",
+#   strategy = "Stash",
 # }

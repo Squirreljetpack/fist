@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_fs_global_optspecs
-    string join \n verbosity= override= config= mm-config= dump-config style= fullscreen= lock-prompt= alt-accept output-sep= format= opener= sort= h= I= a= F= f= A/no-all cd t/types= transform= reset-visibility list help V/version
+    string join \n q v override= config= mm-config= dump-config style= fullscreen= lock-prompt= alt-accept output-sep= format= opener= sort= h= I= a= F= f= A/no-all cd t/types= transform= reset-visibility list help V/version
 end
 
 function __fish_fs_needs_command
@@ -24,7 +24,6 @@ function __fish_fs_using_subcommand
     contains -- $cmd[1] $argv
 end
 
-complete -c fs -n "__fish_fs_needs_command" -l verbosity -r
 complete -c fs -n "__fish_fs_needs_command" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_needs_command" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_needs_command" -l mm-config -d 'matchmaker config path' -r -F
@@ -58,6 +57,8 @@ complete -c fs -n "__fish_fs_needs_command" -s f -d 'show only files' -r -f -a "
 false\t''"
 complete -c fs -n "__fish_fs_needs_command" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
 complete -c fs -n "__fish_fs_needs_command" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
+complete -c fs -n "__fish_fs_needs_command" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_needs_command" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_needs_command" -l dump-config -d 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.'
 complete -c fs -n "__fish_fs_needs_command" -l alt-accept
 complete -c fs -n "__fish_fs_needs_command" -s A -l no-all
@@ -80,7 +81,6 @@ complete -c fs -n "__fish_fs_needs_command" -a ":tool" -d 'Plugins and utilities
 complete -c fs -n "__fish_fs_needs_command" -a ":t" -d 'Plugins and utilities'
 complete -c fs -n "__fish_fs_needs_command" -a ":info" -d 'Stats and database records'
 complete -c fs -n "__fish_fs_using_subcommand :open" -s w -l with -d 'app to open files with' -r
-complete -c fs -n "__fish_fs_using_subcommand :open" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :open" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :open" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :open" -l mm-config -d 'matchmaker config path' -r -F
@@ -99,9 +99,10 @@ complete -c fs -n "__fish_fs_using_subcommand :open" -l format -d 'Output templa
 complete -c fs -n "__fish_fs_using_subcommand :open" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :open" -l list
 complete -c fs -n "__fish_fs_using_subcommand :open" -l help -d 'initial query'
+complete -c fs -n "__fish_fs_using_subcommand :open" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :open" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :open" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :o" -s w -l with -d 'app to open files with' -r
-complete -c fs -n "__fish_fs_using_subcommand :o" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :o" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :o" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :o" -l mm-config -d 'matchmaker config path' -r -F
@@ -120,6 +121,8 @@ complete -c fs -n "__fish_fs_using_subcommand :o" -l format -d 'Output template 
 complete -c fs -n "__fish_fs_using_subcommand :o" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :o" -l list
 complete -c fs -n "__fish_fs_using_subcommand :o" -l help -d 'initial query'
+complete -c fs -n "__fish_fs_using_subcommand :o" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :o" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :o" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :file" -l sort -d 'history sort order' -r -f -a "name\t''
 mtime\t''
@@ -129,7 +132,6 @@ none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :file" -s l -l list -r -f -a "_\t''
 all\t''"
 complete -c fs -n "__fish_fs_using_subcommand :file" -l query -d 'initial query' -r
-complete -c fs -n "__fish_fs_using_subcommand :file" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :file" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :file" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :file" -l mm-config -d 'matchmaker config path' -r -F
@@ -147,6 +149,8 @@ complete -c fs -n "__fish_fs_using_subcommand :file" -l output-sep -d 'Separator
 complete -c fs -n "__fish_fs_using_subcommand :file" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :file" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :file" -l help
+complete -c fs -n "__fish_fs_using_subcommand :file" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :file" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :file" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l sort -d 'history sort order' -r -f -a "name\t''
 mtime\t''
@@ -156,7 +160,6 @@ none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -s l -l list -r -f -a "_\t''
 all\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l initial-input -r
-complete -c fs -n "__fish_fs_using_subcommand :dir" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l mm-config -d 'matchmaker config path' -r -F
@@ -175,6 +178,8 @@ complete -c fs -n "__fish_fs_using_subcommand :dir" -l format -d 'Output templat
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l help
+complete -c fs -n "__fish_fs_using_subcommand :dir" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :dir" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l sort -r -f -a "name\t''
 mtime\t''
@@ -193,7 +198,6 @@ complete -c fs -n "__fish_fs_using_subcommand :fd" -s f -d 'show only files' -r 
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
-complete -c fs -n "__fish_fs_using_subcommand :fd" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l mm-config -d 'matchmaker config path' -r -F
@@ -215,6 +219,8 @@ complete -c fs -n "__fish_fs_using_subcommand :fd" -l cd -d 'print the first mat
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l reset-visibility
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l list
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l help
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand ::" -l sort -r -f -a "name\t''
 mtime\t''
@@ -233,7 +239,6 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -s f -d 'show only files' -r -
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
-complete -c fs -n "__fish_fs_using_subcommand ::" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand ::" -l mm-config -d 'matchmaker config path' -r -F
@@ -255,6 +260,8 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -l cd -d 'print the first matc
 complete -c fs -n "__fish_fs_using_subcommand ::" -l reset-visibility
 complete -c fs -n "__fish_fs_using_subcommand ::" -l list
 complete -c fs -n "__fish_fs_using_subcommand ::" -l help
+complete -c fs -n "__fish_fs_using_subcommand ::" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand ::" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :custom" -s h -d 'show hidden files and folders' -r -f -a "true\t''
 false\t''"
@@ -274,7 +281,6 @@ none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l tail-sep -d 'Field separator within a record: text after the first occurrence is the tail' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l input-sep -d 'Split the stream into records on this char instead of newlines' -r
-complete -c fs -n "__fish_fs_using_subcommand :custom" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l mm-config -d 'matchmaker config path' -r -F
@@ -293,6 +299,8 @@ complete -c fs -n "__fish_fs_using_subcommand :custom" -l format -d 'Output temp
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l help
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :c" -s h -d 'show hidden files and folders' -r -f -a "true\t''
 false\t''"
@@ -312,7 +320,6 @@ none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :c" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l tail-sep -d 'Field separator within a record: text after the first occurrence is the tail' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l input-sep -d 'Split the stream into records on this char instead of newlines' -r
-complete -c fs -n "__fish_fs_using_subcommand :c" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :c" -l mm-config -d 'matchmaker config path' -r -F
@@ -331,6 +338,8 @@ complete -c fs -n "__fish_fs_using_subcommand :c" -l format -d 'Output template 
 complete -c fs -n "__fish_fs_using_subcommand :c" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :c" -l help
+complete -c fs -n "__fish_fs_using_subcommand :c" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :c" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :c" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s h -d 'show hidden files and folders' -r -f -a "true\t''
 false\t''"
@@ -354,7 +363,6 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s C -l context -d 'Show NUM 
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l one-line -d 'Display each match on a separate line. Alias: `-1`' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l query -d 'initial query' -r
-complete -c fs -n "__fish_fs_using_subcommand :rg" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l mm-config -d 'matchmaker config path' -r -F
@@ -383,6 +391,8 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s 1 -l no-heading
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l list
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l no-read -d 'Don\'t try to read paths from stdin'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l help
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :" -s h -d 'show hidden files and folders' -r -f -a "true\t''
 false\t''"
@@ -406,7 +416,6 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s C -l context -d 'Show NUM li
 complete -c fs -n "__fish_fs_using_subcommand :" -l one-line -d 'Display each match on a separate line. Alias: `-1`' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -l query -d 'initial query' -r
-complete -c fs -n "__fish_fs_using_subcommand :" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :" -l mm-config -d 'matchmaker config path' -r -F
@@ -435,8 +444,9 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s 1 -l no-heading
 complete -c fs -n "__fish_fs_using_subcommand :" -l list
 complete -c fs -n "__fish_fs_using_subcommand :" -l no-read -d 'Don\'t try to read paths from stdin'
 complete -c fs -n "__fish_fs_using_subcommand :" -l help
+complete -c fs -n "__fish_fs_using_subcommand :" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l mm-config -d 'matchmaker config path' -r -F
@@ -454,6 +464,8 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcomm
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l help
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "colors"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "liza" -d 'List directory (eza wrapper)'
@@ -464,7 +476,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcomm
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "trash" -d 'Trash files with timed fallback prompts'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "show-binds" -d 'Show binds'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "types" -d 'List mappings supported by the --type parameter'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l mm-config -d 'matchmaker config path' -r -F
@@ -481,8 +492,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l mm-config -d 'matchmaker config path' -r -F
@@ -499,8 +511,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l mm-config -d 'matchmaker config path' -r -F
@@ -517,8 +530,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l mm-config -d 'matchmaker config path' -r -F
@@ -535,8 +549,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l mm-config -d 'matchmaker config path' -r -F
@@ -553,8 +568,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l mm-config -d 'matchmaker config path' -r -F
@@ -571,8 +587,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l mm-config -d 'matchmaker config path' -r -F
@@ -589,8 +606,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l mm-config -d 'matchmaker config path' -r -F
@@ -607,8 +625,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from show-binds" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l mm-config -d 'matchmaker config path' -r -F
@@ -625,8 +644,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l mm-config -d 'matchmaker config path' -r -F
@@ -644,6 +664,8 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l help
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "colors"
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "liza" -d 'List directory (eza wrapper)'
@@ -654,7 +676,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "trash" -d 'Trash files with timed fallback prompts'
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "show-binds" -d 'Show binds'
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "types" -d 'List mappings supported by the --type parameter'
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l mm-config -d 'matchmaker config path' -r -F
@@ -671,8 +692,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l mm-config -d 'matchmaker config path' -r -F
@@ -689,8 +711,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l mm-config -d 'matchmaker config path' -r -F
@@ -707,8 +730,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l mm-config -d 'matchmaker config path' -r -F
@@ -725,8 +749,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l mm-config -d 'matchmaker config path' -r -F
@@ -743,8 +768,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l mm-config -d 'matchmaker config path' -r -F
@@ -761,8 +787,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l mm-config -d 'matchmaker config path' -r -F
@@ -779,8 +806,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l mm-config -d 'matchmaker config path' -r -F
@@ -797,8 +825,9 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from show-binds" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l mm-config -d 'matchmaker config path' -r -F
@@ -815,6 +844,8 @@ false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :info" -l sort -d 'history sort order' -r -f -a "name\t''
 mtime\t''
@@ -822,7 +853,6 @@ atime\t''
 size\t''
 none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :info" -s l -l limit -d 'maximum history entries to display' -r
-complete -c fs -n "__fish_fs_using_subcommand :info" -l verbosity -r
 complete -c fs -n "__fish_fs_using_subcommand :info" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :info" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :info" -l mm-config -d 'matchmaker config path' -r -F
@@ -841,4 +871,6 @@ complete -c fs -n "__fish_fs_using_subcommand :info" -l format -d 'Output templa
 complete -c fs -n "__fish_fs_using_subcommand :info" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :info" -s m -l minimal -d 'Don\'t print decorations'
 complete -c fs -n "__fish_fs_using_subcommand :info" -l help
+complete -c fs -n "__fish_fs_using_subcommand :info" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :info" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :info" -l alt-accept

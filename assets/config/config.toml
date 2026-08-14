@@ -66,17 +66,23 @@ refind = "Search"
 #                                action whenever anything is selected; the
 #                                rule must match the cursor item
 # Rule syntax: ext:rs, glob:*.rs, child:src, mime:image/*, type:directory,
-# have:program, cat:name, application, * (any) — prefix with ! to invert.
-# Strategies: "execute" (waited, closes the menu), "execute_silent" (not
-# waited, closes the menu), "stash" (enqueue all targets as one queue item),
-# "batch(n)" (queue items of at most n paths). `close` overrides the
-# strategy's default closing behavior.
-# The command is a lua script (supports the @file syntax); the target path is
-# passed to it as the first argument.
+# have:program, cat:name, application, git (inside a git work tree),
+# * (any) — prefix with ! to invert. A condition accepts a single rule object
+# or an array of conditions.
+# Strategies: "Execute" (waited, closes the menu), "ExecuteSilent" (not
+# waited, closes the menu; "silent" is accepted as an alias), "ExecPaged"
+# (waited, stdout paged, closes the menu), "Stash" (enqueue all targets as
+# one queue item), { Batch = n } (queue items of at most n paths). `close`
+# overrides the strategy's default closing behavior.
+# The command is a lua script (supports the @file syntax), called once with
+# (paths, dst): the targeted paths as a lua table plus the destination passed
+# verbatim. Scripts may call set_progress(0-255) to set the executing item's
+# progress. The script runs in the process cwd — scripts are responsible for
+# cd (e.g. `os.execute('cd "' .. (...)[1] .. '" && git log')`).
 # log-queuer = {
 #   condition = [{ repeat = { count = 1, condition = "ext:log", strict = true } }],
 #   command = "print('queued a log')",
-#   strategy = "stash",
+#   strategy = "Stash",
 # }
 
 ### MISC ###

@@ -1,17 +1,14 @@
-use std::{fmt, str::FromStr};
-
 use cba::define_collection_wrapper;
 use indexmap::IndexMap;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer};
 
 use crate::{
     abspath::AbsPath,
     lessfilter::{
-        Categories, LessfilterSettings,
         file_rule::{FileData, FileRule},
         rule_matcher::Test,
+        Categories, LessfilterSettings,
     },
-    run::state::MenuContext,
 };
 
 define_collection_wrapper!(
@@ -29,7 +26,7 @@ impl Default for MenuActions {
 
 /// Menu action keys reserved for the builtin queue kinds; defining an action
 /// under one of these is a config error.
-pub const RESERVED_KEYS: [&str; 4] = ["copy", "cut", "symlink", "app"];
+pub const RESERVED_KEYS: [&str; 5] = ["copy", "cut", "symlink", "app", "none"];
 
 impl<'de> Deserialize<'de> for MenuActions {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -51,8 +48,9 @@ impl<'de> Deserialize<'de> for MenuActions {
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct MenuAction {
     /// The action is visible in the menu iff at least one condition is
-    /// satisfied; an empty list means always visible.
-    #[serde(default)]
+    /// satisfied; an empty list means always visible. Accepts a single
+    /// condition without the surrounding array.
+    #[serde(default, with = "cba::bird::one_or_many")]
     pub condition: Vec<MenuCondition>,
     /// Lua script executed for this action (`@file` syntax supported).
     pub command: String,
@@ -67,23 +65,28 @@ pub struct MenuAction {
 
 impl MenuAction {
     /// Whether choosing this action closes the menu: `close` overrides the
-    /// strategy default (Execute/ExecuteSilent exit, Stash/Batch keep open).
+    /// strategy default (Execute/ExecuteSilent/ExecPaged exit, Stash/Batch keep
+    /// open).
     pub fn closes(&self) -> bool {
         self.close.unwrap_or(matches!(
             self.strategy,
-            MenuStrategy::Execute | MenuStrategy::ExecuteSilent
+            MenuStrategy::Execute | MenuStrategy::ExecuteSilent | MenuStrategy::ExecPaged
         ))
     }
 }
 
 /// How a menu action runs.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum MenuStrategy {
     /// Run the action's command through the lua engine and wait for it.
     Execute,
     /// Run the action's command through the lua engine without waiting.
     #[default]
+    #[serde(alias = "silent")]
     ExecuteSilent,
+    /// Run the action's command through the lua engine, wait for it, and page
+    /// its stdout.
+    ExecPaged,
     /// Enqueue all target items into a single queue item and keep the menu open.
     Stash,
     /// Enqueue the target items into queue items of at most `n` paths each and
@@ -91,92 +94,10 @@ pub enum MenuStrategy {
     Batch(usize),
 }
 
-impl FromStr for MenuStrategy {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-        let (name, data) = if let Some(pos) = s.find('(') {
-            if s.ends_with(')') {
-                (&s[..pos], Some(&s[pos + 1..s.len() - 1]))
-            } else {
-                (s, None)
-            }
-        } else {
-            (s, None)
-        };
-
-        let eq = |other: &str| name.eq_ignore_ascii_case(other);
-        if eq("execute") {
-            if data.is_some() {
-                Err(format!("Unexpected data for strategy {name}"))
-            } else {
-                Ok(Self::Execute)
-            }
-        } else if eq("execute_silent") || eq("silent") {
-            if data.is_some() {
-                Err(format!("Unexpected data for strategy {name}"))
-            } else {
-                Ok(Self::ExecuteSilent)
-            }
-        } else if eq("stash") {
-            if data.is_some() {
-                Err(format!("Unexpected data for strategy {name}"))
-            } else {
-                Ok(Self::Stash)
-            }
-        } else if eq("batch") {
-            let data = data.ok_or_else(|| "batch requires a size, e.g. batch(3)".to_string())?;
-            let n = data
-                .parse::<usize>()
-                .map_err(|_| format!("Invalid batch size: {data}"))?;
-            if n == 0 {
-                Err("batch size must be at least 1".to_string())
-            } else {
-                Ok(Self::Batch(n))
-            }
-        } else {
-            Err(format!("Unknown menu strategy: {s}"))
-        }
-    }
-}
-
-impl fmt::Display for MenuStrategy {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Execute => write!(f, "Execute"),
-            Self::ExecuteSilent => write!(f, "ExecuteSilent"),
-            Self::Stash => write!(f, "Stash"),
-            Self::Batch(n) => write!(f, "Batch({n})"),
-        }
-    }
-}
-
-impl Serialize for MenuStrategy {
-    fn serialize<S>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
-    }
-}
-
-impl<'de> Deserialize<'de> for MenuStrategy {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        s.parse().map_err(serde::de::Error::custom)
-    }
-}
-
-/// A criterion evaluated against the state captured when the menu opens.
+/// A criterion evaluated against the picker state at menu open.
 /// The action is visible iff at least one condition is satisfied.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum MenuCondition {
     /// Positional: exactly as many items must be selected as there are rules,
     /// and rule *i* must match the *i*-th selected item in selection order.
@@ -192,6 +113,7 @@ pub enum MenuCondition {
         /// `None`: cursor-scoped — requires an enabled cursor with an item;
         /// strict hides the action whenever anything is selected, and the rule
         /// must match the cursor item.
+        #[serde(default)]
         count: Option<usize>,
         condition: FileRule,
         #[serde(default)]
@@ -199,21 +121,26 @@ pub enum MenuCondition {
     },
 }
 
-/// Whether at least one condition is satisfied against the menu-open snapshot.
-/// An empty condition list means always visible. `cache` holds the
+/// Whether at least one condition is satisfied against the state at menu
+/// open. An empty condition list means always visible. `cache` holds the
 /// [`FileData`] computed per file so each file's data is built at most once
 /// per menu open.
 pub fn condition_passes<'a>(
     conditions: &[MenuCondition],
-    ctx: &MenuContext,
+    selected: &[AbsPath],
+    cursor: Option<&AbsPath>,
+    in_prompt: bool,
+    cwd: Option<&AbsPath>,
     cache: &mut Vec<(AbsPath, FileData<'a>)>,
     settings: &LessfilterSettings,
     categories: &'a Categories,
 ) -> bool {
     conditions.is_empty()
-        || conditions
-            .iter()
-            .any(|c| c.passes(ctx, cache, settings, categories))
+        || conditions.iter().any(|c| {
+            c.passes(
+                selected, cursor, in_prompt, cwd, cache, settings, categories,
+            )
+        })
 }
 
 fn data_for<'c, 'a>(
@@ -225,14 +152,20 @@ fn data_for<'c, 'a>(
     if let Some(i) = cache.iter().position(|(p, _)| p == path) {
         return cache.get(i).map(|(_, d)| d);
     }
-    cache.push((path.clone(), FileData::new(path.clone(), settings, categories)));
+    cache.push((
+        path.clone(),
+        FileData::new(path.clone(), settings, categories),
+    ));
     cache.last().map(|(_, d)| d)
 }
 
 impl MenuCondition {
     fn passes<'a>(
         &self,
-        ctx: &MenuContext,
+        selected: &[AbsPath],
+        cursor: Option<&AbsPath>,
+        in_prompt: bool,
+        cwd: Option<&AbsPath>,
         cache: &mut Vec<(AbsPath, FileData<'a>)>,
         settings: &LessfilterSettings,
         categories: &'a Categories,
@@ -242,9 +175,8 @@ impl MenuCondition {
         };
         match self {
             MenuCondition::Seq(rules) => {
-                ctx.selected.len() == rules.len()
-                    && ctx
-                        .selected
+                selected.len() == rules.len()
+                    && selected
                         .iter()
                         .zip(rules)
                         .all(|(path, rule)| passes_rule(path, rule))
@@ -255,32 +187,26 @@ impl MenuCondition {
                 strict,
             } => match count {
                 Some(0) => {
-                    if *strict && !ctx.in_prompt {
+                    if *strict && !in_prompt {
                         return false;
                     }
-                    ctx.cwd
-                        .as_ref()
-                        .is_some_and(|cwd| passes_rule(cwd, condition))
+                    cwd.is_some_and(|cwd| passes_rule(cwd, condition))
                 }
                 Some(n) => {
                     if *strict {
-                        if ctx.selected.len() != *n {
+                        if selected.len() != *n {
                             return false;
                         }
-                    } else if ctx.selected.len() < *n {
+                    } else if selected.len() < *n {
                         return false;
                     }
-                    ctx.selected
-                        .iter()
-                        .all(|path| passes_rule(path, condition))
+                    selected.iter().all(|path| passes_rule(path, condition))
                 }
                 None => {
-                    if *strict && !ctx.selected.is_empty() {
+                    if *strict && !selected.is_empty() {
                         return false;
                     }
-                    ctx.cursor
-                        .as_ref()
-                        .is_some_and(|cursor| passes_rule(cursor, condition))
+                    cursor.is_some_and(|cursor| passes_rule(cursor, condition))
                 }
             },
         }
@@ -293,23 +219,64 @@ mod tests {
 
     #[test]
     fn reserved_keys_are_rejected() {
-        let err = toml::from_str::<MenuActions>("\
+        let err = toml::from_str::<MenuActions>(
+            "\
             [copy]\n\
             command = \"print('x')\"\n\
-        ")
+        ",
+        )
         .unwrap_err();
         assert!(err.to_string().contains("reserved"), "{err}");
     }
 
     #[test]
     fn non_reserved_keys_parse() {
-        let actions: MenuActions = toml::from_str("\
+        let actions: MenuActions = toml::from_str(
+            "\
             [my-action]\n\
             command = \"print('x')\"\n\
-            strategy = \"stash\"\n\
-        ")
+            strategy = \"Stash\"\n\
+        ",
+        )
         .unwrap();
         assert_eq!(actions.len(), 1);
         assert_eq!(actions["my-action"].strategy, MenuStrategy::Stash);
+    }
+}
+
+#[cfg(test)]
+mod single_condition_tests {
+    use super::*;
+    use crate::lessfilter::file_rule::{FileRule, FileRuleKind};
+
+    #[test]
+    fn single_condition_object_parses() {
+        // the single-object condition form (one_or_many) with lowercase keys
+        let actions: MenuActions = toml::from_str(
+            "\
+            [my-action]
+\
+            condition = { repeat = { condition = \"git\", strict = true } }
+\
+            command = \"print('x')\"
+\
+            strategy = \"ExecPaged\"
+\
+        ",
+        )
+        .unwrap();
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(
+            &actions["my-action"].condition[0],
+            MenuCondition::Repeat {
+                count: None,
+                condition: FileRule {
+                    invert: false,
+                    kind: FileRuleKind::Git
+                },
+                strict: true
+            }
+        ));
+        assert_eq!(actions["my-action"].strategy, MenuStrategy::ExecPaged);
     }
 }
