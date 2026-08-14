@@ -78,14 +78,12 @@ impl<T, A> RuleMatcher<T, A> {
         self.rules.push((rule, id));
     }
 
-    #[allow(clippy::multiple_bound_locations)]
     /// Find the best matching rule for the item.
     ///
     /// # Notes
     /// - first one wins in tie
     /// - 0 score does not count
     /// - Early exit on 255
-    #[cfg(not(test))]
     pub fn get_best_match<'a, I: ?Sized>(
         &self,
         item: &I,
@@ -114,45 +112,6 @@ impl<T, A> RuleMatcher<T, A> {
             }
         }
 
-        best_id
-    }
-
-    #[allow(clippy::multiple_bound_locations)]
-    #[cfg(test)]
-    pub fn get_best_match<'a, I: ?Sized>(
-        &self,
-        item: &I,
-        context: T::Context<'a>,
-    ) -> Option<&A>
-    where
-        T: Test<I>,
-        A: std::fmt::Debug,
-        I: std::fmt::Debug,
-        T::Context<'a>: std::fmt::Debug,
-    {
-        let mut best_id: Option<&A> = None;
-        let mut best_score: u8 = 0;
-
-        for (rules, id) in &self.rules {
-            let mut score = 0u8;
-
-            for r in rules {
-                score = r.0.modify(score, r.1.passes(item, &context));
-            }
-
-            eprintln!("rule id: {:?}, score: {}", id, score);
-
-            if score > best_score && score > 0 {
-                best_score = score;
-                best_id = Some(id);
-
-                if best_score == u8::MAX {
-                    break;
-                }
-            }
-        }
-
-        eprintln!("best match: {:?}", best_id);
         best_id
     }
 
@@ -402,5 +361,170 @@ impl<'a, R, I> Iterator for BestMatches<'a, R, I> {
             self.pos += 1;
             Some(&self.matcher.rules[idx].1)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        abspath::AbsPath,
+        lessfilter::{
+            action::Action,
+            file_rule::{FileData, FileRule},
+            ActionEntry, ActionExecution, Categories, LessfilterSettings,
+        },
+    };
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::tempdir;
+
+    type TestMatcher = RuleMatcher<FileRule, ActionEntry>;
+
+    fn entry(action: Action) -> ActionEntry {
+        ActionEntry {
+            rule: std::iter::once(action).collect(),
+            execution: ActionExecution::All,
+        }
+    }
+
+    /// A matcher whose rules are the `"score|rule"` strings, in order.
+    fn build_matcher(rules: &[(&str, Action)]) -> TestMatcher {
+        let mut matcher = TestMatcher::new();
+        for (part, action) in rules {
+            let (score, rule) = parse_rule_part::<FileRule>(part).unwrap();
+            matcher.add(entry(action.clone()), vec![(score, rule)]);
+        }
+        matcher
+    }
+
+    fn file_in(dir: &tempfile::TempDir, name: &str, content: &[u8]) -> std::path::PathBuf {
+        let path = dir.path().join(name);
+        File::create(&path).unwrap().write_all(content).unwrap();
+        path
+    }
+
+    #[test]
+    fn accumulated_scores_pick_the_best_rule() {
+        let dir = tempdir().unwrap();
+        let path = file_in(&dir, "main.rs", b"fn main() {}");
+        let categories = Categories::default();
+        let data = FileData::new(
+            AbsPath::new(path.clone()),
+            &LessfilterSettings::default(),
+            &categories,
+        );
+
+        // two passing tests accumulate: 1 (ext:rs) + 1 (mime:text/*) = 2,
+        // beating the catch-all rule that scores 1
+        let mut matcher = TestMatcher::new();
+        matcher.add(
+            entry(Action::Text),
+            vec![
+                (Score::Add(1), "ext:rs".parse().unwrap()),
+                (Score::Add(1), "mime:text/*".parse().unwrap()),
+            ],
+        );
+        matcher.add(
+            entry(Action::Metadata),
+            vec![(Score::Add(1), "*".parse().unwrap())],
+        );
+
+        assert_eq!(matcher.get_best_match(&path, data), Some(&entry(Action::Text)));
+    }
+
+    #[test]
+    fn max_score_wins_over_lower_scores() {
+        let dir = tempdir().unwrap();
+        let path = file_in(&dir, "main.rs", b"fn main() {}");
+        let categories = Categories::default();
+        let data = FileData::new(
+            AbsPath::new(path.clone()),
+            &LessfilterSettings::default(),
+            &categories,
+        );
+
+        let matcher = build_matcher(&[
+            ("1|ext:rs", Action::Text),
+            ("40|mime:text/*", Action::Image),
+            ("5|*", Action::Metadata),
+        ]);
+
+        assert_eq!(
+            matcher.get_best_match(&path, data),
+            Some(&entry(Action::Image))
+        );
+    }
+
+    #[test]
+    fn required_test_failure_eliminates_the_rule() {
+        let dir = tempdir().unwrap();
+        let path = file_in(&dir, "notes.txt", b"hello");
+        let categories = Categories::default();
+        let data = FileData::new(
+            AbsPath::new(path.clone()),
+            &LessfilterSettings::default(),
+            &categories,
+        );
+
+        // a failing Req zeroes the rule's accumulated score; with the Req
+        // last, the rule cannot match even though the catch-all test passed
+        let mut matcher = TestMatcher::new();
+        matcher.add(
+            entry(Action::Text),
+            vec![
+                (Score::Add(1), "*".parse().unwrap()),
+                (Score::Req, "ext:rs".parse().unwrap()),
+            ],
+        );
+        assert_eq!(matcher.get_best_match(&path, data), None);
+
+        // without the Req test the same rule matches
+        let categories = Categories::default();
+        let data = FileData::new(
+            AbsPath::new(path.clone()),
+            &LessfilterSettings::default(),
+            &categories,
+        );
+        let matcher = build_matcher(&[("1|*", Action::Metadata)]);
+        assert_eq!(
+            matcher.get_best_match(&path, data),
+            Some(&entry(Action::Metadata))
+        );
+    }
+
+    #[test]
+    fn ties_go_to_the_first_added_rule() {
+        let dir = tempdir().unwrap();
+        let path = file_in(&dir, "main.rs", b"fn main() {}");
+        let categories = Categories::default();
+        let data = FileData::new(
+            AbsPath::new(path.clone()),
+            &LessfilterSettings::default(),
+            &categories,
+        );
+
+        let matcher = build_matcher(&[
+            ("1|ext:rs", Action::Text),
+            ("1|mime:text/*", Action::Metadata),
+        ]);
+
+        assert_eq!(matcher.get_best_match(&path, data), Some(&entry(Action::Text)));
+    }
+
+    #[test]
+    fn zero_score_is_not_a_match() {
+        let dir = tempdir().unwrap();
+        let path = file_in(&dir, "main.rs", b"fn main() {}");
+        let categories = Categories::default();
+        let data = FileData::new(
+            AbsPath::new(path.clone()),
+            &LessfilterSettings::default(),
+            &categories,
+        );
+
+        // a Sub that zeroes the score counts as no match at all
+        let matcher = build_matcher(&[("-1|*", Action::Metadata)]);
+        assert_eq!(matcher.get_best_match(&path, data), None);
     }
 }

@@ -28,6 +28,15 @@ fs_status_template = '''
 preview_layout_index = 3
 show_preview = true
 
+[panes.stash]
+# While populating, delete stash entries whose path no longer exists
+# from the db (in addition to hiding them).
+prune = true
+# What to do when stashing a path that is already in the stash:
+# "Replace" (remove the old entry and re-add, moving it to the end of the
+# stash), "Skip" (keep the existing entry), "Duplicate" (add another entry).
+insert = "replace"
+
 ### STYLES ####
 
 [styles]
@@ -65,8 +74,9 @@ refind = "Search"
 #                                no count: cursor-scoped; strict hides the
 #                                action whenever anything is selected; the
 #                                rule must match the cursor item
-# Rule syntax: ext:rs, glob:*.rs, child:src, mime:image/*, type:directory,
-# have:program, cat:name, application, git (inside a git work tree),
+# Rule syntax: ext:rs, glob:*.rs, child:src, mime:image/*, type:f/type:d
+# (file/directory), have:program, cat:name, application, git (inside a git
+# work tree),
 # * (any) — prefix with ! to invert. A condition accepts a single rule object
 # or an array of conditions.
 # Strategies: "Execute" (waited, closes the menu), "ExecuteSilent" (not

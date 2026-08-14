@@ -1,0 +1,63 @@
+# Test config: InferMode::FileFormat exercises content-based category
+# detection (FileData.mime.kind) and custom [categories] feeding `cat:` rules.
+infer = "file_format"
+
+[categories]
+raster = ["image/png"]
+
+[rules]
+default = []
+
+# Order matters for ties: Text comes before Metadata — on an equal score
+# the first rule wins. Compressed is scored 5: the zip test fixture is
+# ASCII-only, so type:text also matches it and must be outranked.
+preview = [
+    [
+        [
+            "Directory",
+        ],
+        [
+            "1|type:d",
+        ],
+    ],
+    [
+        [
+            "Image",
+        ],
+        [
+            "40|mime:image/*",
+        ],
+    ],
+    [
+        [
+            "Raster",
+        ],
+        [
+            "30|cat:raster",
+        ],
+    ],
+    [
+        [
+            "Compressed",
+        ],
+        [
+            "5|cat:compressed",
+        ],
+    ],
+    [
+        [
+            "Text",
+        ],
+        [
+            "1|type:text",
+        ],
+    ],
+    [
+        [
+            "Metadata",
+        ],
+        [
+            "1|*/*",
+        ],
+    ],
+]

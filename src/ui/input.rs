@@ -10,6 +10,8 @@ pub struct InputWidgetConfig {
     pub border: BorderSetting,
     pub scroll_padding: usize,
     pub style: StyleSetting,
+    /// Word movement stops at these characters in addition to whitespace.
+    pub word_boundaries: Vec<char>,
 }
 
 impl Default for InputWidgetConfig {
@@ -18,6 +20,8 @@ impl Default for InputWidgetConfig {
             scroll_padding: 3, // easier to see when editing cells
             border: Default::default(),
             style: Default::default(),
+            // lowpri: figure out a way to configure this
+            word_boundaries: vec!['.', '/'],
         }
     }
 }
@@ -33,6 +37,7 @@ impl InputWidget {
         let inner = QueryUI::new(QueryConfig {
             border: config.border.clone(),
             style: config.style,
+            word_boundaries: config.word_boundaries.clone(),
             ..Default::default()
         });
         Self { inner, config }
