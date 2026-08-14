@@ -149,6 +149,10 @@ pub struct InterfaceConfig {
     /// ([`crate::run::ahandlers::enter_prompt`], entered via Up/Down past
     /// the ends or AutoJump(0)). Leaving the prompt is never gated.
     pub prompt_locking: bool,
+    /// While in the prompt, whether the Delete and Trash actions act on
+    /// the selected item instead of editing the query (DeleteWord).
+    /// Defaults to false on macOS.
+    pub prompt_locking_allow_delete_actions: bool,
     /// Hide the preview while the cursor is disabled (locked onto the cwd).
     pub hide_preview_when_cursor_disabled: bool,
 
@@ -172,6 +176,10 @@ impl Default for InterfaceConfig {
             toast_on_empty: true,
             autojump_advance: false,
             prompt_locking: false,
+            #[cfg(target_os = "macos")]
+            prompt_locking_allow_delete_actions: false,
+            #[cfg(not(target_os = "macos"))]
+            prompt_locking_allow_delete_actions: true,
             hide_preview_when_cursor_disabled: false,
         }
     }
@@ -437,5 +445,25 @@ mod tests {
             cfg.notify.thrash_threshold.resume_delay_ms,
             std::time::Duration::from_millis(500)
         );
+    }
+
+    #[test]
+    fn stash_pane_settings_defaults_and_parse() {
+        let defaults = StashPaneSettings::default();
+        assert!(defaults.prune);
+        assert_eq!(defaults.insert, InsertionStrategy::Replace);
+
+        let parsed: StashPaneSettings = toml::from_str(
+            r#"
+            prune = false
+            insert = "duplicate"
+            "#,
+        )
+        .unwrap();
+        assert!(!parsed.prune);
+        assert_eq!(parsed.insert, InsertionStrategy::Duplicate);
+
+        let skip: StashPaneSettings = toml::from_str(r#"insert = "skip""#).unwrap();
+        assert_eq!(skip.insert, InsertionStrategy::Skip);
     }
 }

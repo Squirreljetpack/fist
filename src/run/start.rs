@@ -82,8 +82,6 @@ fn make_mm(
             .without_filtering(),
         ],
         0,
-        Arc::new(|_: &PathItem| Some(())),
-        Arc::new(|_: &PathItem| ()),
     );
     // stability is applied by sort::set_sort_in_nucleo (fs_reload), which knows the
     // engaged mode — the initial call here was redundant

@@ -449,6 +449,7 @@ impl FsPane {
                 let sort = *sort;
                 let stash_name = stash_name.clone();
                 let filter_missing = cfg.panes.stash.filter_missing;
+                let prune = cfg.panes.stash.prune;
                 let pool = GLOBAL::db();
 
                 tokio::spawn(async move {
@@ -458,13 +459,31 @@ impl FsPane {
                         TOAST::toast_empty();
                     }
 
+                    // with prune, nonexistent entries are collected and
+                    // removed from the db after the loop
+                    let mut to_prune: Vec<AbsPath> = Vec::new();
                     for e in entries {
-                        if filter_missing && !e.stash.exists() {
-                            continue;
+                        if !e.stash.exists() {
+                            if prune {
+                                to_prune.push(e.stash.clone());
+                                continue;
+                            }
+                            if filter_missing {
+                                continue;
+                            }
                         }
                         let mut item = PathItem::new_unchecked(e.stash.into());
                         item.tail = Ok([e.tail, String::new()]);
                         injector.push(item)?;
+                    }
+
+                    if !to_prune.is_empty() {
+                        conn.remove_stash_entries(&stash_name, &to_prune).await.elog()?;
+                        log::debug!(
+                            "Pruned {} missing entr{} from stash ({stash_name})",
+                            to_prune.len(),
+                            if to_prune.len() == 1 { "y" } else { "ies" },
+                        );
                     }
 
                     Ok(())

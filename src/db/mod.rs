@@ -284,6 +284,21 @@ impl Connection {
         Ok(total)
     }
 
+    /// Whether the named stash already contains an entry for `path`.
+    pub async fn stash_has_entry(
+        &mut self,
+        name: &str,
+        path: &AbsPath,
+    ) -> Result<bool, DbError> {
+        let row: Option<(i64,)> =
+            sqlx::query_as("SELECT 1 FROM stashes WHERE name = ? AND stash = ? LIMIT 1")
+                .bind(name)
+                .bind(path)
+                .fetch_optional(&mut *self.conn)
+                .await?;
+        Ok(row.is_some())
+    }
+
     pub async fn clear_stash(
         &mut self,
         name: &str,
@@ -310,5 +325,35 @@ impl Connection {
             .execute(&mut *self.conn)
             .await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn setup_stash_conn() -> Connection {
+        let pool = Pool::new("sqlite::memory:", None).await.unwrap();
+        pool.get_conn(DbTable::stashes).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_stash_has_entry_and_remove() {
+        let mut conn = setup_stash_conn().await;
+        let name = "test-stash";
+        let a = AbsPath::new("/stash/a");
+        let b = AbsPath::new("/stash/b");
+
+        assert!(!conn.stash_has_entry(name, &a).await.unwrap());
+        conn.add_stash_entry(name, &a).await.unwrap();
+        assert!(conn.stash_has_entry(name, &a).await.unwrap());
+        assert!(!conn.stash_has_entry(name, &b).await.unwrap());
+
+        let removed = conn
+            .remove_stash_entries(name, std::slice::from_ref(&a))
+            .await
+            .unwrap();
+        assert_eq!(removed, 1);
+        assert!(!conn.stash_has_entry(name, &a).await.unwrap());
     }
 }

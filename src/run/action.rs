@@ -20,6 +20,8 @@ use crate::{
     aliases::MMState,
     cli::paths::{__home, text_renderer_path},
     clipboard::{copy_files, copy_paths_as_text},
+    config::InsertionStrategy,
+    db::DbTable,
     lessfilter::Preset,
     run::{
         ahandlers::{enter_dir_pane, enter_prompt, fs_reload, lock_prompt, refresh_prompt},
@@ -341,18 +343,18 @@ pub fn fsaction_aliaser(
             FsAction::Advance => {
                 if raw_input {
                     acs![Action::ForwardChar]
-                } else if STACK::in_app() {
-                    // todo!()
-                    acs![]
                 } else {
                     acs![Action::Custom(fa)]
                 }
             }
             FsAction::Delete(no_confirm) => {
-                // lowpri: maybe should require a global_config
-                // edit-actions edit the query while the prompt mode is on,
-                // regardless of prompt_locking (raw marker, not in_prompt)
-                if STORE::contains::<InPrompt>() && !no_confirm {
+                // while the prompt mode is on, edit-actions edit the query;
+                // prompt_locking_allow_delete_actions gates the Delete ->
+                // DeleteWord conversion (the lock holds when it's off)
+                if !GLOBAL::with_cfg(|c| c.interface.prompt_locking_allow_delete_actions)
+                    && STORE::contains::<InPrompt>()
+                    && !no_confirm
+                {
                     acs![Action::DeleteWord]
                 } else if STACK::in_app() {
                     acs![]
@@ -361,7 +363,10 @@ pub fn fsaction_aliaser(
                 }
             }
             FsAction::Trash(no_confirm) => {
-                if in_prompt && !no_confirm {
+                if !GLOBAL::with_cfg(|c| c.interface.prompt_locking_allow_delete_actions)
+                    && in_prompt
+                    && !no_confirm
+                {
                     acs![Action::DeleteWord]
                 } else if STACK::in_app() {
                     acs![]
@@ -1014,10 +1019,15 @@ pub fn fsaction_handler(
             });
         }
         FsAction::Delete(no_confirm) => {
-            // in a stash pane, Delete removes from the stash, not the actual path
-            let stash_name = STACK::with_current(|p| match p {
-                FsPane::Stash { stash_name, .. } => Some(stash_name.clone()),
-                _ => None,
+            // In a stash pane, Delete removes the stash entry; in the db
+            // history panes (files/dirs/apps) it removes the db entry. The
+            // actual path is only deleted in the fs panes (nav/find/search/custom).
+            let (stash_name, history_table) = STACK::with_current(|p| match p {
+                FsPane::Stash { stash_name, .. } => (Some(stash_name.clone()), None),
+                FsPane::Files { .. } => (None, Some(DbTable::files)),
+                FsPane::Folders { .. } => (None, Some(DbTable::dirs)),
+                FsPane::Apps { .. } => (None, Some(DbTable::apps)),
+                _ => (None, None),
             });
 
             let mut items = vec![];
@@ -1030,19 +1040,36 @@ pub fn fsaction_handler(
             }
 
             if !no_confirm {
-                let prompt = if items.len() == 1 {
-                    Line::from_iter([
+                // brief single-line modal, worded after what is removed
+                let remove_from = match (&stash_name, &history_table) {
+                    (Some(_), _) => Some("stash"),
+                    (_, Some(_)) => Some("history"),
+                    _ => None,
+                };
+
+                let prompt = match remove_from {
+                    Some(remove_from) if items.len() == 1 => Line::from_iter([
+                        Span::styled("Remove", Color::Red),
+                        Span::raw(format!(
+                            " {} from {remove_from}?",
+                            short_display(&AbsPath::new_unchecked(&items[0]))
+                        )),
+                    ]),
+                    Some(remove_from) => Line::from_iter([
+                        Span::styled("Remove", Color::Red),
+                        Span::raw(format!(" {} items from {remove_from}?", items.len())),
+                    ]),
+                    None if items.len() == 1 => Line::from_iter([
                         Span::styled("Delete", Color::Red),
                         Span::raw(format!(
                             " {}?",
                             short_display(&AbsPath::new_unchecked(&items[0]))
                         )),
-                    ])
-                } else {
-                    Line::from_iter([
+                    ]),
+                    None => Line::from_iter([
                         Span::styled("Delete", Color::Red),
                         Span::raw(format!(" {} items?", items.len())),
-                    ])
+                    ]),
                 };
 
                 STORE::set(ConfirmPrompt {
@@ -1065,6 +1092,12 @@ pub fn fsaction_handler(
 
             if let Some(name) = stash_name {
                 db_stash_remove(name, items);
+                return;
+            }
+
+            if let Some(table) = history_table {
+                // todo: lowpri: explain that app will get repopulated
+                db_remove_history_entries(table, items);
                 return;
             }
 
@@ -1336,17 +1369,42 @@ pub fn fsaction_handler(
     }
 }
 
-/// Insert `paths` into the named stash. Reloads after completion if reload = true.
+/// Insert `paths` into the named stash, applying the configured
+/// [`InsertionStrategy`] to paths already present. Reloads after completion
+/// if reload = true.
 fn db_stash(
     name: String,
     paths: Vec<AbsPath>,
     reload: bool,
 ) {
     let pool = GLOBAL::db();
+    let insert = GLOBAL::with_cfg(|c| c.panes.stash.insert);
     TASKS::spawn(async move {
         if let Some(mut conn) = pool.get_conn(crate::db::DbTable::stashes).await._elog() {
             for path in paths {
-                conn.add_stash_entry(&name, &path).await._elog();
+                match insert {
+                    InsertionStrategy::Duplicate => {
+                        conn.add_stash_entry(&name, &path).await._elog();
+                    }
+                    InsertionStrategy::Skip => {
+                        let exists = conn
+                            .stash_has_entry(&name, &path)
+                            .await
+                            ._elog()
+                            .unwrap_or(false);
+                        if !exists {
+                            conn.add_stash_entry(&name, &path).await._elog();
+                        }
+                    }
+                    InsertionStrategy::Replace => {
+                        // the old entry is removed and the path re-added, which
+                        // moves it to the end of the stash (fresh add time)
+                        conn.remove_stash_entries(&name, std::slice::from_ref(&path))
+                            .await
+                            ._elog();
+                        conn.add_stash_entry(&name, &path).await._elog();
+                    }
+                }
             }
         }
         if reload {
@@ -1375,6 +1433,36 @@ fn db_stash_remove(
                 Err(e) => {
                     log::error!("Error removing stash entries: {e}");
                     TOAST::notice(ToastStyle::Error, "Failed to remove stash entries.");
+                }
+            },
+            Err(e) => {
+                log::error!("Error getting connection: {e}");
+            }
+        }
+        GLOBAL::send_action(FsAction::Reload);
+    });
+}
+
+/// Remove `paths` from the db table backing a history pane (files/dirs/apps),
+/// then reload once the removals complete. Used by Delete inside a history pane.
+fn db_remove_history_entries(
+    table: DbTable,
+    paths: Vec<PathBuf>,
+) {
+    let pool = GLOBAL::db();
+    TASKS::spawn(async move {
+        let paths: Vec<AbsPath> = paths.iter().map(AbsPath::new_unchecked).collect();
+        match pool.get_conn(table).await {
+            Ok(mut conn) => match conn.remove_entries(&paths).await {
+                Ok(n) => {
+                    TOAST::notice(
+                        ToastStyle::Success,
+                        format!("Removed {n} item(s) from history"),
+                    );
+                }
+                Err(e) => {
+                    log::error!("Error removing history entries: {e}");
+                    TOAST::notice(ToastStyle::Error, "Failed to remove history entries.");
                 }
             },
             Err(e) => {

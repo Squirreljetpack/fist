@@ -228,6 +228,20 @@ pub struct HistoryPaneSettings {
     pub preview_layout_index: u8,
 }
 
+/// What to do when stashing a path that is already present in the stash.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum InsertionStrategy {
+    /// Remove the existing entry and add a fresh one, moving the path to
+    /// the end of the stash (newest add time).
+    #[default]
+    Replace,
+    /// Keep the existing entry; do not add another one.
+    Skip,
+    /// Add another entry even if the path is already stashed.
+    Duplicate,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct StashPaneSettings {
@@ -242,6 +256,11 @@ pub struct StashPaneSettings {
     // ----------------------------
     /// Hide stash entries whose path no longer exists while populating.
     pub filter_missing: bool,
+    /// While populating, delete stash entries whose path no longer exists
+    /// from the db (in addition to hiding them).
+    pub prune: bool,
+    /// What to do when stashing a path that is already in the stash.
+    pub insert: InsertionStrategy,
     /// Stashes cleared on startup. Default: the unnamed stash.
     pub transient_stash_panes: Vec<String>,
 }
@@ -254,6 +273,8 @@ impl Default for StashPaneSettings {
             lock_prompt: None,
             preview_layout_index: 0,
             filter_missing: true,
+            prune: true,
+            insert: InsertionStrategy::Replace,
             transient_stash_panes: vec![String::new()],
         }
     }

@@ -43,8 +43,12 @@ preview = [
 ]
 
 # the 'n' alias, and the `Advance` action in the ui
+# The Text rule outranks the default `application` rule (60) so that
+# text-backed applications (.desktop files) open in the editor instead of
+# launching — e.g. `Advance` in the apps pane on linux.
 edit = [
     [["Open"], ["1|cat:document", "1|cat:spreadsheet", "1|cat:email", "1|cat:academic"]],
+    [["Text"], ["100|type:text"]],
 ]
 
 # the 'l' alias
