@@ -16,9 +16,9 @@ use crate::{
     abspath::AbsPath,
     aliases::MMState,
     run::{
-        FsAction, FsPane,
         item::PathItem,
         state::{GLOBAL, STACK, TASKS},
+        FsAction, FsPane,
     },
 };
 
@@ -57,7 +57,7 @@ fn set_global_sort_only_from_pane() -> SortMode {
     let order = if STACK::reloads_by_sorting() {
         SortOrder::none
     } else {
-        STACK::with_current(FsPane::sort)
+        STACK::with_current(FsPane::sort_order)
     };
     let threshold = match order {
         SortOrder::none => STACK::with_current(FsPane::stability_threshold),
@@ -72,7 +72,7 @@ fn set_global_sort_only_from_pane() -> SortMode {
 }
 
 /// Pushes the current pane's sort into global and updates Nucleo.
-pub fn set_sort_from_pane(state: &mut MMState<'_,>) {
+pub fn set_sort_from_pane(state: &mut MMState<'_>) {
     let SortMode { order, threshold } = set_global_sort_only_from_pane();
 
     state.picker_ui.worker.nucleo.sort_with(sort_fn_for(order));
@@ -170,7 +170,7 @@ pub fn store_sort_value(
 
 /// Fill flow for a mid-pane sort change (no reload): snapshot the existing
 /// items, compute the new sort values off-thread, then dispatch `ReSort`.
-pub fn fill_then_resort(state: &MMState<'_,>) {
+pub fn fill_then_resort(state: &MMState<'_>) {
     let SortMode { order, threshold } = set_global_sort_only_from_pane();
 
     match order {

@@ -1,20 +1,20 @@
 use crate::{
     run::{
-        FsPane,
         action::FsAction,
         item::PathItem,
         state::{FILTERS, GLOBAL, STACK},
+        FsPane,
     },
     utils::{serde::border_result, text::bold_indices},
 };
 
 use cba::bum::UsizeExt;
-use fist_types::{When, filters::*};
+use fist_types::{filters::*, When};
 use matchmaker::{
     action::Action,
     config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting},
     render::MMState,
-    ui::{Overlay, OverlayEffect, utils},
+    ui::{utils, Overlay, OverlayEffect},
 };
 
 use ratatui::{
@@ -121,16 +121,25 @@ impl OptionsOverlay {
 
     // ----------------- MAKE WIDGETS -------------------------------
 
-    /// The sort orders the modal lists: the pane's options with `atime`
-    /// hidden — atime is only shown by replacing the mtime row while it
-    /// is the active sort.
+    /// The sort orders the modal lists. Other panes hide atime, which takes
+    /// over the mtime row while it is the active sort. SQL-sorted db panes
+    /// instead hide mtime — reachable via the sort keys with no row of its
+    /// own — and give atime a row above size.
     fn sort_orders(&self) -> Vec<SortOrder> {
         STACK::with_current(|p| {
+            let sql_db = matches!(
+                p,
+                FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
+            );
             p.sort_options()
                 .iter()
                 .copied()
-                .filter(|so| *so != SortOrder::atime)
-                .collect::<Vec<_>>()
+                .filter(|so| match (sql_db, so) {
+                    (true, SortOrder::mtime) => false,
+                    (false, SortOrder::atime) => false,
+                    _ => true,
+                })
+                .collect()
         })
     }
 
@@ -138,33 +147,37 @@ impl OptionsOverlay {
     // Returns items as Vec<(Vec<Span>, bool)> so make_widgets can add checkboxes
     fn get_sort_items(&self) -> Vec<(Vec<Span<'static>>, Option<bool>)> {
         let (current_sort_order, db) = STACK::with_current(|p| {
-            // Stash is a db pane: SQL-side sorting, name/frecency labels
+            // SQL-sorted db panes use name/count/frecency labels; Stash is
+            // nucleo-sorted like Nav/fd and uses the plain labels
             let db = matches!(
                 p,
-                FsPane::Files { .. }
-                    | FsPane::Folders { .. }
-                    | FsPane::Apps { .. }
-                    | FsPane::Stash { .. }
+                FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
             );
-            (p.sort(), db)
+            (p.sort_order(), db)
         });
-        // the pane's options are the list — atime is hidden, replacing the
-        // mtime row's label while it is the active sort
+        // the pane's options are the list: non-db panes hide atime (it
+        // replaces the mtime row's label while it is the active sort), db
+        // panes list atime above size and hide mtime
         self.sort_orders()
             .iter()
             .map(|so| {
                 // while atime is active, the mtime row shows 'atime' and
-                // stays checked — the two share one time slot
+                // stays checked — the two share one time slot; the db
+                // atime row is a row of its own
                 let label = if *so == SortOrder::mtime && current_sort_order == SortOrder::atime {
                     "atime"
                 } else {
                     so.label(db)
                 };
-                // the time row highlights its second letter — the 't' in
+                // the time rows highlight their second letter — the 't' in
                 // mtime/atime — the cycle key; other rows keep their first
                 let spans = bold_indices(
                     label,
-                    if *so == SortOrder::mtime { [1] } else { [0] },
+                    if *so == SortOrder::mtime || (db && *so == SortOrder::atime) {
+                        [1]
+                    } else {
+                        [0]
+                    },
                     self.item_style(),
                 );
                 let checked = *so == current_sort_order
@@ -233,7 +246,7 @@ impl OptionsOverlay {
                 let mut context = vec![];
                 let c = format!("[{before}, {after}] ").into();
                 context.push(c);
-                let mut hint = bold_indices("(B, A)", [1, 4], self.item_style())
+                let mut hint = bold_indices("(B, D)", [1, 4], self.item_style())
                     .into_iter()
                     .map(|s| s.patch_style(Style::new().italic()))
                     .collect();
@@ -458,17 +471,57 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
         match c {
             'q' => return OverlayEffect::Disable,
 
+            // context keys. The rg pane shows the context pane alongside
+            // the sort and visibility panes, and 'c' (a sort key on db
+            // panes) and 'd'/'D' (dirs/files visibility keys) collide
+            // with those panes' keys, so they must be dispatched first.
+            'b' | 'B' | 'd' | 'D' | 'c' | 'C' | 'e' | '1' | 'r' if self.pane_lens[2] > 0 => {
+                refilter = false;
+                reload = true;
+
+                STACK::with_current_mut(|p| match p {
+                    FsPane::Search {
+                        context,
+                        case,
+                        one_line,
+                        fixed_strings,
+                        ..
+                    } => match c {
+                        'b' => reload = context[0].ssub(1),
+                        'B' => context[0] += 1,
+                        'd' => reload = context[1].ssub(1),
+                        'D' => context[1] += 1,
+                        'c' => {
+                            reload = *context != [0, 0];
+                            context[0].ssub(1);
+                            context[1].ssub(1);
+                        }
+                        'C' => {
+                            context[0] += 1;
+                            context[1] += 1;
+                        }
+
+                        'e' => case.cycle(),
+                        '1' => *one_line = !(*one_line),
+                        'r' => *fixed_strings = !(*fixed_strings),
+
+                        _ => reload = false,
+                    },
+                    _ => {}
+                });
+            }
+
             // time-sort cycle key (the highlighted 't'): any other sort ->
-            // mtime, mtime -> atime, atime -> none, none -> mtime.
-            // Unsupported targets fall back to none (mtime on db panes).
+            // mtime, mtime -> atime, atime -> none, none -> mtime. Every
+            // pane supports the full cycle.
             't' if self.pane_lens[1] > 0 => {
-                let next = STACK::with_current(|p| match p.sort() {
+                let next = STACK::with_current(|p| match p.sort_order() {
                     SortOrder::mtime => SortOrder::atime,
                     SortOrder::atime => SortOrder::none,
                     _ => SortOrder::mtime,
                 });
-                // keys target their named order when the pane supports it,
-                // else fall back to none (mtime on db panes)
+                // the cycle only moves between orders the pane supports,
+                // so this fallback is defensive
                 let target = STACK::with_current(|p| {
                     if p.sort_options().contains(&next) {
                         next
@@ -480,17 +533,18 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
             }
 
             // sort toggles: write the pane's sort, dispatch Refilter.
-            // db panes (Files/Folders/Apps) label their sorts name/count/
-            // frecency and key them n/c/f; other panes key name/size n/s.
+            // db panes (Files/Folders/Apps) label their sorts name/atime/
+            // count/frecency and key them n/c/f; other panes key name/size
+            // n/s. Toggling an active sort off lands on mtime (insertion
+            // order, no row) on SQL db panes, the default frecency
+            // elsewhere.
             'n' | 's' | 'c' | 'f' if self.pane_lens[1] > 0 => {
-                let is_db = STACK::with_current(|p| {
-                    matches!(
+                let (is_db, sql_db) = STACK::with_current(|p| {
+                    let sql_db = matches!(
                         p,
-                        FsPane::Files { .. }
-                            | FsPane::Folders { .. }
-                            | FsPane::Apps { .. }
-                            | FsPane::Stash { .. }
-                    )
+                        FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
+                    );
+                    (sql_db || matches!(p, FsPane::Stash { .. }), sql_db)
                 });
                 let named = match (c, is_db) {
                     ('n', _) => SortOrder::name,
@@ -511,7 +565,13 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
                 STACK::with_current_mut(|p| {
                     let sort = p.sort_mut();
                     *sort = if *sort == target {
-                        SortOrder::none
+                        // SQL db panes: the 'other' state is insertion
+                        // order (mtime), shown with no row checked
+                        if sql_db {
+                            SortOrder::mtime
+                        } else {
+                            SortOrder::none
+                        }
                     } else {
                         target
                     };
@@ -549,40 +609,10 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
                 });
             }
 
+            // rg pane: any other key is a no-op — don't refilter on a
+            // stray keypress
             _ if self.pane_lens[2] > 0 => {
                 refilter = false;
-                reload = true;
-
-                STACK::with_current_mut(|p| match p {
-                    FsPane::Search {
-                        context,
-                        case,
-                        one_line,
-                        fixed_strings,
-                        ..
-                    } => match c {
-                        'a' => reload = context[1].ssub(1),
-                        'A' => context[1] += 1,
-                        'b' => reload = context[0].ssub(1),
-                        'B' => context[0] += 1,
-                        'c' => {
-                            reload = *context != [0, 0];
-                            context[0].ssub(1);
-                            context[1].ssub(1);
-                        }
-                        'C' => {
-                            context[0] += 1;
-                            context[1] += 1;
-                        }
-
-                        'e' => case.cycle(),
-                        '1' => *one_line = !(*one_line),
-                        'r' => *fixed_strings = !(*fixed_strings),
-
-                        _ => reload = false,
-                    },
-                    _ => {}
-                });
             }
 
             _ => {}

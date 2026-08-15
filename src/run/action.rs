@@ -27,9 +27,7 @@ use crate::{
         ahandlers::{enter_dir_pane, enter_prompt, fs_reload, lock_prompt, refresh_prompt},
         item::short_display,
         pane::FsPane,
-        queue::QUEUE,
-        queue::QueueItems,
-        queue::show_queue_variant,
+        queue::{QueueSelector, QUEUE, SelectorResult, show_queue_variant},
         register::ExecutionMode,
         state::{
             AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, HideMetadata,
@@ -67,7 +65,7 @@ pub enum FsAction {
     /// # Note
     /// The char is emitted instead of jumping if the index is in the prompt.
     Jump(Vec<PathBuf>),
-    /// Enter app launching pane.
+    /// Enter app launching pane. No-op when already in an app pane.
     App,
 
     /// Go back
@@ -79,16 +77,18 @@ pub enum FsAction {
     // ----------------------------------
     /// Display current filters.
     ShowOptions,
-    /// Display the current stack.
+    /// Display the queue overlay (the app view while in the app pane).
     ShowQueue,
-    /// Clear the queue; `true` skips the confirmation.
-    ClearQueue(bool),
+    /// Clear the queued operations selected by a queue-kind selector;
+    /// `true` skips the confirmation.
+    ClearQueue(QueueSelector, bool),
 
-    /// Add the selection (or cwd) to the named stash and switch to its pane.
     /// Switch to the named stash pane. Empty name = the unnamed stash.
-    Stash(String),
+    OpenStash(String),
     /// Add the selection (or cwd) to the named stash.
-    AddStash(String),
+    PushStash(String),
+    /// Execute the queued operations selected by a queue-kind selector.
+    ExecuteQueue(QueueSelector),
 
     /// Show available actions on the current item(s).
     ShowMenu,
@@ -104,8 +104,6 @@ pub enum FsAction {
     Cut,
     /// Copy file (to the [`QUEUE`] and the system clipboard).
     Copy,
-    /// Save a file to the [`QUEUE`] under the custom type.
-    Push,
     /// Copy full path.
     CopyPath,
     /// Create a new file. Paths are relative to the current item's parent.
@@ -126,8 +124,9 @@ pub enum FsAction {
     Delete(bool),
     /// Internal confirmation action.
     Confirm,
-    /// Paste all stack items into the current or specified directory
-    Paste(PathBuf), // dump Stack
+    /// Execute the queued copy, cut, and symlink operations into the
+    /// current or specified directory.
+    Paste(PathBuf),
     /// Execute an action on the current item according [Lessfilter rules](crate::lessfilter::RulesConfig)
     Lessfilter {
         preset: Preset,
@@ -383,7 +382,7 @@ pub fn fsaction_aliaser(
                 acs![fa]
             }
             FsAction::ShowQueue => {
-                // the stash overlay in a nav pane, the app view in the app pane
+                // the queue overlay in a nav pane, the app view in the app pane
                 acs![Action::Overlay(show_queue_variant() as usize)]
             }
             FsAction::ShowOptions => {
@@ -722,6 +721,11 @@ pub fn fsaction_handler(
         }
 
         FsAction::App => {
+            // entering the app pane while already in it is a no-op
+            if STACK::in_app() {
+                return;
+            }
+
             // save input
             let (content, index) = state.get_content_and_index();
             STACK::save_input(content, index);
@@ -847,7 +851,7 @@ pub fn fsaction_handler(
 
         // File actions
         // --------------------------------
-        // the active item is the cwd while cursor_disabled (see Push)
+        // the active item is the cwd while cursor_disabled
         FsAction::Cut => {
             let mut toast_vec = vec![];
             let mut cb_vec = vec![];
@@ -867,7 +871,7 @@ pub fn fsaction_handler(
                 })
             };
             if !items.is_empty() {
-                QUEUE::extend("cut", items);
+                QUEUE::enqueue("cut".into(), items);
                 TOAST::push(ToastStyle::Normal, "Cut: ", toast_vec);
                 copy_files(cb_vec, false);
             };
@@ -891,50 +895,27 @@ pub fn fsaction_handler(
                 })
             };
             if !items.is_empty() {
-                QUEUE::extend("copy", items);
+                QUEUE::enqueue("copy".into(), items);
                 TOAST::push(ToastStyle::Normal, "Copied: ", toast_vec);
                 copy_files(cb_vec, false);
             };
         }
 
-        // Note: This is the only stash action which also pushes the cwd
-        FsAction::Push => {
-            let mut toast_vec = vec![];
-
-            if !state.picker_ui.results.cursor_disabled() {
-                let items = state.map_selected_to_vec(|_, s| {
-                    toast_vec.push(short_display(&s.path));
-                    s.path.clone()
-                });
-                if !items.is_empty() {
-                    QUEUE::extend("copy", items);
-                }
-            } else if let Some(p) = STACK::cwd() {
-                toast_vec.push(short_display(&p));
-                QUEUE::stash("copy", p);
-            };
-
-            if !toast_vec.is_empty() {
-                TOAST::push(ToastStyle::Normal, "Stashed: ", toast_vec);
-            };
-        }
-
-        // Named stash actions: add the selection (or cwd) to the `stashes`
-        // Switch to the named stash pane; does not stash anything — adding
-        // the selection is `AddStash`.
-        FsAction::Stash(name) => {
+        // Switch to the named stash pane; does not add paths — adding the
+        // selection is `PushStash`.
+        FsAction::OpenStash(name) => {
             let (content, index) = state.get_content_and_index();
             STACK::save_input(content, index);
             // a same-variant current pane is replaced in place, which
             // also covers switching between stash names
-            STACK::set_or_push(FsPane::new_stash(name, sort::get_sort().order));
+            STACK::set_or_push(FsPane::new_stash(name));
             fs_reload(state, true, false);
         }
 
         // Add the selection (or cwd) to the named stash (no pane switch);
         // the db task reloads afterwards only when this stash pane was
         // current at the time of stashing.
-        FsAction::AddStash(name) => {
+        FsAction::PushStash(name) => {
             let mut toast_vec = vec![];
             let items = if state.picker_ui.results.cursor_disabled() {
                 STACK::cwd()
@@ -1162,7 +1143,7 @@ pub fn fsaction_handler(
         FsAction::Paste(dest_base) => {
             let base = if dest_base.is_empty() {
                 if let Some(c) = STACK::nav_cwd() {
-                    c
+                    Some(c)
                 } else {
                     TOAST::notice(ToastStyle::Normal, "No current directory.");
                     return;
@@ -1175,20 +1156,47 @@ pub fn fsaction_handler(
                     );
                     return;
                 }
-                AbsPath::new_unchecked(dest_base)
+                Some(AbsPath::new_unchecked(dest_base))
             };
-            QUEUE::execute_all_impl(base, false, None);
+            match QUEUE::select(&QueueSelector::Builtins, base.as_ref()) {
+                SelectorResult::Ready(indices) => QUEUE::dispatch(indices, base),
+                SelectorResult::MissingDestination => TOAST::notice(
+                    ToastStyle::Error,
+                    "Missing destination for the queued items.",
+                ),
+                SelectorResult::NoItems => TOAST::msg("No items queued.", true),
+            }
         }
-        FsAction::ClearQueue(no_confirm) => {
+        FsAction::ExecuteQueue(selector) => {
+            let base = STACK::nav_cwd();
+            match QUEUE::select(&selector, base.as_ref()) {
+                SelectorResult::Ready(indices) => QUEUE::dispatch(indices, base),
+                SelectorResult::MissingDestination => TOAST::notice(
+                    ToastStyle::Error,
+                    "Missing destination for the queued items.",
+                ),
+                SelectorResult::NoItems => TOAST::msg("No items queued.", true),
+            }
+        }
+        FsAction::ClearQueue(selector, no_confirm) => {
             if no_confirm {
-                QUEUE::clear(QueueItems::Pending);
+                if !QUEUE::clear_selected(&selector) {
+                    TOAST::msg("No items queued.", true);
+                }
             } else {
+                // report an empty selection without opening the prompt
+                if QUEUE::select(&selector, STACK::nav_cwd().as_ref())
+                    == SelectorResult::NoItems
+                {
+                    TOAST::msg("No items queued.", true);
+                    return;
+                }
                 STORE::set(ConfirmPrompt {
                     prompt: Line::from("Clear the queue?"),
                     options: vec![("Yes", 0), ("No", 0)],
-                    option_handler: Box::new(|idx| {
+                    option_handler: Box::new(move |idx| {
                         if idx == 0 {
-                            GLOBAL::send_action(FsAction::ClearQueue(true));
+                            GLOBAL::send_action(FsAction::ClearQueue(selector.clone(), true));
                         }
                     }),
                     content: None,
@@ -1503,7 +1511,7 @@ enum_from_str_display! {
 
     units:
     Advance, Parent, Find, Search, History, App,
-    Undo, Redo, Push,
+    Undo, Redo,
     ShowOptions, ShowQueue,
     ShowMenu, FsToggle, ToggleHidden,
     Cut, Copy, CopyPath, New, NewDir, Rename,
@@ -1514,8 +1522,7 @@ enum_from_str_display! {
     ExecPaged = ExecutePaged, ExecTTY = ExecuteTTY, ExecDetached = ExecuteDetached, ExecSilent = ExecuteSilent, CopyCommand, CopyCommandAsync;
 
     defaults:
-    (Delete, false), (Trash, false), (Stash, String::new()), (AddStash, String::new())
-    , (ClearQueue, false)
+    (Delete, false), (Trash, false), (OpenStash, String::new()), (PushStash, String::new())
     ;
     options:
     LockPrompt;
@@ -1576,6 +1583,20 @@ macro_rules! enum_from_str_display {
                                             .collect::<Vec<_>>()
                                             .join(",")
                                         )
+                                    }
+                                }
+                                ExecuteQueue(selector) => {
+                                    if *selector == QueueSelector::All {
+                                        write!(f, "ExecuteQueue")
+                                    } else {
+                                        write!(f, "ExecuteQueue({selector})")
+                                    }
+                                }
+                                ClearQueue(selector, _) => {
+                                    if *selector == QueueSelector::All {
+                                        write!(f, "ClearQueue")
+                                    } else {
+                                        write!(f, "ClearQueue({selector})")
                                     }
                                 }
                                 SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | Refilter | AcceptPrompt | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionSilent(_) | MenuActionExecPaged(_) => Ok(()), // internal
@@ -1688,6 +1709,20 @@ macro_rules! enum_from_str_display {
                                     let paths = cba::bring::split::split_on_unescaped_delimiter(values, ",").iter().map(PathBuf::from).collect();
                                     Ok(Self::Jump(paths))
                                 }
+                                n if n.eq_ignore_ascii_case("ExecuteQueue") => {
+                                    let selector = match data {
+                                        None => QueueSelector::All,
+                                        Some(val) => val.parse().map_err(|_| format!("Invalid selector for ExecuteQueue: {val}"))?,
+                                    };
+                                    Ok(Self::ExecuteQueue(selector))
+                                }
+                                n if n.eq_ignore_ascii_case("ClearQueue") => {
+                                    let selector = match data {
+                                        None => QueueSelector::All,
+                                        Some(val) => val.parse().map_err(|_| format!("Invalid selector for ClearQueue: {val}"))?,
+                                    };
+                                    Ok(Self::ClearQueue(selector, false))
+                                }
                                 "Lessfilter" => {
                                     let preset_str = data.ok_or_else(|| "Missing preset for Lessfilter")?;
                                     let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for Lessfilter: {preset_str}"))?;
@@ -1753,5 +1788,86 @@ mod open_parse_tests {
         assert!("default".parse::<Preset>().is_err());
         assert!("Default".parse::<FsAction>().is_err());
         assert!("Lessfilter(default)".parse::<FsAction>().is_err());
+    }
+}
+
+#[cfg(test)]
+mod queue_action_parse_tests {
+    use super::*;
+
+    #[test]
+    fn stash_actions_parse_and_display() {
+        // bare names carry the default empty stash name
+        let open: FsAction = "OpenStash".parse().unwrap();
+        assert_eq!(open, FsAction::OpenStash(String::new()));
+        assert_eq!(open.to_string(), "OpenStash");
+
+        let push: FsAction = "PushStash".parse().unwrap();
+        assert_eq!(push, FsAction::PushStash(String::new()));
+        assert_eq!(push.to_string(), "PushStash");
+
+        let open: FsAction = "OpenStash(mine)".parse().unwrap();
+        assert_eq!(open, FsAction::OpenStash("mine".into()));
+        assert_eq!(open.to_string(), "OpenStash(mine)");
+
+        let push: FsAction = "pushstash(mine)".parse().unwrap();
+        assert_eq!(push, FsAction::PushStash("mine".into()));
+    }
+
+    #[test]
+    fn queue_actions_parse_and_display() {
+        // bare = All selector
+        let exec: FsAction = "ExecuteQueue".parse().unwrap();
+        assert_eq!(exec, FsAction::ExecuteQueue(QueueSelector::All));
+        assert_eq!(exec.to_string(), "ExecuteQueue");
+
+        // explicit empty selector data is the reserved empty queue kind
+        let exec: FsAction = "ExecuteQueue()".parse().unwrap();
+        assert_eq!(
+            exec,
+            FsAction::ExecuteQueue(QueueSelector::Kind(String::new()))
+        );
+        assert_eq!(exec.to_string(), "ExecuteQueue()");
+
+        // reserved selector spellings are case-insensitive
+        let exec: FsAction = "ExecuteQueue(ALL)".parse().unwrap();
+        assert_eq!(exec, FsAction::ExecuteQueue(QueueSelector::All));
+        assert_eq!(exec.to_string(), "ExecuteQueue");
+
+        let exec: FsAction = "ExecuteQueue(Builtins)".parse().unwrap();
+        assert_eq!(exec, FsAction::ExecuteQueue(QueueSelector::Builtins));
+        assert_eq!(exec.to_string(), "ExecuteQueue(Builtins)");
+
+        let exec: FsAction = "ExecuteQueue(first)".parse().unwrap();
+        assert_eq!(exec, FsAction::ExecuteQueue(QueueSelector::First));
+
+        let exec: FsAction = "ExecuteQueue(last)".parse().unwrap();
+        assert_eq!(exec, FsAction::ExecuteQueue(QueueSelector::Last));
+
+        // custom keys preserve their case
+        let exec: FsAction = "ExecuteQueue(My-Action)".parse().unwrap();
+        assert_eq!(
+            exec,
+            FsAction::ExecuteQueue(QueueSelector::Kind("My-Action".into()))
+        );
+        assert_eq!(exec.to_string(), "ExecuteQueue(My-Action)");
+    }
+
+    #[test]
+    fn clear_queue_parses_and_hides_confirmation_flag() {
+        let clear: FsAction = "ClearQueue".parse().unwrap();
+        assert_eq!(clear, FsAction::ClearQueue(QueueSelector::All, false));
+        assert_eq!(clear.to_string(), "ClearQueue");
+
+        let clear: FsAction = "ClearQueue(copy)".parse().unwrap();
+        assert_eq!(
+            clear,
+            FsAction::ClearQueue(QueueSelector::Kind("copy".into()), false)
+        );
+        assert_eq!(clear.to_string(), "ClearQueue(copy)");
+
+        // the internal confirmation flag is not part of the display
+        let confirmed = FsAction::ClearQueue(QueueSelector::All, true);
+        assert_eq!(confirmed.to_string(), "ClearQueue");
     }
 }

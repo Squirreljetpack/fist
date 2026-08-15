@@ -238,18 +238,13 @@ impl Connection {
         Ok(())
     }
 
-    /// All entries of the named stash. `SortOrder::name` orders by path,
-    /// everything else by most recently added first.
+    /// All entries of the named stash, ordered by add time (the injection
+    /// order); the pane applies its sort nucleo-side.
     pub async fn get_stash_entries(
         &mut self,
         name: &str,
-        sort: SortOrder,
     ) -> Result<Vec<StashEntry>, DbError> {
-        let order_by = match sort {
-            SortOrder::name => "ORDER BY stash",
-            _ => "ORDER BY add_time DESC",
-        };
-        let sql = format!("SELECT * FROM stashes WHERE name = ? {order_by}");
+        let sql = "SELECT * FROM stashes WHERE name = ? ORDER BY add_time DESC".to_string();
         sqlx::query_as::<_, StashEntry>(sqlx::AssertSqlSafe(sql))
             .bind(name)
             .fetch_all(&mut *self.conn)

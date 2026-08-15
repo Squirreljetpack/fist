@@ -5,9 +5,9 @@ use serde::{Deserialize, Deserializer};
 use crate::{
     abspath::AbsPath,
     lessfilter::{
-        Categories, LessfilterSettings,
         file_rule::{FileData, FileRule},
         rule_matcher::Test,
+        Categories, LessfilterSettings,
     },
 };
 
@@ -24,9 +24,12 @@ impl Default for MenuActions {
     }
 }
 
-/// Menu action keys reserved for the builtin queue kinds; defining an action
-/// under one of these is a config error.
-pub const RESERVED_KEYS: [&str; 5] = ["copy", "cut", "symlink", "app", "none"];
+/// Menu action keys reserved for the builtin queue kinds and the queue
+/// selectors; defining an action under one of these (case-insensitively) or
+/// under the empty key is a config error.
+pub const RESERVED_KEYS: [&str; 8] = [
+    "copy", "cut", "symlink", "none", "all", "builtins", "first", "last",
+];
 
 impl<'de> Deserialize<'de> for MenuActions {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -34,7 +37,10 @@ impl<'de> Deserialize<'de> for MenuActions {
         D: Deserializer<'de>,
     {
         let map = IndexMap::<String, MenuAction>::deserialize(deserializer)?;
-        if let Some(key) = map.keys().find(|k| RESERVED_KEYS.contains(&k.as_str())) {
+        if let Some(key) = map
+            .keys()
+            .find(|k| k.is_empty() || RESERVED_KEYS.iter().any(|r| k.eq_ignore_ascii_case(r)))
+        {
             return Err(serde::de::Error::custom(format!(
                 "menu action key {key:?} is reserved"
             )));
@@ -59,6 +65,11 @@ pub struct MenuAction {
     pub alias: Option<String>,
     #[serde(default)]
     pub strategy: MenuStrategy,
+    /// Whether queued executions of this action require a non-empty
+    /// destination: `All` silently skips such a row when its destination is
+    /// empty, an exact selector reports an error.
+    #[serde(default)]
+    pub requires_dest: bool,
     /// Overrides the strategy's default closing behavior: `Some(true)` always
     /// closes the menu after the action is chosen, `Some(false)` keeps it
     /// open, `None` follows the strategy default.
@@ -68,8 +79,8 @@ pub struct MenuAction {
 
 impl MenuAction {
     /// Whether choosing this action closes the menu: `close` overrides the
-    /// strategy default (Execute/ExecuteSilent/ExecPaged exit, Stash/Batch keep
-    /// open).
+    /// strategy default (Execute/ExecuteSilent/ExecPaged exit, Queue/QueueBatch
+    /// keep open).
     pub fn closes(&self) -> bool {
         self.close.unwrap_or(matches!(
             self.strategy,
@@ -91,10 +102,10 @@ pub enum MenuStrategy {
     /// its stdout.
     ExecPaged,
     /// Enqueue all target items into a single queue item and keep the menu open.
-    Stash,
+    Queue,
     /// Enqueue the target items into queue items of at most `n` paths each and
     /// keep the menu open.
-    Batch(usize),
+    QueueBatch(usize),
 }
 
 /// A criterion evaluated against the picker state at menu open.
@@ -233,17 +244,32 @@ mod tests {
     }
 
     #[test]
+    fn selector_names_and_empty_keys_are_rejected() {
+        for key in ["all", "builtins", "first", "last", "none", "", "ALL"] {
+            let actions = toml::from_str::<MenuActions>(&format!(
+                "\
+                [{key}]\n\
+                command = \"print('x')\"\n\
+            "
+            ));
+            assert!(actions.is_err(), "key {key:?} should be reserved");
+        }
+    }
+
+    #[test]
     fn non_reserved_keys_parse() {
         let actions: MenuActions = toml::from_str(
             "\
             [my-action]\n\
             command = \"print('x')\"\n\
-            strategy = \"Stash\"\n\
+            strategy = \"Queue\"\n\
+            requires_dest = true\n\
         ",
         )
         .unwrap();
         assert_eq!(actions.len(), 1);
-        assert_eq!(actions["my-action"].strategy, MenuStrategy::Stash);
+        assert_eq!(actions["my-action"].strategy, MenuStrategy::Queue);
+        assert!(actions["my-action"].requires_dest);
     }
 }
 

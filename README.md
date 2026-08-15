@@ -56,16 +56,15 @@ Call as:
 
 - `ctrl-f`/`ctrl-r`: Find files / Search text.
 - `ctrl-g`: History view (Folders and files).
-- `alt-a`/`alt-shift-a`: App view[^2]
-- `ctrl-z`/`ctrl-y`: Undo / Redo.
+- `alt-a`/`alt-shift-a`: App view[^2]- `ctrl-z`/`ctrl-y`: Undo / Redo.
 
 ---
 
 - `ctrl-x`/`ctrl-c`/`ctrl-v`: Cut, Copy, Paste.
 - `delete/shift-delete`: Trash/Delete.
 - `ctrl-e`: Open menu.
-- `ctrl-t`: Open stash.
-- `ctrl-i` : Open filters.
+- `ctrl-u`: Open queue.
+- `ctrl-p` : Open filters.
 - `ctrl-s`/`alt-h`: Toggle hidden.
 - `ctrl-d`: Toggle contextual visibility.
 
@@ -85,7 +84,7 @@ For a full list of binds, press `ctrl-shift-h` within the app. [^1]
 
 [^1]: For more information on bindings (how they are defined, key testing, and default generic binds), see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
 
-[^2]: You can also replace this bind with the chain: [`CAS(App)`, `ClearStash`, `Push`, `App`], which will open all currently selected items with the selected app.
+[^2]: You can also reach it through the menu's `open with` action, which preloads the app view with the current selection.
 
 # Panes
 
@@ -240,7 +239,7 @@ The apps pane comes prepopulated from the existing applications on your system, 
 
 <img src=".README.assets/image-20260227220033390.png" alt="image-20260227220033390" style="width:360px;" />
 
-It can be used to select a launch method for a given set of files (provided through the command line, or saved to the [stash](#stash)).
+It can be used to select a launch method for a given set of files (provided through the command line, or collected in the app view's pending files).
 
 [^6]: frequency, recency, and similarity to query.
 
@@ -252,7 +251,7 @@ For more information on any of the panes, run `fs [pane] --help` with the approp
 
 # Overlays
 
-### Stash
+### Queue
 
 > [!NOTE]
 >
@@ -260,21 +259,17 @@ For more information on any of the panes, run `fs [pane] --help` with the approp
 
 <img src=".README.assets/image-20260227222022484.png" alt="image-20260227222022484" style="height:400px;" />
 
-The **Stash** (`ctrl-t`) is a place where actions on items are queued. Within the overlay, stashed item item statuses are visible, and they can be edited, rearranged, removed and executed. Items can also be executed through the [`Paste`] or [`StackFlush`](#actions) actions.
+The **Queue** overlay (`ctrl-u`) lists the pending file operations. Rows show their kind, source, destination, and progress, and can be edited, rearranged, removed and executed from the overlay. A transient `[kind: x]` filter (cycled with `Undo`/`Redo`) narrows the overlay to a single queue kind.
 
-`Copy` and `Cut` places items on the Stash under the `Copy` and `Cut` stack action types respectively. The `Paste` action executes all stashed `Copy`, `Cut` and `Symlink` tasks, transferring files to their destinations -- the active directory at the time of *execution* by default.[^7]
+`Copy` and `Cut` enqueue items under the `copy` and `cut` kinds. `Paste` (`ctrl-v`) executes every queued `copy`, `cut` and `symlink` item, transferring files into the active directory at the time of *execution* by default.[^7] `ExecuteQueue(kind)` executes the queued items of one kind (`builtins` selects all the builtin transfer kinds), and `ClearQueue` clears the pending items.
 
-`Push` (`alt-s`) places items on the stack under the **Custom** type. When executed, its effect depends on the currently set [Custom Action Type](#cas).
+Menu actions with the `Queue`/`QueueBatch` strategies enqueue their targets under the action's key; on execution the action's lua script runs once per queued item with `(paths, dst, nav_cwd)`.
 
 [^7]: Although safeguards exist to keep these alive and prevent data loss during normal application execution and shutdown, if reliability is crucial it might be safer to define your own custom actions to perform, manage and monitor these actions externally. Ideas and contributions in this area are welcome!
 
-##### *CAS*
+### Named stashes
 
-All custom-type actions display their action in the stash as the current Custom Action State (CAS), which can be toggled when in the Stash overlay using [`Undo/Redo`](#actions). The default state is `Symlink`.
-
-The CAS can be shared or exclusive. The `App` CAS is exclusive: when in this state, stash actions (such as [`ClearStash`](#actions)) only affect the `App` stash, and only `App` items are shown in the overlay. The symlink action is inclusive: it is shown and executed together with the other (`Copy` and `Cut`) actions.
-
-Custom stack types can be declared in the `[stash]` section of the config, and executed through the same channels as the built-in actions -- the overlay, the [Menu](#menu), or through the [`FlushStash`](#actions) action.
+`PushStash(name)` adds the selection (or the current directory while the cursor is disabled) to a named stash, and `OpenStash(name)` switches to its pane. Stash panes are database-backed collections of paths and are separate from the operation queue; `Trash`/`Delete` inside a stash pane removes entries from the stash.
 
 ### Filters
 

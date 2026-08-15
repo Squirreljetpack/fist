@@ -16,10 +16,10 @@ use crate::{
     aliases::MMState,
     run::{
         FsAction, FsPane,
-        queue::QUEUE,
+        queue::{QueueSelector, QUEUE, SelectorResult},
         selection,
         state::{
-            FILTERS, GLOBAL, HideMetadata, InPrompt, STACK, STORE, TOAST, sort,
+            FILTERS, GLOBAL, HideMetadata, InPrompt, STACK, STORE, TOAST, ToastStyle, sort,
             ui::{global_ui, prompt_main_style},
         },
     },
@@ -38,7 +38,14 @@ pub fn paste_handler(
             || STORE::contains::<InPrompt>()
             || state.overlay_index().is_some())
     {
-        QUEUE::execute_all_impl(c, false, None);
+        match QUEUE::select(&QueueSelector::Builtins, Some(&c)) {
+            SelectorResult::Ready(indices) => QUEUE::dispatch(indices, Some(c)),
+            SelectorResult::MissingDestination => TOAST::notice(
+                ToastStyle::Error,
+                "Missing destination for the queued items.",
+            ),
+            SelectorResult::NoItems => TOAST::msg("No items queued.", true),
+        }
         String::new()
     } else {
         content
@@ -396,7 +403,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_,>) {
     // pane, pane switch with apply_default_sort, undo/redo) hides the
     // metadata column until the user explicitly re-sorts (ReSort takes it)
     if STACK::with_current(|pane| {
-        GLOBAL::with_cfg(|c| c.panes.default_sort(pane).is_some_and(|d| pane.sort() == d))
+        GLOBAL::with_cfg(|c| c.panes.default_sort(pane).is_some_and(|d| pane.sort_order() == d))
     }) {
         STORE::set(HideMetadata);
     }

@@ -6,7 +6,9 @@ use crate::{
     abspath::AbsPath,
     lessfilter::file_rule::FileData,
     run::{
+        FsPane,
         action::FsAction,
+        ahandlers::fs_reload,
         item::{PathItem, short_display},
         queue::QUEUE,
         state::{
@@ -39,7 +41,7 @@ use matchmaker::{
 };
 use ratatui::{
     prelude::*,
-    widgets::{Borders, Clear, Padding},
+    widgets::{Borders, Clear, Padding, Paragraph},
 };
 
 const MAX_ITEM_WIDTH: u16 = 9;
@@ -166,12 +168,12 @@ impl MenuItem {
             }
             MenuItem::Cut => {
                 TOAST::push(ToastStyle::Normal, "Cut: ", [short_display(&path)]);
-                QUEUE::extend("cut", vec![path]);
+                QUEUE::enqueue("cut".into(), vec![path]);
                 Err(false)
             }
             MenuItem::Copy => {
                 TOAST::push(ToastStyle::Normal, "Copied: ", [short_display(&path)]);
-                QUEUE::extend("copy", vec![path]);
+                QUEUE::enqueue("copy".into(), vec![path]);
                 Err(false)
             }
             MenuItem::Trash => {
@@ -193,6 +195,7 @@ impl MenuItem {
                 Err(false)
             }
             MenuItem::Open => {
+                TOAST::push(ToastStyle::Normal, "Opened: ", [short_display(&path)]);
                 let path_clone = path;
                 let pool = GLOBAL::db();
                 tokio::spawn(async move {
@@ -203,9 +206,7 @@ impl MenuItem {
                 Err(false)
             }
             MenuItem::OpenWith => {
-                QUEUE::stash("app", path);
-                GLOBAL::send_action(FsAction::App);
-                Err(false)
+                unreachable!("OpenWith is handled in MenuOverlay::execute")
             }
             MenuItem::Custom { action, .. } => {
                 unreachable!("custom items are routed through MenuOverlay::run_custom")
@@ -422,6 +423,34 @@ impl MenuOverlay {
             return self.run_custom(&key, state);
         }
 
+        // OpenWith creates the app pane right there: the selected items
+        // (or the cursor item when nothing is selected) preload it, then
+        // the pane reloads — the same bookkeeping as FsAction::App, but
+        // done inline since the selection is only known here.
+        if matches!(item, MenuItem::OpenWith) {
+            let selected: Vec<AbsPath> =
+                state.map_selections_to_vec(|_, item| item.path.clone());
+            let files = if selected.is_empty() {
+                vec![self.target_path(state)]
+            } else {
+                selected
+            };
+
+            TOAST::push(
+                ToastStyle::Normal,
+                "Opening: ",
+                files.iter().map(|p| short_display(p)),
+            );
+
+            // save input, then switch to the app pane and reload
+            let (content, index) = state.get_content_and_index();
+            STACK::save_input(content, index);
+            STACK::push(FsPane::new_apps(files));
+            fs_reload(state, true, false);
+            return OverlayEffect::Disable;
+        }
+
+
         let path = self.target_path(state);
         match item.action(path) {
             Ok(prompt) => {
@@ -531,15 +560,15 @@ impl MenuOverlay {
         let displays: Vec<Span<'static>> = targets.iter().map(|p| short_display(p)).collect();
 
         match action.strategy {
-            MenuStrategy::Stash => {
-                QUEUE::enqueue(key, targets);
+            MenuStrategy::Queue => {
+                QUEUE::enqueue(key.to_string(), targets);
                 TOAST::push(ToastStyle::Normal, "Queued: ", displays);
             }
-            MenuStrategy::Batch(n) => {
+            MenuStrategy::QueueBatch(n) => {
                 // a zero batch size parses but chunks of size 0 are invalid
                 let n = n.max(1);
                 for chunk in targets.chunks(n) {
-                    QUEUE::enqueue(key, chunk.to_vec());
+                    QUEUE::enqueue(key.to_string(), chunk.to_vec());
                 }
                 TOAST::push(ToastStyle::Normal, "Queued: ", displays);
             }
@@ -713,8 +742,13 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
                 },
                 SizeHint {
                     adaptive_percentage: &[],
-                    // 8 item rows, the query line, a blank spacer and the border
-                    min: 9 + self.query.height() + self.border().height(),
+                    // 8 item rows, the query line, a blank spacer and the border;
+                    // with no actions the overlay shrinks to the message and border
+                    min: if self.menu_items.is_empty() {
+                        2 + self.border().height()
+                    } else {
+                        9 + self.query.height() + self.border().height()
+                    },
                     max: 0,
                 },
             ],
@@ -723,6 +757,12 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
         );
 
         let inner = self.border().inner_of(self.area);
+
+        // compact empty state: nothing to lay out, the message fills the box
+        if self.menu_items.is_empty() {
+            return;
+        }
+
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -771,6 +811,17 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
         frame.render_widget(self.border().as_block(), self.area);
 
         let inner = self.border().inner_of(self.area);
+
+        // no actions available (e.g. the app pane lists custom actions
+        // only, and none matched): a compact box with the message only
+        if self.menu_items.is_empty() {
+            frame.render_widget(
+                Paragraph::new(Text::from("No available\nactions")).alignment(Alignment::Center),
+                inner,
+            );
+            return;
+        }
+
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([

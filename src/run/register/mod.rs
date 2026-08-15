@@ -150,9 +150,11 @@ impl FsMatchmaker {
                     return;
                 };
                 if mode == ExecutionMode::LuaCommandPaged {
-                    run_menu_lua_paged(&lua_cmd, &paths);
+                    let nav_cwd = STACK::nav_cwd();
+                    run_menu_lua_paged(&lua_cmd, &paths, nav_cwd.as_ref());
                 } else {
-                    run_menu_lua(&lua_cmd, &paths);
+                    let nav_cwd = STACK::nav_cwd();
+                    run_menu_lua(&lua_cmd, &paths, nav_cwd.as_ref());
                 }
                 return;
             }
@@ -199,7 +201,8 @@ impl FsMatchmaker {
                     warn!("Menu action executed without targeted paths");
                     return;
                 };
-                TASKS::spawn_blocking(move || run_menu_lua(&lua_cmd, &paths));
+                let nav_cwd = STACK::nav_cwd();
+                TASKS::spawn_blocking(move || run_menu_lua(&lua_cmd, &paths, nav_cwd.as_ref()));
                 return;
             }
             let Some(path) = resolve_target(state) else {

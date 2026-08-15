@@ -1,6 +1,6 @@
 use std::process::{Command, Stdio};
 
-use cba::broc::{CommandExt, EnvVars, tty_or_inherit};
+use cba::broc::{tty_or_inherit, CommandExt, EnvVars};
 use log::{info, warn};
 
 use crate::{
@@ -78,12 +78,14 @@ pub(super) fn menu_lua_command(
 }
 
 /// Run a menu action's lua command with the `(paths, dst)` contract: the
-/// targeted paths table and an empty destination. `set_progress` has no target
+/// targeted paths table and an empty destination. The navigation directory
+/// is passed as the third argument when present. `set_progress` has no target
 /// here and is a silent no-op. The command runs in the process cwd — scripts
 /// are responsible for `cd`.
 pub(super) fn run_menu_lua(
     command: &str,
     paths: &[AbsPath],
+    nav_cwd: Option<&AbsPath>,
 ) {
     let f = match compile_lua(command) {
         Ok(f) => f,
@@ -92,7 +94,7 @@ pub(super) fn run_menu_lua(
             return;
         }
     };
-    if let Err(e) = call_with_paths(&f, paths, "", None) {
+    if let Err(e) = call_with_paths(&f, paths, "", nav_cwd, None) {
         log::error!("Menu action lua error: {e}");
     }
 }
@@ -104,6 +106,7 @@ pub(super) fn run_menu_lua(
 pub(super) fn run_menu_lua_paged(
     command: &str,
     paths: &[AbsPath],
+    nav_cwd: Option<&AbsPath>,
 ) {
     let f = match compile_lua(command) {
         Ok(f) => f,
@@ -133,7 +136,7 @@ pub(super) fn run_menu_lua_paged(
                 "Failed to spawn pager: {:?}; running unpaged",
                 text_renderer_path()
             );
-            if let Err(e) = call_with_paths(&f, paths, "", None) {
+            if let Err(e) = call_with_paths(&f, paths, "", nav_cwd, None) {
                 log::error!("Menu action lua error: {e}");
             }
             return;
@@ -143,7 +146,7 @@ pub(super) fn run_menu_lua_paged(
     #[cfg(unix)]
     {
         let Some(pipe) = pager.stdin.take() else {
-            run_menu_lua(command, paths);
+            run_menu_lua(command, paths, nav_cwd);
             return;
         };
         let redirect = match stdout_redirect::StdoutRedirect::to(&pipe) {
@@ -152,14 +155,14 @@ pub(super) fn run_menu_lua_paged(
                 warn!("Failed to redirect stdout to pager: {e}; running unpaged");
                 drop(pipe);
                 let _ = pager.wait();
-                if let Err(e) = call_with_paths(&f, paths, "", None) {
+                if let Err(e) = call_with_paths(&f, paths, "", nav_cwd, None) {
                     log::error!("Menu action lua error: {e}");
                 }
                 return;
             }
         };
 
-        let result = call_with_paths(&f, paths, "", None);
+        let result = call_with_paths(&f, paths, "", nav_cwd, None);
         if let Err(e) = result {
             log::error!("Menu action lua error: {e}");
         }
@@ -313,7 +316,7 @@ pub(super) fn wait_exec(
 /// Resolve the execution target: the cwd when the cursor is disabled,
 /// otherwise the current item. Honors [`ExecuteHandlerShouldProcessParent`]
 /// and returns `None` instead of panicking when there is no target or parent.
-pub(super) fn resolve_target(state: &MMState<'_,>) -> Option<AbsPath> {
+pub(super) fn resolve_target(state: &MMState<'_>) -> Option<AbsPath> {
     if state.picker_ui.results.cursor_disabled() {
         STACK::cwd()
     } else {
@@ -330,7 +333,7 @@ pub(super) fn resolve_target(state: &MMState<'_,>) -> Option<AbsPath> {
 /// preview command plus rg highlight/scroll positions when in an rg pane.
 /// Capture before spawning any task.
 pub(super) fn collect_exec_env(
-    state: &MMState<'_,>,
+    state: &MMState<'_>,
     path: &AbsPath,
 ) -> EnvVars {
     let mut vars = state.make_env_vars();

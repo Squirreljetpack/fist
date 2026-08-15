@@ -8,8 +8,8 @@ use matchmaker::SSS;
 use crate::{
     abspath::AbsPath,
     run::{
+        state::{InitialNoRelative, FILTERS, GLOBAL, STORE},
         FsInjector, FsPane,
-        state::{FILTERS, GLOBAL, InitialNoRelative, STORE, sort},
     },
     watcher::WatcherMessage,
 };
@@ -135,7 +135,7 @@ impl STACK {
             // otherwise, create a new pane: folders unless we are already in it.
             let ret = !matches!(stack[*index], FsPane::Folders { .. } | FsPane::Files { .. });
             let folders = !matches!(stack[*index], FsPane::Folders { .. });
-            let pane = FsPane::new_history(folders, sort::get_sort().order);
+            let pane = FsPane::new_history(folders);
 
             //push
             stack.truncate(*index + 1);
@@ -170,7 +170,6 @@ impl STACK {
                 FsPane::Files { .. }
                     | FsPane::Folders { .. }
                     | FsPane::Apps { .. }
-                    | FsPane::Stash { .. }
                     | FsPane::Search { .. }
             )
         })

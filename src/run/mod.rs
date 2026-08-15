@@ -1,4 +1,4 @@
-mod ahandlers;
+pub mod ahandlers;
 mod binds;
 mod previewer;
 mod register;

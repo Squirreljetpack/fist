@@ -414,10 +414,7 @@ impl FsPane {
                     Ok(())
                 })
             }
-            Self::Stash {
-                stash_name, sort, ..
-            } => {
-                let sort = *sort;
+            Self::Stash { stash_name, .. } => {
                 let stash_name = stash_name.clone();
                 let filter_missing = cfg.panes.stash.filter_missing;
                 let prune = cfg.panes.stash.prune;
@@ -425,7 +422,7 @@ impl FsPane {
 
                 tokio::spawn(async move {
                     let mut conn = pool.get_conn(DbTable::stashes).await.elog()?;
-                    let entries = conn.get_stash_entries(&stash_name, sort).await.elog()?;
+                    let entries = conn.get_stash_entries(&stash_name).await.elog()?;
                     if entries.is_empty() && toast_on_empty {
                         TOAST::toast_empty();
                     }
@@ -445,6 +442,7 @@ impl FsPane {
                         }
                         let mut item = PathItem::new_unchecked(e.stash.into());
                         item.tail = Ok([e.tail, String::new()]);
+                        sort::store_sort_value(&item, sort::get_sort().order);
                         injector.push(item)?;
                     }
 

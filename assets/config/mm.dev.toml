@@ -95,7 +95,10 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 "ctrl-shift-r" = "Rename"
 
 ### Stash
-"alt-s" = "Push"
+# add the selection to the unnamed stash:
+# "alt-s" = "PushStash"
+# switch to the unnamed stash pane:
+# "alt-a" = "OpenStash"
 
 ### Preview / Execute
 ### (DEFAULTS) ####
