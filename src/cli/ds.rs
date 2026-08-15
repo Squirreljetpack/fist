@@ -1,11 +1,11 @@
 //! `fs :tool ds` — disk usage: compute directory sizes concurrently and
 //! print them.
 //!
-//! With a single INPUT, a tree of that input is printed (depth-limited,
-//! files optionally shown, small entries hidden by `-m`). With multiple
+//! With a single INPUT, a tree of that input is printed. With multiple
 //! INPUTs, a skeleton is printed instead: a single tree rooted at the
-//! inputs' common ancestor, with one branch per input. Sizes are shown
-//! for the requested inputs; intermediate skeleton nodes are printed
+//! inputs' common ancestor, with one branch per input. Every input
+//! branch is realized as a full tree, with `-d`, `-F`, and `-m` applied
+//! to each realized tree; intermediate skeleton nodes are printed
 //! without a size.
 
 use std::{
@@ -34,7 +34,7 @@ pub struct DsArgs {
     #[arg(short, long, value_name = "PATH")]
     pub output: Vec<PathBuf>,
 
-    /// Maximum tree depth (single-input tree only).
+    /// Maximum tree depth.
     #[arg(
         short,
         long,
@@ -44,12 +44,11 @@ pub struct DsArgs {
     )]
     pub depth: usize,
 
-    /// Hide files in tree output (single-input tree only).
+    /// Hide files in tree output.
     #[arg(short = 'F', long = "hide-files")]
     pub hide_files: bool,
 
-    /// Minimum percentage of parent dir size for an entry to be shown
-    /// (single-input tree only).
+    /// Minimum percentage of parent dir size for an entry to be shown.
     #[arg(
         short,
         long,
@@ -130,8 +129,17 @@ fn run(args: DsArgs) -> Result<(), CliError> {
         }
     } else if inputs.len() > 1 {
         // Skeleton mode: one tree linking the inputs from their common
-        // ancestor instead of one tree per input.
-        print_skeleton(&build_skeleton(&inputs, &cache), decimal);
+        // ancestor, with each input branch realized as a full tree.
+        print_skeleton(
+            &build_skeleton(
+                &inputs,
+                &cache,
+                args.depth,
+                !args.hide_files,
+                args.min_percent,
+            ),
+            decimal,
+        );
     } else {
         // Tree mode. `build_tree` consumes `cache.iter()` and does all
         // file I/O for the `-F`-not-set case here, lazily as it walks.
@@ -265,20 +273,31 @@ fn build_node(
         }
 
         // Files come from the filesystem, lazily and only at print
-        // time. They're not stored in the cache.
+        // time. They're not stored in the cache. Entries that already
+        // appear as cache children (explicitly `add()`ed files, which
+        // carry their size in the cache) are skipped so a file input
+        // isn't listed twice in its parent's branch.
         if show_files && let Ok(entries) = std::fs::read_dir(path) {
-            for entry in entries.filter_map(Result::ok) {
-                let entry_path = entry.path();
-                if let Ok(meta) = std::fs::symlink_metadata(&entry_path)
-                    && !meta.is_dir()
-                {
+            let files: Vec<(String, u64)> = entries
+                .filter_map(Result::ok)
+                .filter_map(|entry| {
+                    let entry_path = entry.path();
+                    let meta = std::fs::symlink_metadata(&entry_path).ok()?;
+                    if meta.is_dir() {
+                        return None;
+                    }
                     let file_name = entry_path
                         .file_name()
                         .map(|n| n.to_string_lossy().into_owned())
                         .unwrap_or_else(|| entry_path.to_string_lossy().into_owned());
+                    Some((file_name, meta.len()))
+                })
+                .collect();
+            for (file_name, size) in files {
+                if !children.iter().any(|c| c.name == file_name) {
                     children.push(TreeNode {
                         name: file_name,
-                        size: meta.len(),
+                        size,
                         children: Vec::new(),
                     });
                 }
@@ -352,10 +371,11 @@ fn print_subtree(
     }
 }
 
-/// A node in the multi-input skeleton tree. Inputs carry their computed
-/// size; intermediate nodes (path components between the common ancestor
-/// and the inputs) are printed without a size.
-#[derive(Debug)]
+/// A node in the multi-input skeleton tree. Inputs and realized nodes
+/// carry their computed size; intermediate nodes (path components
+/// between the common ancestor and the inputs) are printed without a
+/// size.
+#[derive(Debug, PartialEq)]
 struct SkeletonNode {
     name: String,
     size: Option<u64>,
@@ -363,12 +383,16 @@ struct SkeletonNode {
 }
 
 /// Builds a single tree linking every input to the common ancestor of
-/// all inputs. Each input becomes a leaf (or, when an input is the
-/// ancestor itself, the root) labeled with its computed size; the path
-/// components in between become bare intermediate nodes.
+/// all inputs. The path components in between become bare intermediate
+/// nodes; each input branch is realized as a full tree beneath its
+/// leaf, honoring `max_depth`, `show_files`, and `min_percent` exactly
+/// as in single-input tree mode.
 fn build_skeleton(
     inputs: &[PathBuf],
     cache: &DirSizeCache,
+    max_depth: usize,
+    show_files: bool,
+    min_percent: f64,
 ) -> SkeletonNode {
     // Absolute, lexically normalized forms keep component comparison
     // meaningful even when the inputs mix relative and absolute paths
@@ -402,15 +426,34 @@ fn build_skeleton(
             .skip(ancestor.components().count())
             .map(|c| c.as_os_str().to_os_string())
             .collect();
-        if chain.is_empty() {
-            // input == ancestor; the root already carries its size.
-            continue;
-        }
-        insert_chain(&mut root, &chain, cache.get_path(input));
+
+        // Realize the input's own subtree exactly as single-input tree
+        // mode would, then hang it beneath the input's skeleton leaf.
+        let realized = build_tree(std::slice::from_ref(input), cache, max_depth, show_files, min_percent);
+        let realized_children = realized
+            .first()
+            .map(|root| tree_to_skeleton(&root.children))
+            .unwrap_or_default();
+
+        insert_chain(&mut root, &chain, cache.get_path(input), realized_children);
     }
 
     sort_skeleton(&mut root);
     root
+}
+
+/// Converts a realized (sized) tree into skeleton nodes so it can be
+/// hung beneath the skeleton spine. Every realized node has a concrete
+/// size, so all converted nodes carry `Some`.
+fn tree_to_skeleton(nodes: &[TreeNode]) -> Vec<SkeletonNode> {
+    nodes
+        .iter()
+        .map(|n| SkeletonNode {
+            name: n.name.clone(),
+            size: Some(n.size),
+            children: tree_to_skeleton(&n.children),
+        })
+        .collect()
 }
 
 /// Absolute, lexically normalized form of `path` (`CurDir` components
@@ -457,28 +500,48 @@ fn common_ancestor(abs_paths: &[PathBuf]) -> PathBuf {
 }
 
 /// Inserts a path chain (input components relative to the skeleton root)
-/// into the skeleton tree; the final node receives the input's size.
+/// into the skeleton tree; the final node receives the input's size and
+/// its realized subtree.
 fn insert_chain(
     node: &mut SkeletonNode,
     chain: &[OsString],
     size: Option<u64>,
+    realized_children: Vec<SkeletonNode>,
 ) {
     if chain.is_empty() {
         node.size = size;
+        merge_children(&mut node.children, realized_children);
         return;
     }
 
     let name = chain[0].to_string_lossy().into_owned();
     if let Some(existing) = node.children.iter_mut().find(|c| c.name == name) {
-        insert_chain(existing, &chain[1..], size);
+        insert_chain(existing, &chain[1..], size, realized_children);
     } else {
         let mut child = SkeletonNode {
             name,
             size: None,
             children: Vec::new(),
         };
-        insert_chain(&mut child, &chain[1..], size);
+        insert_chain(&mut child, &chain[1..], size, realized_children);
         node.children.push(child);
+    }
+}
+
+/// Merges `additions` into `children` by name, recursing into matching
+/// nodes. An input whose path descends from another input realizes its
+/// subtree onto a node the outer input's realization already produced;
+/// merging keeps such overlapping branches from duplicating.
+fn merge_children(
+    children: &mut Vec<SkeletonNode>,
+    additions: Vec<SkeletonNode>,
+) {
+    for addition in additions {
+        if let Some(existing) = children.iter_mut().find(|c| c.name == addition.name) {
+            merge_children(&mut existing.children, addition.children);
+        } else {
+            children.push(addition);
+        }
     }
 }
 
@@ -691,7 +754,7 @@ mod tests {
         cache.add(&b);
         cache.wait();
 
-        let skeleton = build_skeleton(&[a.clone(), b.clone()], &cache);
+        let skeleton = build_skeleton(&[a.clone(), b.clone()], &cache, 0, true, 0.0);
 
         assert_eq!(skeleton.name, root.file_name().unwrap().to_str().unwrap());
         assert_eq!(skeleton.size, None);
@@ -700,13 +763,20 @@ mod tests {
         assert_eq!(skeleton.children.len(), 2);
         assert_eq!(skeleton.children[0].name, "a");
         assert_eq!(skeleton.children[0].size, Some(100));
-        assert!(skeleton.children[0].children.is_empty());
+        // Realized: a's file.txt hangs beneath the input leaf.
+        assert_eq!(skeleton.children[0].children.len(), 1);
+        assert_eq!(skeleton.children[0].children[0].name, "file.txt");
+        assert_eq!(skeleton.children[0].children[0].size, Some(100));
 
         assert_eq!(skeleton.children[1].name, "x");
         assert_eq!(skeleton.children[1].size, None);
         assert_eq!(skeleton.children[1].children.len(), 1);
         assert_eq!(skeleton.children[1].children[0].name, "b");
         assert_eq!(skeleton.children[1].children[0].size, Some(30));
+        // b is realized too: its file.txt is a leaf beneath it.
+        assert_eq!(skeleton.children[1].children[0].children.len(), 1);
+        assert_eq!(skeleton.children[1].children[0].children[0].name, "file.txt");
+        assert_eq!(skeleton.children[1].children[0].children[0].size, Some(30));
     }
 
     #[test]
@@ -726,12 +796,15 @@ mod tests {
         cache.add(&a);
         cache.wait();
 
-        let skeleton = build_skeleton(&[root.to_path_buf(), a.clone()], &cache);
+        let skeleton = build_skeleton(&[root.to_path_buf(), a.clone()], &cache, 0, true, 0.0);
 
         assert_eq!(skeleton.size, Some(10));
         assert_eq!(skeleton.children.len(), 1);
         assert_eq!(skeleton.children[0].name, "a");
         assert_eq!(skeleton.children[0].size, Some(10));
+        // The root input is realized: a's file.txt hangs beneath it.
+        assert_eq!(skeleton.children[0].children.len(), 1);
+        assert_eq!(skeleton.children[0].children[0].name, "file.txt");
     }
 
     #[test]
@@ -757,7 +830,7 @@ mod tests {
         cache.add(&fb);
         cache.wait();
 
-        let skeleton = build_skeleton(&[fa.clone(), fb.clone()], &cache);
+        let skeleton = build_skeleton(&[fa.clone(), fb.clone()], &cache, 0, true, 0.0);
 
         assert_eq!(skeleton.children.len(), 2);
         // f2 (20) sorts before f1 (10).
@@ -767,5 +840,204 @@ mod tests {
         assert_eq!(skeleton.children[1].name, "a");
         assert_eq!(skeleton.children[1].children[0].name, "f1.txt");
         assert_eq!(skeleton.children[1].children[0].size, Some(10));
+    }
+
+    #[test]
+    fn test_skeleton_realized_branch_matches_single_input_tree() {
+        // The realized branch for an input must be identical to the
+        // single-input tree for that input under the same flags.
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root = temp_dir.path();
+        let a = root.join("a");
+        fs::create_dir(&a).unwrap();
+        setup_test_dir(&a);
+        let b = root.join("b");
+        fs::create_dir(&b).unwrap();
+
+        let cache = DirSizeCache::new();
+        cache.add(&a);
+        cache.add(&b);
+        cache.wait();
+
+        let single = build_tree(&[a.clone()], &cache, 2, true, 0.0);
+        let skeleton = build_skeleton(&[a.clone(), b.clone()], &cache, 2, true, 0.0);
+
+        let branch = skeleton.children.iter().find(|c| c.name == "a").unwrap();
+        assert_eq!(branch.size, Some(single[0].size));
+        assert_eq!(branch.children, tree_to_skeleton(&single[0].children));
+    }
+
+    #[test]
+    fn test_skeleton_realization_respects_depth() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root = temp_dir.path();
+        let a = root.join("a");
+        fs::create_dir(&a).unwrap();
+        setup_test_dir(&a);
+        let b = root.join("b");
+        fs::create_dir(&b).unwrap();
+
+        let cache = DirSizeCache::new();
+        cache.add(&a);
+        cache.add(&b);
+        cache.wait();
+
+        let skeleton = build_skeleton(&[a.clone(), b.clone()], &cache, 1, true, 0.0);
+
+        let branch = skeleton.children.iter().find(|c| c.name == "a").unwrap();
+        // depth=1: a's own children only; sub is terminal (no file3).
+        assert_eq!(branch.children.len(), 3);
+        let sub = branch.children.iter().find(|c| c.name == "sub").unwrap();
+        assert!(sub.children.is_empty());
+    }
+
+    #[test]
+    fn test_skeleton_realization_hides_files() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root = temp_dir.path();
+        let a = root.join("a");
+        fs::create_dir(&a).unwrap();
+        setup_test_dir(&a);
+        let b = root.join("b");
+        fs::create_dir(&b).unwrap();
+
+        let cache = DirSizeCache::new();
+        cache.add(&a);
+        cache.add(&b);
+        cache.wait();
+
+        let skeleton = build_skeleton(&[a.clone(), b.clone()], &cache, 0, false, 0.0);
+
+        let branch = skeleton.children.iter().find(|c| c.name == "a").unwrap();
+        // Only `sub` - no file leaves in the realized branch.
+        assert_eq!(branch.children.len(), 1);
+        assert_eq!(branch.children[0].name, "sub");
+        assert!(branch.children[0].children.is_empty());
+    }
+
+    #[test]
+    fn test_skeleton_min_percent_filters_realized_branches() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root = temp_dir.path();
+        let a = root.join("a");
+        fs::create_dir(&a).unwrap();
+        let mut big = File::create(a.join("big.txt")).unwrap();
+        big.write_all(&[0; 1000]).unwrap();
+        let mut small = File::create(a.join("small.txt")).unwrap();
+        small.write_all(&[0; 10]).unwrap();
+        let b = root.join("b");
+        fs::create_dir(&b).unwrap();
+
+        let cache = DirSizeCache::new();
+        cache.add(&a);
+        cache.add(&b);
+        cache.wait();
+
+        // min_percent=50: small.txt (10 of 1010) is dropped from a's branch.
+        let skeleton = build_skeleton(&[a.clone(), b.clone()], &cache, 0, true, 50.0);
+
+        let branch = skeleton.children.iter().find(|c| c.name == "a").unwrap();
+        assert_eq!(branch.children.len(), 1);
+        assert_eq!(branch.children[0].name, "big.txt");
+        assert_eq!(branch.children[0].size, Some(1000));
+    }
+
+    #[test]
+    fn test_skeleton_nested_inputs_merge_without_duplicates() {
+        // Inputs root/a and root/a/b: `b` is both a realized child of
+        // `a` and an input of its own; its branch must appear once with
+        // merged children.
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root = temp_dir.path();
+        let a = root.join("a");
+        fs::create_dir(&a).unwrap();
+        let mut big = File::create(a.join("big.txt")).unwrap();
+        big.write_all(&[0; 100]).unwrap();
+        let b = a.join("b");
+        fs::create_dir(&b).unwrap();
+        let mut small = File::create(b.join("small.txt")).unwrap();
+        small.write_all(&[0; 30]).unwrap();
+
+        let cache = DirSizeCache::new();
+        cache.add(&a);
+        cache.add(&b);
+        cache.wait();
+
+        let skeleton = build_skeleton(&[a.clone(), b.clone()], &cache, 0, true, 0.0);
+
+        // The common ancestor of root/a and root/a/b is root/a itself,
+        // so the skeleton root carries a's size and its realized
+        // children: big.txt and the merged `b` branch -> [small.txt].
+        assert_eq!(skeleton.name, "a");
+        assert_eq!(skeleton.size, Some(130));
+        assert_eq!(skeleton.children.len(), 2);
+        assert_eq!(skeleton.children[0].name, "big.txt");
+        assert_eq!(skeleton.children[0].size, Some(100));
+        let b_node = skeleton.children.iter().find(|c| c.name == "b").unwrap();
+        assert_eq!(b_node.size, Some(30));
+        assert_eq!(b_node.children.len(), 1);
+        assert_eq!(b_node.children[0].name, "small.txt");
+        assert_eq!(b_node.children[0].size, Some(30));
+    }
+
+    /// Helper: root/dir/file.txt (42 bytes) plus root/dir/sub, with
+    /// `dir` and `file.txt` both used as inputs.
+    fn setup_file_input_in_dir(root: &Path) -> (PathBuf, PathBuf, DirSizeCache) {
+        let dir = root.join("dir");
+        fs::create_dir(&dir).unwrap();
+        let f = dir.join("file.txt");
+        let mut file = File::create(&f).unwrap();
+        file.write_all(&[0; 42]).unwrap();
+        fs::create_dir(dir.join("sub")).unwrap();
+
+        let cache = DirSizeCache::new();
+        cache.add(&dir);
+        cache.add(&f);
+        cache.wait();
+        (dir, f, cache)
+    }
+
+    #[test]
+    fn test_file_input_inside_dir_input_appears_once() {
+        // `file.txt` is both a cache child of `dir` and a file on
+        // disk; the tree must list it once, not twice.
+        let temp_dir = tempfile::tempdir().unwrap();
+        let (dir, f, cache) = setup_file_input_in_dir(temp_dir.path());
+
+        let tree = build_tree(&[dir.clone(), f], &cache, 0, true, 0.0);
+        assert_eq!(tree.len(), 2);
+
+        let dir_node = tree.iter().find(|n| n.name == "dir").unwrap();
+        assert_eq!(dir_node.children.len(), 2);
+        let file_children: Vec<_> = dir_node
+            .children
+            .iter()
+            .filter(|c| c.name == "file.txt")
+            .collect();
+        assert_eq!(file_children.len(), 1);
+        assert_eq!(file_children[0].size, 42);
+    }
+
+    #[test]
+    fn test_skeleton_file_input_inside_dir_input_appears_once() {
+        // Same setup through the skeleton: `file.txt`'s chain
+        // (dir/file.txt) merges into `dir`'s realized branch, which
+        // already carries the cache child — it must not duplicate.
+        let temp_dir = tempfile::tempdir().unwrap();
+        let (dir, f, cache) = setup_file_input_in_dir(temp_dir.path());
+
+        let skeleton = build_skeleton(&[dir.clone(), f], &cache, 0, true, 0.0);
+
+        // The common ancestor of dir and dir/file.txt is dir itself, so
+        // the skeleton root carries dir's size; `file.txt`'s chain
+        // merges into its realized branch, which already carries the
+        // cache child — it must not duplicate.
+        assert_eq!(skeleton.name, "dir");
+        assert_eq!(skeleton.size, Some(42));
+        assert_eq!(skeleton.children.len(), 2);
+        assert_eq!(skeleton.children[0].name, "file.txt");
+        assert_eq!(skeleton.children[0].size, Some(42));
+        assert_eq!(skeleton.children[1].name, "sub");
+        assert_eq!(skeleton.children[0].children.len(), 0);
     }
 }
