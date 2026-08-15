@@ -9,9 +9,9 @@ use fist_types::{categories::FileCategory, filetypes::FileType};
 use crate::{
     abspath::AbsPath,
     lessfilter::{
-        mime_helpers::{detect_encoding, is_native, Myme},
-        rule_matcher::{DefaultScore, Score, Test},
         Categories, LessfilterSettings, MimeString,
+        mime_helpers::{Myme, detect_encoding, is_native},
+        rule_matcher::{DefaultScore, Score, Test},
     },
 };
 
@@ -244,11 +244,7 @@ impl Test<Path> for FileRule {
             log::trace!("{self:?} passed")
         }
 
-        if self.invert {
-            !ok
-        } else {
-            ok
-        }
+        if self.invert { !ok } else { ok }
     }
 }
 

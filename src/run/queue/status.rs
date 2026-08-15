@@ -1,8 +1,8 @@
 use std::{
     path::Path,
     sync::{
-        atomic::{AtomicU64, AtomicU8, Ordering},
         Arc,
+        atomic::{AtomicU8, AtomicU64, Ordering},
     },
 };
 

@@ -53,6 +53,7 @@ pub enum Preset {
     // For [`crate::run::FsAction::Advance`]
     Edit,
     #[clap(skip)]
+    #[strum(disabled)]
     /// Default preset for configuration only
     Default,
 }

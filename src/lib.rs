@@ -11,6 +11,7 @@ pub mod lessfilter;
 pub mod run;
 pub mod spawn;
 pub mod ui;
+pub mod unzip;
 pub mod utils;
 pub mod watcher;
 

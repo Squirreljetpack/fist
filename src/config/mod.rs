@@ -10,17 +10,17 @@ use cba::{
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
+    cli::{CliOpts, paths::*},
+    lessfilter::Preset,
+    spawn::menu_action::MenuActions,
+};
+use crate::{
     cli::{
         clap_helpers::ClapStyleOverride,
         paths::{liza_path, text_renderer_path},
     },
     db::zoxide::HistoryConfig,
     watcher::WatcherConfig,
-};
-use crate::{
-    cli::{paths::*, CliOpts},
-    lessfilter::Preset,
-    spawn::menu_action::MenuActions,
 };
 use fist_types::When;
 

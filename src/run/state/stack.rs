@@ -8,8 +8,8 @@ use matchmaker::SSS;
 use crate::{
     abspath::AbsPath,
     run::{
-        state::{sort, InitialNoRelative, FILTERS, GLOBAL, STORE},
         FsInjector, FsPane,
+        state::{FILTERS, GLOBAL, InitialNoRelative, STORE, sort},
     },
     watcher::WatcherMessage,
 };
@@ -161,7 +161,6 @@ impl STACK {
             f(&stack[*index])
         })
     }
-
 
     /// Whether changing the current pane's sort requires repopulating it.
     pub fn reloads_by_sorting() -> bool {

@@ -35,6 +35,7 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 
 [binds]
 "ctrl-m" = "Execute(echo hi | pg)"
+"ctrl-q" = "ExecPaged(echo hi)"
 
 ### MM
 "shift-right" = "ForwardChar"

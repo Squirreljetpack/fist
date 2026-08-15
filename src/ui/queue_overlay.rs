@@ -6,10 +6,10 @@ use crate::{
         action::FsAction,
         item::PathItem,
         queue::{QUEUE, QUEUE_STATE, QueueItem, QueueItemState, QueueItemStatus, QueueView},
-        state::TOAST,
+        state::{GLOBAL, TOAST, ToastStyle},
     },
-    ui::input::{InputWidget, InputWidgetConfig},
-    utils::{serde::border_result, text::ToastStyle},
+    ui::{OVERLAY_TICK_RATE, input::{InputWidget, InputWidgetConfig}},
+    utils::serde::border_result,
 };
 
 use cba::bath::PathExt;
@@ -17,8 +17,9 @@ use cba::bring::StrExt;
 use matchmaker::{
     action::Action,
     config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting, StyleSetting},
+    message::BindDirective,
     render::MMState,
-    ui::{Overlay, OverlayEffect, SizeHint, utils},
+    ui::{Overlay, OverlayEffect, utils},
 };
 use ratatui::{
     prelude::*,
@@ -26,11 +27,7 @@ use ratatui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use std::{
-    collections::BTreeSet,
-    fmt::Alignment,
-    sync::atomic::Ordering,
-};
+use std::{collections::BTreeSet, fmt::Alignment, sync::atomic::Ordering};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -448,7 +445,7 @@ impl QueueOverlay {
 
         let width = self.widths.iter().sum::<u16>() + self.border().width() + 3;
         self.area = utils::default_area(
-            [width.into(), SizeHint::Min(self.border().height() + 4)],
+            [width.into(), [self.border().height() + 4, 0].into()],
             &self.extra.0,
             &self.extra.1,
         );
@@ -456,24 +453,26 @@ impl QueueOverlay {
 }
 
 impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
-
     fn on_enable(
         &mut self,
         _area: &Rect,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) {
+        // keep the queue view live: force the ticker to run while it is open
+        GLOBAL::send_bind(BindDirective::OverrideTickrate(Some(OVERLAY_TICK_RATE)));
         self.state.state.select(Some(0));
         QUEUE::check_validity();
     }
 
     fn on_disable(&mut self) {
+        GLOBAL::send_bind(BindDirective::OverrideTickrate(None));
         QUEUE::clear_completed_shared();
     }
 
     fn handle_input(
         &mut self,
         c: char,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
         if self.state.editing.is_some() {
             return self.state.handle_input(c);
@@ -503,7 +502,7 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
     fn handle_action(
         &mut self,
         action: &Action<FsAction>,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
         self.state.handle_action(action)
     }
@@ -651,7 +650,7 @@ impl AppOverlay {
 
         let width = self.widths.iter().sum::<u16>() + self.border().width();
         self.area = utils::default_area(
-            [width.into(), SizeHint::Min(self.border().height() + 4)],
+            [width.into(), [self.border().height() + 4, 0].into()],
             &self.extra.0,
             &self.extra.1,
         );
@@ -659,11 +658,10 @@ impl AppOverlay {
 }
 
 impl Overlay<FsAction, PathItem, ()> for AppOverlay {
-
     fn on_enable(
         &mut self,
         _area: &Rect,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) {
         self.state.state.select(Some(0));
     }
@@ -673,7 +671,7 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
     fn handle_input(
         &mut self,
         c: char,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
         if self.state.editing.is_some() {
             return self.state.handle_input(c);
@@ -703,7 +701,7 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
     fn handle_action(
         &mut self,
         action: &Action<FsAction>,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
         self.state.handle_action(action)
     }
@@ -735,7 +733,10 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
             // `true`; the rendering mirrors the old scratch overlay's
             // two-column view, without scratch-source switching.
             let dummy: Vec<(std::path::PathBuf, String)> = vec![
-                (std::path::PathBuf::from("~/docs/notes.md"), "~/backup/notes.md".into()),
+                (
+                    std::path::PathBuf::from("~/docs/notes.md"),
+                    "~/backup/notes.md".into(),
+                ),
                 (std::path::PathBuf::from("~/pics/photo.png"), String::new()),
             ];
 

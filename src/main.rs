@@ -69,9 +69,9 @@ async fn main() {
         cli.subcommand,
         SubCmd::Tools(ToolsCmd { tool: Some(_), .. }) | SubCmd::Open(_)
     ) {
-        (cfg.tools_log_path(), cfg.misc.append_mode_logging)
+        (cfg.tools_log_path(), cfg.misc.tools_append_mode_logging)
     } else {
-        (cfg.log_path(), cfg.misc.tools_append_mode_logging)
+        (cfg.log_path(), cfg.misc.append_mode_logging)
     };
     init_logger(verbosity, log_path, append);
 

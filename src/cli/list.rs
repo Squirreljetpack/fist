@@ -4,8 +4,9 @@
 //! ([`print_sorted`]); output formatting shares [`crate::cli::handlers::print`].
 use std::{ffi::OsString, path::PathBuf, process::Command};
 
+use ansi_to_tui::IntoText;
 use cba::{
-    bo::{map_chunks, read_to_chunks},
+    bo::{map_chunks, map_reader_lines, read_to_chunks},
     bog::BogOkExt,
     broc::CommandExt,
     prints,
@@ -29,10 +30,7 @@ use crate::{
 fn output_parts(output: &OutputOpts) -> (Option<String>, String) {
     (
         output.format.clone(),
-        output
-            .output_sep
-            .clone()
-            .unwrap_or_else(|| "\n".into()),
+        output.output_sep.clone().unwrap_or_else(|| "\n".into()),
     )
 }
 
@@ -46,7 +44,9 @@ fn print_sorted(
 ) {
     match sort {
         SortOrder::none => {}
-        SortOrder::name => files.sort_by(|a, b| a.file_name().cmp(&b.file_name()).then_with(|| a.cmp(b))),
+        SortOrder::name => {
+            files.sort_by(|a, b| a.file_name().cmp(&b.file_name()).then_with(|| a.cmp(b)))
+        }
         SortOrder::mtime => metadata::sort_by_mtime(&mut files),
         SortOrder::atime => metadata::sort_by_atime(&mut files),
         SortOrder::size => metadata::sort_by_size(&mut files),
@@ -151,26 +151,93 @@ pub fn rg_list(
     let (template, output_sep) = output_parts(output);
     let list_absolute_paths = cfg.misc.list_absolute_paths;
 
-    let _ = map_chunks::<CliError>(
-        read_to_chunks(stdout, '\0'),
-        move |line| {
-            let path = if list_absolute_paths {
-                __cwd().join(PathBuf::from(line))
-            } else {
-                PathBuf::from(line)
-            };
+    if no_heading {
+        let mut path_buffer = String::new();
+        let _ = map_reader_lines::<CliError>(
+            stdout,
+            move |line| {
+                if let Some((p, _)) = line.split_once('\0') {
+                    let raw_path = if path_buffer.is_empty() {
+                        p.to_string()
+                    } else {
+                        let mut s = std::mem::take(&mut path_buffer);
+                        s.push_str(p);
+                        s
+                    };
+                    let path_str = raw_path
+                        .as_bytes()
+                        .into_text()
+                        .map(|x| crate::utils::text::text_to_string(&x))
+                        .unwrap_or(raw_path);
+                    let path = if list_absolute_paths {
+                        __cwd().join(PathBuf::from(&path_str))
+                    } else {
+                        PathBuf::from(&path_str)
+                    };
 
-            let push = vis.post_fd_filter(&path);
+                    let push = vis.post_fd_filter(&path);
 
-            if push {
-                print(&path, &template, &output_sep)
-            }
-            Ok(())
-        },
-        true,
-    );
+                    if push {
+                        print(&path, &template, &output_sep)
+                    }
+                } else {
+                    path_buffer.push_str(&line);
+                    path_buffer.push('\n');
+                }
+                Ok(())
+            },
+            true,
+        );
+    } else {
+        let mut current_path = String::new();
+        let mut path_buffer = String::new();
+        let _ = map_reader_lines::<CliError>(
+            stdout,
+            move |line| {
+                if current_path.is_empty() {
+                    if let Some((p, _)) = line.split_once('\0') {
+                        let raw_path = if path_buffer.is_empty() {
+                            p.to_string()
+                        } else {
+                            let mut s = std::mem::take(&mut path_buffer);
+                            s.push_str(p);
+                            s
+                        };
+                        let path_str = raw_path
+                            .as_bytes()
+                            .into_text()
+                            .map(|x| crate::utils::text::text_to_string(&x))
+                            .unwrap_or(raw_path);
+                        if !path_str.is_empty() {
+                            let path = if list_absolute_paths {
+                                __cwd().join(PathBuf::from(&path_str))
+                            } else {
+                                PathBuf::from(&path_str)
+                            };
+
+                            let push = vis.post_fd_filter(&path);
+                            if push {
+                                print(&path, &template, &output_sep);
+                            }
+                            current_path = path_str;
+                        }
+                    } else {
+                        path_buffer.push_str(&line);
+                        path_buffer.push('\n');
+                    }
+                } else if line.is_empty() {
+                    current_path.clear();
+                    path_buffer.clear();
+                }
+                Ok(())
+            },
+            true,
+        );
+    }
+
     Ok(())
 }
+
 
 /// db-backed directory listing (`fs :d --list`): rows are already ordered by
 /// the query (`sort`), so this only formats and prints them.

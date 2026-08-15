@@ -1,8 +1,8 @@
 use cba::{bog::BogUnwrapExt, prints};
 use chrono::{DateTime, Local};
-use comfy_table::{presets::UTF8_FULL, ContentArrangement, Row, Table};
+use comfy_table::{ContentArrangement, Row, Table, presets::UTF8_FULL};
 
-use crate::db::{zoxide, Entry, Epoch};
+use crate::db::{Entry, Epoch, zoxide};
 
 /// Print a formatted table to stdout.
 ///

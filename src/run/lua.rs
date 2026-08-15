@@ -59,7 +59,7 @@ pub fn compile_lua(script: &str) -> Result<LuaFn, String> {
     let _g = LUA_LOCK.lock().unwrap();
     lua_vm()
         .load(script)
-        .eval::<LuaFn>()
+        .into_function()
         .map_err(|e| e.to_string())
 }
 
@@ -150,4 +150,38 @@ pub fn compile_script(
                 None
             }
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compile_git_diff() {
+        let cmd = r#"os.execute('cd "' .. (...)[1] .. '" 2>/dev/null || cd "$(dirname "' .. (...)[1] .. '")"; git diff -- "' .. (...)[1] .. '"')"#;
+        let res = compile_lua(cmd);
+        assert!(res.is_ok(), "compile_lua failed: {:?}", res);
+
+        let f = res.unwrap();
+        let paths = vec![AbsPath::new(std::path::PathBuf::from("/tmp"))];
+        let call_res = call_with_paths(&f, &paths, "", None);
+        assert!(call_res.is_ok(), "call_with_paths failed: {:?}", call_res);
+    }
+
+    #[test]
+    fn test_compile_stash_demo() {
+        let cmd = r#"for i = 1, 2 do set_progress(math.floor(i / 2 * 255)) end"#;
+        let res = compile_lua(cmd);
+        assert!(res.is_ok(), "compile_lua failed: {:?}", res);
+
+        let f = res.unwrap();
+        let progress = std::sync::atomic::AtomicU8::new(0);
+        let paths = vec![
+            AbsPath::new(std::path::PathBuf::from("/tmp/a")),
+            AbsPath::new(std::path::PathBuf::from("/tmp/b")),
+        ];
+        let call_res = call_with_paths(&f, &paths, "", Some(&progress));
+        assert!(call_res.is_ok(), "call_with_paths failed: {:?}", call_res);
+        assert_eq!(progress.load(std::sync::atomic::Ordering::Relaxed), 255);
+    }
 }

@@ -27,22 +27,20 @@ use crate::{
         ahandlers::{enter_dir_pane, enter_prompt, fs_reload, lock_prompt, refresh_prompt},
         item::short_display,
         pane::FsPane,
-        register::ExecutionMode,
         queue::QUEUE,
         queue::QueueItems,
         queue::show_queue_variant,
+        register::ExecutionMode,
         state::{
             AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, HideMetadata,
-            InPrompt, MenuPrompt, STACK, STORE, TASKS, TOAST, context::ActionContext,
+            InPrompt, MenuPrompt, STACK, STORE, TASKS, TOAST, ToastStyle, context::ActionContext,
             sort,
         },
     },
     spawn::open_wrapped,
-    ui::{
-        confirm_overlay::ConfirmPrompt,
-        menu_overlay::PromptKind,
-    },
-    utils::{text::ToastStyle, trash::trash},
+    ui::{confirm_overlay::ConfirmPrompt, menu_overlay::PromptKind},
+    unzip,
+    utils::trash::trash,
 };
 use fist_types::When;
 
@@ -236,7 +234,7 @@ impl FsAction {
 // todo: get rid of aliaser for effects
 pub fn fsaction_aliaser(
     a: Action<FsAction>,
-    state: &mut MMState<'_, '_>,
+    state: &mut MMState<'_,>,
 ) -> Actions<FsAction> {
     // prompt-mode state: the raw InPrompt marker (the query bar is active).
     // With prompt_locking on, the direct pathways (LockPrompt action, pane
@@ -403,6 +401,10 @@ pub fn fsaction_aliaser(
             }
             // todo: support post-creation actions
             FsAction::New => {
+                if state.overlay_index() == Some(4) {
+                    // the menu triggers the matching item for this action
+                    return acs![fa];
+                }
                 if state.overlay_index().is_some() {
                     return acs![];
                 }
@@ -415,6 +417,10 @@ pub fn fsaction_aliaser(
                 }
             }
             FsAction::NewDir => {
+                if state.overlay_index() == Some(4) {
+                    // the menu triggers the matching item for this action
+                    return acs![fa];
+                }
                 if state.overlay_index().is_some() {
                     return acs![];
                 }
@@ -427,6 +433,10 @@ pub fn fsaction_aliaser(
                 }
             }
             FsAction::SetAlias(_) => {
+                if state.overlay_index() == Some(4) {
+                    // the menu triggers the matching item for this action
+                    return acs![fa];
+                }
                 if in_prompt || STACK::in_rg() || state.overlay_index().is_some() {
                     return acs![];
                 }
@@ -589,7 +599,7 @@ pub fn fsaction_aliaser(
 
 pub fn fsaction_handler(
     a: FsAction,
-    state: &mut MMState<'_, '_>,
+    state: &mut MMState<'_,>,
     context: &mut ActionContext,
 ) {
     let print_handle = &context.print_handle;
@@ -813,6 +823,20 @@ pub fn fsaction_handler(
                 // record
                 if item.path.is_file() {
                     GLOBAL::db().bump_path(false, item.path.clone());
+                }
+
+                // enter archives through a temp extraction skeleton
+                if item.path.is_file() && unzip::supported(item.path.as_path()) {
+                    match unzip::init(item.path.as_path()) {
+                        Some(skeleton) => {
+                            enter_dir_pane(state, skeleton);
+                            return;
+                        }
+                        None => TOAST::notice(
+                            ToastStyle::Error,
+                            format!("Failed to enter archive: {}", short_display(&item.path)),
+                        ),
+                    }
                 }
 
                 // todo: specialized
@@ -1487,7 +1511,7 @@ enum_from_str_display! {
 
     tuples:
     AutoJump, SetAlias,
-    ExecPaged, ExecTTY, ExecDetached, ExecSilent, CopyCommand, CopyCommandAsync;
+    ExecPaged = ExecutePaged, ExecTTY = ExecuteTTY, ExecDetached = ExecuteDetached, ExecSilent = ExecuteSilent, CopyCommand, CopyCommandAsync;
 
     defaults:
     (Delete, false), (Trash, false), (Stash, String::new()), (AddStash, String::new())
@@ -1503,11 +1527,11 @@ enum_from_str_display! {
 macro_rules! enum_from_str_display {
                     (
                         $enum:ty;
-                        units: $( $unit:ident ),* $(,)?;
-                        tuples: $( $tuple:ident ),* $(,)?;
-                        defaults: $(($default:ident, $default_value:expr)),*;
-                        options: $($optional:ident),*;
-                        lossy: $( $lossy:ident ),* ;
+                        units: $( $unit:ident $(= $ualias:ident)? ),* $(,)?;
+                        tuples: $( $tuple:ident $(= $talias:ident)? ),* $(,)?;
+                        defaults: $(($default:ident $(= $dalias:ident)?, $default_value:expr)),*;
+                        options: $($optional:ident $(= $oalias:ident)?),*;
+                        lossy: $( $lossy:ident $(= $lalias:ident)? ),* ;
                     ) => {
                         impl std::fmt::Display for $enum {
                             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1562,7 +1586,7 @@ macro_rules! enum_from_str_display {
                                     else if *paging {
                                         write!(f, "LFPaged({preset})")
                                     } else {
-                                        write!(f, "Lessfilter({preset})")
+                                        write!(f, "{preset}")
                                     }
 
                                 },
@@ -1592,49 +1616,69 @@ macro_rules! enum_from_str_display {
                             };
 
                             match name {
-                                $( stringify!($unit) => {
-                                    if data.is_some() {
-                                        Err(format!("Unexpected data for {}", name))
-                                    } else {
-                                        Ok(Self::$unit)
-                                    }
-                                }, )*
-
-                                $( stringify!($tuple) => {
-                                    let val = data
-                                    .ok_or_else(|| format!("Missing data for {}", name))?
-                                    .parse()
-                                    .map_err(|_| format!("Invalid data for {}", name))?;
-                                    Ok(Self::$tuple(val))
-                                }, )*
-
-                                $( stringify!($lossy) => {
-                                    let d = match data {
-                                        Some(val) => val.parse()
-                                        .map_err(|_| format!("Invalid data for {}", stringify!($lossy)))?,
-                                        None => Default::default(),
-                                    };
-                                    Ok(Self::$lossy(d))
-                                }, )*
-
-                                $( stringify!($default) => {
-                                    let d = match data {
-                                        Some(val) => val.parse()
-                                        .map_err(|_| format!("Invalid data for {}", stringify!($default)))?,
-                                        None => $default_value,
-                                    };
-                                    Ok(Self::$default(d))
-                                }, )*
-
-                                $( stringify!($optional) => {
-                                    let d = match data {
-                                        Some(val) if !val.is_empty() => {
-                                            Some(val.parse().map_err(|_| format!("Invalid data for {}", stringify!($optional)))?)
+                                $(
+                                    n if n.eq_ignore_ascii_case(stringify!($unit))
+                                       $(|| n.eq_ignore_ascii_case(stringify!($ualias)))? =>
+                                    {
+                                        if data.is_some() {
+                                            Err(format!("Unexpected data for {}", name))
+                                        } else {
+                                            Ok(Self::$unit)
                                         }
-                                        _ => None,
-                                    };
-                                    Ok(Self::$optional(d))
-                                }, )*
+                                    },
+                                )*
+
+                                $(
+                                    n if n.eq_ignore_ascii_case(stringify!($tuple))
+                                       $(|| n.eq_ignore_ascii_case(stringify!($talias)))? =>
+                                    {
+                                        let val = data
+                                        .ok_or_else(|| format!("Missing data for {}", name))?
+                                        .parse()
+                                        .map_err(|_| format!("Invalid data for {}", name))?;
+                                        Ok(Self::$tuple(val))
+                                    },
+                                )*
+
+                                $(
+                                    n if n.eq_ignore_ascii_case(stringify!($lossy))
+                                       $(|| n.eq_ignore_ascii_case(stringify!($lalias)))? =>
+                                    {
+                                        let d = match data {
+                                            Some(val) => val.parse()
+                                            .map_err(|_| format!("Invalid data for {}", stringify!($lossy)))?,
+                                            None => Default::default(),
+                                        };
+                                        Ok(Self::$lossy(d))
+                                    },
+                                )*
+
+                                $(
+                                    n if n.eq_ignore_ascii_case(stringify!($default))
+                                       $(|| n.eq_ignore_ascii_case(stringify!($dalias)))? =>
+                                    {
+                                        let d = match data {
+                                            Some(val) => val.parse()
+                                            .map_err(|_| format!("Invalid data for {}", stringify!($default)))?,
+                                            None => $default_value,
+                                        };
+                                        Ok(Self::$default(d))
+                                    },
+                                )*
+
+                                $(
+                                    n if n.eq_ignore_ascii_case(stringify!($optional))
+                                       $(|| n.eq_ignore_ascii_case(stringify!($oalias)))? =>
+                                    {
+                                        let d = match data {
+                                            Some(val) if !val.is_empty() => {
+                                                Some(val.parse().map_err(|_| format!("Invalid data for {}", stringify!($optional)))?)
+                                            }
+                                            _ => None,
+                                        };
+                                        Ok(Self::$optional(d))
+                                    },
+                                )*
 
                                 /* ---------- Manually parsed ---------- */
                                 "Jump" => {
@@ -1649,16 +1693,21 @@ macro_rules! enum_from_str_display {
                                     let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for Lessfilter: {preset_str}"))?;
                                     Ok(FsAction::new_lessfilter(preset, false))
                                 }
-                                "LFPaged" => {
+                                "LFPaged" | "LessfilterPaged" => {
                                     let preset_str = data.ok_or_else(|| "Missing preset for LFPaged")?;
                                     let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for LFPaged: {preset_str}"))?;
                                     Ok(FsAction::new_lessfilter(preset, true))
                                 }
-                                "LFPreview" => {
+                                "LFPreview" | "LessfilterPreview" => {
                                     let preset_str = data.ok_or_else(|| "Missing preset for LFPreview")?;
                                     let preset = preset_str.to_lowercase().parse().map_err(|_| format!("Invalid preset for LFPreview: {preset_str}"))?;
                                     let header = When::default();
                                     Ok(Self::LessfilterPreview ( preset, header ))
+                                }
+                                // any preset name parses as Lessfilter with that preset
+                                n if data.is_none() && n.to_lowercase().parse::<Preset>().is_ok() => {
+                                    let preset: Preset = n.to_lowercase().parse().unwrap_or(Preset::Open);
+                                    Ok(FsAction::new_lessfilter(preset, false))
                                 }
                                 "Help" if data.is_none() => {
                                     Ok(FsAction::help())
@@ -1677,3 +1726,32 @@ macro_rules! enum_from_str_display {
                 };
             }
 use enum_from_str_display;
+
+#[cfg(test)]
+mod open_parse_tests {
+    use super::*;
+
+    #[test]
+    fn open_parses_to_lessfilter_open() {
+        let fa: FsAction = "Open".parse().unwrap();
+        assert_eq!(
+            fa,
+            FsAction::new_lessfilter(Preset::Open, false)
+        );
+        assert_eq!(fa.to_string(), "open");
+
+        // case insensitive
+        let fa: FsAction = "OPEN".parse().unwrap();
+        assert_eq!(fa, FsAction::new_lessfilter(Preset::Open, false));
+
+        // any preset name parses as Lessfilter with that preset
+        let fa: FsAction = "Preview".parse().unwrap();
+        assert_eq!(fa, FsAction::new_lessfilter(Preset::Preview, false));
+        assert_eq!(fa.to_string(), "preview");
+
+        // the config-only Default preset is not accepted
+        assert!("default".parse::<Preset>().is_err());
+        assert!("Default".parse::<FsAction>().is_err());
+        assert!("Lessfilter(default)".parse::<FsAction>().is_err());
+    }
+}

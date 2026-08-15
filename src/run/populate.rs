@@ -22,19 +22,8 @@ use cba::{
     unwrap,
 };
 use matchmaker::{SSS, message::RenderCommand, nucleo::injector::Injector};
-use ratatui::text::Text;
 use tokio::task::spawn_blocking;
 
-use crate::{
-    config::GlobalConfig,
-    find::rg::{build_rg_args, is_inverted},
-    run::{
-        FsPane,
-        populate_rg::{BufItem, flush_rg_buffer, process_rg_line},
-        state::{STORE, ShouldNotAbortOnEmpty, TOAST},
-    },
-    utils::text::{extract_rg_line_no_path, scrub_text_styles, text_to_lines},
-};
 use crate::{
     abspath::AbsPath,
     db::DbTable,
@@ -45,6 +34,17 @@ use crate::{
         lua::call_transform,
         start::FsInjector,
         state::{APP, GLOBAL, STACK, TASKS, sort},
+    },
+};
+use crate::{
+    config::GlobalConfig,
+    find::rg::{build_rg_args, is_inverted},
+    run::{
+        FsPane,
+        populate_rg::{
+            BufItem, MultilineRgParser, flush_rg_buffer, process_rg_line,
+        },
+        state::{STORE, ShouldNotAbortOnEmpty, TOAST},
     },
 };
 use TASKS::TaskId;
@@ -116,7 +116,9 @@ impl FsPane {
                             let p = AbsPath::new_unchecked(first.abs(&cwd));
                             let (path, display, tail) = call_transform(f, &p, raw_tail)?;
                             // A missing path omits the entry from the listing.
-                            let Some(path) = path else { return anyhow::Ok(()) };
+                            let Some(path) = path else {
+                                return anyhow::Ok(());
+                            };
                             (
                                 path,
                                 display.unwrap_or_default(),
@@ -188,7 +190,9 @@ impl FsPane {
                             let p = AbsPath::new_unchecked(line.abs(&cwd));
                             let (path, display, tail) = call_transform(f, &p, "")?;
                             // A missing path omits the entry from the listing.
-                            let Some(path) = path else { return anyhow::Ok(()) };
+                            let Some(path) = path else {
+                                return anyhow::Ok(());
+                            };
                             let mut item = PathItem::new(path, &cwd);
                             item.tail = Ok([tail.unwrap_or_default(), display.unwrap_or_default()]);
                             item
@@ -329,59 +333,24 @@ impl FsPane {
                         complete.clone(),
                     )
                 } else {
-                    let mut current_path = String::new();
-                    // let mut current_line_data = Text::default();
-                    let mut current_context = vec![];
-                    let mut current_places = String::new();
+                    let mut parser = MultilineRgParser::new();
+                    let cwd_ = cwd.clone();
+                    let vis_ = vis;
+                    let injector_ = injector.clone();
 
                     map_reader(
                         stdout,
-                        Some('\0'),
+                        None,
                         move |line| {
-                            if current_path.is_empty() {
-                                // rg emits ansi resets if we enable color
-                                current_path = line
-                                    .as_bytes()
-                                    .into_text()
-                                    .ok()
-                                    .and_then(|x| text_to_lines(&x).first().cloned())
-                                    .unwrap_or_default();
-                                anyhow::Ok(())
-                            } else if line.is_empty() {
-                                if current_path.is_empty() {
-                                    current_context.clear();
-                                    return Ok(());
-                                }
-                                let mut item =
-                                    PathItem::new(std::mem::take(&mut current_path), &cwd);
-                                let mut text = Text::from(std::mem::take(&mut current_context));
-                                scrub_text_styles(&mut text);
-                                for line in &text.lines {
-                                    extract_rg_line_no_path(line, &mut current_places, no_column);
-                                }
-
-                                item.tail = Err(text);
-                                if let Some((line, col)) =
-                                    crate::utils::text::first_loc(&current_places)
-                                {
-                                    item.set_loc(line, col);
-                                }
-                                current_places.clear();
-
-                                let push = vis.post_fd_filter(&item.path);
-                                if push {
-                                    injector.push(item).cast()
-                                } else {
-                                    Ok(())
-                                }
-                            } else {
-                                current_context.extend(
-                                    line.as_bytes()
-                                        .into_text()
-                                        .unwrap_or(Text::from_iter([line])),
-                                );
-                                anyhow::Ok(())
-                            }
+                            parser.process_line(
+                                line,
+                                &cwd_,
+                                no_column,
+                                vis_,
+                                |item| {
+                                    let _ = injector_.push(item);
+                                },
+                            )
                         },
                         move |count| {
                             if count == Some(0) {
@@ -445,7 +414,9 @@ impl FsPane {
                     Ok(())
                 })
             }
-            Self::Stash { stash_name, sort, .. } => {
+            Self::Stash {
+                stash_name, sort, ..
+            } => {
                 let sort = *sort;
                 let stash_name = stash_name.clone();
                 let filter_missing = cfg.panes.stash.filter_missing;
@@ -478,7 +449,9 @@ impl FsPane {
                     }
 
                     if !to_prune.is_empty() {
-                        conn.remove_stash_entries(&stash_name, &to_prune).await.elog()?;
+                        conn.remove_stash_entries(&stash_name, &to_prune)
+                            .await
+                            .elog()?;
                         log::debug!(
                             "Pruned {} missing entr{} from stash ({stash_name})",
                             to_prune.len(),
@@ -568,16 +541,18 @@ impl FsPane {
 pub fn map_reader<E: matchmaker::SSS + Display>(
     reader: impl Read + matchmaker::SSS,
     delimiter: Option<char>,
-    f: impl FnMut(String) -> Result<(), E> + SSS,
+    mut f: impl FnMut(String) -> Result<(), E> + SSS,
     complete: impl FnOnce(Option<usize>) + SSS,
 ) -> tokio::task::JoinHandle<anyhow::Result<()>> {
     spawn_blocking(move || {
         let count = if let Some(c) = delimiter {
-            map_chunks::<E>(read_to_chunks(reader, c), f, true)
+            map_chunks::<E>(read_to_chunks(reader, c), &mut f, true)
         } else {
-            map_reader_lines::<E>(reader, f, true)
+            map_reader_lines::<E>(reader, &mut f, true)
         }
         ._elog();
+
+        let _ = f(String::new());
 
         complete(count);
         log::info!("Command completed");
@@ -624,12 +599,10 @@ pub fn map_reader_rg(
                     return Ok(());
                 }
 
-                let line = if path_buffer.is_empty() {
-                    line.clone()
+                let prefix = if path_buffer.is_empty() {
+                    None
                 } else {
-                    let full = format!("{}{}", path_buffer, line);
-                    path_buffer.clear();
-                    full
+                    Some(std::mem::take(&mut path_buffer))
                 };
 
                 let mut text = unwrap!(line.as_bytes().into_text(); |e| failed_to_parse(e));
@@ -641,6 +614,7 @@ pub fn map_reader_rg(
                 let mut buf = buffer.borrow_mut();
                 process_rg_line(
                     text.lines.remove(0),
+                    prefix.as_deref(),
                     context,
                     &cwd,
                     no_column,

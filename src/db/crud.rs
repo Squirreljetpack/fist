@@ -439,19 +439,13 @@ mod tests {
         assert_eq!(entries_by_name[1].name, "b_entry");
 
         // Newest atime first
-        let entries_by_time = db
-            .get_entries_range(0, 2, SortOrder::atime)
-            .await
-            .unwrap();
+        let entries_by_time = db.get_entries_range(0, 2, SortOrder::atime).await.unwrap();
         assert_eq!(entries_by_time.len(), 2);
         assert_eq!(entries_by_time[0].name, "a_entry");
         assert_eq!(entries_by_time[1].name, "b_entry");
 
         // Full range
-        let entries_by_time = db
-            .get_entries_range(0, 0, SortOrder::atime)
-            .await
-            .unwrap();
+        let entries_by_time = db.get_entries_range(0, 0, SortOrder::atime).await.unwrap();
         assert_eq!(entries_by_time.len(), 2);
         assert_eq!(entries_by_time[0].name, "a_entry");
         assert_eq!(entries_by_time[1].name, "b_entry");

@@ -1,9 +1,9 @@
 [workspace]
 members = [
-  ".",
-  "fist-size",
-  "fist-types",
-  # "fist-system"
+    ".",
+    "fist-size",
+    "fist-types",
+    # "fist-system"
 ]
 
 [workspace.package]
@@ -40,9 +40,8 @@ fist-size = { version = "0.0.3", path = "fist-size" }
 fist-types = { workspace = true, features = ["serde", "file-format"] }
 matchmaker-lib = { version = "0.*", features = ["bracketed-paste"] }
 matchmaker-partial = { version = "0.*", optional = true }
-matchmaker-partial-macros = { version = "0.0.*", features = [
-  "partial",
-], optional = true }
+matchmaker-partial-macros = { version = "0.0.*", features = ["partial"], optional = true }
+nucleo = { package = "matchmaker-nucleo", version = "0.1.*" }
 
 # tui + text
 ansi-to-tui = "8.0.1"
@@ -82,10 +81,12 @@ toml = "0.9.8"
 
 # filesystem
 arboard = { version = "3.6.1", features = ["wayland-data-control"] }
+decompress = { version = "0.6", default-features = false, features = ["zip", "targz", "tarball", "tarxz", "tarbz", "tarzst", "ar", "gz", "bz2", "xz", "zstd", "rar"] }
 fs_extra = "1.3.0"
 image = { version = "0.25.9", default-features = false, features = [] }
 notify = "8.2.0"
 rayon = "1.11.0"
+sevenz-rust2 = "0.21"
 trash = "5.2.5"
 
 # lessfilter
@@ -96,10 +97,7 @@ file-format = { workspace = true, optional = true }
 infer = { version = "0.19.0", optional = true }
 mimalloc = { version = "*", features = ["v3"] }
 mime_guess = "2.0.5"
-sysinfo = { version = "0.39.5", default-features = false, features = [
-  "system",
-  "disk",
-] }
+sysinfo = { version = "0.39.5", default-features = false, features = ["system", "disk"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -134,22 +132,22 @@ too_many_arguments = "allow"
 default = ["image-defaults", "file-format", "file-format-reader", "partial"]
 
 partial = [
-  "matchmaker-lib/partial",
-  "matchmaker-lib/experimental",
-  "matchmaker-partial",
-  "matchmaker-partial-macros/partial",
+    "matchmaker-lib/partial",
+    "matchmaker-lib/experimental",
+    "matchmaker-partial",
+    "matchmaker-partial-macros/partial",
 ]
 mm_overrides = ["partial"]
 
 image-defaults = ["image/png", "image/jpeg"]
 image-all = [
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/bmp",
-  "image/ico",
-  "image/tiff",
-  "image/webp",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/bmp",
+    "image/ico",
+    "image/tiff",
+    "image/webp",
 ]
 
 file-format = ["dep:file-format"]

@@ -5,9 +5,9 @@ use serde::{Deserialize, Deserializer};
 use crate::{
     abspath::AbsPath,
     lessfilter::{
+        Categories, LessfilterSettings,
         file_rule::{FileData, FileRule},
         rule_matcher::Test,
-        Categories, LessfilterSettings,
     },
 };
 
@@ -54,6 +54,9 @@ pub struct MenuAction {
     pub condition: Vec<MenuCondition>,
     /// Lua script executed for this action (`@file` syntax supported).
     pub command: String,
+    /// Alias shown in the second column of the menu (e.g. `w`).
+    #[serde(default)]
+    pub alias: Option<String>,
     #[serde(default)]
     pub strategy: MenuStrategy,
     /// Overrides the strategy's default closing behavior: `Some(true)` always
@@ -278,5 +281,38 @@ mod single_condition_tests {
             }
         ));
         assert_eq!(actions["my-action"].strategy, MenuStrategy::ExecPaged);
+    }
+
+    #[test]
+    fn test_seq_condition_evaluation() {
+        let toml_str = include_str!("../../assets/config/dev.toml");
+        let cfg: crate::config::Config = toml::from_str(toml_str).unwrap();
+        let stash_action = &cfg.actions["stash: 2 items"];
+
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let todo_md = AbsPath::new(root.join("TODO.md"));
+        let todo_dir = AbsPath::new(root.join("TODO"));
+
+        let settings = LessfilterSettings::default();
+        let categories = Categories::default();
+
+        let mut cache = Vec::new();
+
+        // Selected [TODO.md, TODO] (file, dir)
+        let selected = vec![todo_md.clone(), todo_dir.clone()];
+        let passes = condition_passes(
+            &stash_action.condition,
+            &selected,
+            None,
+            false,
+            Some(&AbsPath::new(root.to_path_buf())),
+            &mut cache,
+            &settings,
+            &categories,
+        );
+        assert!(
+            passes,
+            "stash: 2 items should pass when file and dir are selected in order"
+        );
     }
 }

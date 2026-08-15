@@ -147,3 +147,61 @@ impl Default for FileStyles {
         Self::DEFAULT
     }
 }
+
+// -------- TOAST STYLES -------------
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+/// Per-level toast styles, configurable under `[styles.toast]`.
+pub struct ToastStyles {
+    pub normal: Style,
+    pub info: Style,
+    pub success: Style,
+    pub warning: Style,
+    pub error: Style,
+}
+
+impl ToastStyles {
+    pub const DEFAULT: Self = Self {
+        normal: Style {
+            fg: Some(Color::DarkGray),
+            bg: None,
+            add_modifier: Modifier::ITALIC,
+            sub_modifier: Modifier::empty(),
+            underline_color: None,
+        },
+        info: Style {
+            fg: Some(Color::LightBlue),
+            bg: None,
+            add_modifier: Modifier::empty(),
+            sub_modifier: Modifier::empty(),
+            underline_color: None,
+        },
+        success: Style {
+            fg: Some(Color::Green),
+            bg: None,
+            add_modifier: Modifier::empty(),
+            sub_modifier: Modifier::empty(),
+            underline_color: None,
+        },
+        warning: Style {
+            fg: Some(Color::Yellow),
+            bg: None,
+            add_modifier: Modifier::empty(),
+            sub_modifier: Modifier::empty(),
+            underline_color: None,
+        },
+        error: Style {
+            fg: Some(Color::Red),
+            bg: None,
+            add_modifier: Modifier::empty(),
+            sub_modifier: Modifier::empty(),
+            underline_color: None,
+        },
+    };
+}
+
+impl Default for ToastStyles {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}

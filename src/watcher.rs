@@ -5,12 +5,18 @@ use notify::{
     event::ModifyKind,
 };
 use std::{collections::VecDeque, path::PathBuf, time::Duration};
-use tokio::sync::watch;
+use tokio::sync::mpsc;
 
 // ----------------- WatcherMessage -----------------
 #[derive(Debug)]
 pub enum WatcherMessage {
     Switch(PathBuf, RecursiveMode),
+    /// Watch a directory whose event storms must still produce reloads:
+    /// thrash throttling stays disabled and the watch stays nonrecursive
+    /// until the watcher pauses or is switched to a path outside the
+    /// directory. Debouncing still collapses event storms into single
+    /// reloads.
+    MustWatch(PathBuf),
     Reload,
     Pause,
 }
@@ -70,14 +76,17 @@ impl Default for WatcherConfig {
 
 // ----------------- Watcher -----------------
 pub struct FsWatcher {
-    path_rx: watch::Receiver<WatcherMessage>,
-    path_tx: watch::Sender<WatcherMessage>,
+    path_rx: mpsc::UnboundedReceiver<WatcherMessage>,
+    path_tx: mpsc::UnboundedSender<WatcherMessage>,
     current_path: Option<PathBuf>,
+    /// Set by `MustWatch`: thrash throttling is disabled while this dir is
+    /// being watched.
+    must_watch: Option<PathBuf>,
     pub config: WatcherConfig,
     render_tx: RenderSender<FsAction>,
 }
 
-pub type WatcherSender = watch::Sender<WatcherMessage>;
+pub type WatcherSender = mpsc::UnboundedSender<WatcherMessage>;
 
 impl FsWatcher {
     /// Creates a new Watcher.
@@ -85,11 +94,12 @@ impl FsWatcher {
         config: WatcherConfig,
         render_tx: RenderSender<FsAction>,
     ) -> (Self, WatcherSender) {
-        let (path_tx, path_rx) = watch::channel(WatcherMessage::Pause);
+        let (path_tx, path_rx) = mpsc::unbounded_channel();
         let watcher_struct = Self {
             path_rx,
             path_tx: path_tx.clone(),
             current_path: None,
+            must_watch: None,
             config,
             render_tx,
         };
@@ -144,21 +154,42 @@ impl FsWatcher {
 
             loop {
                 tokio::select! {
-                    res = self.path_rx.changed() => {
-                        if res.is_err() { break; }
-                        let msg = self.path_rx.borrow_and_update();
-                        match &*msg {
+                    msg = self.path_rx.recv() => {
+                        let Some(msg) = msg else { break };
+                        // ordered delivery matters: MustWatch must precede
+                        // the Switch that follows it for the same dir
+                        match msg {
+                            WatcherMessage::MustWatch(path) => {
+                                self.must_watch = Some(path);
+                                // thrash accounting is suspended until we
+                                // leave the dir or pause
+                                throttled = false;
+                                pending_reload = false;
+                                events.clear();
+                                resume_timer.as_mut().reset(far_future());
+                            }
                             WatcherMessage::Switch(new_path, recursive_mode) => {
+                                // while inside the must-watch dir the watch
+                                // stays nonrecursive
+                                let recursive_mode = if self
+                                    .must_watch
+                                    .as_ref()
+                                    .is_some_and(|mw| new_path.starts_with(mw))
+                                {
+                                    RecursiveMode::NonRecursive
+                                } else {
+                                    recursive_mode
+                                };
                                 match &mut self.current_path {
                                     None => {
-                                        let _ = watcher.watch(new_path, *recursive_mode);
+                                        let _ = watcher.watch(&new_path, recursive_mode);
                                         self.current_path = Some(new_path.clone());
                                         log::debug!("Watching: {:?}", new_path);
                                     }
                                     Some(old_path) => {
-                                        if new_path != old_path {
+                                        if &new_path != old_path {
                                             let _ = watcher.unwatch(old_path);
-                                            let _ = watcher.watch(new_path, *recursive_mode);
+                                            let _ = watcher.watch(&new_path, recursive_mode);
                                             *old_path = new_path.clone();
                                             log::debug!("Watching: {:?}", new_path);
                                         }
@@ -168,11 +199,18 @@ impl FsWatcher {
                                 pending_reload = false;
                                 events.clear();
                                 throttled = false;
+
+                                // leaving the must-watch dir re-enables
+                                // thrash throttling
+                                if self.must_watch.as_ref().is_some_and(|mw| !new_path.starts_with(mw)) {
+                                    self.must_watch = None;
+                                }
                             }
                             WatcherMessage::Pause => {
                                 if let Some(old_path) = self.current_path.take() {
                                     let _ = watcher.unwatch(&old_path);
                                 }
+                                self.must_watch = None;
                                 pending_reload = false;
                                 events.clear();
                                 throttled = false;
@@ -180,34 +218,40 @@ impl FsWatcher {
                             WatcherMessage::Reload => {
                                 let now = tokio::time::Instant::now();
 
-                                if throttled {
+                                if self.must_watch.is_some() {
+                                    // must-watch: thrash throttling is
+                                    // disabled — storms still collapse into
+                                    // debounced reloads
+                                    pending_reload = true;
+                                    debounce_timer.as_mut().reset(now + self.config.debounce_ms);
+                                } else if throttled {
                                     // storm ongoing: stay quiet; resume once
                                     // the FS has settled
                                     resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
                                     continue;
-                                }
-
-                                // slide the window, count this event
-                                while events.front().is_some_and(|t| now - *t > thrash.duration_ms) {
-                                    events.pop_front();
-                                }
-                                events.push_back(now);
-
-                                if events.len() >= thrash.count {
-                                    // threshold tripped: drop the pending
-                                    // debounced reload, go quiet
-                                    log::debug!(
-                                        "Watcher throttling: {} events in {:?}",
-                                        events.len(),
-                                        thrash.duration_ms
-                                    );
-                                    throttled = true;
-                                    pending_reload = false;
-                                    debounce_timer.as_mut().reset(far_future());
-                                    resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
                                 } else {
-                                    pending_reload = true;
-                                    debounce_timer.as_mut().reset(now + self.config.debounce_ms);
+                                    // slide the window, count this event
+                                    while events.front().is_some_and(|t| now - *t > thrash.duration_ms) {
+                                        events.pop_front();
+                                    }
+                                    events.push_back(now);
+
+                                    if events.len() >= thrash.count {
+                                        // threshold tripped: drop the pending
+                                        // debounced reload, go quiet
+                                        log::debug!(
+                                            "Watcher throttling: {} events in {:?}",
+                                            events.len(),
+                                            thrash.duration_ms
+                                        );
+                                        throttled = true;
+                                        pending_reload = false;
+                                        debounce_timer.as_mut().reset(far_future());
+                                        resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
+                                    } else {
+                                        pending_reload = true;
+                                        debounce_timer.as_mut().reset(now + self.config.debounce_ms);
+                                    }
                                 }
                             }
                         }

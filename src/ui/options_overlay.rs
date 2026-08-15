@@ -1,20 +1,20 @@
 use crate::{
     run::{
+        FsPane,
         action::FsAction,
         item::PathItem,
         state::{FILTERS, GLOBAL, STACK},
-        FsPane,
     },
     utils::{serde::border_result, text::bold_indices},
 };
 
 use cba::bum::UsizeExt;
-use fist_types::{filters::*, When};
+use fist_types::{When, filters::*};
 use matchmaker::{
     action::Action,
     config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting},
     render::MMState,
-    ui::{utils, Overlay, OverlayEffect},
+    ui::{Overlay, OverlayEffect, utils},
 };
 
 use ratatui::{
@@ -449,7 +449,7 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
     fn handle_input(
         &mut self,
         c: char,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
         let mut refilter = true;
         let mut reload = false;
@@ -601,7 +601,7 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
     fn on_enable(
         &mut self,
         _area: &Rect,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) {
         self.pane_lens[0] = if STACK::with_current(|x| x.supports_vis()) {
             self.get_visibility_items().len()
@@ -638,7 +638,7 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
     fn handle_action(
         &mut self,
         action: &Action<FsAction>,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
         let num_panes = self.pane_lens.len();
         if num_panes == 0 {

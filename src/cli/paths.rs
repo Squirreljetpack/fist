@@ -1,5 +1,14 @@
-use cba::{bath::find_root, bog::BogUnwrapExt, ebog, expr_as_path_fn};
-use std::{env, ffi::OsString, path::PathBuf};
+use cba::{
+    bath::find_root,
+    bog::{BogOkExt, BogUnwrapExt},
+    ebog, expr_as_path_fn,
+};
+use std::{
+    env,
+    ffi::OsString,
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 pub const BINARY_FULL: &str = "fist";
 pub const BINARY_SHORT: &str = "fs";
@@ -24,15 +33,24 @@ pub fn state_dir() -> PathBuf {
     }
 }
 
-pub fn tmp_dir() -> PathBuf {
-    let mut tmp_dir = env::temp_dir();
-    tmp_dir.push(BINARY_FULL);
+/// The per-process temp parent (`<tmp>/fist/<pid>-<nanos>`), created on first use.
+pub fn tmp_dir() -> Result<PathBuf, String> {
+    let path = env::temp_dir().join(BINARY_FULL).join(process_unique_id());
+    std::fs::create_dir_all(&path)
+        .map(|_| path.clone())
+        .map_err(|_| format!("failed to create {}", path.display()))
+}
 
-    if let Err(e) = std::fs::create_dir_all(&tmp_dir) {
-        eprintln!("Warning: Failed to create app temp directory: {e}");
-    }
+/// Identifies this process's temp subdir: pid plus the start time in
+/// nanoseconds, so concurrent runs never share a dir.
+fn process_unique_id() -> String {
+    let pid = std::process::id();
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
 
-    tmp_dir
+    format!("{pid}-{nanos}")
 }
 // --------------------------------
 pub fn config_dir() -> PathBuf {
@@ -96,7 +114,19 @@ fn cwd() -> PathBuf {
 expr_as_path_fn!(__cwd, cwd());
 
 // the absolute home directory, or root
-expr_as_path_fn!(__home, dirs::home_dir().unwrap_or(find_root().unwrap_or(PathBuf::from(std::path::MAIN_SEPARATOR_STR))));
+expr_as_path_fn!(
+    __home,
+    dirs::home_dir().unwrap_or(find_root().unwrap_or(PathBuf::from(std::path::MAIN_SEPARATOR_STR)))
+);
+
+// the per-process temp parent (`<tmp>/fist/<pid>-<nanos>`), created on first use
+expr_as_path_fn!(__tmp, tmp_dir().__ebog());
+
+// the archive extraction root: `<tmp>/fist/<pid>-<nanos>/unzipped_storage_press_undo_to_go_back`
+expr_as_path_fn!(
+    __unzip,
+    __tmp().join("unzipped_storage_press_undo_to_go_back")
+);
 
 // ---------------------- FILES ----------------------
 #[cfg(debug_assertions)]

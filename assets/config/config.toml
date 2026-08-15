@@ -40,6 +40,13 @@ insert = "replace"
 ### STYLES ####
 
 [styles]
+# Per-level toast styles (each is a Style: fg/bg/add_modifier/sub_modifier/underline_color).
+# [styles.toast]
+# normal = { fg = "DarkGray", add_modifier = "ITALIC" }
+# info = { fg = "LightBlue" }
+# success = { fg = "Green" }
+# warning = { fg = "Yellow" }
+# error = { fg = "Red" }
 ### SETTINGS ###
 
 [fd]

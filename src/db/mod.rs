@@ -279,7 +279,11 @@ impl Connection {
                 separated.push_bind(path);
             }
             query.push(")");
-            total += query.build().execute(&mut *self.conn).await?.rows_affected();
+            total += query
+                .build()
+                .execute(&mut *self.conn)
+                .await?
+                .rows_affected();
         }
         Ok(total)
     }

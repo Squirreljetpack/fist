@@ -42,8 +42,8 @@ use crate::{
     run::{
         FsPane,
         mm_config::{get_mm_binds, get_mm_cfg},
-        start,
         queue::QUEUE,
+        start,
         state::{InitialNoRelative, InitialPreserveWhitespaceInSearch, STORE},
     },
     shell::print_shell,

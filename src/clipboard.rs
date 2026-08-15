@@ -9,9 +9,8 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::run::item::short_display;
-use crate::run::state::{GLOBAL, TASKS, TOAST};
+use crate::run::state::{GLOBAL, TASKS, TOAST, ToastStyle};
 use crate::utils::osc52;
-use crate::utils::text::ToastStyle;
 
 /// Holds the local arboard handle (if active) and configuration options.
 pub struct FsClipboard {
@@ -268,9 +267,7 @@ pub fn copy_text(
 ) {
     TASKS::spawn_blocking(move || {
         let mut guard = CLIPBOARD.lock().unwrap();
-        let copy_trailing_newline = guard
-            .as_ref()
-            .is_some_and(|fcb| fcb.copy_trailing_newline);
+        let copy_trailing_newline = guard.as_ref().is_some_and(|fcb| fcb.copy_trailing_newline);
         apply_newline_policy(&mut text, copy_trailing_newline);
         if text.is_empty() {
             return;

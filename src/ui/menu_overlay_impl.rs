@@ -5,9 +5,8 @@ use crate::{
     run::{
         FsAction,
         item::{PathItem, short_display},
-        state::{GLOBAL, STACK, TASKS, TOAST},
+        state::{GLOBAL, STACK, TASKS, TOAST, ToastStyle},
     },
-    utils::text::ToastStyle,
 };
 
 use cba::bath::{PathExt, RenamePolicy, auto_dest_for_src};
@@ -33,7 +32,10 @@ impl MenuOverlay {
     /// The current item under the cursor, or the stack cwd when the cursor is
     /// disabled. The picker state cannot change while the menu overlay is
     /// open (input is intercepted), so this equals the state at menu open.
-    pub fn target_path(&self, state: &mut MMState<'_, '_, PathItem, ()>) -> AbsPath {
+    pub fn target_path(
+        &self,
+        state: &mut MMState<'_, PathItem, ()>,
+    ) -> AbsPath {
         state
             .picker_ui
             .current_indexed()
@@ -42,7 +44,10 @@ impl MenuOverlay {
             .unwrap_or_else(STACK::_cwd)
     }
 
-    pub fn target_parent(&self, state: &mut MMState<'_, '_, PathItem, ()>) -> AbsPath {
+    pub fn target_parent(
+        &self,
+        state: &mut MMState<'_, PathItem, ()>,
+    ) -> AbsPath {
         state
             .picker_ui
             .current_indexed()
@@ -54,7 +59,7 @@ impl MenuOverlay {
     pub fn on_prompt_accept(
         &mut self,
         prompt: PromptKind,
-        state: &mut MMState<'_, '_, PathItem, ()>,
+        state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
         match prompt {
             PromptKind::New => {
