@@ -27,9 +27,7 @@ use crate::{
 #[derive(Parser, Debug)]
 #[command(about = "Compute directory sizes concurrently and print them")]
 pub struct DsArgs {
-    /// Paths to compute sizes for (defaults to "."). With multiple paths,
-    /// a skeleton tree rooted at their common ancestor is printed.
-    #[arg(value_name = "INPUT")]
+    #[arg(value_name = "PATH")]
     pub inputs: Vec<PathBuf>,
 
     /// Output paths to print sizes for.

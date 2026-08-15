@@ -62,50 +62,6 @@ empty_pattern = "-v ^ *$"
 [history]
 refind = "Search"
 
-### ACTIONS ####
-
-[actions]
-# Custom actions shown in the menu overlay. A menu action is visible iff at
-# least one condition is satisfied (an empty condition list = always visible).
-# Conditions are evaluated once when the menu opens, against the selection /
-# cursor / prompt state at that moment:
-#   seq = [rule, ...]            positional: rule i must match the i-th
-#                                selected item (exactly as many items selected
-#                                as there are rules)
-#   repeat = { count, condition, strict }
-#                                count 0: prompt-scoped (strict hides the
-#                                action unless the prompt is active; the rule
-#                                is evaluated against the cwd)
-#                                count n: exactly (strict) / at least n items
-#                                selected; the rule must match every one
-#                                no count: cursor-scoped; strict hides the
-#                                action whenever anything is selected; the
-#                                rule must match the cursor item
-# Rule syntax: ext:rs, glob:*.rs, child:src, mime:image/*, type:f/type:d
-# (file/directory), have:program, cat:name, application, git (inside a git
-# work tree),
-# * (any) — prefix with ! to invert. A condition accepts a single rule object
-# or an array of conditions.
-# Strategies: "Execute" (waited, closes the menu), "ExecuteSilent" (not
-# waited, closes the menu; "silent" is accepted as an alias), "ExecPaged"
-# (waited, stdout paged, closes the menu), "Queue" (enqueue all targets as
-# one queue item), { QueueBatch = n } (queue items of at most n paths).
-# `close` overrides the strategy's default closing behavior.
-# The command is a lua script (supports the @file syntax), called once with
-# (paths, dst, nav_cwd): the targeted paths as a lua table plus the
-# destination passed verbatim, and the navigation directory as the optional
-# third argument. Scripts may call set_progress(0-255) to set the executing
-# item's progress. The script runs in the process cwd — scripts are
-# responsible for cd (e.g. `os.execute('cd "' .. (...)[1] .. '" && git log')`).
-# `requires_dest = true` marks the action as requiring a non-empty
-# destination when executed from the queue.
-# log-queuer = {
-#   condition = [{ repeat = { count = 1, condition = "ext:log", strict = true } }],
-#   command = "print('queued a log')",
-#   strategy = "Queue",
-#   requires_dest = true,
-# }
-
 ### MISC ###
 
 [interface]

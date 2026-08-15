@@ -51,26 +51,3 @@ append_mode_logging = true
 
 [history]
 refind = "Search"
-
-### ACTIONS ####
-
-[actions]
-
-[actions."git: diff"]
-condition = { repeat = { condition = "git", strict = true } }
-command = '''os.execute('cd "' .. (...)[1] .. '" 2>/dev/null || cd "$(dirname "' .. (...)[1] .. '")"; git diff -- "' .. (...)[1] .. '"')'''
-strategy = "ExecPaged"
-
-[actions."git: log"]
-condition = { repeat = { count = 0, condition = "git", strict = false } }
-command = '''os.execute('cd "' .. (...)[1] .. '" && git log')'''
-strategy = "ExecPaged"
-
-# Demo: requires a file and a folder selected (in that order), enqueues both
-# paths as one queue item; on execution the script animates the item's
-# progress 0 → 255 over 5 seconds (set_progress is a no-op outside
-# queue-item execution).
-[actions."stash: 2 items"]
-condition = { seq = ["type:f", "type:d"] }
-command = '''for i = 1, 5 do os.execute("sleep 1") set_progress(math.floor(i / 5 * 255)) end'''
-strategy = "Queue"

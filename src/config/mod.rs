@@ -10,17 +10,16 @@ use cba::{
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
-    cli::{CliOpts, paths::*},
-    lessfilter::Preset,
-    spawn::menu_action::MenuActions,
-};
-use crate::{
     cli::{
         clap_helpers::ClapStyleOverride,
         paths::{liza_path, text_renderer_path},
     },
     db::zoxide::HistoryConfig,
     watcher::WatcherConfig,
+};
+use crate::{
+    cli::{paths::*, CliOpts},
+    lessfilter::Preset,
 };
 use fist_types::When;
 
@@ -63,10 +62,6 @@ pub struct Config {
     /// Settings related to saving to and retrieving from history.
     #[serde(default)]
     pub history: HistoryConfig,
-
-    /// Custom actions which appear in the menu
-    #[serde(default)]
-    pub actions: MenuActions,
 }
 
 impl Default for Config {
@@ -159,7 +154,7 @@ pub struct InterfaceConfig {
     // display
     /// The prefix to display when the cursor is in the prompt.
     pub cwd_prompt: String,
-    /// Display a toast when current directory has no entries. (TODO)
+    /// Display a toast when current directory has no entries.
     pub toast_on_empty: bool,
     /// If [AutoJump](`crate::run::FsAction::AutoJump`) should accept or advance
     pub autojump_advance: bool,

@@ -12,12 +12,15 @@ use crate::{
         item::{PathItem, short_display},
         queue::QUEUE,
         state::{
-            GLOBAL, InPrompt, MenuCommandPaths, MenuPrompt, STACK, STORE, TOAST, ToastStyle,
+            GLOBAL, MenuCommandPaths, MenuPrompt, STACK, STORE, TOAST, ToastStyle,
             lessfilter_cfg,
         },
     },
     spawn::{
-        menu_action::{MenuActions, MenuCondition, MenuStrategy, condition_passes},
+        menu_action::{
+            MenuActions, MenuCondition, MenuStrategy, SelectedCondition,
+            condition_passes,
+        },
         open_wrapped,
     },
     ui::{OVERLAY_TICK_RATE, prompt_overlay::{PromptConfig, PromptOverlay}},
@@ -478,8 +481,9 @@ impl MenuOverlay {
         } else {
             state.current_raw().map(|item| item.path.clone())
         };
-        let in_prompt = STORE::contains::<InPrompt>();
+        let cursor_disabled = state.picker_ui.results.cursor_disabled();
         let cwd = STACK::cwd();
+        let nav_cwd = STACK::nav_cwd();
 
         // builtins only act on filesystem items, so they are hidden in the
         // app pane, which lists custom actions instead
@@ -493,8 +497,9 @@ impl MenuOverlay {
                 &action.condition,
                 &selected,
                 cursor.as_ref(),
-                in_prompt,
+                cursor_disabled,
                 cwd.as_ref(),
+                nav_cwd.as_ref(),
                 &mut cache,
                 &lcfg.settings,
                 &lcfg.categories,
@@ -542,12 +547,45 @@ impl MenuOverlay {
             return OverlayEffect::None;
         };
         let selected: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
-        // count = 0 conditions are evaluated against the pane cwd, so their
-        // targets are the cwd (visibility guarantees it exists).
-        let targets: Vec<AbsPath> = if action
-            .condition
-            .iter()
-            .any(|c| matches!(c, MenuCondition::Repeat { count: Some(0), .. }))
+        // Resolve the action's targets the same way its conditions do:
+        // Cwd conditions target cwd (strict: nav_cwd), Single falls back
+        // selections → cursor → cwd, everything else the selection or the
+        // cursor item.
+        let targets: Vec<AbsPath> = if action.condition.iter().any(|c| {
+            matches!(
+                c,
+                MenuCondition::Repeat {
+                    selected: SelectedCondition::Cwd,
+                    strict: true,
+                    ..
+                }
+            )
+        }) {
+            STACK::nav_cwd()
+                .map(|p| vec![p])
+                .unwrap_or_else(|| vec![self.target_path(state)])
+        } else if action.condition.iter().any(|c| {
+            matches!(
+                c,
+                MenuCondition::Repeat {
+                    selected: SelectedCondition::Cwd,
+                    ..
+                }
+            )
+        }) {
+            STACK::cwd()
+                .map(|p| vec![p])
+                .unwrap_or_else(|| vec![self.target_path(state)])
+        } else if action.condition.iter().any(|c| {
+            matches!(
+                c,
+                MenuCondition::Repeat {
+                    selected: SelectedCondition::Single,
+                    ..
+                }
+            )
+        }) && selected.is_empty()
+            && state.picker_ui.results.cursor_disabled()
         {
             STACK::cwd()
                 .map(|p| vec![p])

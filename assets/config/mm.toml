@@ -185,7 +185,7 @@ word_boundaries = ['.', '/']
 # menu open; Execute/ExecuteSilent/ExecPaged close it).
 # [actions]
 # stash-log-files = {
-#   condition = [{ repeat = { count = 1, condition = "ext:log", strict = true } }],
+#   condition = [{ repeat = { selected = 1, condition = "ext:log", strict = true } }],
 #   command = "print('queued')",
 #   strategy = "Queue",
 # }

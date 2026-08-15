@@ -28,7 +28,7 @@ use super::{
     clap::*,
     clap_tools::*,
     mm_::mm_get,
-    paths::{__cwd, __home, config_path, current_exe, lessfilter_cfg_path, liza_path, mm_cfg_path},
+    paths::{__cwd, __home, actions_dir, actions_path, config_path, current_exe, lessfilter_cfg_path, liza_path, mm_cfg_path},
 };
 use crate::{
     abspath::AbsPath,
@@ -667,6 +667,17 @@ async fn handle_tools(
     let executable_err_prefix = "Invalid executable path";
 
     match tool {
+        SubTool::Check => {
+            use crate::cli::check;
+            let code = check::run(
+                &cli.config,
+                &cli.mm_config,
+                lessfilter_cfg_path(),
+                actions_path(),
+                actions_dir(),
+            );
+            exit(code)
+        }
         SubTool::Colors => {
             display_ratatui_styles()?;
             Ok(())

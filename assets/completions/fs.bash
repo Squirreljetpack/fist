@@ -58,6 +58,9 @@ _fs() {
             fs__subcmd__:tool,bump)
                 cmd="fs__subcmd__:tool__subcmd__bump"
                 ;;
+            fs__subcmd__:tool,check)
+                cmd="fs__subcmd__:tool__subcmd__check"
+                ;;
             fs__subcmd__:tool,colors)
                 cmd="fs__subcmd__:tool__subcmd__colors"
                 ;;
@@ -716,7 +719,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool)
-            opts="-q -v --help --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener colors liza shell lessfilter pager bump trash show-binds types diskspace"
+            opts="-q -v --help --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener colors liza shell lessfilter pager bump trash show-binds types diskspace check"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -766,6 +769,56 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool__subcmd__bump)
+            opts="-q -v --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --override)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --config)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --mm-config)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                --lock-prompt)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                --output-sep)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --format)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --opener)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        fs__subcmd__:tool__subcmd__check)
             opts="-q -v --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )

@@ -5,10 +5,13 @@ use std::{fs::create_dir_all, sync::atomic::Ordering};
 use cba::bs::symlink;
 use fs_extra::{dir, file};
 
-use crate::run::{
-    item::short_display,
-    lua::{call_with_paths, compile_lua, load_script},
-    state::{ToastStyle, MENU_ACTIONS, TOAST},
+use crate::{
+    cli::paths::actions_dir,
+    run::{
+        item::short_display,
+        lua::{execute, load_script},
+        state::{ToastStyle, MENU_ACTIONS, TOAST},
+    },
 };
 
 impl QueueItem {
@@ -146,18 +149,17 @@ impl QueueItem {
                     }
                 };
                 status.progress.store(0, Ordering::Relaxed);
-                let result = load_script(&command)
+                let result = load_script(&command, Some(actions_dir()))
                     .ok_or_else(|| anyhow::anyhow!("failed to load script"))
-                    .and_then(|s| compile_lua(&s).map_err(anyhow::Error::msg))
-                    .and_then(|f| {
-                        call_with_paths(
-                            &f,
+                    .and_then(|s| {
+                        execute(
+                            &s,
                             src,
                             &dst.to_string_lossy(),
                             nav_cwd,
                             Some(&status.progress),
                         )
-                        .map_err(anyhow::Error::from)
+                        .map_err(anyhow::Error::msg)
                     });
                 // the run is done: report the progress as complete without
                 // relying on the script calling `set_progress`

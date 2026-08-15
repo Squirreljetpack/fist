@@ -52,4 +52,6 @@ pub enum SubTool {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<OsString>,
     },
+    /// Validate configuration and scripts; exits non-zero on errors.
+    Check,
 }
