@@ -6,9 +6,9 @@ use log::{info, warn};
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
-    cli::paths::text_renderer_path,
+    cli::paths::{actions_dir, text_renderer_path},
     run::{
-        lua::{call_with_paths, compile_lua},
+        lua::{execute, load_script},
         state::{ExecuteHandlerShouldProcessParent, MENU_ACTIONS, STACK, STORE},
     },
     utils::{command::maybe_tty, formatter::format_path},
@@ -87,14 +87,11 @@ pub(super) fn run_menu_lua(
     paths: &[AbsPath],
     nav_cwd: Option<&AbsPath>,
 ) {
-    let f = match compile_lua(command) {
-        Ok(f) => f,
-        Err(e) => {
-            log::error!("Failed to compile menu action lua command: {e}");
-            return;
-        }
+    let Some(source) = load_script(command, Some(actions_dir())) else {
+        log::error!("Failed to load menu action lua command: {command}");
+        return;
     };
-    if let Err(e) = call_with_paths(&f, paths, "", nav_cwd, None) {
+    if let Err(e) = execute(&source, paths, "", nav_cwd, None) {
         log::error!("Menu action lua error: {e}");
     }
 }
@@ -108,12 +105,9 @@ pub(super) fn run_menu_lua_paged(
     paths: &[AbsPath],
     nav_cwd: Option<&AbsPath>,
 ) {
-    let f = match compile_lua(command) {
-        Ok(f) => f,
-        Err(e) => {
-            log::error!("Failed to compile menu action lua command: {e}");
-            return;
-        }
+    let Some(source) = load_script(command, Some(actions_dir())) else {
+        log::error!("Failed to load menu action lua command: {command}");
+        return;
     };
 
     // The pager is spawned BEFORE the stdout redirect so its inherited
@@ -136,9 +130,7 @@ pub(super) fn run_menu_lua_paged(
                 "Failed to spawn pager: {:?}; running unpaged",
                 text_renderer_path()
             );
-            if let Err(e) = call_with_paths(&f, paths, "", nav_cwd, None) {
-                log::error!("Menu action lua error: {e}");
-            }
+            run_menu_lua(command, paths, nav_cwd);
             return;
         }
     };
@@ -155,14 +147,12 @@ pub(super) fn run_menu_lua_paged(
                 warn!("Failed to redirect stdout to pager: {e}; running unpaged");
                 drop(pipe);
                 let _ = pager.wait();
-                if let Err(e) = call_with_paths(&f, paths, "", nav_cwd, None) {
-                    log::error!("Menu action lua error: {e}");
-                }
+                run_menu_lua(command, paths, nav_cwd);
                 return;
             }
         };
 
-        let result = call_with_paths(&f, paths, "", nav_cwd, None);
+        let result = execute(&source, paths, "", nav_cwd, None);
         if let Err(e) = result {
             log::error!("Menu action lua error: {e}");
         }

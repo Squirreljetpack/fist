@@ -280,7 +280,14 @@ pub async fn start(
         .overlay(AppOverlay::new(app))
         .overlay(OptionsOverlay::new(options))
         .overlay(ConfirmOverlay::new(confirm))
-        .overlay(MenuOverlay::new(menu, prompt, cfg.actions.clone()));
+        .overlay(MenuOverlay::new(
+            menu,
+            prompt,
+            MENU_ACTIONS
+                .get()
+                .expect("MENU_ACTIONS must be set before start")
+                .clone(),
+        ));
 
     let render_tx = builder.render_tx();
 
@@ -295,9 +302,6 @@ pub async fn start(
     // A7: `cfg.global` (with `panes.stash.transient_stash_panes`) and `db_pool`
     // are both moved into GLOBAL::init, so extract what the startup stash-clear
     // needs before that call.
-    MENU_ACTIONS
-        .set(cfg.actions)
-        .expect("MENU_ACTIONS initialized more than once");
     let transient_stash_panes = cfg.global.panes.stash.transient_stash_panes.clone();
     let pool = db_pool.clone();
     GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane, bind_tx);

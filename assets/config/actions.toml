@@ -1,0 +1,73 @@
+# Custom menu actions, keyed by name (the key is the menu item name).
+# A menu action is visible iff at least one condition is satisfied (an
+# empty condition list = always visible). Conditions are evaluated once
+# when the menu opens, against the selection / cursor / prompt state at
+# that moment:
+#   seq = [rule, ...]            positional: rule i must match the i-th
+#                                selected item (exactly as many items
+#                                selected as there are rules)
+#   repeat = { selected, condition, strict }
+#                                selected: which picker state the rule is
+#                                evaluated against — "cursor" (the current
+#                                results row; default when omitted), "cwd"
+#                                (the current directory), "single" (one
+#                                target), or a bare count n (= selections n):
+#   selected = "cursor"          requires an enabled cursor with an item;
+#                                strict additionally requires that nothing
+#                                is selected
+#   selected = "cwd"             non-strict requires a current directory
+#                                while the cursor is disabled; strict
+#                                requires the nav pane directory
+#   selected = n                 exactly (strict) / at least n selected
+#                                items; the rule must match every one
+#   selected = "single"          the selection when any items are selected,
+#                                else the cursor item (the current directory
+#                                while the cursor is disabled); strict
+#                                requires exactly one resolved target; the
+#                                rule must match every target
+# Rule syntax: ext:rs, glob:*.rs, child:src, mime:image/*, type:f/type:d
+# (file/directory), have:program, cat:name, application, git (inside a git
+# work tree),
+# * (any) — prefix with ! to invert. A condition accepts a single rule
+# object or an array of conditions.
+# Strategies: "Execute" (waited, closes the menu), "ExecuteSilent" (not
+# waited, closes the menu; "silent" is accepted as an alias), "ExecPaged"
+# (waited, stdout paged, closes the menu), "Queue" (enqueue all targets as
+# one queue item), { QueueBatch = n } (queue items of at most n paths).
+# `close` overrides the strategy's default closing behavior.
+# The command is a lua script (supports the @file syntax), called once
+# with (paths, dst, nav_cwd): the targeted paths as a lua table plus the
+# destination passed verbatim, and the navigation directory as the
+# optional third argument. Scripts may call set_progress(0-255) to set the
+# executing item's progress. The script runs in the process cwd — scripts
+# are responsible for cd (e.g. `os.execute('cd "' .. (...)[1] .. '" &&
+# git log')`).
+# `requires_dest = true` marks the action as requiring a non-empty
+# destination when executed from the queue.
+# log-queuer = {
+#   condition = [{ repeat = { selected = 1, condition = "ext:log", strict = true } }],
+#   command = "print('queued a log')",
+#   strategy = "Queue",
+#   requires_dest = true,
+# }
+#
+# Every *.toml in the actions/ folder next to this file is merged in
+# sorted filename order (numeric prefixes order them); the entries above
+# come first and a key defined twice is an error.
+
+# chmod +x: mark the targeted files and directories executable. Shipped as
+# a plugin; more plugins live in assets/actions/ (installed into the
+# actions/ folder by --dump-config).
+["chmod +x"]
+condition = [{ repeat = { condition = "*" } }]
+command = """
+local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
+local dir = paths[1]:match("^(.*)/") or "."
+local names = {}
+for _, p in ipairs(paths) do
+  names[#names + 1] = shq("./" .. (p:match("([^/]+)/?$") or "."))
+end
+local ok, how, code = os.execute(
+  "cd " .. shq(dir) .. " && chmod +x " .. table.concat(names, " "))
+if not ok then error("chmod +x failed: " .. tostring(code)) end
+"""

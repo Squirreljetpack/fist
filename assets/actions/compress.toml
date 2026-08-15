@@ -1,0 +1,83 @@
+# Compression menu actions (shipped plugin).
+#
+# This file is a MenuActions map: each key is an action name shown in the
+# menu overlay. Actions are gated with `have:program` rules so a format only
+# appears when its compressor is on PATH (evaluated when the menu opens).
+#
+# The command is a lua script called with (paths, dst, nav_cwd): the
+# targeted paths as a lua table (absolute), the destination (empty for
+# direct menu calls), and the navigation directory as the optional third
+# argument. The archive is written next to the first target, or into `dst`
+# when it is non-empty.
+
+["zip"]
+alias = "z"
+strategy = "Execute"
+condition = [{ repeat = { condition = "have:zip" } }]
+command = """
+local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
+local function base(p) return p:match("([^/]+)/?$") or "." end
+local function parent(p) return p:match("^(.*)/") or "." end
+local src_dir = parent(paths[1])
+local out_dir = dst ~= "" and dst or src_dir
+local archive = out_dir .. "/" .. base(paths[1]) .. ".zip"
+local names = {}
+for _, p in ipairs(paths) do names[#names + 1] = shq("./" .. base(p)) end
+local ok, how, code = os.execute(
+  "cd " .. shq(src_dir) .. " && zip -rq " .. shq(archive) .. " " .. table.concat(names, " "))
+if not ok then error("zip failed: " .. tostring(code)) end
+"""
+
+["tar.gz"]
+alias = "gz"
+strategy = "Execute"
+condition = [{ repeat = { condition = "have:tar" } }]
+command = """
+local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
+local function base(p) return p:match("([^/]+)/?$") or "." end
+local function parent(p) return p:match("^(.*)/") or "." end
+local src_dir = parent(paths[1])
+local out_dir = dst ~= "" and dst or src_dir
+local archive = out_dir .. "/" .. base(paths[1]) .. ".tar.gz"
+local names = {}
+for _, p in ipairs(paths) do names[#names + 1] = shq(base(p)) end
+local ok, how, code = os.execute(
+  "cd " .. shq(src_dir) .. " && tar -czf " .. shq(archive) .. " -- " .. table.concat(names, " "))
+if not ok then error("tar.gz failed: " .. tostring(code)) end
+"""
+
+["tar.xz"]
+alias = "xz"
+strategy = "Execute"
+condition = [{ repeat = { condition = "have:xz" } }]
+command = """
+local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
+local function base(p) return p:match("([^/]+)/?$") or "." end
+local function parent(p) return p:match("^(.*)/") or "." end
+local src_dir = parent(paths[1])
+local out_dir = dst ~= "" and dst or src_dir
+local archive = out_dir .. "/" .. base(paths[1]) .. ".tar.xz"
+local names = {}
+for _, p in ipairs(paths) do names[#names + 1] = shq(base(p)) end
+local ok, how, code = os.execute(
+  "cd " .. shq(src_dir) .. " && tar -cJf " .. shq(archive) .. " -- " .. table.concat(names, " "))
+if not ok then error("tar.xz failed: " .. tostring(code)) end
+"""
+
+["7z"]
+alias = "7z"
+strategy = "Execute"
+condition = [{ repeat = { condition = "have:7z" } }]
+command = """
+local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
+local function base(p) return p:match("([^/]+)/?$") or "." end
+local function parent(p) return p:match("^(.*)/") or "." end
+local src_dir = parent(paths[1])
+local out_dir = dst ~= "" and dst or src_dir
+local archive = out_dir .. "/" .. base(paths[1]) .. ".7z"
+local names = {}
+for _, p in ipairs(paths) do names[#names + 1] = shq("./" .. base(p)) end
+local ok, how, code = os.execute(
+  "cd " .. shq(src_dir) .. " && 7z a -bd " .. shq(archive) .. " " .. table.concat(names, " "))
+if not ok then error("7z failed: " .. tostring(code)) end
+"""

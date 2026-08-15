@@ -554,6 +554,22 @@ _arguments "${_arguments_options[@]}" : \
 '*::args:_default' \
 && ret=0
 ;;
+(check)
+_arguments "${_arguments_options[@]}" : \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[]::ORIENTATION:(true false)' \
+'--lock-prompt=[See \`interface.prompt_locking\`]:LOCK_PROMPT:(true false)' \
+'--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
+'--format=[Output template for printed results]:FORMAT:_default' \
+'--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
+'--alt-accept[]' \
+&& ret=0
+;;
         esac
     ;;
 esac
@@ -752,6 +768,22 @@ _arguments "${_arguments_options[@]}" : \
 '*::args:_default' \
 && ret=0
 ;;
+(check)
+_arguments "${_arguments_options[@]}" : \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[]::ORIENTATION:(true false)' \
+'--lock-prompt=[See \`interface.prompt_locking\`]:LOCK_PROMPT:(true false)' \
+'--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
+'--format=[Output template for printed results]:FORMAT:_default' \
+'--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
+'--alt-accept[]' \
+&& ret=0
+;;
         esac
     ;;
 esac
@@ -851,6 +883,7 @@ _fs__subcmd__:tool_commands() {
 'show-binds:Show binds' \
 'types:List mappings supported by the --type parameter' \
 'diskspace:Disk usage\: compute directory sizes concurrently and print them' \
+'check:Validate configuration and scripts; exits non-zero on errors' \
     )
     _describe -t commands 'fs :tool commands' commands "$@"
 }
@@ -858,6 +891,11 @@ _fs__subcmd__:tool_commands() {
 _fs__subcmd__:tool__subcmd__bump_commands() {
     local commands; commands=()
     _describe -t commands 'fs :tool bump commands' commands "$@"
+}
+(( $+functions[_fs__subcmd__:tool__subcmd__check_commands] )) ||
+_fs__subcmd__:tool__subcmd__check_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :tool check commands' commands "$@"
 }
 (( $+functions[_fs__subcmd__:tool__subcmd__colors_commands] )) ||
 _fs__subcmd__:tool__subcmd__colors_commands() {

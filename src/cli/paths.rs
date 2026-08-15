@@ -147,6 +147,15 @@ expr_as_path_fn!(
 #[cfg(not(debug_assertions))]
 expr_as_path_fn!(lessfilter_cfg_path, config_dir().join("lessfilter.toml"));
 
+// menu actions: the primary file plus the actions folder merged in
+// sorted-filename order (see [`MenuActions::load_all`])
+#[cfg(debug_assertions)]
+expr_as_path_fn!(actions_path, config_dir().join("actions.dev.toml"));
+#[cfg(not(debug_assertions))]
+expr_as_path_fn!(actions_path, config_dir().join("actions.toml"));
+
+expr_as_path_fn!(actions_dir, config_dir().join("actions"));
+
 // ---------- previewer scripts -----------
 expr_as_path_fn!(liza_path, cache_dir().join("liza"));
 // renders text. Also pages the output if stdout is /dev/tty for convenience.

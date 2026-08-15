@@ -11,10 +11,12 @@ use fist::{
     cli::{
         Cli, SubCmd, ToolsCmd,
         handlers::handle_subcommand,
-        paths::{BINARY_FULL, lessfilter_cfg_path},
+        paths::{BINARY_FULL, actions_dir, actions_path, lessfilter_cfg_path},
     },
     config::Config,
     errors::CliError,
+    run::state::MENU_ACTIONS,
+    spawn::menu_action::MenuActions,
 };
 use matchmaker::MatchError;
 
@@ -51,12 +53,27 @@ async fn main() {
                 include_str!("../assets/config/lessfilter.dev.toml"),
             )
             ._ebog();
+            write_str(actions_path(), include_str!("../assets/config/actions.dev.toml"))._ebog();
+            install_shipped_actions(false);
         }
     }
 
     // load config
     let mut cfg: Config = load_type_or_default(&cli.opts.config, |s| toml::from_str(s));
     cfg.override_from(&cli.opts);
+
+    // menu actions live in their own file (actions.toml + the actions/
+    // folder); a broken file is a hard error naming the file
+    let actions = match MenuActions::load_all(actions_path(), actions_dir()) {
+        Ok(a) => a,
+        Err(e) => {
+            ebog!("{e}");
+            exit(1);
+        }
+    };
+    MENU_ACTIONS
+        .set(actions)
+        .expect("MENU_ACTIONS initialized more than once");
 
     if cli.opts.dump_config {
         dump_config(&cli.opts, &cfg);
@@ -197,6 +214,13 @@ fn dump_config(
         {
             _ibog!("Wrote config to {}", lessfilter_cfg_path.to_string_lossy())
         }
+        if write_str(actions_path(), include_str!("../assets/config/actions.toml"))
+            ._ebog()
+            .is_some()
+        {
+            _ibog!("Wrote config to {}", actions_path().to_string_lossy())
+        }
+        install_shipped_actions(true);
     } else {
         // if piped: dump the current cfg
         let contents = toml::to_string_pretty(&cfg).expect("failed to serialize to TOML");
@@ -219,6 +243,27 @@ fn dump_config(
     }
 
     exit(0);
+}
+
+/// The shipped plugin actions installed into `config_dir()/actions/` by
+/// `--dump-config` (and the debug startup block). Entries are written
+/// only when missing, so user edits survive.
+const SHIPPED_ACTIONS: &[(&str, &str)] = &[(
+    "compress.toml",
+    include_str!("../assets/actions/compress.toml"),
+)];
+
+fn install_shipped_actions(log_writes: bool) {
+    let dir = actions_dir();
+    for (name, content) in SHIPPED_ACTIONS {
+        let target = dir.join(name);
+        if !target.exists()
+            && write_str(&target, content)._ebog().is_some()
+            && log_writes
+        {
+            _ibog!("Wrote config to {}", target.to_string_lossy())
+        }
+    }
 }
 
 fn check(cfg: &Config) {
