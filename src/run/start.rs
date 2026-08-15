@@ -26,7 +26,6 @@ use crate::{
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
         previewer::make_previewer,
-        queue::QUEUE,
         register::{MMExt, emit_print, path_formatter, query_handler, sync_handler},
         state::{
             AcceptFlavor, DB_FILTER, GLOBAL, HideMetadata, MENU_ACTIONS, STACK, STORE, TASKS,
@@ -334,11 +333,22 @@ pub async fn start(
 
     TASKS::shutdown(500, 10, 3000).await;
     unzip::shutdown();
-    if STACK::in_app() {
+    // In the app pane, the picked program opens the pane's pending files
+    // (fs :open, the OpenWith menu action); elsewhere the picked lines are
+    // paths to open.
+    let app_files: Option<Vec<OsString>> = STACK::with_current(|p| match p {
+        FsPane::Apps { pending, .. } => Some(
+            pending
+                .iter()
+                .map(|p| p.inner().as_os_str().to_os_string())
+                .collect(),
+        ),
+        _ => None,
+    });
+    if let Some(files) = app_files {
         match ret {
             Ok(lines) if !lines.is_empty() => {
                 let prog = &lines[0];
-                let files = QUEUE::stashed_apps();
                 let mut conn = GLOBAL::db().get_conn(DbTable::apps).await?;
                 let cmd = conn.get_cmd(&prog.path).await?;
 

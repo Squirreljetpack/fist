@@ -3,10 +3,11 @@ use crate::{
     cli::paths::__home,
     display::human_size,
     run::{
+        FsPane,
         action::FsAction,
         item::PathItem,
         queue::{QUEUE, QUEUE_STATE, QueueItem, QueueItemState, QueueItemStatus, QueueView},
-        state::{GLOBAL, TOAST, ToastStyle},
+        state::{GLOBAL, STACK, TOAST, ToastStyle},
     },
     ui::{OVERLAY_TICK_RATE, input::{InputWidget, InputWidgetConfig}},
     utils::serde::border_result,
@@ -72,13 +73,15 @@ impl Default for QueueConfig {
     }
 }
 
-/// Shared table-selection state for the stash overlays. The shared stash
+/// Shared table-selection state for the queue overlays. The shared queue
 /// edits source/destination columns `[1, 2]`; the app view is a single
 /// editable path column `[0, 0]` (dst edits are not offered).
 pub struct TableSelection {
     pub state: TableState,
     pub selected: BTreeSet<usize>,
     pub editing: Option<(usize, usize, InputWidget)>,
+    /// Transient kind filter for the shared queue: `None` shows every kind.
+    pub kind_filter: Option<String>,
 
     pub view: QueueView,
     pub path_dst_cols: [usize; 2],
@@ -99,12 +102,64 @@ impl TableSelection {
             selected: BTreeSet::new(),
             view,
             editing: None,
+            kind_filter: None,
             path_dst_cols,
             available_w: 0,
             initial_widths: vec![],
             dirty: false,
             reiinit: false,
         }
+    }
+
+    /// The shared filter values: `All` plus the distinct kinds in
+    /// first-seen queue order.
+    fn filter_values() -> Vec<Option<String>> {
+        let state = QUEUE_STATE.lock().unwrap();
+        let mut values: Vec<Option<String>> = vec![None];
+        for item in &state.shared {
+            if !values.iter().any(|v| v.as_deref() == Some(item.kind.as_str())) {
+                values.push(Some(item.kind.clone()));
+            }
+        }
+        values
+    }
+
+    /// The underlying shared indices visible under the current kind filter.
+    fn visible_indices(&self) -> Vec<usize> {
+        let state = QUEUE_STATE.lock().unwrap();
+        state
+            .shared
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| {
+                self.kind_filter
+                    .as_deref()
+                    .is_none_or(|kind| item.kind == kind)
+            })
+            .map(|(i, _)| i)
+            .collect()
+    }
+
+    /// Cycle the shared kind filter with wrapping; changing it clears the
+    /// row selections and cancels any row editing.
+    fn cycle_filter(
+        &mut self,
+        delta: i32,
+    ) {
+        let values = Self::filter_values();
+        if values.len() < 2 {
+            return;
+        }
+        let pos = values
+            .iter()
+            .position(|v| *v == self.kind_filter)
+            .unwrap_or(0);
+        let next = (pos as i32 + delta).rem_euclid(values.len() as i32) as usize;
+        self.kind_filter = values[next].clone();
+        self.selected.clear();
+        self.editing = None;
+        self.reiinit = true;
+        self.state.select(Some(0));
     }
 
     pub fn update_editing_widths(
@@ -171,6 +226,15 @@ impl TableSelection {
             return OverlayEffect::Disable;
         }
 
+        // the shared queue maps visible (filtered) rows onto underlying
+        // shared indices; the app view has no filter
+        let visible = if self.view == QueueView::Shared {
+            self.visible_indices()
+        } else {
+            (0..len).collect::<Vec<_>>()
+        };
+        let vlen = visible.len();
+
         if let Some((row, col, input)) = &mut self.editing {
             if let Some(accepted) = input.handle_action(action) {
                 if accepted {
@@ -200,19 +264,41 @@ impl TableSelection {
             return OverlayEffect::None;
         }
 
+        // kind filter cycling (shared view only): Undo/Redo move through the
+        // filter values with wrapping
+        if self.view == QueueView::Shared {
+            match action {
+                Action::Custom(FsAction::Undo) => {
+                    self.cycle_filter(-1);
+                    return OverlayEffect::None;
+                }
+                Action::Custom(FsAction::Redo) => {
+                    self.cycle_filter(1);
+                    return OverlayEffect::None;
+                }
+                _ => {}
+            }
+        }
+
         match action {
             Action::Up(x) => {
-                if let Some(i) = self.state.selected_mut() {
+                if vlen > 0
+                    && let Some(i) = self.state.selected_mut()
+                {
                     *i = i.saturating_sub(*x as usize);
                 }
             }
             Action::Down(x) => {
-                if let Some(i) = self.state.selected_mut() {
-                    *i = (*i + *x as usize).min(len.saturating_sub(1));
+                if vlen > 0
+                    && let Some(i) = self.state.selected_mut()
+                {
+                    *i = (*i + *x as usize).min(vlen.saturating_sub(1));
                 }
             }
             Action::Select => {
-                if let Some(i) = self.state.selected() {
+                if let Some(i) = self.state.selected()
+                    && i < vlen
+                {
                     self.selected.insert(i);
                 }
             }
@@ -222,40 +308,61 @@ impl TableSelection {
                 }
             }
             Action::ToggleSelection => {
-                if let Some(i) = self.state.selected() {
-                    if !self.selected.insert(i) {
-                        self.selected.remove(&i);
-                    }
+                if let Some(i) = self.state.selected()
+                    && i < vlen
+                    && !self.selected.insert(i)
+                {
+                    self.selected.remove(&i);
                 }
             }
             Action::PreviewUp(_) => {
-                if let Some(i) = self.state.selected() {
-                    if i > 0 {
-                        QUEUE::view_swap(self.view, i, i - 1);
-                        self.state.select(Some(i - 1));
-                    }
+                if let Some(i) = self.state.selected()
+                    && i > 0
+                {
+                    let (under_i, under_j) = if self.view == QueueView::Shared {
+                        (visible[i], visible[i - 1])
+                    } else {
+                        (i, i - 1)
+                    };
+                    QUEUE::view_swap(self.view, under_i, under_j);
+                    self.state.select(Some(i - 1));
                 }
             }
             Action::PreviewDown(_) => {
-                if let Some(i) = self.state.selected() {
-                    if i + 1 < len {
-                        QUEUE::view_swap(self.view, i, i + 1);
-                        self.state.select(Some(i + 1));
-                    }
+                if let Some(i) = self.state.selected()
+                    && i + 1 < vlen
+                {
+                    let (under_i, under_j) = if self.view == QueueView::Shared {
+                        (visible[i], visible[i + 1])
+                    } else {
+                        (i, i + 1)
+                    };
+                    QUEUE::view_swap(self.view, under_i, under_j);
+                    self.state.select(Some(i + 1));
                 }
             }
             Action::DeleteChar | Action::Custom(FsAction::Trash(_) | FsAction::Delete(_)) => {
-                if let Some(i) = self.state.selected() {
-                    QUEUE::view_remove(self.view, i);
+                if let Some(i) = self.state.selected()
+                    && i < vlen
+                {
+                    QUEUE::view_remove(self.view, visible[i]);
                 }
             }
             Action::Accept => {
                 if self.view == QueueView::Shared {
+                    let nav_cwd = STACK::nav_cwd();
                     if !self.selected.is_empty() {
-                        QUEUE::execute_all(&self.selected);
+                        let indices: Vec<usize> = self
+                            .selected
+                            .iter()
+                            .filter_map(|&v| visible.get(v).copied())
+                            .collect();
+                        QUEUE::dispatch(indices, nav_cwd);
                         self.selected.clear();
-                    } else if let Some(i) = self.state.selected() {
-                        QUEUE::execute(i);
+                    } else if let Some(i) = self.state.selected()
+                        && i < vlen
+                    {
+                        QUEUE::dispatch(vec![visible[i]], nav_cwd);
                     }
                 } else {
                     // app entries are not executable — they are files to open
@@ -263,9 +370,22 @@ impl TableSelection {
                 }
             }
             Action::Custom(FsAction::ShowMenu) => {
-                if let Some(i) = self.state.selected()
-                    // multi-path items do not support src editing
-                    && let Some((src, _)) = QUEUE::view_get(self.view, i)
+                let underlying = if self.view == QueueView::Shared {
+                    let Some(i) = self.state.selected() else {
+                        return OverlayEffect::None;
+                    };
+                    if i >= vlen {
+                        return OverlayEffect::None;
+                    }
+                    visible[i]
+                } else {
+                    let Some(i) = self.state.selected() else {
+                        return OverlayEffect::None;
+                    };
+                    i
+                };
+                // multi-path items do not support src editing
+                if let Some((src, _)) = QUEUE::view_get(self.view, underlying)
                     && let [p] = src.as_slice()
                 {
                     let mut input = InputWidget::new(InputWidgetConfig {
@@ -274,24 +394,28 @@ impl TableSelection {
                     let val = p.to_string_lossy().into_owned();
                     input.set_value(val.clone());
                     let col = self.path_dst_cols[0];
-                    self.editing = Some((i, col, input));
+                    self.editing = Some((underlying, col, input));
                     self.dirty = true;
                     return OverlayEffect::None;
                 }
             }
             Action::Custom(FsAction::Rename) if self.view == QueueView::Shared => {
-                if let Some(i) = self.state.selected() {
-                    if let Some((_, d)) = QUEUE::view_get(self.view, i) {
-                        let mut input = InputWidget::new(InputWidgetConfig {
-                            ..Default::default()
-                        });
-                        let val = d.to_string_lossy().into_owned();
-                        input.set_value(val.clone());
-                        let col = self.path_dst_cols[1];
-                        self.editing = Some((i, col, input));
-                        self.dirty = true;
-                        return OverlayEffect::None;
-                    }
+                let Some(i) = self.state.selected() else {
+                    return OverlayEffect::None;
+                };
+                if i >= vlen {
+                    return OverlayEffect::None;
+                }
+                if let Some((_, d)) = QUEUE::view_get(self.view, visible[i]) {
+                    let mut input = InputWidget::new(InputWidgetConfig {
+                        ..Default::default()
+                    });
+                    let val = d.to_string_lossy().into_owned();
+                    input.set_value(val.clone());
+                    let col = self.path_dst_cols[1];
+                    self.editing = Some((visible[i], col, input));
+                    self.dirty = true;
+                    return OverlayEffect::None;
                 }
             }
             Action::Quit(_) => return OverlayEffect::Disable,
@@ -460,6 +584,9 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
     ) {
         // keep the queue view live: force the ticker to run while it is open
         GLOBAL::send_bind(BindDirective::OverrideTickrate(Some(OVERLAY_TICK_RATE)));
+        // the kind filter is transient: it always starts at `All`
+        self.state.kind_filter = None;
+        self.state.selected.clear();
         self.state.state.select(Some(0));
         QUEUE::check_validity();
     }
@@ -537,16 +664,19 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
 
         let editing_info = self.state.editing.as_ref().map(|(r, c, _)| (*r, *c));
 
-        // build table
+        // build the table from the visible (filtered) rows; the row
+        // positions are visible positions, the cells come from the
+        // underlying shared indices
+        let visible = self.state.visible_indices();
         let header =
             Row::new(self.headers.clone()).style(Style::new().add_modifier(Modifier::BOLD));
-        let rows: Vec<Row> = state
-            .shared
+        let rows: Vec<Row> = visible
             .iter()
             .enumerate()
-            .map(|(i, item)| {
-                let is_current = self.state.state.selected() == Some(i);
-                let is_selected = self.state.selected.contains(&i);
+            .map(|(vpos, &i)| {
+                let item = &state.shared[i];
+                let is_current = self.state.state.selected() == Some(vpos);
+                let is_selected = self.state.selected.contains(&vpos);
                 let is_editing = editing_info.is_some_and(|(r, _)| r == i);
 
                 let mut row_style = self.config.cell;
@@ -580,11 +710,16 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
             })
             .collect();
 
-        // render table
+        // render table with the transient `[kind: x]` control in the title
+        let filter_label = self.state.kind_filter.as_deref().unwrap_or("All");
         let table = Table::new(rows, self.widths)
             .header(header)
             .column_spacing(1)
-            .block(self.border().as_static_block());
+            .block(
+                self.border()
+                    .as_static_block()
+                    .title(format!("[kind: {filter_label}]")),
+            );
         frame.render_widget(Clear, area);
         frame.render_stateful_widget(table, area, &mut self.state.state);
 
@@ -630,7 +765,7 @@ impl AppOverlay {
 
     fn update_widths(
         &mut self,
-        items: &[std::path::PathBuf],
+        items: &[AbsPath],
         available_ui_w: u16,
     ) {
         if self.state.editing.is_some() {
@@ -655,6 +790,15 @@ impl AppOverlay {
             &self.extra.1,
         );
     }
+}
+
+/// The current app pane's pending files (the app view listing), or an
+/// empty list outside the app pane.
+fn app_pending() -> Vec<AbsPath> {
+    STACK::with_current(|p| match p {
+        FsPane::Apps { pending, .. } => pending.clone(),
+        _ => Vec::new(),
+    })
 }
 
 impl Overlay<FsAction, PathItem, ()> for AppOverlay {
@@ -687,12 +831,12 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
         ui_area: &Rect,
         layout: &OverlayLayoutSettings,
     ) {
-        let state = QUEUE_STATE.lock().unwrap();
+        let pending = app_pending();
         self.state.available_w = ui_area
             .width
             .saturating_sub(self.border().width())
             .saturating_sub(self.widths.len().saturating_sub(1) as u16);
-        self.update_widths(&state.apps, self.state.available_w);
+        self.update_widths(&pending, self.state.available_w);
 
         self.extra = (layout.clone(), *ui_area);
         self.set_area();
@@ -710,11 +854,10 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
         &mut self,
         frame: &mut matchmaker::ui::Frame<'_>,
     ) {
-        let state = QUEUE_STATE.lock().unwrap();
-        let items = &state.apps;
+        let items = app_pending();
 
         if self.state.reiinit {
-            self.update_widths(items, self.state.available_w);
+            self.update_widths(&items, self.state.available_w);
             self.set_area();
 
             self.state.dirty = false;

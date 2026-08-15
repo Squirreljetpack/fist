@@ -9,13 +9,55 @@ use cba::bath::{PathExt, auto_dest_for_src};
 use crate::{
     abspath::AbsPath,
     cli::paths::__home,
-    run::state::{GLOBAL, STACK, TASKS, TOAST, ToastStyle},
-    spawn::menu_action::RESERVED_KEYS,
+    run::{
+        FsPane,
+        state::{GLOBAL, MENU_ACTIONS, STACK, TASKS, TOAST},
+    },
 };
+
+/// The kind of a queued operation: a builtin (`copy`, `cut`, `symlink`,
+/// `none`) or a custom menu-action key.
+pub type QueueKind = String;
+
+/// The builtin queue kinds, enqueued one row per path.
+pub const BUILTIN_KINDS: [&str; 4] = ["copy", "cut", "symlink", "none"];
+
+/// The builtin queue kinds that require a destination to execute.
+pub const DEST_KINDS: [&str; 3] = ["copy", "cut", "symlink"];
+
+/// Selector over queued operations used by `ExecuteQueue`/`ClearQueue`.
+/// Parsing is ASCII case-insensitive for the reserved spellings; any other
+/// value (including the empty string) is a custom [`QueueKind`].
+#[derive(Debug, Clone, PartialEq, Eq, strum_macros::EnumString, strum_macros::Display)]
+#[strum(ascii_case_insensitive)]
+pub enum QueueSelector {
+    /// Every queue kind.
+    All,
+    /// The builtin transfer kinds (`copy`, `cut`, `symlink`).
+    Builtins,
+    /// The first pending row.
+    First,
+    /// The last pending row.
+    Last,
+    /// A specific queue kind.
+    #[strum(default, to_string = "{0}")]
+    Kind(QueueKind),
+}
+
+/// Outcome of matching a selector against the pending shared rows.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SelectorResult {
+    /// No pending rows match.
+    NoItems,
+    /// Matching rows exist but destination-requiring ones cannot execute.
+    MissingDestination,
+    /// The concrete shared indices ready to execute.
+    Ready(Vec<usize>),
+}
 
 #[derive(Debug, Clone)]
 pub struct QueueItem {
-    pub kind: String,
+    pub kind: QueueKind,
     pub src: Vec<AbsPath>,
     pub status: QueueItemStatus,
     pub dst: OsString,
@@ -23,7 +65,7 @@ pub struct QueueItem {
 
 impl QueueItem {
     pub fn new(
-        kind: String,
+        kind: QueueKind,
         src: AbsPath,
     ) -> Self {
         Self {
@@ -51,10 +93,6 @@ pub struct QueueState {
     /// Items added under a queue kind (`copy`/`cut`/`symlink` builtins, or a
     /// custom kind which executes as a lua script — see [`QueueItem::execute`]).
     pub shared: Vec<QueueItem>,
-    /// Paths collected while in the app pane (`fs :open`, `OpenWith`) — the
-    /// files the selected program is opened with. Replaces the `"app"`
-    /// scratch list.
-    pub apps: Vec<PathBuf>,
     /// Not implemented anywhere — kept inert as specified by STASHPANE.md.
     pub revert: Vec<(usize, PathBuf)>,
     /// Currently inert — nothing consumes it.
@@ -65,7 +103,6 @@ impl QueueState {
     pub const fn new() -> Self {
         Self {
             shared: Vec::new(),
-            apps: Vec::new(),
             revert: Vec::new(),
             mode: 0,
         }
@@ -76,8 +113,8 @@ pub static QUEUE_STATE: Mutex<QueueState> = Mutex::new(QueueState::new());
 
 pub static QUEUE_ACTION_HISTORY: Mutex<Vec<QueueItem>> = Mutex::new(Vec::new());
 
-/// Which list an overlay operation targets: the shared items or the app
-/// paths collected in app mode.
+/// Which list an overlay operation targets: the shared items or the
+/// pending files of the current app pane (the app view).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueueView {
     Shared,
@@ -95,52 +132,25 @@ pub struct QUEUE;
 impl QUEUE {
     // ------------- insert --------------
 
-    /// Enqueue all `paths` as a single item under `kind` (used by the menu
-    /// action Stash/Batch strategies). Custom kinds always add a fresh item;
-    /// the builtin kinds never reach this path (see [`QUEUE::extend`]).
+    /// Enqueue `paths` into the shared queue under `kind`. Builtin kinds
+    /// add one row per path, replacing a pending row with the same source
+    /// and kind (moved to the tail); custom menu kinds add one multi-path
+    /// row.
     pub fn enqueue(
-        kind: &str,
+        kind: QueueKind,
         paths: Vec<AbsPath>,
     ) {
         debug_assert!(
-            !RESERVED_KEYS.contains(&kind),
-            "enqueue is for custom menu action kinds, got {kind:?}"
+            !kind.is_empty()
+                && matches!(kind.parse::<QueueSelector>(), Ok(QueueSelector::Kind(_))),
+            "enqueue kinds must parse as an ordinary queue kind, got {kind:?}"
         );
         if paths.is_empty() {
             return;
         }
         let mut state = QUEUE_STATE.lock().unwrap();
-        state.shared.push(QueueItem {
-            kind: kind.to_string(),
-            status: QueueItemStatus::new(&paths[0]),
-            src: paths,
-            dst: Default::default(),
-        });
-    }
-
-    /// Stash `paths` under `kind`. `"app"` routes to the apps list (dedup by
-    /// path); everything else goes to the shared list, replacing an existing
-    /// item with the same `src` + `kind` only while it is pending (moving it
-    /// to the tail); a non-pending item is left alone and a fresh item is
-    /// added.
-    pub fn extend(
-        kind: &str,
-        items: impl IntoIterator<Item = AbsPath>,
-    ) {
-        debug_assert!(
-            RESERVED_KEYS.contains(&kind),
-            "extend is for builtin kinds, got {kind:?}"
-        );
-        let mut state = QUEUE_STATE.lock().unwrap();
-        if kind == "app" {
-            for path in items {
-                let p = path.inner();
-                if !state.apps.contains(&p) {
-                    state.apps.push(p);
-                }
-            }
-        } else {
-            for path in items {
+        if BUILTIN_KINDS.contains(&kind.as_str()) {
+            for path in paths {
                 if let Some(i) = state.shared.iter().position(|s| {
                     s.src.len() == 1
                         && s.src[0] == path
@@ -149,25 +159,27 @@ impl QUEUE {
                 }) {
                     state.shared.remove(i);
                 }
-                state.shared.push(QueueItem::new(kind.to_string(), path));
+                state.shared.push(QueueItem::new(kind.clone(), path));
             }
+        } else {
+            state.shared.push(QueueItem {
+                kind,
+                status: QueueItemStatus::new(&paths[0]),
+                src: paths,
+                dst: Default::default(),
+            });
         }
-    }
-
-    pub fn stash(
-        kind: &str,
-        path: AbsPath,
-    ) {
-        QUEUE::extend(kind, std::iter::once(path));
     }
 
     // ------------- view ops --------------
 
     pub fn view_len(view: QueueView) -> usize {
-        let state = QUEUE_STATE.lock().unwrap();
         match view {
-            QueueView::Shared => state.shared.len(),
-            QueueView::Apps => state.apps.len(),
+            QueueView::Shared => QUEUE_STATE.lock().unwrap().shared.len(),
+            QueueView::Apps => STACK::with_current(|p| match p {
+                FsPane::Apps { pending, .. } => pending.len(),
+                _ => 0,
+            }),
         }
     }
 
@@ -176,17 +188,20 @@ impl QUEUE {
         view: QueueView,
         index: usize,
     ) -> Option<(Vec<AbsPath>, OsString)> {
-        let state = QUEUE_STATE.lock().unwrap();
         match view {
-            QueueView::Shared => state
+            QueueView::Shared => QUEUE_STATE
+                .lock()
+                .unwrap()
                 .shared
                 .get(index)
                 .map(|item| (item.src.clone(), item.dst.clone())),
-            QueueView::Apps => state
-                .apps
-                .get(index)
-                .cloned()
-                .map(|p| (vec![AbsPath::new_unchecked(p)], OsString::new())),
+            QueueView::Apps => STACK::with_current(|p| match p {
+                FsPane::Apps { pending, .. } => pending
+                    .get(index)
+                    .cloned()
+                    .map(|p| (vec![p], OsString::new())),
+                _ => None,
+            }),
         }
     }
 
@@ -197,9 +212,9 @@ impl QUEUE {
         path: Option<AbsPath>,
         dst: Option<OsString>,
     ) {
-        let mut state = QUEUE_STATE.lock().unwrap();
         match view {
             QueueView::Shared => {
+                let mut state = QUEUE_STATE.lock().unwrap();
                 if let Some(item) = state.shared.get_mut(index) {
                     if let Some(p) = path {
                         item.src = vec![p];
@@ -210,10 +225,14 @@ impl QUEUE {
                 }
             }
             QueueView::Apps => {
-                if let Some(p) = path
-                    && let Some(slot) = state.apps.get_mut(index)
-                {
-                    *slot = p.inner();
+                if let Some(p) = path {
+                    STACK::with_current_mut(|pane| {
+                        if let FsPane::Apps { pending, .. } = pane
+                            && let Some(slot) = pending.get_mut(index)
+                        {
+                            *slot = p;
+                        }
+                    });
                 }
             }
         }
@@ -224,10 +243,16 @@ impl QUEUE {
         i: usize,
         j: usize,
     ) {
-        let mut state = QUEUE_STATE.lock().unwrap();
         match view {
-            QueueView::Shared => state.shared.swap(i, j),
-            QueueView::Apps => state.apps.swap(i, j),
+            QueueView::Shared => QUEUE_STATE.lock().unwrap().shared.swap(i, j),
+            QueueView::Apps => STACK::with_current_mut(|pane| {
+                if let FsPane::Apps { pending, .. } = pane
+                    && i < pending.len()
+                    && j < pending.len()
+                {
+                    pending.swap(i, j);
+                }
+            }),
         }
     }
 
@@ -235,63 +260,212 @@ impl QUEUE {
         view: QueueView,
         index: usize,
     ) {
-        let mut state = QUEUE_STATE.lock().unwrap();
         match view {
             QueueView::Shared => {
+                let mut state = QUEUE_STATE.lock().unwrap();
                 if index < state.shared.len() {
                     state.shared.remove(index);
                 }
             }
-            QueueView::Apps => {
-                if index < state.apps.len() {
-                    state.apps.remove(index);
+            QueueView::Apps => STACK::with_current_mut(|pane| {
+                if let FsPane::Apps { pending, .. } = pane
+                    && index < pending.len()
+                {
+                    pending.remove(index);
                 }
-            }
+            }),
         }
     }
 
     // ------------ execute -----------------
 
-    /// Execute the shared item at `index` (blocking transfer in a task).
-    /// App entries are not executable — they are files to be opened.
-    pub fn execute(index: usize) {
-        let state = QUEUE_STATE.lock().unwrap();
-        if let Some(item) = state.shared.get(index).cloned() {
-            let mut item = item;
-            // single-path items resolve their destination here; multi-path
-            // items (menu Stash/Batch) resolve per path in `QueueItem::execute`
-            if item.src.len() == 1 {
-                item.dst = GLOBAL::with_cfg(|c| {
-                    auto_dest_for_src(&item.src[0], &item.dst, &c.fs.rename_policy)
-                })
-                .into();
-            }
-            TASKS::spawn_blocking(move || item.execute());
+    /// Whether a pending row cannot execute because its destination is
+    /// missing given the effective navigation directory. Builtin kinds infer
+    /// an empty destination from it; custom `requires_dest` kinds do not.
+    fn dest_missing(
+        item: &QueueItem,
+        nav_cwd: Option<&AbsPath>,
+    ) -> bool {
+        if !item.dst.is_empty() {
+            return false;
+        }
+        match item.kind.as_str() {
+            kind if DEST_KINDS.contains(&kind) => nav_cwd.is_none(),
+            "none" => false,
+            custom => MENU_ACTIONS
+                .get()
+                .and_then(|actions| actions.get(custom))
+                .is_some_and(|action| action.requires_dest),
         }
     }
 
-    /// Execute with STACK::nav_cwd() as base.
-    pub fn execute_all(indices: &std::collections::BTreeSet<usize>) {
-        if let Some(base) = STACK::nav_cwd() {
-            QUEUE::execute_all_impl(base, false, Some(indices));
-        } else {
-            TOAST::notice(
-                ToastStyle::Error,
-                "The stack must be executed in a Nav pane.",
-            );
+    /// Match `selector` against the pending shared rows.
+    ///
+    /// `All` and `Builtins` silently skip rows whose destination is missing;
+    /// an exact kind and `First`/`Last` report
+    /// [`SelectorResult::MissingDestination`] when their selected work
+    /// cannot execute.
+    pub fn select(
+        selector: &QueueSelector,
+        nav_cwd: Option<&AbsPath>,
+    ) -> SelectorResult {
+        let state = QUEUE_STATE.lock().unwrap();
+        let pending: Vec<usize> = state
+            .shared
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| item.status.state.is_pending())
+            .map(|(i, _)| i)
+            .collect();
+
+        match selector {
+            QueueSelector::First | QueueSelector::Last => {
+                let index = if matches!(selector, QueueSelector::First) {
+                    pending.first()
+                } else {
+                    pending.last()
+                };
+                match index {
+                    Some(&i) if Self::dest_missing(&state.shared[i], nav_cwd) => {
+                        SelectorResult::MissingDestination
+                    }
+                    Some(&i) => SelectorResult::Ready(vec![i]),
+                    None => SelectorResult::NoItems,
+                }
+            }
+            QueueSelector::Kind(kind) => {
+                let matching: Vec<usize> = pending
+                    .iter()
+                    .copied()
+                    .filter(|&i| state.shared[i].kind == *kind)
+                    .collect();
+                if matching.is_empty() {
+                    SelectorResult::NoItems
+                } else if matching
+                    .iter()
+                    .any(|&i| Self::dest_missing(&state.shared[i], nav_cwd))
+                {
+                    SelectorResult::MissingDestination
+                } else {
+                    SelectorResult::Ready(matching)
+                }
+            }
+            QueueSelector::All => {
+                let ready: Vec<usize> = pending
+                    .iter()
+                    .copied()
+                    .filter(|&i| !Self::dest_missing(&state.shared[i], nav_cwd))
+                    .collect();
+                if ready.is_empty() {
+                    SelectorResult::NoItems
+                } else {
+                    SelectorResult::Ready(ready)
+                }
+            }
+            QueueSelector::Builtins => {
+                let ready: Vec<usize> = pending
+                    .iter()
+                    .copied()
+                    .filter(|&i| {
+                        DEST_KINDS.contains(&state.shared[i].kind.as_str())
+                            && !Self::dest_missing(&state.shared[i], nav_cwd)
+                    })
+                    .collect();
+                if ready.is_empty() {
+                    SelectorResult::NoItems
+                } else {
+                    SelectorResult::Ready(ready)
+                }
+            }
         }
+    }
+
+    /// Execute the shared items at `indices` against the effective
+    /// navigation directory. Rows that are already started are skipped; no
+    /// pending filtering happens here — callers select the rows.
+    pub fn dispatch(
+        indices: Vec<usize>,
+        nav_cwd: Option<AbsPath>,
+    ) {
+        let queue: Vec<QueueItem> = {
+            let state = QUEUE_STATE.lock().unwrap();
+            indices
+                .iter()
+                .filter_map(|&i| state.shared.get(i).cloned())
+                .filter(|item| !item.status.state.is_started())
+                .collect()
+        };
+        if queue.is_empty() {
+            return;
+        }
+
+        TOAST::msg(format!("Starting {} items.", queue.len()), true);
+
+        TASKS::spawn_blocking(move || {
+            for mut item in queue {
+                // single-path items resolve their destination here against
+                // the effective navigation directory; multi-path items pass
+                // their stored destination to `QueueItem::execute` verbatim
+                if item.src.len() == 1 {
+                    let base_dest: OsString = match (item.dst.is_empty(), nav_cwd.as_ref()) {
+                        (true, Some(base)) => {
+                            let mut d: OsString = base.as_os_str().to_owned();
+                            d.push(std::path::MAIN_SEPARATOR_STR);
+                            d
+                        }
+                        (false, Some(base)) => item.dst.abs(base).into(),
+                        _ => item.dst.clone(),
+                    };
+                    item.dst = GLOBAL::with_cfg(|c| {
+                        auto_dest_for_src(&item.src[0], &base_dest, &c.fs.rename_policy)
+                    })
+                    .into();
+                }
+                item.execute(nav_cwd.as_ref());
+            }
+        });
     }
 
     // ------------- clear --------------
 
-    /// Clear the items whose state is selected by `flags`. Started items are
-    /// never cleared.
-    pub fn clear(flags: QueueItems) {
+    /// Whether `kind` is covered by `selector`.
+    fn kind_matches(
+        selector: &QueueSelector,
+        kind: &str,
+    ) -> bool {
+        match selector {
+            QueueSelector::All => true,
+            QueueSelector::Builtins => DEST_KINDS.contains(&kind),
+            QueueSelector::First | QueueSelector::Last => true,
+            QueueSelector::Kind(k) => k == kind,
+        }
+    }
+
+    /// Clear the pending rows matching `selector`; returns whether any were
+    /// removed. `First`/`Last` clear a single row.
+    pub fn clear_selected(selector: &QueueSelector) -> bool {
         let mut state = QUEUE_STATE.lock().unwrap();
-        state.shared.retain(|item| {
-            let bit = item.status.state.load().to_bitflag();
-            bit == QueueItems::Started || !flags.contains(bit)
-        });
+        let indices: Vec<usize> = state
+            .shared
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| {
+                item.status.state.is_pending() && Self::kind_matches(selector, &item.kind)
+            })
+            .map(|(i, _)| i)
+            .collect();
+        let indices: Vec<usize> = match selector {
+            QueueSelector::First => indices.first().copied().into_iter().collect(),
+            QueueSelector::Last => indices.last().copied().into_iter().collect(),
+            _ => indices,
+        };
+        if indices.is_empty() {
+            return false;
+        }
+        for i in indices.into_iter().rev() {
+            state.shared.remove(i);
+        }
+        true
     }
 
     /// Clear shared items that are complete.
@@ -301,16 +475,6 @@ impl QUEUE {
     }
 
     // --------------- other ----------------
-
-    /// The files collected in app mode (`fs :open`, `OpenWith`).
-    pub fn stashed_apps() -> Vec<OsString> {
-        let state = QUEUE_STATE.lock().unwrap();
-        state
-            .apps
-            .iter()
-            .map(|p| p.as_os_str().to_os_string())
-            .collect()
-    }
 }
 
 impl PartialEq for QueueItem {
@@ -323,3 +487,48 @@ impl PartialEq for QueueItem {
 }
 
 impl Eq for QueueItem {}
+
+#[cfg(test)]
+mod selector_tests {
+    use super::*;
+
+    #[test]
+    fn selector_parsing() {
+        assert_eq!(
+            "".parse::<QueueSelector>().unwrap(),
+            QueueSelector::Kind(String::new())
+        );
+        assert_eq!("all".parse::<QueueSelector>().unwrap(), QueueSelector::All);
+        assert_eq!("ALL".parse::<QueueSelector>().unwrap(), QueueSelector::All);
+        assert_eq!(
+            "builtins".parse::<QueueSelector>().unwrap(),
+            QueueSelector::Builtins
+        );
+        assert_eq!(
+            "FIRST".parse::<QueueSelector>().unwrap(),
+            QueueSelector::First
+        );
+        assert_eq!(
+            "Last".parse::<QueueSelector>().unwrap(),
+            QueueSelector::Last
+        );
+        // builtin kind names are ordinary kinds, not reserved selectors
+        assert_eq!(
+            "copy".parse::<QueueSelector>().unwrap(),
+            QueueSelector::Kind("copy".into())
+        );
+        // custom keys preserve their case
+        assert_eq!(
+            "My-Action".parse::<QueueSelector>().unwrap(),
+            QueueSelector::Kind("My-Action".into())
+        );
+    }
+
+    #[test]
+    fn selector_display() {
+        assert_eq!(QueueSelector::All.to_string(), "All");
+        assert_eq!(QueueSelector::Builtins.to_string(), "Builtins");
+        assert_eq!(QueueSelector::First.to_string(), "First");
+        assert_eq!(QueueSelector::Kind("k".into()).to_string(), "k");
+    }
+}

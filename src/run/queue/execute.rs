@@ -1,23 +1,14 @@
 use super::*;
 
-use std::{
-    collections::BTreeSet,
-    ffi::OsString,
-    fs::create_dir_all,
-    path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
-    sync::atomic::Ordering,
-};
+use std::{fs::create_dir_all, sync::atomic::Ordering};
 
-use cba::{
-    bath::{PathExt, auto_dest_for_src},
-    bs::symlink,
-};
+use cba::bs::symlink;
 use fs_extra::{dir, file};
 
 use crate::run::{
     item::short_display,
     lua::{call_with_paths, compile_lua, load_script},
-    state::{MENU_ACTIONS, TASKS, TOAST, ToastStyle},
+    state::{ToastStyle, MENU_ACTIONS, TOAST},
 };
 
 impl QueueItem {
@@ -27,14 +18,20 @@ impl QueueItem {
     ///   are pre-resolved by the caller);
     /// - `"none"` is a no-op;
     /// - any other kind is a menu action key: the mapped command runs once
-    ///   with the full path list and the destination (`(paths, dst)`), and
-    ///   `set_progress` writes the item's progress for the duration of the
-    ///   call.
+    ///   with the full path list, the destination, and the navigation
+    ///   directory when it exists (`(paths, dst)` or
+    ///   `(paths, dst, nav_cwd)`), and `set_progress` writes the item's
+    ///   progress for the duration of the call. The progress is reset when
+    ///   the call starts and marked complete afterwards so the display is
+    ///   sensible even when the script never calls `set_progress`.
     ///
     /// A custom kind with no mapping fails the item with an error toast. The
     /// action history records one entry per executed item that completed
     /// successfully.
-    pub fn execute(self) {
+    pub fn execute(
+        self,
+        nav_cwd: Option<&AbsPath>,
+    ) {
         log::debug!("Transferring: {self:?}");
 
         let Self {
@@ -63,8 +60,8 @@ impl QueueItem {
                 }
             }
             "none" => {
-                // defensive: the kind is reserved, so nothing creates a
-                // "none" item today; keep the historical no-op behavior
+                // the kind is reserved; queue rows may still be enqueued
+                // under it as an explicit no-op
                 status.state.store(QueueItemState::CompleteOk);
                 any_success = true;
             }
@@ -148,13 +145,23 @@ impl QueueItem {
                         return;
                     }
                 };
+                status.progress.store(0, Ordering::Relaxed);
                 let result = load_script(&command)
                     .ok_or_else(|| anyhow::anyhow!("failed to load script"))
                     .and_then(|s| compile_lua(&s).map_err(anyhow::Error::msg))
                     .and_then(|f| {
-                        call_with_paths(&f, src, &dst.to_string_lossy(), Some(&status.progress))
-                            .map_err(anyhow::Error::from)
+                        call_with_paths(
+                            &f,
+                            src,
+                            &dst.to_string_lossy(),
+                            nav_cwd,
+                            Some(&status.progress),
+                        )
+                        .map_err(anyhow::Error::from)
                     });
+                // the run is done: report the progress as complete without
+                // relying on the script calling `set_progress`
+                status.progress.store(255, Ordering::Relaxed);
 
                 match result {
                     Ok(_) => {
@@ -182,70 +189,6 @@ impl QUEUE {
             if item.status.state.is_pending() && !item.src.iter().all(|p| p.exists()) {
                 item.status.state.store(QueueItemState::PendingErr)
             }
-        }
-    }
-
-    /// Queue every pending (or completed, if asked) shared item for
-    /// execution, resolving destinations against `base`.
-    pub fn execute_all_impl(
-        base: AbsPath,
-        include_completed: bool,
-        indices: Option<&BTreeSet<usize>>,
-    ) {
-        let queue: Vec<QueueItem> = {
-            let state = QUEUE_STATE.lock().unwrap();
-            let mut q = vec![];
-
-            for (i, item) in state.shared.iter().enumerate() {
-                if let Some(indices) = indices
-                    && !indices.contains(&i)
-                {
-                    continue;
-                }
-                let status = item.status.state.load();
-                let should_transfer = match status {
-                    QueueItemState::Pending => true,
-                    QueueItemState::CompleteErr | QueueItemState::CompleteOk
-                        if include_completed =>
-                    {
-                        true
-                    }
-                    _ => false,
-                };
-
-                if should_transfer {
-                    let mut item = item.clone();
-                    // multi-path items (menu Stash/Batch) resolve each path's
-                    // destination inside `QueueItem::execute`; single-path
-                    // items resolve it here against the base
-                    if item.src.len() == 1 {
-                        let mut base_dest: OsString = item.dst.abs(&base).into();
-                        if item.dst.to_string_lossy().ends_with(MAIN_SEPARATOR)
-                            || item.dst.is_empty()
-                        {
-                            base_dest.push(MAIN_SEPARATOR_STR);
-                        };
-                        item.dst = GLOBAL::with_cfg(|c| {
-                            auto_dest_for_src(&item.src[0], &base_dest, &c.fs.rename_policy)
-                        })
-                        .into();
-                    }
-                    q.push(item);
-                }
-            }
-            q
-        };
-
-        if !queue.is_empty() {
-            TOAST::msg(format!("Starting {} items.", queue.len()), true);
-
-            TASKS::spawn_blocking(move || {
-                for item in queue {
-                    item.execute();
-                }
-            });
-        } else {
-            TOAST::msg("Queue is empty.", true);
         }
     }
 }

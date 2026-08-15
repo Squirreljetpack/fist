@@ -88,18 +88,22 @@ refind = "Search"
 # or an array of conditions.
 # Strategies: "Execute" (waited, closes the menu), "ExecuteSilent" (not
 # waited, closes the menu; "silent" is accepted as an alias), "ExecPaged"
-# (waited, stdout paged, closes the menu), "Stash" (enqueue all targets as
-# one queue item), { Batch = n } (queue items of at most n paths). `close`
-# overrides the strategy's default closing behavior.
+# (waited, stdout paged, closes the menu), "Queue" (enqueue all targets as
+# one queue item), { QueueBatch = n } (queue items of at most n paths).
+# `close` overrides the strategy's default closing behavior.
 # The command is a lua script (supports the @file syntax), called once with
-# (paths, dst): the targeted paths as a lua table plus the destination passed
-# verbatim. Scripts may call set_progress(0-255) to set the executing item's
-# progress. The script runs in the process cwd — scripts are responsible for
-# cd (e.g. `os.execute('cd "' .. (...)[1] .. '" && git log')`).
+# (paths, dst, nav_cwd): the targeted paths as a lua table plus the
+# destination passed verbatim, and the navigation directory as the optional
+# third argument. Scripts may call set_progress(0-255) to set the executing
+# item's progress. The script runs in the process cwd — scripts are
+# responsible for cd (e.g. `os.execute('cd "' .. (...)[1] .. '" && git log')`).
+# `requires_dest = true` marks the action as requiring a non-empty
+# destination when executed from the queue.
 # log-queuer = {
 #   condition = [{ repeat = { count = 1, condition = "ext:log", strict = true } }],
 #   command = "print('queued a log')",
-#   strategy = "Stash",
+#   strategy = "Queue",
+#   requires_dest = true,
 # }
 
 ### MISC ###

@@ -313,8 +313,8 @@ impl Connection {
                     )
                 }
             }
-            // acts as none: insertion order
-            SortOrder::mtime => "ORDER BY 1".to_string(),
+            // most recently (re)inserted first
+            SortOrder::mtime => "ORDER BY rowid DESC".to_string(),
         };
 
         let limit = if end == 0 {

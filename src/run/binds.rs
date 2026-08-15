@@ -1,13 +1,13 @@
 use matchmaker::{
     action::Action,
     bindmap,
-    binds::{BindMap, BindMapExt, key},
+    binds::{key, BindMap, BindMapExt},
 };
 
 use crate::lessfilter::Preset;
 use fist_types::When;
 
-use super::FsAction;
+use super::{queue::QueueSelector, FsAction};
 
 pub fn default_binds() -> BindMap<FsAction> {
     let mut fs = bindmap!(
@@ -77,7 +77,7 @@ fn config_as_code() -> BindMap<FsAction> {
         // Display
         // ----------------------------------
         key!(ctrl-u) => FsAction::ShowQueue,
-        key!(ctrl-shift-u), key!(alt-shift-u) => FsAction::ClearQueue(false),
+        key!(ctrl-shift-u), key!(alt-shift-u) => FsAction::ClearQueue(QueueSelector::All, false),
         key!(alt-u) => Action::ClearQuery,
         key!(ctrl-e) => FsAction::ShowMenu,
         // -- options --
@@ -100,7 +100,8 @@ fn config_as_code() -> BindMap<FsAction> {
 
         // Stash
         // ----------------------------------
-        key!(alt-s) => FsAction::Push,
+        // PushStash/OpenStash are bound by the user; the queue insertion
+        // actions are Copy and Cut
 
         // Prompt
         // ----------------------------------

@@ -1,8 +1,8 @@
 use std::{
     path::Path,
     sync::{
+        atomic::{AtomicU64, AtomicU8, Ordering},
         Arc,
-        atomic::{AtomicU8, AtomicU64, Ordering},
     },
 };
 
@@ -38,8 +38,7 @@ pub enum QueueItemState {
 }
 
 bitflags::bitflags! {
-    /// Queue item states, selectable for clearing (see [`crate::run::queue::QUEUE::clear`]).
-    /// Mirrors [`QueueItemState`] exactly.
+    /// Queue item states. Mirrors [`QueueItemState`] exactly.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct QueueItems: u8 {
         const Pending = 1 << 0;

@@ -114,13 +114,16 @@ pub fn load_script(s: &str) -> Option<String> {
 
 /// Call `f` with the `(paths, dst)` contract: `paths` is always a table of
 /// path strings (a one-element table for a single path) and `dst` is passed
-/// verbatim. When `progress` is given, `set_progress` writes to it for the
-/// duration of the call; the target is cleared afterwards and is a silent
-/// no-op for callers that pass `None`.
+/// verbatim. When `nav_cwd` is given it is passed as the optional third
+/// argument — `(paths, dst)` without it, `(paths, dst, nav_cwd)` with it.
+/// When `progress` is given, `set_progress` writes to it for the duration of
+/// the call; the target is cleared afterwards and is a silent no-op for
+/// callers that pass `None`.
 pub fn call_with_paths(
     f: &LuaFn,
     paths: &[AbsPath],
     dst: &str,
+    nav_cwd: Option<&AbsPath>,
     progress: Option<&AtomicU8>,
 ) -> Result<MultiValue, mlua::Error> {
     let _g = LUA_LOCK.lock().unwrap();
@@ -131,7 +134,12 @@ pub fn call_with_paths(
     if let Some(progress) = progress {
         PROGRESS_TARGET.with(|t| t.set(Some(NonNull::from(progress))));
     }
-    let res = f.call::<MultiValue>((table, dst.to_string()));
+    let res = match nav_cwd {
+        Some(cwd) => {
+            f.call::<MultiValue>((table, dst.to_string(), cwd.to_string_lossy().into_owned()))
+        }
+        None => f.call::<MultiValue>((table, dst.to_string())),
+    };
     PROGRESS_TARGET.with(|t| t.set(None));
     res
 }
@@ -164,7 +172,7 @@ mod tests {
 
         let f = res.unwrap();
         let paths = vec![AbsPath::new(std::path::PathBuf::from("/tmp"))];
-        let call_res = call_with_paths(&f, &paths, "", None);
+        let call_res = call_with_paths(&f, &paths, "", None, None);
         assert!(call_res.is_ok(), "call_with_paths failed: {:?}", call_res);
     }
 
@@ -180,7 +188,7 @@ mod tests {
             AbsPath::new(std::path::PathBuf::from("/tmp/a")),
             AbsPath::new(std::path::PathBuf::from("/tmp/b")),
         ];
-        let call_res = call_with_paths(&f, &paths, "", Some(&progress));
+        let call_res = call_with_paths(&f, &paths, "", None, Some(&progress));
         assert!(call_res.is_ok(), "call_with_paths failed: {:?}", call_res);
         assert_eq!(progress.load(std::sync::atomic::Ordering::Relaxed), 255);
     }

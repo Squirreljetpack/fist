@@ -42,7 +42,6 @@ use crate::{
     run::{
         FsPane,
         mm_config::{get_mm_binds, get_mm_cfg},
-        queue::QUEUE,
         start,
         state::{InitialNoRelative, InitialPreserveWhitespaceInSearch, STORE},
     },
@@ -88,12 +87,14 @@ async fn handle_open(
 
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
-        for path in cmd.files {
-            QUEUE::stash("app", AbsPath::new_unchecked(path));
-        }
-
         cfg.global.interface.no_multi_accept = true;
-        let pane = FsPane::new_launch();
+        // the files ride on the app pane; the program picked there opens them
+        let pane = FsPane::new_apps(
+            cmd.files
+                .into_iter()
+                .map(AbsPath::new_unchecked)
+                .collect(),
+        );
 
         let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
 
@@ -161,9 +162,10 @@ async fn handle_files(
     cfg: Config,
 ) -> Result<(), CliError> {
     let pane = FsPane::Files {
-        sort: cmd.sort,
+        sort: SortOrder::none,
         input: (cmd.query, 0),
-    };
+    }
+    .sort(cmd.sort)?;
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
     let pool = Pool::new_from_cfg(&cfg).await?;
@@ -311,9 +313,10 @@ async fn handle_dirs(
         (String::new(), 0)
     };
     let pane = FsPane::Folders {
-        sort: cmd.sort,
+        sort: SortOrder::none,
         input,
-    };
+    }
+    .sort(cmd.sort)?;
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
     start(pane, cfg, mm_cfg, pool, cli).await

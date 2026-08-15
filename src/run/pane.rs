@@ -1,24 +1,24 @@
 use std::{
     ffi::OsString,
     path::PathBuf,
-    sync::{Arc, atomic::AtomicBool},
+    sync::{atomic::AtomicBool, Arc},
 };
 
-use cba::bring::split::join_with_single_quotes;
+use cba::{bring::split::join_with_single_quotes, StringError};
 use matchmaker::preview::AppendOnly;
 
 use crate::{
     abspath::AbsPath,
     run::{
         item::PathItem,
-        lua::{LuaFn, compile_script},
-        state::{GLOBAL, InitialPreserveWhitespaceInSearch, STORE},
+        lua::{compile_script, LuaFn},
+        state::{InitialPreserveWhitespaceInSearch, GLOBAL, STORE},
     },
 };
 use fist_types::{
-    When,
     filetypes::FileTypeArg,
     filters::{SortOrder, Visibility},
+    When,
 };
 
 /// PartialEq is defined by discriminant
@@ -81,6 +81,9 @@ pub enum FsPane {
     },
     Apps {
         sort: SortOrder,
+        /// Files collected for the app view ("open with" targets) — opened
+        /// with the program accepted in this pane.
+        pending: Vec<AbsPath>,
     },
     /// Listing of a named stash from the `stashes` db table.
     /// No visibility: entries are explicit additions, not directory contents.
@@ -129,16 +132,24 @@ impl FsPane {
     pub fn new_launch() -> Self {
         Self::Apps {
             sort: SortOrder::none,
+            pending: Vec::new(),
         }
     }
 
-    pub fn new_stash(
-        stash_name: String,
-        sort: SortOrder,
-    ) -> Self {
+    /// App pane preloaded with the files to open once a program is picked.
+    pub fn new_apps(pending: Vec<AbsPath>) -> Self {
+        Self::Apps {
+            sort: SortOrder::none,
+            pending,
+        }
+    }
+
+    /// Stash panes start on the default sort (insertion order by add time);
+    /// sorting is applied nucleo-side like Nav/fd panes.
+    pub fn new_stash(stash_name: String) -> Self {
         Self::Stash {
             stash_name,
-            sort,
+            sort: SortOrder::none,
             input: (String::new(), 0),
         }
     }
@@ -204,6 +215,13 @@ impl FsPane {
         if paths.is_empty() {
             paths.push(cwd.inner());
         }
+        // rg cannot size-sort: an inherited size order (e.g. from a
+        // size-sorted Nav/Find source) drops to the default insertion order
+        let sort = if Self::search_sort_options().contains(&sort) {
+            sort
+        } else {
+            SortOrder::none
+        };
         Self::Search {
             cwd,
             input: (query, 0),
@@ -240,18 +258,17 @@ impl FsPane {
         }
     }
 
-    pub fn new_history(
-        folders: bool,
-        sort: SortOrder,
-    ) -> Self {
+    /// History panes start on the default sort (frecency); the CLI `fs
+    /// files/folders` paths apply an explicit sort via [`Self::sort`].
+    pub fn new_history(folders: bool) -> Self {
         if folders {
             Self::Folders {
-                sort,
+                sort: SortOrder::none,
                 input: (String::new(), 0),
             }
         } else {
             Self::Files {
-                sort,
+                sort: SortOrder::none,
                 input: (String::new(), 0),
             }
         }
@@ -261,14 +278,14 @@ impl FsPane {
 // ------ Utilities
 impl FsPane {
     #[inline]
-    pub fn sort(&self) -> SortOrder {
+    pub fn sort_order(&self) -> SortOrder {
         match self {
             FsPane::Custom { sort, .. }
             | FsPane::Find { sort, .. }
             | FsPane::Search { sort, .. }
             | FsPane::Files { sort, .. }
             | FsPane::Folders { sort, .. }
-            | FsPane::Apps { sort }
+            | FsPane::Apps { sort, .. }
             | FsPane::Stash { sort, .. }
             | FsPane::Nav { sort, .. } => *sort,
         }
@@ -282,9 +299,41 @@ impl FsPane {
             | FsPane::Search { sort, .. }
             | FsPane::Files { sort, .. }
             | FsPane::Folders { sort, .. }
-            | FsPane::Apps { sort }
+            | FsPane::Apps { sort, .. }
             | FsPane::Stash { sort, .. }
             | FsPane::Nav { sort, .. } => sort,
+        }
+    }
+
+    /// Validate and apply a CLI-specified sort. Errors when the order is not
+    /// one of this pane type's supported orders (see [`Self::sort_options`]).
+    pub fn sort(
+        mut self,
+        order: SortOrder,
+    ) -> Result<Self, StringError> {
+        if !self.sort_options().contains(&order) {
+            return Err(format!(
+                "Invalid sort order '{}' for the {} pane",
+                order,
+                self.pane_name()
+            )
+            .into());
+        }
+        *self.sort_mut() = order;
+        Ok(self)
+    }
+
+    /// Static pane name used in CLI error messages.
+    fn pane_name(&self) -> &'static str {
+        match self {
+            FsPane::Custom { .. } => "custom",
+            FsPane::Find { .. } => "fd",
+            FsPane::Search { .. } => "rg",
+            FsPane::Files { .. } => "files",
+            FsPane::Folders { .. } => "folders",
+            FsPane::Apps { .. } => "apps",
+            FsPane::Stash { .. } => "stash",
+            FsPane::Nav { .. } => "nav",
         }
     }
 
@@ -332,13 +381,19 @@ impl FsPane {
             FsPane::Search { .. } => Self::search_sort_options(),
             FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. } => &[
                 SortOrder::name,
+                // SQL-sorted db panes: `size` means entry count, `none`
+                // frecency, and `mtime` most recently inserted (reverse
+                // rowid, see crud.rs)
+                SortOrder::mtime,
                 SortOrder::atime,
                 SortOrder::size,
                 SortOrder::none,
             ],
-            // db pane: `atime` orders by add time; no size/frecency arms
-            FsPane::Stash { .. } => &[SortOrder::name, SortOrder::atime, SortOrder::none],
-            FsPane::Nav { .. } | FsPane::Find { .. } | FsPane::Custom { .. } => &[
+            // Stash is nucleo-sorted like Nav/fd
+            FsPane::Stash { .. }
+            | FsPane::Nav { .. }
+            | FsPane::Find { .. }
+            | FsPane::Custom { .. } => &[
                 SortOrder::name,
                 SortOrder::mtime,
                 SortOrder::atime,
@@ -380,10 +435,7 @@ impl FsPane {
     pub fn stability_threshold(&self) -> u32 {
         // 0 -> always sort
         match self {
-            FsPane::Files { .. }
-            | FsPane::Folders { .. }
-            | FsPane::Apps { .. }
-            | FsPane::Stash { .. } => 5,
+            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. } => 5,
             FsPane::Search {
                 filtering, sort, ..
             } => {
@@ -398,7 +450,7 @@ impl FsPane {
                 }
             }
             FsPane::Custom { .. } => 40, // maybe
-            FsPane::Nav { sort, .. } | FsPane::Find { sort, .. } => {
+            FsPane::Nav { sort, .. } | FsPane::Find { sort, .. } | FsPane::Stash { sort, .. } => {
                 if matches!(sort, SortOrder::none) {
                     0
                 } else {

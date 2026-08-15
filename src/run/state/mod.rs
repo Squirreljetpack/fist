@@ -57,7 +57,7 @@ pub mod GLOBAL {
         bind_tx: BindSender<FsAction>,
     ) {
         // need to handle the patterns listened on by sync_handler
-        let sort = pane.sort();
+        let sort = pane.sort_order();
         let visibility = match &pane {
             FsPane::Nav { vis, .. }
             | FsPane::Custom { vis, .. }
