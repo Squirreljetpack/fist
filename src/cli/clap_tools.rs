@@ -75,6 +75,11 @@ pub struct LessfilterCommand {
     #[arg(long, action = ArgAction::SetTrue)]
     pub no_exec: bool,
 
+    /// Print the detected file data, the winning rule with its score, and
+    /// the commands that would run — without executing anything.
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub diagnose: bool,
+
     #[arg(long, action = ArgAction::SetTrue)]
     pub tty: bool,
 

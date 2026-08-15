@@ -36,8 +36,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'show all')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
             [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
-            [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
-            [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
+            [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (`:t types` to list)')
+            [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (`:t types` to list)')
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
             [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
@@ -152,8 +152,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'show all')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
             [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
-            [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
-            [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
+            [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (`:t types` to list)')
+            [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (`:t types` to list)')
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
@@ -182,8 +182,8 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-a', '-a', [CompletionResultType]::ParameterName, 'show all')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
             [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
-            [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
-            [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (use `:t types` to list)')
+            [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (`:t types` to list)')
+            [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (`:t types` to list)')
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
@@ -212,9 +212,9 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
             [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
             [CompletionResult]::new('--sort', '--sort', [CompletionResultType]::ParameterName, 'sort')
-            [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
-            [CompletionResult]::new('--tail-sep', '--tail-sep', [CompletionResultType]::ParameterName, 'Field separator within a record: text after the first occurrence is the tail')
-            [CompletionResult]::new('--input-sep', '--input-sep', [CompletionResultType]::ParameterName, 'Split the stream into records on this char instead of newlines')
+            [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail)')
+            [CompletionResult]::new('--tail-sep', '--tail-sep', [CompletionResultType]::ParameterName, 'Delimiter used to split off the input into a (path, tail) pair')
+            [CompletionResult]::new('--input-sep', '--input-sep', [CompletionResultType]::ParameterName, 'Split the stream on this character instead of newlines')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -238,9 +238,9 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'only show directories')
             [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'show only files')
             [CompletionResult]::new('--sort', '--sort', [CompletionResultType]::ParameterName, 'sort')
-            [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
-            [CompletionResult]::new('--tail-sep', '--tail-sep', [CompletionResultType]::ParameterName, 'Field separator within a record: text after the first occurrence is the tail')
-            [CompletionResult]::new('--input-sep', '--input-sep', [CompletionResultType]::ParameterName, 'Split the stream into records on this char instead of newlines')
+            [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail)')
+            [CompletionResult]::new('--tail-sep', '--tail-sep', [CompletionResultType]::ParameterName, 'Delimiter used to split off the input into a (path, tail) pair')
+            [CompletionResult]::new('--input-sep', '--input-sep', [CompletionResultType]::ParameterName, 'Split the stream on this character instead of newlines')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -374,6 +374,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('trash', 'trash', [CompletionResultType]::ParameterValue, 'Trash files with timed fallback prompts')
             [CompletionResult]::new('show-binds', 'show-binds', [CompletionResultType]::ParameterValue, 'Show binds')
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
+            [CompletionResult]::new('diskspace', 'diskspace', [CompletionResultType]::ParameterValue, 'Disk usage: compute directory sizes concurrently and print them')
             break
         }
         'fs;:t' {
@@ -399,6 +400,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('trash', 'trash', [CompletionResultType]::ParameterValue, 'Trash files with timed fallback prompts')
             [CompletionResult]::new('show-binds', 'show-binds', [CompletionResultType]::ParameterValue, 'Show binds')
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
+            [CompletionResult]::new('diskspace', 'diskspace', [CompletionResultType]::ParameterValue, 'Disk usage: compute directory sizes concurrently and print them')
             break
         }
         'fs;:tool;colors' {
@@ -657,6 +659,36 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;types' {
+            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
+            [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
+            [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
+            [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
+            [CompletionResult]::new('--lock-prompt', '--lock-prompt', [CompletionResultType]::ParameterName, 'See `interface.prompt_locking`')
+            [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
+            [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
+            [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
+            [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
+            break
+        }
+        'fs;:tool;diskspace' {
+            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
+            [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
+            [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
+            [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
+            [CompletionResult]::new('--lock-prompt', '--lock-prompt', [CompletionResultType]::ParameterName, 'See `interface.prompt_locking`')
+            [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
+            [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
+            [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
+            [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
+            break
+        }
+        'fs;:t;diskspace' {
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')

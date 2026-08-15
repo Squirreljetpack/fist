@@ -1,8 +1,14 @@
 use cba::{bog::BogUnwrapExt, prints};
 use chrono::{DateTime, Local};
-use comfy_table::{ContentArrangement, Row, Table, presets::UTF8_FULL};
+use comfy_table::{presets::UTF8_FULL, ContentArrangement, Row, Table};
+use fist_types::{filetypes::FileType, FileCategory};
+use std::str::FromStr;
+use strum::{EnumMessage, IntoEnumIterator};
 
-use crate::db::{Entry, Epoch, zoxide};
+use crate::{
+    db::{zoxide, Entry, Epoch},
+    lessfilter::Categories,
+};
 
 /// Print a formatted table to stdout.
 ///
@@ -70,6 +76,100 @@ pub fn display_entries(
 
     // Print table
     prints!(table.to_string());
+}
+
+/// Print an overview of every value the `-t`/`--types` flag accepts.
+///
+/// File types and categories are enumerated from `fist-types` (variants,
+/// aliases and doc comments are the single source of truth); custom
+/// categories are read from the lessfilter config's `[categories]` table.
+pub fn display_types_overview(custom_categories: &Categories) {
+    let mut out =
+        String::from("Values for the -t/--types flag (comma-separated, e.g. -t image,.rs,d)\n\n");
+
+    out.push_str("File types — how fd classifies an entry (fd --type):\n");
+    for ft in FileType::iter() {
+        out.push_str(&format!(
+            "    {ft:<2}  {}\n",
+            ft.get_documentation().unwrap_or("")
+        ));
+    }
+
+    out.push_str(concat!(
+        "\nCategories — pre-configured groups of file extensions under a friendly name:\n",
+        "    a category matches every file whose extension belongs to its set (e.g. `image`\n",
+        "    matches .png, .jpg, ...). Categories are defined in fist-types and also power\n",
+        "    the `cat:` conditions in the lessfilter configuration file. Single-letter aliases shadowed by a\n",
+        "    file type are omitted below (e.g. `-t b` is the block device, not `build`).\n",
+    ));
+    let width = FileCategory::iter()
+        .map(|cat| {
+            let aliases = reachable_aliases(&cat);
+            if aliases.is_empty() {
+                cat.to_string().len()
+            } else {
+                format!("{} ({})", cat, aliases.join(", ")).len()
+            }
+        })
+        .max()
+        .unwrap_or(0);
+    for cat in FileCategory::iter() {
+        let aliases = reachable_aliases(&cat);
+        let label = if aliases.is_empty() {
+            cat.to_string()
+        } else {
+            format!("{} ({})", cat, aliases.join(", "))
+        };
+        out.push_str(&format!(
+            "    {label:<width$}  {}\n",
+            cat.get_documentation().unwrap_or("")
+        ));
+    }
+
+    out.push_str("\nExtensions:\n    .ext    a single extension, e.g. -t .rs, .tar.gz\n");
+
+    out.push_str(concat!(
+        "\nCustom categories (the [categories] table of lessfilter.toml):\n",
+        "    In addition to the built-ins above, you can define your own named\n",
+        "    category as a list of mime strings — exact ones like `application/pdf`,\n",
+        "    or wildcards like `image/*`, `*/gzip`, `*/*`:\n",
+        "\n",
+        "        [categories]\n",
+        "        raster = [\"image/png\", \"image/jpeg\"]\n",
+        "\n",
+        "    Custom categories work wherever built-in ones do: `-t raster` filters\n",
+        "    the find pane by expanding each mime to the extensions known for it,\n",
+        "\n",
+        "    Currently configured:\n",
+    ));
+    if custom_categories.is_empty() {
+        out.push_str("    (none configured)\n");
+    } else {
+        let mut custom: Vec<_> = custom_categories.iter().collect();
+        custom.sort_by(|a, b| a.0.cmp(b.0));
+        for (name, mimes) in custom {
+            let mimes = mimes
+                .iter()
+                .map(|m| m.to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            out.push_str(&format!("    {name}\n        {mimes}\n"));
+        }
+    }
+
+    out.push_str("\nOther:\n    ''    files with no extension\n");
+
+    prints!(out);
+}
+
+/// Aliases of a category that actually reach it through `-t`: aliases that
+/// parse as a file type are shadowed (file types are matched first).
+fn reachable_aliases(cat: &FileCategory) -> Vec<&'static str> {
+    cat.aliases()
+        .iter()
+        .copied()
+        .filter(|alias| FileType::from_str(alias).is_err())
+        .collect()
 }
 
 pub fn display_epoch(epoch: Epoch) -> String {

@@ -35,9 +35,9 @@ use crate::{
     cli::{SubTool, clap_helpers::ListMode, paths::text_renderer_path},
     config::Config,
     db::{DbTable, Pool, zoxide::RetryStrat},
-    display::display_entries,
+    display::{display_entries, display_types_overview},
     errors::{CliError, DbError},
-    find::fd::last_query_starts_with_dot,
+    find::fd::{last_query_starts_with_dot, resolve_group_types},
     lessfilter::{self, LessfilterConfig},
     run::{
         FsPane,
@@ -353,6 +353,20 @@ async fn handle_default(
     if cmd.cd && cmd.list {
         return Err(CliError::ConflictingFlags("cd", "list"));
     }
+
+    // resolve custom `-t <group>` args against the lessfilter [categories] table
+    let types = if cmd
+        .types
+        .iter()
+        .any(|t| matches!(t, FileTypeArg::Group(_)))
+    {
+        let lcfg: LessfilterConfig =
+            load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
+        resolve_group_types(&cmd.types, &lcfg)
+    } else {
+        cmd.types.clone()
+    };
+
     if cmd.reset_visibility {
         let vis = resolve_fd_visibility(Default::default(), &cmd, &cfg);
         STORE::set(vis)
@@ -476,7 +490,7 @@ async fn handle_default(
                 cwd,
                 vis,
                 cmd.sort,
-                cmd.types,
+                types,
                 cmd.paths,
                 cmd.fd,
                 cmd.transform,
@@ -546,7 +560,7 @@ async fn handle_default(
                 vis.hidden = true;
             }
 
-            return super::list::fd_list(vis, &cmd.types, &cmd.paths, &cmd.fd, &cfg, &cli.output);
+            return super::list::fd_list(vis, &types, &cmd.paths, &cmd.fd, &cfg, &cli.output);
         };
 
         let vis = resolve_fd_visibility(cmd.vis, &cmd, &cfg);
@@ -554,7 +568,7 @@ async fn handle_default(
             cwd,
             vis,
             cmd.sort,
-            cmd.types,
+            types,
             cmd.paths,
             cmd.fd,
             cmd.transform,
@@ -642,6 +656,7 @@ async fn handle_tools(
             SubTool::Bump { args: args.clone() },
             SubTool::Trash { args: args.clone() },
             SubTool::Types { args: args.clone() },
+            SubTool::Ds { args: args.clone() },
         ])
         .await?
     };
@@ -683,7 +698,9 @@ async fn handle_tools(
             let lcfg: LessfilterConfig =
                 load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
 
-            let mut handle = if lcfg.settings.tracked_presets.contains(&cmd.preset) {
+            let mut handle = if !cmd.diagnose
+                && lcfg.settings.tracked_presets.contains(&cmd.preset)
+            {
                 let paths = cmd
                     .paths
                     .clone()
@@ -858,8 +875,12 @@ async fn handle_tools(
             args.insert(0, format!("{path} :tool types").into());
 
             let TypesCommand { .. } = TypesCommand::parse_from(args);
-            todo!()
+            let lcfg: LessfilterConfig =
+                load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
+            display_types_overview(&lcfg.categories);
+            Ok(())
         }
+        SubTool::Ds { args } => super::ds::handle(args),
         SubTool::Trash { mut args } => {
             let path = current_exe().basename();
             args.insert(0, format!("{path} :tool trash").into());

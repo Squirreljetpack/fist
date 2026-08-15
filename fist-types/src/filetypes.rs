@@ -7,6 +7,8 @@ pub use super::ft_arg::FileTypeArg;
     Clone,
     strum_macros::Display,
     strum_macros::EnumString,
+    strum_macros::EnumIter,
+    strum_macros::EnumMessage,
     Copy,
     PartialEq,
     Eq,
@@ -15,22 +17,31 @@ pub use super::ft_arg::FileTypeArg;
 #[strum(serialize_all = "kebab-case")]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize,))]
 pub enum FileType {
+    /// file
     #[strum(serialize = "f")]
     File,
+    /// directory
     #[strum(serialize = "d")]
     Directory,
+    /// symlink
     #[strum(serialize = "l")]
     Symlink,
+    /// block device
     #[strum(serialize = "b")]
     BlockDevice,
+    /// char device
     #[strum(serialize = "c")]
     CharDevice,
+    /// executable
     #[strum(serialize = "x")]
     Executable,
+    /// empty
     #[strum(serialize = "e")]
     Empty,
+    /// socket
     #[strum(serialize = "s")]
     Socket,
+    /// pipe
     #[strum(serialize = "p")]
     Pipe,
 }

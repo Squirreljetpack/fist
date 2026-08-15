@@ -1561,7 +1561,6 @@ dependencies = [
 name = "fist-size"
 version = "0.0.3"
 dependencies = [
- "clap",
  "crossbeam-channel",
  "dashmap",
  "rayon",

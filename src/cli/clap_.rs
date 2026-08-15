@@ -45,4 +45,11 @@ pub enum SubTool {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<OsString>,
     },
+    /// Disk usage: compute directory sizes concurrently and print them.
+    #[strum(serialize = "diskspace")]
+    #[command(name = "diskspace", alias = "ds")]
+    Ds {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<OsString>,
+    },
 }

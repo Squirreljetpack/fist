@@ -30,8 +30,8 @@ _fs() {
 '-a+[show all]::ALL:(true false)' \
 '-F+[only show directories]::DIRS:(true false)' \
 '-f+[show only files]::FILES:(true false)' \
-'*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
-'*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
+'*-t+[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
+'*--types=[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
 '(-v)*-q[Reduce the verbosity level]' \
 '(-q)*-v[Increase the verbosity level]' \
@@ -150,8 +150,8 @@ _arguments "${_arguments_options[@]}" : \
 '-a+[show all]::ALL:(true false)' \
 '-F+[only show directories]::DIRS:(true false)' \
 '-f+[show only files]::FILES:(true false)' \
-'*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
-'*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
+'*-t+[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
+'*--types=[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -182,8 +182,8 @@ _arguments "${_arguments_options[@]}" : \
 '-a+[show all]::ALL:(true false)' \
 '-F+[only show directories]::DIRS:(true false)' \
 '-f+[show only files]::FILES:(true false)' \
-'*-t+[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
-'*--types=[restrict search to certain file types and extensions (use \`\:t types\` to list)]:TYPES:_default' \
+'*-t+[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
+'*--types=[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -214,9 +214,9 @@ _arguments "${_arguments_options[@]}" : \
 '-F+[only show directories]::DIRS:(true false)' \
 '-f+[show only files]::FILES:(true false)' \
 '--sort=[]:SORT:(name mtime atime size none)' \
-'--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
-'--tail-sep=[Field separator within a record\: text after the first occurrence is the tail]:TAIL_SEP:_default' \
-'--input-sep=[Split the stream into records on this char instead of newlines]:INPUT_SEP:_default' \
+'--transform=[Lua transform (path, tail) -> (path, display, tail)]:TRANSFORM:_default' \
+'--tail-sep=[Delimiter used to split off the input into a (path, tail) pair]:TAIL_SEP:_default' \
+'--input-sep=[Split the stream on this character instead of newlines]:INPUT_SEP:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -242,9 +242,9 @@ _arguments "${_arguments_options[@]}" : \
 '-F+[only show directories]::DIRS:(true false)' \
 '-f+[show only files]::FILES:(true false)' \
 '--sort=[]:SORT:(name mtime atime size none)' \
-'--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
-'--tail-sep=[Field separator within a record\: text after the first occurrence is the tail]:TAIL_SEP:_default' \
-'--input-sep=[Split the stream into records on this char instead of newlines]:INPUT_SEP:_default' \
+'--transform=[Lua transform (path, tail) -> (path, display, tail)]:TRANSFORM:_default' \
+'--tail-sep=[Delimiter used to split off the input into a (path, tail) pair]:TAIL_SEP:_default' \
+'--input-sep=[Split the stream on this character instead of newlines]:INPUT_SEP:_default' \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
@@ -537,6 +537,23 @@ _arguments "${_arguments_options[@]}" : \
 '*::args:_default' \
 && ret=0
 ;;
+(diskspace)
+_arguments "${_arguments_options[@]}" : \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[]::ORIENTATION:(true false)' \
+'--lock-prompt=[See \`interface.prompt_locking\`]:LOCK_PROMPT:(true false)' \
+'--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
+'--format=[Output template for printed results]:FORMAT:_default' \
+'--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
+'--alt-accept[]' \
+'*::args:_default' \
+&& ret=0
+;;
         esac
     ;;
 esac
@@ -718,6 +735,23 @@ _arguments "${_arguments_options[@]}" : \
 '*::args:_default' \
 && ret=0
 ;;
+(diskspace)
+_arguments "${_arguments_options[@]}" : \
+'--override=[config override]:PATH:_default' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[]::ORIENTATION:(true false)' \
+'--lock-prompt=[See \`interface.prompt_locking\`]:LOCK_PROMPT:(true false)' \
+'--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
+'--format=[Output template for printed results]:FORMAT:_default' \
+'--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
+'--alt-accept[]' \
+'*::args:_default' \
+&& ret=0
+;;
         esac
     ;;
 esac
@@ -816,6 +850,7 @@ _fs__subcmd__:tool_commands() {
 'trash:Trash files with timed fallback prompts' \
 'show-binds:Show binds' \
 'types:List mappings supported by the --type parameter' \
+'diskspace:Disk usage\: compute directory sizes concurrently and print them' \
     )
     _describe -t commands 'fs :tool commands' commands "$@"
 }
@@ -828,6 +863,11 @@ _fs__subcmd__:tool__subcmd__bump_commands() {
 _fs__subcmd__:tool__subcmd__colors_commands() {
     local commands; commands=()
     _describe -t commands 'fs :tool colors commands' commands "$@"
+}
+(( $+functions[_fs__subcmd__:tool__subcmd__diskspace_commands] )) ||
+_fs__subcmd__:tool__subcmd__diskspace_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :tool diskspace commands' commands "$@"
 }
 (( $+functions[_fs__subcmd__:tool__subcmd__lessfilter_commands] )) ||
 _fs__subcmd__:tool__subcmd__lessfilter_commands() {

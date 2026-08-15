@@ -4,7 +4,7 @@ F:ist is a fast and intuitive search tool for the filesystem.
 
 // video
 
-> *Interviewer: Okay and, what would you say is your biggest strength?*
+> *Skeptic: What would you say is your biggest strength?*
 >
 >> Speed, simplicity, power, capability, extensibility, customizability, adaptability, minimalism, flexibility, utility, efficiency, versatility, robustness, reliability, precision, clarity, elegance, performance, responsiveness, portability, composability, modularity, interoperability, scalability, maintainability, resilience, configurability, programmability, expressiveness, concision, practicality, pragmatism, openness, autonomy, control, freedom, agency, coherence, consistency, discoverability, usability, intuitiveness, observability.
 >>
