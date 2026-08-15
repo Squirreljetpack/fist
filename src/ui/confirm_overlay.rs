@@ -7,7 +7,7 @@ use matchmaker::{
     action::Action,
     config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting},
     render::MMState,
-    ui::{utils, Overlay, OverlayEffect, SizeHint},
+    ui::{Overlay, OverlayEffect, utils},
 };
 use ratatui::{
     prelude::*,
@@ -135,7 +135,7 @@ impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
     fn on_enable(
         &mut self,
         _area: &Rect,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) {
         if let Some(prompt) = STORE::take::<ConfirmPrompt>() {
             self.prompt = prompt;
@@ -147,7 +147,7 @@ impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
     fn handle_input(
         &mut self,
         c: char,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
         for (i, (name, trigger_idx)) in self.prompt.options.iter().enumerate() {
             if let Some(trigger_char) = name.chars().nth(*trigger_idx) {
@@ -163,7 +163,7 @@ impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
     fn handle_action(
         &mut self,
         action: &Action<FsAction>,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
         match action {
             Action::ForwardChar => {
@@ -243,7 +243,11 @@ impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
         let options_h = options_width.div_ceil(ui_area.width);
 
         let height = if has_content {
-            SizeHint::Min(title_h + options_h + min_content_h + num_gaps + self.border().height())
+            [
+                title_h + options_h + min_content_h + num_gaps + self.border().height(),
+                0,
+            ]
+            .into()
         } else {
             (title_h + options_h + num_gaps + self.border().height()).into()
         };

@@ -330,10 +330,7 @@ impl Connection {
     ) -> RetryStrat {
         let mut found = None;
 
-        let entries = self
-            .get_entries_range(0, 0, SortOrder::none)
-            .await
-            .__ebog();
+        let entries = self.get_entries_range(0, 0, SortOrder::none).await.__ebog();
 
         let maybe_cwd = std::env::current_dir().ok();
 
@@ -384,10 +381,7 @@ impl Connection {
     ) -> Option<AbsPath> {
         let mut found = None;
 
-        let entries = self
-            .get_entries_range(0, 0, SortOrder::none)
-            .await
-            .__ebog();
+        let entries = self.get_entries_range(0, 0, SortOrder::none).await.__ebog();
 
         let maybe_cwd = std::env::current_dir().ok();
 

@@ -4,69 +4,6 @@ use ratatui::{
     text::Text,
 };
 
-// strum::IntoStaticStr,
-#[derive(Copy, Clone, Debug, Default, strum_macros::Display)]
-pub enum ToastStyle {
-    #[default]
-    #[strum(serialize = "Note")]
-    Normal,
-    Info,
-    Success,
-    Warning,
-    Error,
-}
-
-impl From<ToastStyle> for Style {
-    fn from(val: ToastStyle) -> Self {
-        match val {
-            ToastStyle::Normal => Style::default()
-                .fg(Color::DarkGray)
-                .add_modifier(Modifier::ITALIC),
-            ToastStyle::Info => Style::default().fg(Color::LightBlue),
-            ToastStyle::Success => Style::default().fg(Color::Green),
-            ToastStyle::Warning => Style::default().fg(Color::Yellow),
-            ToastStyle::Error => Style::default().fg(Color::Red),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum ToastContent {
-    List(Vec<Span<'static>>),
-    Pair(Span<'static>, Span<'static>),
-    Line(Line<'static>),
-}
-
-pub fn make_toast(toasts: &[(Span<'static>, ToastContent)]) -> Text<'static> {
-    let lines = toasts.iter().map(|(prefix, content)| {
-        let mut spans = Vec::new();
-        spans.push(prefix.clone());
-
-        match content {
-            ToastContent::List(items) => {
-                for (i, item) in items.iter().cloned().enumerate() {
-                    if i > 0 {
-                        spans.push(Span::raw(", "));
-                    }
-                    spans.push(item);
-                }
-            }
-            ToastContent::Pair(a, b) => {
-                spans.push(a.clone());
-                spans.push(" → ".into());
-                spans.push(b.clone());
-            }
-            ToastContent::Line(line) => {
-                spans.extend(line.clone());
-            }
-        }
-
-        Line::from(spans)
-    });
-
-    Text::from(lines.collect::<Vec<_>>())
-}
-
 pub fn bold_indices(
     s: &str,
     indices: impl IntoIterator<Item = usize>,
@@ -374,6 +311,54 @@ pub fn first_loc(s: &str) -> Option<(u32, u32)> {
             }
         }
     }
-    let first = if idx > 0 { &s[..idx] } else { s.trim_end_matches(':') };
+    let first = if idx > 0 {
+        &s[..idx]
+    } else {
+        s.trim_end_matches(':')
+    };
     parse_loc(first)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ansi_to_tui::IntoText;
+
+    #[test]
+    fn test_parse_rg_line_ansi() {
+        let raw = "\x1b[0m\x1b[35msrc/run/previewer.rs\x1b[0m\0\x1b[0m\x1b[32m18\x1b[0m:\x1b[0m32\x1b[0m:pub fn make_previewer(";
+        let mut text = raw.as_bytes().into_text().unwrap();
+        let parsed = parse_rg_line(text.lines.remove(0), ':', '-', false);
+        eprintln!("parsed: {:?}", parsed);
+        assert!(parsed.is_some());
+        let (path, loc, content) = parsed.unwrap();
+        assert_eq!(path, "src/run/previewer.rs");
+        assert_eq!(loc, "18:32:");
+        assert_eq!(content.to_string(), "pub fn make_previewer(");
+    }
+
+    #[test]
+    fn test_extract_rg_line_no_path_multiline() {
+        let raw_ctx = "\x1b[0m\x1b[32m27\x1b[0m-\x1b[0mlet queue = QUEUE;";
+        let raw_line1 = "\x1b[0m\x1b[32m28\x1b[0m:\x1b[0m20\x1b[0m:previewer::make_previewer,";
+        let raw_line2 = "\x1b[0m\x1b[32m253\x1b[0m:\x1b[0m21\x1b[0m:let previewer = make_previewer(";
+        let tc = raw_ctx.as_bytes().into_text().unwrap();
+        let t1 = raw_line1.as_bytes().into_text().unwrap();
+        let t2 = raw_line2.as_bytes().into_text().unwrap();
+
+        let mut places = String::new();
+        let okc = extract_rg_line_no_path(&tc.lines[0], &mut places, false);
+        let ok1 = extract_rg_line_no_path(&t1.lines[0], &mut places, false);
+        let ok2 = extract_rg_line_no_path(&t2.lines[0], &mut places, false);
+        assert!(!okc);
+        assert!(ok1);
+        assert!(ok2);
+        eprintln!("places: {:?}", places);
+        let loc = first_loc(&places);
+        eprintln!("loc: {:?}", loc);
+        assert_eq!(loc, Some((28, 20)));
+    }
+}
+
+
+

@@ -31,7 +31,7 @@ pub fn make_previewer(
     // important that PreviewSet events don't accidentally trigger this!
     mm.register_event_handler(
         Event::CursorChange | Event::PreviewChange | Event::Synced,
-        move |state: &mut MMState<'_, '_>, _e| {
+        move |state: &mut MMState<'_,>, _e| {
             // don't clobber previewset events
             if state.contains(Event::PreviewSet) {
                 return;
@@ -44,7 +44,7 @@ pub fn make_previewer(
             {
                 // rg panes: jump the preview to the match line
                 let target = STACK::in_rg().then(|| {
-                    state.current_raw().map(|item| item.loc().0 as isize)
+                    state.current_raw().filter(|it| it.value() != u64::MAX).map(|item| item.loc().0 as isize)
                 }).flatten();
                 if let Some(p) = state.preview_ui {
                     p.set_target(target);
@@ -59,6 +59,12 @@ pub fn make_previewer(
                 envs.extend(extra);
                 if let Some(t) = target {
                     envs.push(("HIGHLIGHT_LINE".to_string(), t.to_string()));
+                    if let Some(item) = state.current_raw() {
+                        let (_, col) = item.loc();
+                        if col != 0 {
+                            envs.push(("HIGHLIGHT_COLUMN".to_string(), col.to_string()));
+                        }
+                    }
                 }
 
                 let msg = PreviewMessage::Run(cmd, envs);

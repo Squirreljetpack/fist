@@ -16,6 +16,12 @@ pub fn global_ui() -> &'static StyleConfig {
         .expect("global UI config not initialized")
 }
 
+/// The UI config when initialized; `None` before [`global_ui_init`] (e.g. in
+/// unit tests that fire toasts).
+pub fn try_global_ui() -> Option<&'static StyleConfig> {
+    PATH_DISPLAY_CONFIG.get()
+}
+
 pub fn prompt_main_style() -> Style {
     global_ui().raw_prompt_style.into()
 }

@@ -25,7 +25,7 @@ use crate::{
         item::PathItem,
         pane::FsPane,
         selection,
-        state::{FILTERS, GLOBAL, STACK, STORE, TASKS, MenuCommandPaths, sort},
+        state::{FILTERS, GLOBAL, MenuCommandPaths, STACK, STORE, TASKS, sort},
     },
     utils::{command::tokio_from_script, formatter::format_path},
 };
@@ -35,7 +35,7 @@ use fist_types::filters::SortOrder;
 /// Rehydrates the selections that [`crate::run::ahandlers::fs_reload`] snapshotted as path hashes once the
 /// fresh listing has landed.
 pub fn sync_handler(
-    state: &mut MMState<'_, '_>,
+    state: &mut MMState<'_,>,
     _: &Event,
 ) {
     // reload saved state
@@ -80,7 +80,7 @@ pub fn sync_handler(
 }
 
 pub fn query_handler(
-    _state: &mut MMState<'_, '_>,
+    _state: &mut MMState<'_,>,
     _: &Event,
 ) {
     // rg query change is handled by rebinds

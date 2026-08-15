@@ -23,7 +23,7 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("zz"))]
     pub open_name: String,
     /// Command used by open function
-    #[arg(long, default_value_t = format!("{} :tool lessfilter edit", std::env::current_exe().unwrap_or(PathBuf::from("fs")).file_name().unwrap().to_string_lossy()))]
+    #[arg(long, default_value_t = default_open_cmd())]
     pub open_cmd: String,
 
     /// Bind for the directory widget.
@@ -120,6 +120,16 @@ pub struct BumpCommand {
 
 #[derive(Debug, Parser, Default, Clone)]
 pub struct TypesCommand {}
+
+/// Default value for `open_cmd`: this binary's file name + `:tool lessfilter edit`.
+fn default_open_cmd() -> String {
+    let bin = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.file_name().map(|s| s.to_string_lossy().into_owned()))
+        .unwrap_or_else(|| crate::cli::paths::BINARY_SHORT.to_string());
+
+    format!("{bin} :tool lessfilter edit")
+}
 
 /// How `--follow` resolves symlinks before trashing.
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]

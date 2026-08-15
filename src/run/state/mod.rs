@@ -1,16 +1,9 @@
 #![allow(non_snake_case)]
-use std::{
-    cell::OnceCell,
-    sync::{Mutex, OnceLock},
-};
+use std::{cell::OnceCell, sync::OnceLock};
 
 use cba::bait::ResultExt;
 use log::debug;
 use matchmaker::{action::Action, event::RenderSender};
-use ratatui::{
-    style::{Color, Style},
-    text::{Line, Span},
-};
 
 use crate::config::GlobalConfig;
 use crate::{
@@ -18,7 +11,6 @@ use crate::{
     errors::DbError,
     run::{FsPane, action::FsAction},
     spawn::menu_action::MenuActions,
-    utils::text::{ToastContent, ToastStyle, make_toast},
     watcher::{WatcherMessage, WatcherSender},
 };
 use fist_types::filters::SortOrder;
@@ -30,6 +22,8 @@ mod stack;
 pub use stack::*;
 pub mod context;
 mod temp;
+pub mod toast;
+pub use toast::{TOAST, ToastContent, ToastStyle};
 pub mod ui;
 pub use temp::*;
 
@@ -134,156 +128,6 @@ pub mod GLOBAL {
     ) -> Result<Vec<crate::db::Entry>, DbError> {
         let config = DB_FILTER.get().expect("DB_FILTER not initialized");
         conn.get_entries(sort, config, conn.table).await
-    }
-}
-
-// ------------- TOAST ----------------------------
-static TOAST: Mutex<Vec<(Span<'static>, ToastContent)>> = Mutex::new(Vec::new());
-
-pub struct TOAST {}
-
-impl TOAST {
-    pub fn clear() {
-        let mut state = TOAST.lock().unwrap();
-        state.clear();
-        debug!("Cleared toasts: {state:?}");
-        GLOBAL::send_action(FsAction::set_footer(None));
-    }
-
-    // todo: maintain a counter
-    pub fn push_skipped() {
-        let mut state = TOAST.lock().unwrap();
-
-        const SKIPPED: &str = "Skipped";
-
-        if let Some((_, ToastContent::Line(existing))) = state.iter_mut().find(|(span, content)| {
-            span.content.is_empty()
-                && matches!(
-                    content,
-                    ToastContent::Line(l)
-                    if l.spans.first().map(|s| s.content.starts_with(SKIPPED)) == Some(true)
-                )
-        }) {
-            let first = &existing.spans[0].content;
-
-            let next = if first == SKIPPED {
-                2
-            } else {
-                first
-                    .strip_prefix(SKIPPED)
-                    .and_then(|rest| {
-                        rest.trim_start_matches('(')
-                            .trim_end_matches(')')
-                            .parse::<usize>()
-                            .ok()
-                    })
-                    .map(|n| n + 1)
-                    .unwrap_or(2)
-            };
-
-            existing.spans[0] =
-                Span::styled(format!("{SKIPPED} ({next})"), Style::new().dim().italic());
-        } else {
-            let prefix_span = Span::raw("");
-            let line = Line::from(Span::styled(SKIPPED, Style::new().dim().italic()));
-            state.push((prefix_span, ToastContent::Line(line)));
-        }
-
-        let toast = make_toast(&state);
-        GLOBAL::send_action(FsAction::set_footer(toast));
-    }
-
-    pub fn clear_msgs() {
-        let mut state = TOAST.lock().unwrap();
-
-        // Keep only entries whose span is not empty
-        state.retain(|(span, _)| !span.content.is_empty());
-
-        GLOBAL::send_action(FsAction::set_footer(None));
-    }
-
-    /// Push an item to a prefix group
-    pub fn push(
-        style: ToastStyle,
-        prefix: &'static str,
-        items: impl IntoIterator<Item = Span<'static>>,
-    ) {
-        let mut state = TOAST.lock().unwrap();
-        if let Some((_, existing_content)) =
-            state.iter_mut().find(|(p, _)| p.content.as_ref() == prefix)
-        {
-            if let ToastContent::List(existing_items) = existing_content {
-                for i in items {
-                    if !existing_items.contains(&i) {
-                        existing_items.push(i);
-                    }
-                }
-            } else {
-                // Overwrite if not already a list
-                *existing_content = ToastContent::List(items.into_iter().collect());
-            }
-        } else {
-            let prefix_span = Span::styled(prefix, style);
-            state.push((prefix_span, ToastContent::List(items.into_iter().collect())));
-        }
-
-        let toast = make_toast(&state);
-        GLOBAL::send_action(FsAction::set_footer(toast));
-    }
-
-    /// Push a pair of items a -> b, described by a prefix
-    pub fn pair(
-        style: ToastStyle,
-        prefix: &'static str,
-        from: Span<'static>,
-        to: Span<'static>,
-    ) {
-        let mut state = TOAST.lock().unwrap();
-        let prefix_span = Span::styled(prefix, style);
-        state.push((prefix_span, ToastContent::Pair(from, to)));
-
-        let toast = make_toast(&state);
-        GLOBAL::send_action(FsAction::set_footer(toast));
-    }
-
-    /// Push a notice with the default prefix associated with the given style.
-    pub fn notice(
-        style: ToastStyle,
-        msg: impl Into<std::borrow::Cow<'static, str>>,
-    ) {
-        let mut state = TOAST.lock().unwrap();
-        let prefix_span = Span::styled(format!("{style}: "), style);
-        state.push((prefix_span, ToastContent::Line(msg.into().into())));
-
-        let toast = make_toast(&state);
-        GLOBAL::send_action(FsAction::set_footer(toast));
-    }
-
-    /// Push a message with empty prefix.
-    /// `replace = true` clears all previous messages of this type.
-    /// Note: Style the spans, not the line
-    pub fn msg(
-        line: impl Into<Line<'static>>,
-        replace: bool,
-    ) {
-        let mut state = TOAST.lock().unwrap();
-
-        if replace {
-            state.retain(|(prefix, _)| !prefix.content.is_empty());
-        }
-
-        let prefix_span = Span::raw("");
-        state.push((prefix_span, ToastContent::Line(line.into())));
-
-        let toast = make_toast(&state);
-        GLOBAL::send_action(FsAction::set_footer(toast));
-    }
-
-    pub fn toast_empty() {
-        TOAST::msg(
-            Span::styled("No entries", Style::new().fg(Color::DarkGray).italic()),
-            true,
-        );
     }
 }
 

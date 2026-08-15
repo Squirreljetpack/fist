@@ -1,4 +1,4 @@
-pub use super::styles::FileStyles;
+pub use super::styles::{FileStyles, ToastStyles};
 use cba::define_const_default;
 use matchmaker::config::{HorizontalSeparator, StyleSetting};
 use ratatui::style::{Color, Modifier};
@@ -9,6 +9,7 @@ define_const_default!(
     pub struct StyleConfig {
         pub path: PathDisplayConfig,
         pub matchmaker: MatchmakerExtraConfig,
+        pub toast: ToastStyles,
         pub raw_prompt_style: StyleSetting = StyleSetting {
             fg: Some(Color::LightBlue),
             bg: None,

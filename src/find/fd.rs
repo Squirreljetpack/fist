@@ -78,8 +78,8 @@ pub fn build_fd_args(
         extra_args.extend(fd_args.iter().cloned());
     }
 
-    let full_path_pattern = extra_args.iter().any(|x| x == "--full-path" || x == "p");
-    let glob_pattern = extra_args.iter().any(|x| x == "--glob" || x == "p");
+    let full_path_pattern = extra_args.iter().any(|x| x == "--full-path" || x == "-p");
+    let glob_pattern = extra_args.iter().any(|x| x == "--glob" || x == "-g");
 
     // add -t + -e
     for t in types {

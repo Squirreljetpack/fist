@@ -370,9 +370,9 @@ mod tests {
     use crate::{
         abspath::AbsPath,
         lessfilter::{
+            ActionEntry, ActionExecution, Categories, LessfilterSettings,
             action::Action,
             file_rule::{FileData, FileRule},
-            ActionEntry, ActionExecution, Categories, LessfilterSettings,
         },
     };
     use std::fs::File;
@@ -398,7 +398,11 @@ mod tests {
         matcher
     }
 
-    fn file_in(dir: &tempfile::TempDir, name: &str, content: &[u8]) -> std::path::PathBuf {
+    fn file_in(
+        dir: &tempfile::TempDir,
+        name: &str,
+        content: &[u8],
+    ) -> std::path::PathBuf {
         let path = dir.path().join(name);
         File::create(&path).unwrap().write_all(content).unwrap();
         path
@@ -430,7 +434,10 @@ mod tests {
             vec![(Score::Add(1), "*".parse().unwrap())],
         );
 
-        assert_eq!(matcher.get_best_match(&path, data), Some(&entry(Action::Text)));
+        assert_eq!(
+            matcher.get_best_match(&path, data),
+            Some(&entry(Action::Text))
+        );
     }
 
     #[test]
@@ -509,7 +516,10 @@ mod tests {
             ("1|mime:text/*", Action::Metadata),
         ]);
 
-        assert_eq!(matcher.get_best_match(&path, data), Some(&entry(Action::Text)));
+        assert_eq!(
+            matcher.get_best_match(&path, data),
+            Some(&entry(Action::Text))
+        );
     }
 
     #[test]

@@ -99,7 +99,7 @@ impl Overlay<FsAction, PathItem, ()> for PromptOverlay {
     fn handle_input(
         &mut self,
         c: char,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
         if c == '\n' {
             return OverlayEffect::Disable;
@@ -140,7 +140,7 @@ impl Overlay<FsAction, PathItem, ()> for PromptOverlay {
     fn handle_action(
         &mut self,
         action: &Action<FsAction>,
-        _state: &mut MMState<'_, '_, PathItem, ()>,
+        _state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
         if let Some(_accept) = self.input.handle_action(action) {
             return OverlayEffect::Disable;

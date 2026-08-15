@@ -26,8 +26,8 @@ use crate::{
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
         previewer::make_previewer,
-        register::{MMExt, emit_print, path_formatter, query_handler, sync_handler},
         queue::QUEUE,
+        register::{MMExt, emit_print, path_formatter, query_handler, sync_handler},
         state::{
             AcceptFlavor, DB_FILTER, GLOBAL, HideMetadata, MENU_ACTIONS, STACK, STORE, TASKS,
             context::ActionContext, sort, ui::global_ui_init,
@@ -36,10 +36,11 @@ use crate::{
     spawn::{Program, open_wrapped},
     ui::{
         confirm_overlay::ConfirmOverlay,
-        options_overlay::OptionsOverlay,
         menu_overlay::MenuOverlay,
+        options_overlay::OptionsOverlay,
         queue_overlay::{AppOverlay, QueueOverlay},
     },
+    unzip,
     watcher::FsWatcher,
 };
 
@@ -97,7 +98,7 @@ fn make_mm(
     let hook_handle = print_handle.clone();
     let hook_template = template.clone();
     let hook_sep = separator.clone();
-    let mut mm = Matchmaker::new(worker, move |state: &mut MMState<'_, '_>| {
+    let mut mm = Matchmaker::new(worker, move |state: &mut MMState<'_,>| {
         if STORE::take::<AcceptFlavor>().is_some() {
             // respect no_multi_accept when this was aliased from Accept
             let items: Vec<PathItem> =
@@ -119,6 +120,7 @@ fn make_mm(
     // command-output copy needs this after `tui` is consumed below
     let copy_trailing_newline = tui.copy_trailing_newline;
     mm.config_tui(tui);
+    mm.config_matcher(MATCHER_CONFIG);
 
     // registration order = discriminant ownership order on the shared
     // ExecuteSilent/ExecuteAsync interrupts
@@ -274,7 +276,6 @@ pub async fn start(
             ahandlers::refresh_prompt(state); // defensive
         })
         .paste_handler(paste_handler)
-        .matcher(MATCHER_CONFIG)
         .overlay_config(overlay)
         .overlay(QueueOverlay::new(queue.clone()))
         .overlay(AppOverlay::new(app))
@@ -307,6 +308,8 @@ pub async fn start(
 
     // start watcher
     watcher.spawn()._ebog();
+    // start the archive extraction worker
+    unzip::start();
     // A7: clear the configured transient stashes before the first populate so
     // a startup stash pane can never show stale entries (the default transient
     // stash is the unnamed one). Awaited inline rather than spawned: `start()`
@@ -330,6 +333,7 @@ pub async fn start(
     print_handle.map_to_vec(|s| prints!(s));
 
     TASKS::shutdown(500, 10, 3000).await;
+    unzip::shutdown();
     if STACK::in_app() {
         match ret {
             Ok(lines) if !lines.is_empty() => {

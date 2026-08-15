@@ -15,8 +15,9 @@ use crate::{
     abspath::AbsPath,
     aliases::MMState,
     run::{
-        FsAction, FsPane, selection,
+        FsAction, FsPane,
         queue::QUEUE,
+        selection,
         state::{
             FILTERS, GLOBAL, HideMetadata, InPrompt, STACK, STORE, TOAST, sort,
             ui::{global_ui, prompt_main_style},
@@ -27,7 +28,7 @@ use crate::{
 
 pub fn paste_handler(
     content: String,
-    state: &MMState<'_, '_>,
+    state: &MMState<'_,>,
 ) -> String {
     if let Some(c) = STACK::nav_cwd()
         && !(GLOBAL::with_cfg(|c| c.interface.always_paste)
@@ -49,7 +50,7 @@ pub fn paste_handler(
 ///   configured default prompt when there is no cwd);
 /// - otherwise: "d: " / "f: " when visibility is dirs-only / files-only,
 ///   else the pane's configured prompt.
-pub fn refresh_prompt(state: &mut MMState<'_, '_>) {
+pub fn refresh_prompt(state: &mut MMState<'_,>) {
     if state.picker_ui.results.cursor_disabled() {
         if let Some(cwd) = STACK::cwd() {
             let content =
@@ -88,7 +89,7 @@ pub fn refresh_prompt(state: &mut MMState<'_, '_>) {
 /// leaving is never gated. The cwd lock implies the prompt mode and
 /// additionally makes actions apply to the cwd.
 pub fn lock_prompt(
-    state: &mut MMState<'_, '_>,
+    state: &mut MMState<'_,>,
     enter: bool,
 ) {
     if enter && !GLOBAL::with_cfg(|c| c.interface.prompt_locking) {
@@ -125,7 +126,7 @@ pub fn lock_prompt(
 /// Reimplements lock_prompt's entry branch rather than deferring to it,
 /// because lock_prompt gates entry on `interface.prompt_locking` and this
 /// is the ungated entry.
-pub fn enter_prompt(state: &mut MMState<'_, '_>) -> bool {
+pub fn enter_prompt(state: &mut MMState<'_,>) -> bool {
     if STACK::cwd().is_none() {
         return false;
     }
@@ -144,7 +145,7 @@ pub fn enter_prompt(state: &mut MMState<'_, '_>) -> bool {
 }
 
 pub fn enter_dir_pane(
-    state: &mut MMState<'_, '_>,
+    state: &mut MMState<'_,>,
     path: AbsPath,
 ) {
     // save input
@@ -203,7 +204,7 @@ pub fn enter_dir_pane(
 }
 
 pub fn fs_reload(
-    state: &mut MMState<'_, '_>,
+    state: &mut MMState<'_,>,
     is_new: bool,
     // whether the reload re-reads a different directory than
     // the pane currently shows. is_new || dir_changed gates the selection refill and dir-size clear.
@@ -337,7 +338,7 @@ pub fn fs_reload(
 /// - Read the current pane's lock_prompt and default prompt values to appropriately invoke [`lock_prompt`].
 /// 2. Reset transient state settings without any configuration knob
 /// 3. Set input from pane, clear selections
-pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
+pub fn fs_post_reload_new(state: &mut MMState<'_,>) {
     // apply pane-specific config overrides
     STACK::with_current(|pane| {
         GLOBAL::with_cfg(|c| {
@@ -429,7 +430,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_, '_>) {
     fs_post_reload(state);
 }
 
-pub fn fs_post_reload(state: &mut MMState<'_, '_>) {
+pub fn fs_post_reload(state: &mut MMState<'_,>) {
     STACK::with_current(|pane| {
         match pane {
             // we set styles in reload, not on push, because of undo/redo

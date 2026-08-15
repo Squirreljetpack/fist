@@ -66,6 +66,9 @@ mod tests {
 
     #[test]
     fn tmux_sequence_wraps_passthrough() {
-        assert_eq!(sequence("hi", true), "\x1bPtmux;\x1b\x1b]52;c;aGk=\x07\x1b\\");
+        assert_eq!(
+            sequence("hi", true),
+            "\x1bPtmux;\x1b\x1b]52;c;aGk=\x07\x1b\\"
+        );
     }
 }

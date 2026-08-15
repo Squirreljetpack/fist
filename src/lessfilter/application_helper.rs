@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use cba::bog::BogOkExt;
+
 use crate::cli::paths::tmp_dir;
 
 pub fn application_icon_path(path: &Path) -> Option<PathBuf> {
@@ -81,6 +83,7 @@ fn application_icon_cache_path(path: &Path) -> PathBuf {
         .collect();
 
     tmp_dir()
+        .__ebog()
         .join("application-icons")
         .join(format!("{sanitized}.png"))
 }

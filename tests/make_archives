@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Creates one sample archive per format supported by src/unzip — zip, tar,
+# tar.gz, tar.bz2, tar.xz, tar.zst, ar, gz, bz2, xz, zst, rar, and 7z — in a
+# fresh tmp dir, then prints the tmp dir path to stdout.
+#
+# All tool output is suppressed: stdout carries only the tmp dir path, so the
+# script can be used directly in command substitution. The caller owns the
+# tmp dir (remove it with `rm -rf "$dir"` when done).
+set -euo pipefail
+
+dir="$(mktemp -d "${TMPDIR:-/tmp}/fist-archives.XXXXXX")"
+
+# fixture content shared by every archive
+mkdir -p "$dir/src/nested"
+printf 'hello world\n' > "$dir/src/hello.txt"
+printf 'nested data\n' > "$dir/src/nested/data.txt"
+
+quiet() {
+    if command -v "$1" >/dev/null 2>&1; then
+        if ! "$@" >/dev/null 2>&1; then
+            echo "warning: failed to run: $*" >&2
+        fi
+    else
+        echo "warning: command not found: $1" >&2
+    fi
+}
+
+# container formats, archived with entries relative to the fixture root
+(
+    cd "$dir/src"
+    quiet zip -q -r "$dir/archive.zip" .
+    quiet tar -cf "$dir/archive.tar" .
+    quiet tar -czf "$dir/archive.tar.gz" .
+    quiet tar -cjf "$dir/archive.tar.bz2" .
+    quiet tar -cJf "$dir/archive.tar.xz" .
+    quiet tar --zstd -cf "$dir/archive.tar.zst" .
+    quiet ar rcs "$dir/archive.ar" hello.txt nested/data.txt
+    quiet 7z a -bso0 -bsp0 -y "$dir/archive.7z" .
+    quiet rar a -r -idq "$dir/archive.rar" .
+)
+
+# single-stream formats: each archive decompresses to the file "archive"
+(
+    cd "$dir"
+    cp src/hello.txt archive && quiet gzip archive
+    cp src/hello.txt archive && quiet bzip2 archive
+    cp src/hello.txt archive && quiet xz archive
+    cp src/hello.txt archive && quiet zstd -q --rm archive
+)
+
+# the dir is meant to contain only the archives
+rm -rf "$dir/src"
+
+printf '%s\n' "$dir"

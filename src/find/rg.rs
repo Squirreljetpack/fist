@@ -137,7 +137,6 @@ pub fn build_rg_args(
 
     ret.append(&mut vec_![
     OsString:
-    "--field-context-separator=:",
     "--line-number",
     "--column",
     if no_heading {
@@ -148,6 +147,7 @@ pub fn build_rg_args(
     "--null",
     "--hyperlink-format="
     ]);
+
 
     let case = match case {
         When::Never => "--ignore-case",
@@ -222,4 +222,43 @@ mod tests {
         assert_eq!(args_paths.last().unwrap(), "foo/bar");
         assert_ne!(args_paths[args_paths.len() - 2], "foo/bar");
     }
+
+    #[test]
+    fn test_build_rg_args_heading_vs_no_heading() {
+        let cfg = RgConfig {
+            empty_pattern: Some(".*".into()),
+            ..Default::default()
+        };
+
+        let args_one_line = build_rg_args(
+            Default::default(),
+            SortOrder::none,
+            [0, 0],
+            When::Auto,
+            true,
+            false,
+            &["test".to_string()],
+            &[],
+            &[],
+            &cfg,
+        );
+        assert!(args_one_line.contains(&OsString::from("--no-heading")));
+        assert!(args_one_line.contains(&OsString::from("--null")));
+
+        let args_multi_line = build_rg_args(
+            Default::default(),
+            SortOrder::none,
+            [0, 0],
+            When::Auto,
+            false,
+            false,
+            &["test".to_string()],
+            &[],
+            &[],
+            &cfg,
+        );
+        assert!(args_multi_line.contains(&OsString::from("--heading")));
+        assert!(args_multi_line.contains(&OsString::from("--null")));
+    }
 }
+

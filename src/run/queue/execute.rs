@@ -14,13 +14,10 @@ use cba::{
 };
 use fs_extra::{dir, file};
 
-use crate::{
-    run::{
-        item::short_display,
-        lua::{call_with_paths, compile_lua, load_script},
-        state::{MENU_ACTIONS, TASKS, TOAST},
-    },
-    utils::text::ToastStyle,
+use crate::run::{
+    item::short_display,
+    lua::{call_with_paths, compile_lua, load_script},
+    state::{MENU_ACTIONS, TASKS, TOAST, ToastStyle},
 };
 
 impl QueueItem {
@@ -90,9 +87,7 @@ impl QueueItem {
                             } else {
                                 0
                             };
-                            progress
-                                .clone()
-                                .store(fraction as u8, Ordering::Relaxed);
+                            progress.clone().store(fraction as u8, Ordering::Relaxed);
                             fs_extra::dir::TransitProcessResult::ContinueOrAbort
                         };
 
@@ -111,9 +106,7 @@ impl QueueItem {
                             } else {
                                 0
                             };
-                            progress
-                                .clone()
-                                .store(fraction as u8, Ordering::Relaxed);
+                            progress.clone().store(fraction as u8, Ordering::Relaxed);
                         };
 
                         if let Some(parent) = std::path::Path::new(dst).parent() {

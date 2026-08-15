@@ -95,9 +95,7 @@ impl Pool {
 
         log::debug!("db url: {url}");
         let options: SqliteConnectOptions = url.parse()?;
-        let pool = SqlitePoolOptions::new()
-            .connect_with(options)
-            .await?;
+        let pool = SqlitePoolOptions::new().connect_with(options).await?;
 
         let ret = Self { pool, lambda };
         ret.init_tables().await?;

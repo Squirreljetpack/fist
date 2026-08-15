@@ -9,9 +9,8 @@ use cba::bath::{PathExt, auto_dest_for_src};
 use crate::{
     abspath::AbsPath,
     cli::paths::__home,
-    run::state::{GLOBAL, STACK, TASKS, TOAST},
+    run::state::{GLOBAL, STACK, TASKS, TOAST, ToastStyle},
     spawn::menu_action::RESERVED_KEYS,
-    utils::text::ToastStyle,
 };
 
 #[derive(Debug, Clone)]
@@ -88,11 +87,7 @@ pub enum QueueView {
 /// `ShowQueue` dispatches on this: `0` = the shared queue overlay, `1` = the
 /// app view (overlay index 1).
 pub fn show_queue_variant() -> u8 {
-    if STACK::in_app() {
-        1
-    } else {
-        0
-    }
+    if STACK::in_app() { 1 } else { 0 }
 }
 
 pub struct QUEUE;
@@ -310,7 +305,11 @@ impl QUEUE {
     /// The files collected in app mode (`fs :open`, `OpenWith`).
     pub fn stashed_apps() -> Vec<OsString> {
         let state = QUEUE_STATE.lock().unwrap();
-        state.apps.iter().map(|p| p.as_os_str().to_os_string()).collect()
+        state
+            .apps
+            .iter()
+            .map(|p| p.as_os_str().to_os_string())
+            .collect()
     }
 }
 

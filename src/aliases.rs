@@ -1,2 +1,2 @@
 use crate::run::item::PathItem;
-pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, PathItem, ()>;
+pub type MMState<'a> = matchmaker::render::MMState<'a, PathItem, ()>;

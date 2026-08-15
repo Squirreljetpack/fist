@@ -1,6 +1,6 @@
 use std::process::{Command, Stdio};
 
-use cba::broc::{tty_or_inherit, CommandExt, EnvVars};
+use cba::broc::{CommandExt, EnvVars, tty_or_inherit};
 use log::{info, warn};
 
 use crate::{
@@ -254,7 +254,7 @@ pub(super) fn build_exec_command(
                 .stderr(Stdio::null());
         }
         ExecutionMode::LuaCommand | ExecutionMode::MenuAction | ExecutionMode::LuaCommandPaged => {
-            return None
+            return None;
         }
     }
 
@@ -313,7 +313,7 @@ pub(super) fn wait_exec(
 /// Resolve the execution target: the cwd when the cursor is disabled,
 /// otherwise the current item. Honors [`ExecuteHandlerShouldProcessParent`]
 /// and returns `None` instead of panicking when there is no target or parent.
-pub(super) fn resolve_target(state: &MMState<'_, '_>) -> Option<AbsPath> {
+pub(super) fn resolve_target(state: &MMState<'_,>) -> Option<AbsPath> {
     if state.picker_ui.results.cursor_disabled() {
         STACK::cwd()
     } else {
@@ -330,7 +330,7 @@ pub(super) fn resolve_target(state: &MMState<'_, '_>) -> Option<AbsPath> {
 /// preview command plus rg highlight/scroll positions when in an rg pane.
 /// Capture before spawning any task.
 pub(super) fn collect_exec_env(
-    state: &MMState<'_, '_>,
+    state: &MMState<'_,>,
     path: &AbsPath,
 ) -> EnvVars {
     let mut vars = state.make_env_vars();

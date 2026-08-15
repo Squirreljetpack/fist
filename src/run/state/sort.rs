@@ -72,7 +72,7 @@ fn set_global_sort_only_from_pane() -> SortMode {
 }
 
 /// Pushes the current pane's sort into global and updates Nucleo.
-pub fn set_sort_from_pane(state: &mut MMState<'_, '_>) {
+pub fn set_sort_from_pane(state: &mut MMState<'_,>) {
     let SortMode { order, threshold } = set_global_sort_only_from_pane();
 
     state.picker_ui.worker.nucleo.sort_with(sort_fn_for(order));
@@ -92,12 +92,12 @@ fn sort_fn_for(order: SortOrder) -> Option<SortFn> {
             }
         })),
         // descending (newest first); unset values stored as 0 sort last; tie-breaker preserves insertion order
-        SortOrder::mtime | SortOrder::atime => Some(Arc::new(|(i, a), (j, b)| {
-            match b.value().cmp(&a.value()) {
+        SortOrder::mtime | SortOrder::atime => {
+            Some(Arc::new(|(i, a), (j, b)| match b.value().cmp(&a.value()) {
                 Ordering::Equal => i < j,
                 other => other.is_lt(),
-            }
-        })),
+            }))
+        }
         // descending (largest first); missing cache entries read as 0 → sort last; tie-breaker preserves insertion order
         SortOrder::size => Some(Arc::new(|(i, a), (j, b)| {
             let sa = size_of(&a.path).unwrap_or(0);
@@ -170,7 +170,7 @@ pub fn store_sort_value(
 
 /// Fill flow for a mid-pane sort change (no reload): snapshot the existing
 /// items, compute the new sort values off-thread, then dispatch `ReSort`.
-pub fn fill_then_resort(state: &MMState<'_, '_>) {
+pub fn fill_then_resort(state: &MMState<'_,>) {
     let SortMode { order, threshold } = set_global_sort_only_from_pane();
 
     match order {

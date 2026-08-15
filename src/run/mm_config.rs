@@ -12,7 +12,7 @@ use matchmaker_partial::Apply;
 use ratatui::style::Modifier;
 use std::path::Path;
 
-use super::{binds::default_binds, FsAction};
+use super::{FsAction, binds::default_binds};
 
 #[cfg(feature = "mm_overrides")]
 use crate::cli::env::get_mm_partial;
