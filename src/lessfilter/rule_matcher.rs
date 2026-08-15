@@ -19,6 +19,11 @@ pub struct RuleMatcher<T, A> {
 /// The fit of a rule to an item is computed by accumulating the score of all passing tests in the rule for the item.
 pub type Rule<T> = Vec<(Score, T)>;
 
+/// The best matching rule together with its score and the `(score, test)`
+/// parts of the rule — as returned by
+/// [`RuleMatcher::get_best_match_with_score`].
+pub type BestMatchWithScore<'a, A, T> = (&'a A, u8, &'a [(Score, T)]);
+
 #[derive(Debug, Clone)]
 // u8 so that Max(u8) guarantees acceptance
 pub enum Score {
@@ -30,6 +35,15 @@ pub enum Score {
 }
 
 impl Score {
+    /// Format this score modifier together with the rule part it applies to,
+    /// e.g. `>40|mime:image/*`.
+    pub fn format<T: std::fmt::Display>(
+        &self,
+        r: &T,
+    ) -> String {
+        format_rule_part(self, r)
+    }
+
     // todo: lowpri: should we have invert field on score or filerule
     fn modify(
         &self,
@@ -113,6 +127,42 @@ impl<T, A> RuleMatcher<T, A> {
         }
 
         best_id
+    }
+
+    /// Find the best matching rule for the item together with its score
+    /// and the matched `(score, test)` parts of the rule — for diagnostics.
+    ///
+    /// # Notes
+    /// - first one wins in tie
+    /// - 0 score does not count
+    /// - Early exit on 255
+    pub fn get_best_match_with_score<'a, I: ?Sized>(
+        &self,
+        item: &I,
+        context: T::Context<'a>,
+    ) -> Option<BestMatchWithScore<'_, A, T>>
+    where
+        T: Test<I>,
+    {
+        let mut best: Option<BestMatchWithScore<'_, A, T>> = None;
+
+        for (rule, id) in &self.rules {
+            let mut score = 0u8;
+
+            for r in rule {
+                score = r.0.modify(score, r.1.passes(item, &context));
+            }
+
+            if score > best.as_ref().map(|(_, s, _)| *s).unwrap_or(0) {
+                best = Some((id, score, rule.as_slice()));
+
+                if score == u8::MAX {
+                    break;
+                }
+            }
+        }
+
+        best
     }
 
     // returns (top_score, best_scores)

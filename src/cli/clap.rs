@@ -374,7 +374,7 @@ pub struct DefaultCommand {
     pub cd: bool,
 
     /// restrict search to certain file types and extensions
-    /// (use `:t types` to list).
+    /// (`:t types` to list).
     #[arg(short = 't', long = "types", value_delimiter = ',')]
     pub types: Vec<FileTypeArg>,
 
@@ -419,16 +419,14 @@ pub struct CustomCommand {
     pub sort: Option<SortOrder>,
 
     /// Lua transform (path, tail) -> (path, display, tail).
-    /// Missing display/tail keep the current values; a missing path omits the entry.
-    /// Accepts a file when prefixed with @.
     #[arg(long)]
     pub transform: Option<String>,
 
-    /// Field separator within a record: text after the first occurrence is the tail.
+    /// Delimiter used to split off the input into a (path, tail) pair.
     #[arg(long, alias = "ts")]
     pub tail_sep: Option<char>,
 
-    /// Split the stream into records on this char instead of newlines.
+    /// Split the stream on this character instead of newlines.
     #[arg(long, alias = "is")]
     pub input_sep: Option<char>,
 

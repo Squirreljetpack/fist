@@ -15,6 +15,7 @@ use arrayvec::ArrayVec;
 use cba::bog::BogUnwrapExt;
 use cba::{_trace, ebog, unwrap};
 use cba::{bog::BogOkExt, broc::CommandExt};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 use crate::cli::clap_tools::LessfilterCommand;
@@ -45,12 +46,18 @@ pub fn handle(
         mut args,
         no_exec,
         tty,
+        diagnose,
     }: LessfilterCommand,
     mut cfg: LessfilterConfig,
 ) -> i32 {
     if paths.is_empty() {
         return 2;
     }
+
+    if diagnose {
+        return run_diagnose(preset, paths, cfg);
+    }
+
     let mut default = cfg.rules.get(Preset::Default).clone();
     let rules = cfg.rules.get_mut(preset);
     rules.append(&mut default);
@@ -177,6 +184,87 @@ pub fn handle(
     }
 
     if any_file_succeeded { 0 } else { 1 }
+}
+
+/// `--diagnose`: for each path, print the detected file data, the winning
+/// rule with its score, and the commands that would run — without executing
+/// anything.
+fn run_diagnose(
+    preset: Preset,
+    paths: Vec<PathBuf>,
+    mut cfg: LessfilterConfig,
+) -> i32 {
+    use cba::prints;
+
+    let mut default = cfg.rules.get(Preset::Default).clone();
+    let rules = cfg.rules.get_mut(preset);
+    rules.append(&mut default);
+
+    for path in &paths {
+        let apath = AbsPath::new(path.clone());
+        let data = FileData::new(apath.clone(), &cfg.settings, &cfg.categories);
+
+        prints!(
+            format!("{}", path.display());
+            format!(
+                "  mime: {}  kind: {}  filetype: {}  perms: {}{}{}",
+                data.mime
+                    .mime
+                    .as_ref()
+                    .map(|m| m.to_string())
+                    .unwrap_or_default(),
+                data.mime
+                    .kind
+                    .as_ref()
+                    .map(|k| k.to_string())
+                    .unwrap_or_default(),
+                data.ft,
+                if data.permissions[0] { 'r' } else { '-' },
+                if data.permissions[1] { 'w' } else { '-' },
+                if data.permissions[2] { 'x' } else { '-' },
+            );
+            format!("  preset: {preset}")
+        );
+
+        match rules.get_best_match_with_score(path, data) {
+            Some((entry, score, rule)) => {
+                prints!(format!("  matched rule (score {score}):"));
+                for (score_part, rule_part) in rule {
+                    prints!(format!("    {}", score_part.format(rule_part)));
+                }
+                prints!(format!("  actions:"));
+                for action in entry.rule.iter() {
+                    let commands = if let Action::Custom(s) = action {
+                        let Some(template) = cfg.actions.get(s) else {
+                            prints!(format!("    (custom action '{s}' is not defined)"));
+                            continue;
+                        };
+                        vec![format_path(template, &apath)]
+                    } else {
+                        action
+                            .to_progs(path, preset)
+                            .0
+                            .into_iter()
+                            .map(|prog| {
+                                prog.iter()
+                                    .map(|part| part.to_string_lossy().into_owned())
+                                    .collect::<Vec<_>>()
+                                    .join(" ")
+                            })
+                            .collect()
+                    };
+                    for command in commands {
+                        prints!(format!("    {command}"));
+                    }
+                }
+            }
+            None => prints!(format!("  no rule matched")),
+        }
+
+        prints!("");
+    }
+
+    0
 }
 
 //-------------------------

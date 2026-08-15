@@ -1,10 +1,20 @@
-use cba::bath::{PathExt, split_ext};
+use cba::bath::{split_ext, PathExt};
 use std::path::Path;
 
 pub use super::categories_phf::*;
 
 // drawn from crates eza and file-format
-#[derive(Debug, Clone, strum_macros::EnumString, PartialEq, Eq, std::hash::Hash)]
+#[derive(
+    Debug,
+    Clone,
+    strum_macros::EnumString,
+    strum_macros::Display,
+    strum_macros::EnumIter,
+    strum_macros::EnumMessage,
+    PartialEq,
+    Eq,
+    std::hash::Hash,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[strum(serialize_all = "lowercase")]
 pub enum FileCategory {
@@ -123,8 +133,8 @@ impl FileCategory {
     // TODO: flesh out
     #[cfg(feature = "file-format")]
     pub fn from_fileformat(format: file_format::FileFormat) -> Self {
-        use FileCategory::*;
         use file_format::Kind;
+        use FileCategory::*;
 
         match format.kind() {
             Kind::Archive | Kind::Compressed => Compressed,
@@ -161,7 +171,7 @@ impl FileCategory {
 
     /// Command-line parsing (FromStr is separate)
     pub fn parse_with_aliases(s: &str) -> Result<FileCategory, String> {
-        use FileCategory::*;
+        use strum::IntoEnumIterator;
 
         // first try EnumString
         if let Ok(category) = s.parse::<FileCategory>() {
@@ -170,34 +180,41 @@ impl FileCategory {
 
         // fallback to common aliases
         let s_lower = s.to_lowercase();
-        let category = match s_lower.as_str() {
-            "v" | "vid" => Video,
-            "i" | "img" => Image,
-            "a" | "aud" => Audio,
-            "l" | "lossless" => Lossless,
-            "z" | "zip" => Compressed,
-            "t" | "tmp" => Temp,
-            "o" | "obj" => Compiled,
-            "b" => Build,
-            "s" | "src" | "code" => Source,
-            "conf" | "cfg" => Configuration,
-            "txt" => Text,
-            "doc" => Document,
+        FileCategory::iter()
+            .find(|category| category.aliases().iter().any(|a| *a == s_lower))
+            .ok_or_else(|| s.to_string())
+    }
 
-            // new variants
-            "db" => Database,
-            "diag" => Diagram,
-            "x" | "exe" => Executable,
-            "geo" => Geospatial,
-            "pkg" => Package,
-            "ppt" => Presentation,
-            "xl" | "xlsx" => Spreadsheet,
-            "md" => Markdown,
+    /// Aliases recognized by [`Self::parse_with_aliases`] in addition to the
+    /// variant name itself. Single-letter aliases that collide with a file
+    /// type (e.g. `b` for build vs. block device) are shadowed by the file
+    /// type when used with the `-t` flag.
+    pub fn aliases(&self) -> &'static [&'static str] {
+        use FileCategory::*;
 
-            _ => return Err(s.to_string()),
-        };
-
-        Ok(category)
+        match self {
+            Video => &["v", "vid"],
+            Image => &["i", "img"],
+            Audio => &["a", "aud"],
+            Lossless => &["l"],
+            Compressed => &["z", "zip"],
+            Temp => &["t", "tmp"],
+            Compiled => &["o", "obj"],
+            Build => &["b"],
+            Source => &["s", "src", "code"],
+            Configuration => &["conf", "cfg"],
+            Text => &["txt"],
+            Document => &["doc"],
+            Database => &["db"],
+            Diagram => &["diag"],
+            Executable => &["x", "exe"],
+            Geospatial => &["geo"],
+            Package => &["pkg"],
+            Presentation => &["ppt"],
+            Spreadsheet => &["xl", "xlsx"],
+            Markdown => &["md"],
+            _ => &[],
+        }
     }
 
     pub fn from_mime(mime: &str) -> Self {

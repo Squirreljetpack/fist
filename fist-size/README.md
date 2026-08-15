@@ -1,5 +1,4 @@
-# Parallel size utility + library
+# Parallel size library
 
-### Future
-
-- Combine separate inputs from tree mode into a single tree skeleton
+`DirSizeCache` computes directory sizes concurrently. It powers the
+`fs :tool ds` disk usage tool in the `fist` crate.

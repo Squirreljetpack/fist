@@ -55,7 +55,7 @@ complete -c fs -n "__fish_fs_needs_command" -s F -d 'only show directories' -r -
 false\t''"
 complete -c fs -n "__fish_fs_needs_command" -s f -d 'show only files' -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_needs_command" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
+complete -c fs -n "__fish_fs_needs_command" -s t -l types -d 'restrict search to certain file types and extensions (`:t types` to list)' -r
 complete -c fs -n "__fish_fs_needs_command" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
 complete -c fs -n "__fish_fs_needs_command" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_needs_command" -s v -d 'Increase the verbosity level'
@@ -196,7 +196,7 @@ complete -c fs -n "__fish_fs_using_subcommand :fd" -s F -d 'only show directorie
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s f -d 'show only files' -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s t -l types -d 'restrict search to certain file types and extensions (`:t types` to list)' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l config -d 'config path' -r -F
@@ -237,7 +237,7 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -s F -d 'only show directories
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -s f -d 'show only files' -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand ::" -s t -l types -d 'restrict search to certain file types and extensions (use `:t types` to list)' -r
+complete -c fs -n "__fish_fs_using_subcommand ::" -s t -l types -d 'restrict search to certain file types and extensions (`:t types` to list)' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l config -d 'config path' -r -F
@@ -278,9 +278,9 @@ mtime\t''
 atime\t''
 size\t''
 none\t''"
-complete -c fs -n "__fish_fs_using_subcommand :custom" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
-complete -c fs -n "__fish_fs_using_subcommand :custom" -l tail-sep -d 'Field separator within a record: text after the first occurrence is the tail' -r
-complete -c fs -n "__fish_fs_using_subcommand :custom" -l input-sep -d 'Split the stream into records on this char instead of newlines' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l transform -d 'Lua transform (path, tail) -> (path, display, tail)' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l tail-sep -d 'Delimiter used to split off the input into a (path, tail) pair' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l input-sep -d 'Split the stream on this character instead of newlines' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l mm-config -d 'matchmaker config path' -r -F
@@ -317,9 +317,9 @@ mtime\t''
 atime\t''
 size\t''
 none\t''"
-complete -c fs -n "__fish_fs_using_subcommand :c" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
-complete -c fs -n "__fish_fs_using_subcommand :c" -l tail-sep -d 'Field separator within a record: text after the first occurrence is the tail' -r
-complete -c fs -n "__fish_fs_using_subcommand :c" -l input-sep -d 'Split the stream into records on this char instead of newlines' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l transform -d 'Lua transform (path, tail) -> (path, display, tail)' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l tail-sep -d 'Delimiter used to split off the input into a (path, tail) pair' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -l input-sep -d 'Split the stream on this character instead of newlines' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :c" -l mm-config -d 'matchmaker config path' -r -F
@@ -447,35 +447,36 @@ complete -c fs -n "__fish_fs_using_subcommand :" -l help
 complete -c fs -n "__fish_fs_using_subcommand :" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l override -d 'config override' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l config -d 'config path' -r -F
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l mm-config -d 'matchmaker config path' -r -F
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l style -r -f -a "icons\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l override -d 'config override' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l config -d 'config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l mm-config -d 'matchmaker config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l style -r -f -a "icons\t''
 icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l fullscreen -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l lock-prompt -d 'See `interface.prompt_locking`' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l lock-prompt -d 'See `interface.prompt_locking`' -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l output-sep -d 'Separator printed after each result' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l format -d 'Output template for printed results' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l opener -d 'Program used to open files on accept' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l help
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -s q -d 'Reduce the verbosity level'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -s v -d 'Increase the verbosity level'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "colors"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "liza" -d 'List directory (eza wrapper)'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "shell" -d 'Dump the initialization code for your shell'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "lessfilter" -d 'Context and preset dependent file handler'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "pager"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "bump" -d 'Bump history entries'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "trash" -d 'Trash files with timed fallback prompts'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "show-binds" -d 'Show binds'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "types" -d 'List mappings supported by the --type parameter'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l output-sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l format -d 'Output template for printed results' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l help
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -s v -d 'Increase the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l alt-accept
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "colors"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "liza" -d 'List directory (eza wrapper)'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "shell" -d 'Dump the initialization code for your shell'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "lessfilter" -d 'Context and preset dependent file handler'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "pager"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "bump" -d 'Bump history entries'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "trash" -d 'Trash files with timed fallback prompts'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "show-binds" -d 'Show binds'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "types" -d 'List mappings supported by the --type parameter'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "diskspace" -d 'Disk usage: compute directory sizes concurrently and print them'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l mm-config -d 'matchmaker config path' -r -F
@@ -647,35 +648,55 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l override -d 'config override' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l config -d 'config path' -r -F
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l mm-config -d 'matchmaker config path' -r -F
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l style -r -f -a "icons\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l override -d 'config override' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l config -d 'config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l mm-config -d 'matchmaker config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l style -r -f -a "icons\t''
 icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l fullscreen -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l lock-prompt -d 'See `interface.prompt_locking`' -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l lock-prompt -d 'See `interface.prompt_locking`' -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l output-sep -d 'Separator printed after each result' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l format -d 'Output template for printed results' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l opener -d 'Program used to open files on accept' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l help
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -s q -d 'Reduce the verbosity level'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -s v -d 'Increase the verbosity level'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "colors"
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "liza" -d 'List directory (eza wrapper)'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "shell" -d 'Dump the initialization code for your shell'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "lessfilter" -d 'Context and preset dependent file handler'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "pager"
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "bump" -d 'Bump history entries'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "trash" -d 'Trash files with timed fallback prompts'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "show-binds" -d 'Show binds'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types" -a "types" -d 'List mappings supported by the --type parameter'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l output-sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l format -d 'Output template for printed results' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -s v -d 'Increase the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l alt-accept
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l override -d 'config override' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l config -d 'config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l mm-config -d 'matchmaker config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l style -r -f -a "icons\t''
+icon-colors\t''
+colors\t''
+none\t''
+all\t''
+auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l fullscreen -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l lock-prompt -d 'See `interface.prompt_locking`' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l output-sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l format -d 'Output template for printed results' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l help
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -s v -d 'Increase the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -l alt-accept
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "colors"
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "liza" -d 'List directory (eza wrapper)'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "shell" -d 'Dump the initialization code for your shell'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "lessfilter" -d 'Context and preset dependent file handler'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "pager"
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "bump" -d 'Bump history entries'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "trash" -d 'Trash files with timed fallback prompts'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "show-binds" -d 'Show binds'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "types" -d 'List mappings supported by the --type parameter'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash show-binds types diskspace" -a "diskspace" -d 'Disk usage: compute directory sizes concurrently and print them'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l mm-config -d 'matchmaker config path' -r -F
@@ -847,6 +868,25 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l alt-accept
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l override -d 'config override' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l config -d 'config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l mm-config -d 'matchmaker config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l style -r -f -a "icons\t''
+icon-colors\t''
+colors\t''
+none\t''
+all\t''
+auto\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l fullscreen -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l lock-prompt -d 'See `interface.prompt_locking`' -r -f -a "true\t''
+false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l output-sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l format -d 'Output template for printed results' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -s v -d 'Increase the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :info" -l sort -d 'history sort order' -r -f -a "name\t''
 mtime\t''
 atime\t''

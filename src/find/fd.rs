@@ -1,10 +1,11 @@
-use std::{ffi::OsString, path::PathBuf};
+use std::{collections::BTreeSet, ffi::OsString, path::PathBuf};
 
 use cba::{vec_, wbog};
 
 use crate::{
     cli::paths::{__cwd, __home},
     config::FdConfig,
+    lessfilter::LessfilterConfig,
 };
 use fist_types::{filetypes::FileTypeArg, filters::Visibility};
 
@@ -102,8 +103,10 @@ pub fn build_fd_args(
                 ret.push("-e".into());
                 ret.push(inner.into());
             }
-            FileTypeArg::Group(_grp) => {
-                panic!("Custom groups not yet implemented")
+            FileTypeArg::Group(grp) => {
+                wbog!(
+                    "Custom group '{grp}' was not resolved against the lessfilter config; skipping"
+                );
             }
             FileTypeArg::NoExt => {
                 no_ext = true;
@@ -221,6 +224,53 @@ pub fn last_query_starts_with_dot(paths: &[OsString]) -> bool {
         let mut chars = s.chars();
         s.len() > 1 && chars.next() == Some('.') && chars.all(|c| c.is_alphanumeric())
     })
+}
+
+/// Resolve [`FileTypeArg::Group`]s into extension args using the custom
+/// `[categories]` table of the lessfilter config: each category's mime
+/// strings are expanded to the extensions known for them (`image/*` expands
+/// to every image extension). Unknown groups and mimes without known
+/// extensions are logged and skipped.
+pub fn resolve_group_types(
+    types: &[FileTypeArg],
+    lcfg: &LessfilterConfig,
+) -> Vec<FileTypeArg> {
+    let mut resolved = Vec::with_capacity(types.len());
+    let mut seen_exts = BTreeSet::new();
+
+    for t in types {
+        let FileTypeArg::Group(name) = t else {
+            resolved.push(t.clone());
+            continue;
+        };
+
+        let Some(mimes) = lcfg.categories.get(name) else {
+            wbog!(
+                "-t {name}: no category '{name}' in the [categories] table of the lessfilter config; skipping"
+            );
+            continue;
+        };
+
+        let mut added = 0;
+        for mime in mimes {
+            let Some(exts) = mime_guess::get_mime_extensions_str(&mime.to_string()) else {
+                wbog!("-t {name}: mime '{mime}' has no known extensions; skipping");
+                continue;
+            };
+            for ext in exts {
+                if seen_exts.insert((*ext).to_string()) {
+                    resolved.push(FileTypeArg::Ext((*ext).to_string()));
+                    added += 1;
+                }
+            }
+        }
+
+        if added == 0 {
+            wbog!("-t {name}: category resolved to no extensions; skipping");
+        }
+    }
+
+    resolved
 }
 
 #[cfg(test)]
