@@ -20,7 +20,7 @@ use crate::{
     aliases::MMState,
     cli::paths::{__home, text_renderer_path},
     clipboard::{copy_files, copy_paths_as_text},
-    config::InsertionStrategy,
+    config::{InsertionStrategy, StashPaneKind},
     db::DbTable,
     lessfilter::Preset,
     run::{
@@ -1401,7 +1401,7 @@ pub fn fsaction_handler(
     }
 }
 
-/// Insert `paths` into the named stash, applying the configured
+/// Insert `paths` into the named stash, applying the stash's configured
 /// [`InsertionStrategy`] to paths already present. Reloads after completion
 /// if reload = true.
 fn db_stash(
@@ -1410,31 +1410,64 @@ fn db_stash(
     reload: bool,
 ) {
     let pool = GLOBAL::db();
-    let insert = GLOBAL::with_cfg(|c| c.panes.stash.insert);
+    let (insert, kind) = GLOBAL::with_cfg(|c| {
+        let setting = c.panes.stashes.get(&name);
+        (
+            setting.map(|s| s.insert).unwrap_or_default(),
+            setting.map(|s| s.kind).unwrap_or_default(),
+        )
+    });
     TASKS::spawn(async move {
-        if let Some(mut conn) = pool.get_conn(crate::db::DbTable::stashes).await._elog() {
-            for path in paths {
-                match insert {
-                    InsertionStrategy::Duplicate => {
-                        conn.add_stash_entry(&name, &path).await._elog();
-                    }
-                    InsertionStrategy::Skip => {
-                        let exists = conn
-                            .stash_has_entry(&name, &path)
-                            .await
-                            ._elog()
-                            .unwrap_or(false);
-                        if !exists {
-                            conn.add_stash_entry(&name, &path).await._elog();
+        match kind {
+            StashPaneKind::Transient => {
+                for path in paths {
+                    match insert {
+                        InsertionStrategy::Duplicate => {
+                            crate::run::stash::mem_add(&name, &path);
+                        }
+                        InsertionStrategy::Skip => {
+                            if !crate::run::stash::mem_has(&name, &path) {
+                                crate::run::stash::mem_add(&name, &path);
+                            }
+                        }
+                        InsertionStrategy::Replace => {
+                            // the old entry is removed and the path re-added,
+                            // which moves it to the front of the stash (fresh
+                            // add time)
+                            crate::run::stash::mem_remove(&name, std::slice::from_ref(&path));
+                            crate::run::stash::mem_add(&name, &path);
                         }
                     }
-                    InsertionStrategy::Replace => {
-                        // the old entry is removed and the path re-added, which
-                        // moves it to the end of the stash (fresh add time)
-                        conn.remove_stash_entries(&name, std::slice::from_ref(&path))
-                            .await
-                            ._elog();
-                        conn.add_stash_entry(&name, &path).await._elog();
+                }
+            }
+            _ => {
+                // prunes/filters missing paths while populating, so inserts
+                // go straight to the db
+                if let Some(mut conn) = pool.get_conn(crate::db::DbTable::stashes).await._elog() {
+                    for path in paths {
+                        match insert {
+                            InsertionStrategy::Duplicate => {
+                                conn.add_stash_entry(&name, &path).await._elog();
+                            }
+                            InsertionStrategy::Skip => {
+                                let exists = conn
+                                    .stash_has_entry(&name, &path)
+                                    .await
+                                    ._elog()
+                                    .unwrap_or(false);
+                                if !exists {
+                                    conn.add_stash_entry(&name, &path).await._elog();
+                                }
+                            }
+                            InsertionStrategy::Replace => {
+                                // the old entry is removed and the path re-added, which
+                                // moves it to the end of the stash (fresh add time)
+                                conn.remove_stash_entries(&name, std::slice::from_ref(&path))
+                                    .await
+                                    ._elog();
+                                conn.add_stash_entry(&name, &path).await._elog();
+                            }
+                        }
                     }
                 }
             }
@@ -1452,24 +1485,36 @@ fn db_stash_remove(
     paths: Vec<PathBuf>,
 ) {
     let pool = GLOBAL::db();
+    let kind = GLOBAL::with_cfg(|c| {
+        c.panes.stashes.get(&name).map(|s| s.kind).unwrap_or_default()
+    });
     TASKS::spawn(async move {
         let paths: Vec<AbsPath> = paths.iter().map(AbsPath::new_unchecked).collect();
-        match pool.get_conn(crate::db::DbTable::stashes).await {
-            Ok(mut conn) => match conn.remove_stash_entries(&name, &paths).await {
-                Ok(n) => {
-                    TOAST::notice(
-                        ToastStyle::Success,
-                        format!("Removed {n} item(s) from stash ({name})"),
-                    );
-                }
+        match kind {
+            StashPaneKind::Transient => {
+                let n = crate::run::stash::mem_remove(&name, &paths);
+                TOAST::notice(
+                    ToastStyle::Success,
+                    format!("Removed {n} item(s) from stash ({name})"),
+                );
+            }
+            _ => match pool.get_conn(crate::db::DbTable::stashes).await {
+                Ok(mut conn) => match conn.remove_stash_entries(&name, &paths).await {
+                    Ok(n) => {
+                        TOAST::notice(
+                            ToastStyle::Success,
+                            format!("Removed {n} item(s) from stash ({name})"),
+                        );
+                    }
+                    Err(e) => {
+                        log::error!("Error removing stash entries: {e}");
+                        TOAST::notice(ToastStyle::Error, "Failed to remove stash entries.");
+                    }
+                },
                 Err(e) => {
-                    log::error!("Error removing stash entries: {e}");
-                    TOAST::notice(ToastStyle::Error, "Failed to remove stash entries.");
+                    log::error!("Error getting connection: {e}");
                 }
             },
-            Err(e) => {
-                log::error!("Error getting connection: {e}");
-            }
         }
         GLOBAL::send_action(FsAction::Reload);
     });

@@ -1,4 +1,8 @@
-use std::path::PathBuf;
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{LazyLock, Mutex},
+};
 
 use crate::run::FsPane;
 use fist_types::filters::*;
@@ -33,7 +37,7 @@ pub struct PanesConfig {
     pub find: FdPaneSettings,
     pub search: RgPaneSettings,
     pub custom: PaneSettings,
-    pub stash: StashPaneSettings,
+    pub stashes: StashPaneSettings,
 
     pub settings: PanesSettings,
 }
@@ -58,9 +62,7 @@ impl Default for PanesConfig {
             custom: PaneSettings {
                 ..Default::default()
             },
-            stash: StashPaneSettings {
-                ..Default::default()
-            },
+            stashes: StashPaneSettings::default(),
 
             settings: PanesSettings::default(),
         }
@@ -242,9 +244,28 @@ pub enum InsertionStrategy {
     Duplicate,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+/// Per-stash pane settings, keyed by stash name (the unnamed stash is "").
+pub type StashPaneSettings = HashMap<String, StashPaneSetting>;
+
+/// How a stash pane treats its entries.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StashPaneKind {
+    /// While populating, delete entries whose path no longer exists from
+    /// the db (in addition to hiding them).
+    Prune,
+    /// While populating, hide entries whose path no longer exists.
+    Filter,
+    /// An in-memory stash: starts empty each run and entries are shown as
+    /// stored while populating.
+    #[default]
+    Transient,
+}
+
+/// Settings of a single stash pane, looked up by stash name.
+#[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct StashPaneSettings {
+pub struct StashPaneSetting {
     /// Input prompt
     pub prompt: Option<String>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
@@ -254,32 +275,11 @@ pub struct StashPaneSettings {
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
-    /// Hide stash entries whose path no longer exists while populating.
-    pub filter_missing: bool,
-    /// While populating, delete stash entries whose path no longer exists
-    /// from the db (in addition to hiding them).
-    pub prune: bool,
+    /// How the stash treats its entries while populating.
+    pub kind: StashPaneKind,
     /// What to do when stashing a path that is already in the stash.
     pub insert: InsertionStrategy,
-    /// Stashes cleared on startup. Default: the unnamed stash.
-    pub transient_stash_panes: Vec<String>,
 }
-
-impl Default for StashPaneSettings {
-    fn default() -> Self {
-        Self {
-            prompt: None,
-            show_preview: None,
-            lock_prompt: None,
-            preview_layout_index: 0,
-            filter_missing: true,
-            prune: true,
-            insert: InsertionStrategy::Replace,
-            transient_stash_panes: vec![String::new()],
-        }
-    }
-}
-
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AppPaneSettings {
@@ -308,7 +308,7 @@ impl PanesConfig {
             FsPane::Apps { .. } => self.app.prompt.clone(),
             FsPane::Nav { .. } => self.nav.prompt.clone(),
             FsPane::Search { .. } => self.search.prompt.clone(),
-            FsPane::Stash { .. } => self.stash.prompt.clone(),
+            FsPane::Stash { stash_name, .. } => self.stash_setting(stash_name).prompt.clone(),
         }
     }
 
@@ -323,7 +323,7 @@ impl PanesConfig {
             FsPane::Apps { .. } => self.app.lock_prompt,
             FsPane::Nav { .. } => self.nav.lock_prompt,
             FsPane::Search { .. } => self.search.lock_prompt,
-            FsPane::Stash { .. } => self.stash.lock_prompt,
+            FsPane::Stash { stash_name, .. } => self.stash_setting(stash_name).lock_prompt,
         }
     }
 
@@ -338,7 +338,7 @@ impl PanesConfig {
             FsPane::Apps { .. } => self.app.show_preview,
             FsPane::Nav { .. } => self.nav.show_preview,
             FsPane::Search { .. } => self.search.show_preview,
-            FsPane::Stash { .. } => self.stash.show_preview,
+            FsPane::Stash { stash_name, .. } => self.stash_setting(stash_name).show_preview,
         }
     }
 
@@ -382,7 +382,33 @@ impl PanesConfig {
             FsPane::Apps { .. } => self.app.preview_layout_index,
             FsPane::Nav { .. } => self.nav.preview_layout_index,
             FsPane::Search { .. } => self.search.preview_layout_index,
-            FsPane::Stash { .. } => self.stash.preview_layout_index,
+            FsPane::Stash { stash_name, .. } => self.stash_setting(stash_name).preview_layout_index,
+        }
+    }
+
+    /// Settings for the stash pane `name`. Stashes without an entry fall
+    /// back to the default setting; the first lookup of a nonempty
+    /// undefined name logs a warning.
+    pub fn stash_setting(&self, name: &str) -> &StashPaneSetting {
+        match self.stashes.get(name) {
+            Some(setting) => setting,
+            None => {
+                if !name.is_empty() {
+                    let mut warned = WARNED_STASH_NAMES.lock().unwrap();
+                    if !warned.iter().any(|n| n == name) {
+                        warned.push(name.to_string());
+                        log::warn!("stash {name:?} is not configured; using default settings");
+                    }
+                }
+                &DEFAULT_STASH_SETTING
+            }
         }
     }
 }
+
+/// Fallback applied to stash panes without an entry: kind Transient,
+/// insert Replace.
+static DEFAULT_STASH_SETTING: LazyLock<StashPaneSetting> =
+    LazyLock::new(StashPaneSetting::default);
+/// Names whose missing config was already warned about (warn once per run).
+static WARNED_STASH_NAMES: Mutex<Vec<String>> = Mutex::new(Vec::new());

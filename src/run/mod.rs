@@ -20,4 +20,5 @@ pub mod selection;
 mod pane;
 pub use pane::*;
 pub mod queue;
+pub mod stash;
 pub mod state;

@@ -1,5 +1,6 @@
 use crate::{
     abspath::AbsPath,
+    config::StashPaneKind,
     db::DbTable,
     fs::{auto_dest, create_all, rename},
     run::{
@@ -165,19 +166,33 @@ impl MenuOverlay {
                 });
 
                 if let Some(name) = stash_name {
+                    let kind = GLOBAL::with_cfg(|c| {
+                        c.panes
+                            .stashes
+                            .get(&name)
+                            .map(|s| s.kind)
+                            .unwrap_or_default()
+                    });
                     let pool = GLOBAL::db();
                     let tail = alias.clone();
                     let path = path.clone();
                     TASKS::spawn(async move {
-                        match pool.get_conn(DbTable::stashes).await {
-                            Ok(mut conn) => {
-                                if let Err(e) = conn.set_stash_tail(&name, &path, &tail).await {
-                                    log::error!("Error setting stash tail: {e}");
+                        match kind {
+                            StashPaneKind::Transient => {
+                                crate::run::stash::mem_set_tail(&name, &path, &tail);
+                            }
+                            _ => match pool.get_conn(DbTable::stashes).await {
+                                Ok(mut conn) => {
+                                    if let Err(e) =
+                                        conn.set_stash_tail(&name, &path, &tail).await
+                                    {
+                                        log::error!("Error setting stash tail: {e}");
+                                    }
                                 }
-                            }
-                            Err(e) => {
-                                log::error!("Error getting connection: {e}");
-                            }
+                                Err(e) => {
+                                    log::error!("Error getting connection: {e}");
+                                }
+                            },
                         }
                         GLOBAL::send_action(FsAction::Reload);
                     });

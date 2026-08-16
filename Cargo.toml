@@ -155,6 +155,7 @@ file-format-reader = ["file-format", "file-format/reader"]
 infer = ["dep:infer"]
 
 [patch.crates-io]
+cli_boilerplate_automation = { path = "../cli_boilerplate_automation" }
 matchmaker-lib = { path = "../matchmaker/matchmaker-lib" }
 matchmaker-partial = { path = "../matchmaker/matchmaker-partial" }
 matchmaker-partial-macros = { path = "../matchmaker/matchmaker-partial-macros" }

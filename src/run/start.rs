@@ -299,11 +299,6 @@ pub async fn start(
         .set(cfg.history.clone())
         .expect("DB_FILTER initialized more than once");
     // init global
-    // A7: `cfg.global` (with `panes.stash.transient_stash_panes`) and `db_pool`
-    // are both moved into GLOBAL::init, so extract what the startup stash-clear
-    // needs before that call.
-    let transient_stash_panes = cfg.global.panes.stash.transient_stash_panes.clone();
-    let pool = db_pool.clone();
     GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane, bind_tx);
     clipboard::init(cfg.misc.clipboard_delay_ms, osc52, copy_trailing_newline);
     crate::spawn::init_spawn_with(cfg.misc.spawn_with);
@@ -313,19 +308,6 @@ pub async fn start(
     watcher.spawn()._ebog();
     // start the archive extraction worker
     unzip::start();
-    // A7: clear the configured transient stashes before the first populate so
-    // a startup stash pane can never show stale entries (the default transient
-    // stash is the unnamed one). Awaited inline rather than spawned: `start()`
-    // is async and this avoids racing `STACK::populate`.
-    if !transient_stash_panes.is_empty()
-        && let Ok(mut conn) = pool.get_conn(crate::db::DbTable::stashes).await
-    {
-        for name in &transient_stash_panes {
-            if let Err(e) = conn.clear_stash(name).await {
-                log::error!("Failed to clear transient stash {name:?}: {e}");
-            }
-        }
-    }
 
     // populate mm
     STACK::populate(injector, || {});

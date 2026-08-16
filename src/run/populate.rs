@@ -37,7 +37,7 @@ use crate::{
     },
 };
 use crate::{
-    config::GlobalConfig,
+    config::{GlobalConfig, StashPaneKind},
     find::rg::{build_rg_args, is_inverted},
     run::{
         FsPane,
@@ -111,6 +111,11 @@ impl FsPane {
                     stdout,
                     *record_sep,
                     move |line| {
+                        // an empty record is the end-of-stream flush marker, not a path
+                        if line.is_empty() {
+                            return anyhow::Ok(());
+                        }
+
                         let [first, raw_tail] = line.split_delim(delim);
                         let (path, display, tail) = if let Some(f) = transform.as_ref() {
                             let p = AbsPath::new_unchecked(first.abs(&cwd));
@@ -186,6 +191,11 @@ impl FsPane {
                     stdout,
                     Some('\0'),
                     move |line| {
+                        // an empty record is the end-of-stream flush marker, not a path
+                        if line.is_empty() {
+                            return anyhow::Ok(());
+                        }
+
                         let item = if let Some(f) = transform.as_ref() {
                             let p = AbsPath::new_unchecked(line.abs(&cwd));
                             let (path, display, tail) = call_transform(f, &p, "")?;
@@ -416,13 +426,27 @@ impl FsPane {
             }
             Self::Stash { stash_name, .. } => {
                 let stash_name = stash_name.clone();
-                let filter_missing = cfg.panes.stash.filter_missing;
-                let prune = cfg.panes.stash.prune;
+                let kind = cfg
+                    .panes
+                    .stashes
+                    .get(&stash_name)
+                    .map(|s| s.kind)
+                    .unwrap_or_default();
                 let pool = GLOBAL::db();
 
                 tokio::spawn(async move {
-                    let mut conn = pool.get_conn(DbTable::stashes).await.elog()?;
-                    let entries = conn.get_stash_entries(&stash_name).await.elog()?;
+                    // Transient stashes are in-memory; the other kinds are
+                    // db-backed and prune/filter missing paths.
+                    let mut conn = if matches!(kind, StashPaneKind::Transient) {
+                        None
+                    } else {
+                        Some(pool.get_conn(DbTable::stashes).await.elog()?)
+                    };
+                    let entries = if let Some(conn) = conn.as_mut() {
+                        conn.get_stash_entries(&stash_name).await.elog()?
+                    } else {
+                        crate::run::stash::mem_get(&stash_name)
+                    };
                     if entries.is_empty() && toast_on_empty {
                         TOAST::toast_empty();
                     }
@@ -431,13 +455,14 @@ impl FsPane {
                     // removed from the db after the loop
                     let mut to_prune: Vec<AbsPath> = Vec::new();
                     for e in entries {
-                        if !e.stash.exists() {
-                            if prune {
-                                to_prune.push(e.stash.clone());
-                                continue;
-                            }
-                            if filter_missing {
-                                continue;
+                        if !matches!(kind, StashPaneKind::Transient) && !e.stash.exists() {
+                            match kind {
+                                StashPaneKind::Prune => {
+                                    to_prune.push(e.stash.clone());
+                                    continue;
+                                }
+                                // Filter hides missing entries
+                                _ => continue,
                             }
                         }
                         let mut item = PathItem::new_unchecked(e.stash.into());
@@ -446,7 +471,9 @@ impl FsPane {
                         injector.push(item)?;
                     }
 
-                    if !to_prune.is_empty() {
+                    if !to_prune.is_empty()
+                        && let Some(conn) = conn.as_mut()
+                    {
                         conn.remove_stash_entries(&stash_name, &to_prune)
                             .await
                             .elog()?;
