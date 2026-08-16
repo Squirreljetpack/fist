@@ -141,8 +141,7 @@ impl QUEUE {
         paths: Vec<AbsPath>,
     ) {
         debug_assert!(
-            !kind.is_empty()
-                && matches!(kind.parse::<QueueSelector>(), Ok(QueueSelector::Kind(_))),
+            !kind.is_empty() && matches!(kind.parse::<QueueSelector>(), Ok(QueueSelector::Kind(_))),
             "enqueue kinds must parse as an ordinary queue kind, got {kind:?}"
         );
         if paths.is_empty() {
@@ -401,6 +400,8 @@ impl QUEUE {
 
         TOAST::msg(format!("Starting {} items.", queue.len()), true);
 
+        let rename_policy = GLOBAL::with_cfg(|c| c.fs.rename_policy.clone());
+
         TASKS::spawn_blocking(move || {
             for mut item in queue {
                 // single-path items resolve their destination here against
@@ -416,10 +417,7 @@ impl QUEUE {
                         (false, Some(base)) => item.dst.abs(base).into(),
                         _ => item.dst.clone(),
                     };
-                    item.dst = GLOBAL::with_cfg(|c| {
-                        auto_dest_for_src(&item.src[0], &base_dest, &c.fs.rename_policy)
-                    })
-                    .into();
+                    item.dst = auto_dest_for_src(&item.src[0], &base_dest, &rename_policy).into();
                 }
                 item.execute(nav_cwd.as_ref());
             }

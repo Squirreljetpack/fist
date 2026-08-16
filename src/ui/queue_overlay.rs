@@ -124,11 +124,12 @@ impl TableSelection {
         values
     }
 
-    /// The underlying shared indices visible under the current kind filter.
-    fn visible_indices(&self) -> Vec<usize> {
-        let state = QUEUE_STATE.lock().unwrap();
-        state
-            .shared
+    /// The underlying shared indices visible under the current kind filter from given items.
+    fn visible_indices_from(
+        &self,
+        shared: &[QueueItem],
+    ) -> Vec<usize> {
+        shared
             .iter()
             .enumerate()
             .filter(|(_, item)| {
@@ -138,6 +139,12 @@ impl TableSelection {
             })
             .map(|(i, _)| i)
             .collect()
+    }
+
+    /// The underlying shared indices visible under the current kind filter.
+    fn visible_indices(&self) -> Vec<usize> {
+        let state = QUEUE_STATE.lock().unwrap();
+        self.visible_indices_from(&state.shared)
     }
 
     /// Cycle the shared kind filter with wrapping; changing it clears the
@@ -667,7 +674,7 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
         // build the table from the visible (filtered) rows; the row
         // positions are visible positions, the cells come from the
         // underlying shared indices
-        let visible = self.state.visible_indices();
+        let visible = self.state.visible_indices_from(&state.shared);
         let header =
             Row::new(self.headers.clone()).style(Style::new().add_modifier(Modifier::BOLD));
         let rows: Vec<Row> = visible
@@ -1022,5 +1029,48 @@ impl QueueItemStatus {
         };
 
         Line::styled(human_size(size, true).pad_to(10, Alignment::Left), style)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use matchmaker_partial::Apply;
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+
+    #[test]
+    fn test_queue_overlay_draw_non_empty_no_deadlock() {
+        let mut overlay = QueueOverlay::new(QueueConfig::default());
+        if let Err(partial) = overlay.config.border {
+            let mut full = matchmaker::config::OverlayConfig::default().border;
+            full.apply(partial);
+            overlay.config.border = Ok(full);
+        }
+
+        // Add an item to the shared queue
+        QUEUE::enqueue("copy".into(), vec![AbsPath::new("/tmp/test_file.txt")]);
+
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        };
+        let layout = OverlayLayoutSettings::default();
+        overlay.area(&area, &layout);
+
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        // This draw must succeed and not deadlock
+        terminal
+            .draw(|f| {
+                overlay.draw(f);
+            })
+            .unwrap();
+
+        // Clean up
+        QUEUE_STATE.lock().unwrap().shared.clear();
     }
 }
