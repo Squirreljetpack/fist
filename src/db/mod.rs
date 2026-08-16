@@ -298,17 +298,6 @@ impl Connection {
         Ok(row.is_some())
     }
 
-    pub async fn clear_stash(
-        &mut self,
-        name: &str,
-    ) -> Result<u64, DbError> {
-        let result = sqlx::query("DELETE FROM stashes WHERE name = ?")
-            .bind(name)
-            .execute(&mut *self.conn)
-            .await?;
-        Ok(result.rows_affected())
-    }
-
     /// Set the tail (alias analogue of the apps pane) of the entries of the
     /// named stash whose path matches.
     pub async fn set_stash_tail(

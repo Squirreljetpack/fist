@@ -444,21 +444,48 @@ mod tests {
 
     #[test]
     fn stash_pane_settings_defaults_and_parse() {
-        let defaults = StashPaneSettings::default();
-        assert!(defaults.prune);
-        assert_eq!(defaults.insert, InsertionStrategy::Replace);
+        // with no `stashes` entries, lookups fall back to the default
+        // setting (kind Transient, insert Replace)
+        let defaults = PanesConfig::default();
+        assert!(defaults.stashes.is_empty());
+        assert_eq!(defaults.stash_setting("").kind, StashPaneKind::Transient);
+        assert_eq!(
+            defaults.stash_setting("").insert,
+            InsertionStrategy::Replace
+        );
 
-        let parsed: StashPaneSettings = toml::from_str(
+        let parsed: Config = toml::from_str(
             r#"
-            prune = false
+            [panes.stashes.mine]
+            kind = "filter"
             insert = "duplicate"
             "#,
         )
         .unwrap();
-        assert!(!parsed.prune);
-        assert_eq!(parsed.insert, InsertionStrategy::Duplicate);
+        assert_eq!(
+            parsed.global.panes.stashes["mine"].kind,
+            StashPaneKind::Filter
+        );
+        assert_eq!(
+            parsed.global.panes.stashes["mine"].insert,
+            InsertionStrategy::Duplicate
+        );
 
-        let skip: StashPaneSettings = toml::from_str(r#"insert = "skip""#).unwrap();
-        assert_eq!(skip.insert, InsertionStrategy::Skip);
+        // entries without a kind default to Transient
+        let skip: Config = toml::from_str(
+            r#"
+            [panes.stashes.other]
+            insert = "skip"
+            "#,
+        )
+        .unwrap();
+        assert_eq!(
+            skip.global.panes.stashes["other"].kind,
+            StashPaneKind::Transient
+        );
+        assert_eq!(
+            skip.global.panes.stashes["other"].insert,
+            InsertionStrategy::Skip
+        );
     }
 }
