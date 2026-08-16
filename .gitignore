@@ -14,4 +14,5 @@ target/
 assets/temp
 TODO/
 
-docs/
+docs_*/
+fist.log

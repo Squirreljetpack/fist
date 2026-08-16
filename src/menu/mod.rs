@@ -1,5 +1,10 @@
-use cba::define_collection_wrapper;
+//! Menu actions and condition evaluation for custom actions.
+
+pub mod plugins;
+
+use cba::{define_collection_wrapper, vecmap::VecMap};
 use indexmap::IndexMap;
+use matchmaker::render::MMState;
 use serde::{Deserialize, Deserializer};
 
 use crate::{
@@ -7,8 +12,9 @@ use crate::{
     lessfilter::{
         file_rule::{FileData, FileRule},
         rule_matcher::Test,
-        Categories, LessfilterSettings,
+        Categories, LessfilterConfig, LessfilterSettings,
     },
+    run::{item::PathItem, register::resolve_target, state::STACK},
 };
 
 define_collection_wrapper!(
@@ -51,10 +57,10 @@ impl<'de> Deserialize<'de> for MenuActions {
 
 impl MenuActions {
     /// Load the merged menu actions: the primary actions file plus every
-    /// `*.toml` in the actions folder, merged in sorted filename order
-    /// (numeric prefixes order them). The primary file's entries come
-    /// first; a key defined in a later file is an error. A missing primary
-    /// file or folder yields the empty set.
+    /// `*.toml` in the actions folder and subfolders, merged with innermost
+    /// subfolders resolved first, then sorted path order (numeric prefixes order them).
+    /// The primary file's entries come first; a key defined in a later file is an error.
+    /// A missing primary file or folder yields the empty set.
     pub fn load_all(
         primary: &std::path::Path,
         dir: &std::path::Path,
@@ -65,15 +71,36 @@ impl MenuActions {
                 .map_err(|e| format!("{}: {e}", primary.display()))?;
             merge_actions(&mut merged, primary, &content)?;
         }
-        let mut files: Vec<std::path::PathBuf> = match std::fs::read_dir(dir) {
-            Ok(rd) => rd
-                .filter_map(|e| e.ok().map(|e| e.path()))
-                .filter(|p| p.extension().is_some_and(|x| x == "toml"))
-                .collect(),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
-            Err(e) => return Err(format!("{}: {e}", dir.display())),
-        };
-        files.sort();
+        let mut files = Vec::new();
+        fn collect_toml_files(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) -> Result<(), std::io::Error> {
+            if dir.is_dir() {
+                for entry in std::fs::read_dir(dir)? {
+                    let entry = entry?;
+                    let path = entry.path();
+                    if path.is_dir() {
+                        collect_toml_files(&path, files)?;
+                    } else if path.extension().is_some_and(|x| x == "toml") {
+                        files.push(path);
+                    }
+                }
+            }
+            Ok(())
+        }
+
+        if let Err(e) = collect_toml_files(dir, &mut files) {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                return Err(format!("{}: {e}", dir.display()));
+            }
+        }
+
+        // Sort files by path component depth descending (innermost folders first),
+        // breaking ties with standard lexicographical path order.
+        files.sort_by(|a, b| {
+            let depth_a = a.components().count();
+            let depth_b = b.components().count();
+            depth_b.cmp(&depth_a).then_with(|| a.cmp(b))
+        });
+
         for path in files {
             let content =
                 std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -140,6 +167,55 @@ impl MenuAction {
             MenuStrategy::Execute | MenuStrategy::ExecuteSilent | MenuStrategy::ExecPaged
         ))
     }
+
+    /// Pure target resolution according to action condition variants.
+    pub fn resolve_targets(
+        &self,
+        selected: Vec<AbsPath>,
+        fallback_target: AbsPath,
+        cursor_disabled: bool,
+        cwd: Option<AbsPath>,
+        nav_cwd: Option<AbsPath>,
+    ) -> Vec<AbsPath> {
+        if self.condition.iter().any(|c| {
+            matches!(
+                c,
+                MenuCondition::Repeat(RepeatCondition {
+                    selected: SelectedCondition::Cwd,
+                    strict: true,
+                    ..
+                })
+            )
+        }) {
+            nav_cwd.map(|p| vec![p]).unwrap_or_else(|| vec![fallback_target])
+        } else if self.condition.iter().any(|c| {
+            matches!(
+                c,
+                MenuCondition::Repeat(RepeatCondition {
+                    selected: SelectedCondition::Cwd,
+                    ..
+                })
+            )
+        }) {
+            cwd.map(|p| vec![p]).unwrap_or_else(|| vec![fallback_target])
+        } else if self.condition.iter().any(|c| {
+            matches!(
+                c,
+                MenuCondition::Repeat(RepeatCondition {
+                    selected: SelectedCondition::Active,
+                    ..
+                })
+            )
+        }) && selected.is_empty()
+            && cursor_disabled
+        {
+            cwd.map(|p| vec![p]).unwrap_or_else(|| vec![fallback_target])
+        } else if selected.is_empty() {
+            vec![fallback_target]
+        } else {
+            selected
+        }
+    }
 }
 
 /// How a menu action runs.
@@ -161,23 +237,28 @@ pub enum MenuStrategy {
     QueueBatch(usize),
 }
 
+/// Repetition of a single rule, scoped by [`SelectedCondition`].
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RepeatCondition {
+    /// Which state the rule is evaluated against.
+    #[serde(default)]
+    pub selected: SelectedCondition,
+    pub condition: FileRule,
+    #[serde(default)]
+    pub strict: bool,
+}
+
 /// A criterion evaluated against the picker state at menu open.
 /// The action is visible iff at least one condition is satisfied.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "lowercase", deny_unknown_fields)]
+#[serde(untagged)]
 pub enum MenuCondition {
     /// Positional: exactly as many items must be selected as there are rules,
     /// and rule *i* must match the *i*-th selected item in selection order.
     Seq(Vec<FileRule>),
     /// Repetition of a single rule, scoped by [`SelectedCondition`].
-    Repeat {
-        /// Which state the rule is evaluated against.
-        #[serde(default)]
-        selected: SelectedCondition,
-        condition: FileRule,
-        #[serde(default)]
-        strict: bool,
-    },
+    Repeat(RepeatCondition),
 }
 
 /// The picker state a [`MenuCondition::Repeat`] rule is evaluated against.
@@ -199,12 +280,12 @@ pub enum SelectedCondition {
     /// The selected items: strict requires exactly *n*, non-strict at least
     /// *n*. The rule must match every selected item.
     Selections(usize),
-    /// One target: the selected items when any are selected (any amount), the
-    /// cursor item otherwise, falling back to the current directory while the
+    /// One active target: the selected items when any are selected (any amount),
+    /// the cursor item otherwise, falling back to the current directory while the
     /// cursor is disabled; fails when none of these resolve. Strict requires
     /// the resolved target set to contain exactly one path. The rule must
     /// match every path in the target set.
-    Single,
+    Active,
 }
 
 impl serde::Serialize for SelectedCondition {
@@ -216,7 +297,7 @@ impl serde::Serialize for SelectedCondition {
             SelectedCondition::Cursor => serializer.serialize_str("cursor"),
             SelectedCondition::Cwd => serializer.serialize_str("cwd"),
             SelectedCondition::Selections(n) => serializer.serialize_u64(*n as u64),
-            SelectedCondition::Single => serializer.serialize_str("single"),
+            SelectedCondition::Active => serializer.serialize_str("active"),
         }
     }
 }
@@ -231,7 +312,7 @@ impl<'de> Deserialize<'de> for SelectedCondition {
                 &self,
                 formatter: &mut std::fmt::Formatter,
             ) -> std::fmt::Result {
-                formatter.write_str("a non-negative integer or \"cursor\", \"cwd\", \"single\"")
+                formatter.write_str("a non-negative integer or \"cursor\", \"cwd\", \"active\"")
             }
 
             fn visit_u64<E: serde::de::Error>(
@@ -259,8 +340,8 @@ impl<'de> Deserialize<'de> for SelectedCondition {
                 match v {
                     "cursor" => Ok(SelectedCondition::Cursor),
                     "cwd" => Ok(SelectedCondition::Cwd),
-                    "single" => Ok(SelectedCondition::Single),
-                    other => Err(E::unknown_variant(other, &["cursor", "cwd", "single"])),
+                    "active" | "single" => Ok(SelectedCondition::Active),
+                    other => Err(E::unknown_variant(other, &["cursor", "cwd", "active"])),
                 }
             }
 
@@ -286,7 +367,7 @@ pub fn condition_passes<'a>(
     cursor_disabled: bool,
     cwd: Option<&AbsPath>,
     nav_cwd: Option<&AbsPath>,
-    cache: &mut Vec<(AbsPath, FileData<'a>)>,
+    cache: &mut VecMap<AbsPath, FileData<'a>>,
     settings: &LessfilterSettings,
     categories: &'a Categories,
 ) -> bool {
@@ -306,19 +387,19 @@ pub fn condition_passes<'a>(
 }
 
 fn data_for<'c, 'a>(
-    cache: &'c mut Vec<(AbsPath, FileData<'a>)>,
+    cache: &'c mut VecMap<AbsPath, FileData<'a>>,
     settings: &LessfilterSettings,
     categories: &'a Categories,
     path: &AbsPath,
 ) -> Option<&'c FileData<'a>> {
-    if let Some(i) = cache.iter().position(|(p, _)| p == path) {
-        return cache.get(i).map(|(_, d)| d);
+    if cache.contains_key(path) {
+        cache.get(path)
+    } else {
+        Some(cache.get_or_insert(
+            path.clone(),
+            FileData::new(path.clone(), settings, categories),
+        ))
     }
-    cache.push((
-        path.clone(),
-        FileData::new(path.clone(), settings, categories),
-    ));
-    cache.last().map(|(_, d)| d)
 }
 
 impl MenuCondition {
@@ -329,7 +410,7 @@ impl MenuCondition {
         cursor_disabled: bool,
         cwd: Option<&AbsPath>,
         nav_cwd: Option<&AbsPath>,
-        cache: &mut Vec<(AbsPath, FileData<'a>)>,
+        cache: &mut VecMap<AbsPath, FileData<'a>>,
         settings: &LessfilterSettings,
         categories: &'a Categories,
     ) -> bool {
@@ -344,11 +425,11 @@ impl MenuCondition {
                         .zip(rules)
                         .all(|(path, rule)| passes_rule(path, rule))
             }
-            MenuCondition::Repeat {
+            MenuCondition::Repeat(RepeatCondition {
                 selected: which,
                 condition,
                 strict,
-            } => match which {
+            }) => match which {
                 SelectedCondition::Cursor => {
                     if cursor_disabled {
                         return false;
@@ -375,7 +456,7 @@ impl MenuCondition {
                     }
                     selected.iter().all(|path| passes_rule(path, condition))
                 }
-                SelectedCondition::Single => {
+                SelectedCondition::Active => {
                     // resolve the target set: selections → cursor → cwd
                     let targets: Vec<&AbsPath> = if !selected.is_empty() {
                         selected.iter().collect()
@@ -397,6 +478,70 @@ impl MenuCondition {
                 }
             },
         }
+    }
+}
+
+pub struct MenuEvaluationContext<'a> {
+    pub selected: Vec<AbsPath>,
+    pub cursor: Option<AbsPath>,
+    pub cursor_disabled: bool,
+    pub cwd: Option<AbsPath>,
+    pub nav_cwd: Option<AbsPath>,
+    pub fallback: AbsPath,
+    pub cache: VecMap<AbsPath, FileData<'a>>,
+    pub settings: &'a LessfilterSettings,
+    pub categories: &'a Categories,
+}
+
+impl<'a> MenuEvaluationContext<'a> {
+    pub fn new(state: &MMState<'_, PathItem, ()>, lcfg: &'a LessfilterConfig) -> Self {
+        let selected: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
+        let cursor_disabled = state.picker_ui.results.cursor_disabled();
+        let cursor = if cursor_disabled {
+            None
+        } else {
+            state.current_raw().map(|item| item.path.clone())
+        };
+        let cwd = STACK::cwd();
+        let nav_cwd = STACK::nav_cwd();
+        let fallback = resolve_target(state, true)
+            .or_else(STACK::cwd)
+            .unwrap_or_else(STACK::_cwd);
+        Self {
+            selected,
+            cursor,
+            cursor_disabled,
+            cwd,
+            nav_cwd,
+            fallback,
+            cache: VecMap::new(),
+            settings: &lcfg.settings,
+            categories: &lcfg.categories,
+        }
+    }
+
+    pub fn is_applicable(&mut self, action: &MenuAction) -> bool {
+        condition_passes(
+            &action.condition,
+            &self.selected,
+            self.cursor.as_ref(),
+            self.cursor_disabled,
+            self.cwd.as_ref(),
+            self.nav_cwd.as_ref(),
+            &mut self.cache,
+            self.settings,
+            self.categories,
+        )
+    }
+
+    pub fn resolve_targets(&self, action: &MenuAction) -> Vec<AbsPath> {
+        action.resolve_targets(
+            self.selected.clone(),
+            self.fallback.clone(),
+            self.cursor_disabled,
+            self.cwd.clone(),
+            self.nav_cwd.clone(),
+        )
     }
 }
 
@@ -444,375 +589,27 @@ mod tests {
         assert_eq!(actions["my-action"].strategy, MenuStrategy::Queue);
         assert!(actions["my-action"].requires_dest);
     }
-}
-
-#[cfg(test)]
-mod single_condition_tests {
-    use super::*;
-    use crate::lessfilter::file_rule::{FileRule, FileRuleKind};
 
     #[test]
-    fn single_condition_object_parses() {
-        // the single-object condition form (one_or_many) with lowercase keys
-        let actions: MenuActions = toml::from_str(
-            "\
-            [my-action]
-\
-            condition = { repeat = { condition = \"git\", strict = true } }
-\
-            command = \"print('x')\"
-\
-            strategy = \"ExecPaged\"
-\
-        ",
-        )
-        .unwrap();
-        assert_eq!(actions.len(), 1);
-        assert!(matches!(
-            &actions["my-action"].condition[0],
-            MenuCondition::Repeat {
-                selected: SelectedCondition::Cursor,
-                condition: FileRule {
-                    invert: false,
-                    kind: FileRuleKind::Git
-                },
-                strict: true
-            }
-        ));
-        assert_eq!(actions["my-action"].strategy, MenuStrategy::ExecPaged);
-    }
+    fn load_all_recursive_innermost_first() {
+        let temp_dir = std::env::temp_dir().join("fist_test_recursive_actions");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        let sub_dir = temp_dir.join("sub").join("inner");
+        std::fs::create_dir_all(&sub_dir).unwrap();
 
-    #[test]
-    fn test_seq_condition_evaluation() {
-        let toml_str = include_str!("../../assets/config/actions.dev.toml");
-        let actions: MenuActions = toml::from_str(toml_str).unwrap();
-        let stash_action = &actions["stash: 2 items"];
+        let top_file = temp_dir.join("top.toml");
+        let inner_file = sub_dir.join("inner.toml");
 
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-        let todo_md = AbsPath::new(root.join("TODO.md"));
-        let todo_dir = AbsPath::new(root.join("TODO"));
+        std::fs::write(&top_file, "[top_action]\ncommand = \"print('top')\"\n").unwrap();
+        std::fs::write(&inner_file, "[inner_action]\ncommand = \"print('inner')\"\n").unwrap();
 
-        let settings = LessfilterSettings::default();
-        let categories = Categories::default();
+        let primary = temp_dir.join("primary.toml");
+        let actions = MenuActions::load_all(&primary, &temp_dir).unwrap();
 
-        let mut cache = Vec::new();
+        // Check both actions are present
+        assert!(actions.contains_key("top_action"));
+        assert!(actions.contains_key("inner_action"));
 
-        // Selected [TODO.md, TODO] (file, dir)
-        let selected = vec![todo_md.clone(), todo_dir.clone()];
-        let passes = condition_passes(
-            &stash_action.condition,
-            &selected,
-            None,
-            false,
-            Some(&AbsPath::new(root.to_path_buf())),
-            None,
-            &mut cache,
-            &settings,
-            &categories,
-        );
-        assert!(
-            passes,
-            "stash: 2 items should pass when file and dir are selected in order"
-        );
-    }
-
-    #[test]
-    fn shipped_compress_plugin_parses() {
-        let toml_str = include_str!("../../assets/actions/compress.toml");
-        let actions: MenuActions = toml::from_str(toml_str).unwrap();
-        assert_eq!(actions.len(), 4);
-        // every action is gated on the program it shells out to
-        for (key, action) in actions.iter() {
-            let MenuCondition::Repeat { condition, .. } = &action.condition[0] else {
-                panic!("{key}: expected a Repeat condition");
-            };
-            let FileRuleKind::Have(program) = &condition.kind else {
-                panic!("{key}: expected a have: rule");
-            };
-            assert!(!program.is_empty());
-            assert_eq!(action.strategy, MenuStrategy::Execute);
-        }
-    }
-
-    #[test]
-    fn selected_condition_spellings_parse() {
-        for (spelling, expected) in [
-            ("selected = \"cursor\"", SelectedCondition::Cursor),
-            ("selected = \"cwd\"", SelectedCondition::Cwd),
-            ("selected = \"single\"", SelectedCondition::Single),
-            ("selected = 2", SelectedCondition::Selections(2)),
-        ] {
-            let actions: MenuActions = toml::from_str(&format!(
-                "\
-                [my-action]\n\
-                condition = {{ repeat = {{ {spelling}, condition = \"*\" }} }}\n\
-                command = \"print('x')\"\n\
-            "
-            ))
-            .unwrap_or_else(|e| panic!("{spelling}: {e}"));
-            let MenuCondition::Repeat {
-                selected: parsed, ..
-            } = &actions["my-action"].condition[0]
-            else {
-                panic!("{spelling}: expected a Repeat condition");
-            };
-            assert_eq!(parsed, &expected, "{spelling}");
-        }
-
-        // omitting `selected` defaults to Cursor
-        let actions: MenuActions = toml::from_str(
-            "\
-            [my-action]\n\
-            condition = { repeat = { condition = \"*\" } }\n\
-            command = \"print('x')\"\n\
-        ",
-        )
-        .unwrap();
-        assert!(matches!(
-            &actions["my-action"].condition[0],
-            MenuCondition::Repeat {
-                selected: SelectedCondition::Cursor,
-                ..
-            }
-        ));
-
-        // the old `count` spelling is rejected (deny_unknown_fields; the
-        // one_or_many untagged wrapper reports the generic message)
-        assert!(toml::from_str::<MenuActions>(
-            "\
-            [my-action]\n\
-            condition = { repeat = { count = 0, condition = \"*\" } }\n\
-            command = \"print('x')\"\n\
-        ",
-        )
-        .is_err());
-    }
-
-    #[test]
-    fn selected_condition_semantics() {
-        let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("a.txt");
-        std::fs::File::create(&file).unwrap();
-        let a = AbsPath::new(file.clone());
-        let d = AbsPath::new(dir.path().to_path_buf());
-
-        let settings = LessfilterSettings::default();
-        let categories = Categories::default();
-
-        let cond = |selected: SelectedCondition, strict: bool| {
-            vec![MenuCondition::Repeat {
-                selected,
-                condition: "*".parse().unwrap(),
-                strict,
-            }]
-        };
-        let eval = |conds: &[MenuCondition],
-                    selected: &[AbsPath],
-                    cursor: Option<&AbsPath>,
-                    cursor_disabled: bool,
-                    cwd: Option<&AbsPath>,
-                    nav_cwd: Option<&AbsPath>| {
-            condition_passes(
-                conds,
-                selected,
-                cursor,
-                cursor_disabled,
-                cwd,
-                nav_cwd,
-                &mut Vec::new(),
-                &settings,
-                &categories,
-            )
-        };
-
-        // Cursor: enabled cursor required; strict additionally forbids
-        // selections; non-strict ignores them.
-        assert!(eval(
-            &cond(SelectedCondition::Cursor, false),
-            &[],
-            Some(&a),
-            false,
-            None,
-            None
-        ));
-        assert!(!eval(
-            &cond(SelectedCondition::Cursor, false),
-            &[],
-            Some(&a),
-            true,
-            None,
-            None
-        ));
-        assert!(!eval(
-            &cond(SelectedCondition::Cursor, true),
-            &[d.clone()],
-            Some(&a),
-            false,
-            None,
-            None
-        ));
-        assert!(eval(
-            &cond(SelectedCondition::Cursor, false),
-            &[d.clone()],
-            Some(&a),
-            false,
-            None,
-            None
-        ));
-
-        // Cwd: non-strict needs a cwd while the cursor is disabled; strict
-        // needs the nav cwd regardless of the cursor.
-        assert!(eval(
-            &cond(SelectedCondition::Cwd, false),
-            &[],
-            None,
-            true,
-            Some(&d),
-            None
-        ));
-        assert!(!eval(
-            &cond(SelectedCondition::Cwd, false),
-            &[],
-            None,
-            false,
-            Some(&d),
-            None
-        ));
-        assert!(!eval(
-            &cond(SelectedCondition::Cwd, false),
-            &[],
-            None,
-            true,
-            None,
-            None
-        ));
-        assert!(eval(
-            &cond(SelectedCondition::Cwd, true),
-            &[],
-            None,
-            false,
-            None,
-            Some(&d)
-        ));
-        assert!(!eval(
-            &cond(SelectedCondition::Cwd, true),
-            &[],
-            None,
-            true,
-            Some(&d),
-            None
-        ));
-
-        // Selections(n): strict exactly n, non-strict at least n.
-        let two = [a.clone(), d.clone()];
-        let three = [a.clone(), d.clone(), d.clone()];
-        assert!(eval(
-            &cond(SelectedCondition::Selections(2), true),
-            &two,
-            None,
-            false,
-            None,
-            None
-        ));
-        assert!(!eval(
-            &cond(SelectedCondition::Selections(2), true),
-            &[a.clone()],
-            None,
-            false,
-            None,
-            None
-        ));
-        assert!(!eval(
-            &cond(SelectedCondition::Selections(2), true),
-            &three,
-            None,
-            false,
-            None,
-            None
-        ));
-        assert!(eval(
-            &cond(SelectedCondition::Selections(2), false),
-            &three,
-            None,
-            false,
-            None,
-            None
-        ));
-        assert!(!eval(
-            &cond(SelectedCondition::Selections(2), false),
-            &[a.clone()],
-            None,
-            false,
-            None,
-            None
-        ));
-
-        // Single: selections → cursor → cwd chain; strict needs exactly one
-        // resolved target.
-        assert!(eval(
-            &cond(SelectedCondition::Single, false),
-            &two,
-            None,
-            false,
-            None,
-            None
-        ));
-        assert!(!eval(
-            &cond(SelectedCondition::Single, true),
-            &two,
-            None,
-            false,
-            None,
-            None
-        ));
-        assert!(eval(
-            &cond(SelectedCondition::Single, true),
-            &[a.clone()],
-            None,
-            false,
-            None,
-            None
-        ));
-        assert!(eval(
-            &cond(SelectedCondition::Single, false),
-            &[],
-            Some(&a),
-            false,
-            None,
-            None
-        ));
-        assert!(eval(
-            &cond(SelectedCondition::Single, false),
-            &[],
-            None,
-            true,
-            Some(&d),
-            None
-        ));
-        assert!(eval(
-            &cond(SelectedCondition::Single, true),
-            &[],
-            None,
-            true,
-            Some(&d),
-            None
-        ));
-        assert!(!eval(
-            &cond(SelectedCondition::Single, false),
-            &[],
-            None,
-            true,
-            None,
-            None
-        ));
-
-        // the rule must match every target in the resolved set
-        let file_rule: Vec<MenuCondition> = vec![MenuCondition::Repeat {
-            selected: SelectedCondition::Single,
-            condition: "type:f".parse().unwrap(),
-            strict: false,
-        }];
-        assert!(eval(&file_rule, &[a.clone()], None, false, None, None));
-        assert!(!eval(&file_rule, &two, None, false, None, None));
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

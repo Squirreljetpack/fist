@@ -31,7 +31,7 @@ pub fn paste_handler(
     state: &MMState<'_,>,
 ) -> String {
     if let Some(c) = STACK::nav_cwd()
-        && !(GLOBAL::with_cfg(|c| c.interface.always_paste)
+        && !(GLOBAL::cfg().interface.always_paste
             // paste-inside-the-prompt: while the prompt mode is on (raw
             // marker — set by lock_prompt under prompt_locking, by
             // enter_prompt always), paste inserts into the query
@@ -61,7 +61,7 @@ pub fn refresh_prompt(state: &mut MMState<'_,>) {
     if state.picker_ui.results.cursor_disabled() {
         if let Some(cwd) = STACK::cwd() {
             let content =
-                format_prompt(&GLOBAL::with_cfg(|c| c.interface.cwd_prompt.clone()), &cwd);
+                format_prompt(&GLOBAL::cfg().interface.cwd_prompt.clone(), &cwd);
             state
                 .picker_ui
                 .query
@@ -99,7 +99,7 @@ pub fn lock_prompt(
     state: &mut MMState<'_,>,
     enter: bool,
 ) {
-    if enter && !GLOBAL::with_cfg(|c| c.interface.prompt_locking) {
+    if enter && !GLOBAL::cfg().interface.prompt_locking {
         return;
     }
     _trace!(enter);
@@ -138,7 +138,7 @@ pub fn enter_prompt(state: &mut MMState<'_,>) -> bool {
         return false;
     }
     if !state.picker_ui.results.cursor_disabled()
-        && GLOBAL::with_cfg(|c| c.interface.hide_preview_when_cursor_disabled)
+        && GLOBAL::cfg().interface.hide_preview_when_cursor_disabled
         && let Some(p) = state.preview_ui
     {
         state.stash_preview_visibility(Some(false));
@@ -186,7 +186,7 @@ pub fn enter_dir_pane(
     // apply smart git visibility on entering a git repo
     // default_vis is_some is handled separately in fs_reload
     let mut vis = FILTERS::visibility();
-    if GLOBAL::with_cfg(|c| c.panes.nav.default_visibility.is_none()) {
+    if GLOBAL::cfg().panes.nav.default_visibility.is_none() {
         match (
             in_git_repo(old.map(|x| x.inner())),
             in_git_repo(Some(path.inner())),
@@ -222,8 +222,8 @@ pub fn fs_reload(
     // apply vis/sort changes
     if is_new && !dir_changed {
         STACK::with_current_mut(|pane| {
-            GLOBAL::with_cfg(|c| {
-                // apply on non-initial new pane: update visibility
+            let c = GLOBAL::cfg();
+            // apply on non-initial new pane: update visibility
                 if let Some(mut dv) = STORE::get::<Visibility>() {
                     let pv = c.panes.default_visibility(pane).unwrap_or_default();
 
@@ -259,7 +259,6 @@ pub fn fs_reload(
                         // logically we should add configurable default but i don't think anything besides frecency is desirable [for the default]
                     }
                 }
-            })
         });
     }
 
@@ -268,7 +267,7 @@ pub fn fs_reload(
     // reload re-reads the same directory.
     {
         let refill =
-            GLOBAL::with_cfg(|c| c.fs.refill_selections_after_reload) && !is_new && !dir_changed;
+            GLOBAL::cfg().fs.refill_selections_after_reload && !is_new && !dir_changed;
         if refill && !state.picker_ui.selector.is_empty() {
             let hashes: Vec<u64> = state
                 .picker_ui
@@ -348,7 +347,7 @@ pub fn fs_reload(
 pub fn fs_post_reload_new(state: &mut MMState<'_,>) {
     // apply pane-specific config overrides
     STACK::with_current(|pane| {
-        GLOBAL::with_cfg(|c| {
+        let c = GLOBAL::cfg();
             if let Some(p) = c.panes.prompt(pane) {
                 state.picker_ui.query.config.prompt = p
             };
@@ -396,14 +395,13 @@ pub fn fs_post_reload_new(state: &mut MMState<'_,>) {
                     .config
                     .apply(partial.preview.clone());
             }
-        });
     });
 
     // a pane whose sort matches its configured default override (startup
     // pane, pane switch with apply_default_sort, undo/redo) hides the
     // metadata column until the user explicitly re-sorts (ReSort takes it)
     if STACK::with_current(|pane| {
-        GLOBAL::with_cfg(|c| c.panes.default_sort(pane).is_some_and(|d| pane.sort_order() == d))
+        GLOBAL::cfg().panes.default_sort(pane).is_some_and(|d| pane.sort_order() == d)
     }) {
         STORE::set(HideMetadata);
     }
@@ -467,7 +465,8 @@ pub fn fs_post_reload(state: &mut MMState<'_,>) {
                 }
 
                 // set status
-                let status = GLOBAL::with_cfg(|c| {
+                let status = {
+                    let c = GLOBAL::cfg();
                     let base = if f {
                         &c.panes.search.fs_status_template
                     } else {
@@ -479,7 +478,7 @@ pub fn fs_post_reload(state: &mut MMState<'_,>) {
                         s.content = s.content.replace("{}", replacement).into();
                     }
                     t
-                });
+                };
                 s.set(Some(status));
                 s.status_config.show = true;
 

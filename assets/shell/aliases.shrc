@@ -4,6 +4,9 @@ function lessfilter() {
 function lz() {
   fs :tool liza $@
 }
+function ds() {
+  fs :tool diskspace $@
+}
 function tra() {
   fs :tool trash $@
 }

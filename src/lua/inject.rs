@@ -104,7 +104,7 @@ mod tests {
     fn test_transform_unaffected_by_execution_globals() {
         // a global set by an isolated menu-action execution is invisible to
         // the shared transform VM
-        let res = crate::run::lua::execute("leaked = 'x'", &[], "", None, None);
+        let res = crate::lua::execute("leaked = 'x'", &[], "", None, None);
         assert!(res.is_ok());
 
         let f = compile_script(

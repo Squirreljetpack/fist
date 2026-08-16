@@ -538,6 +538,7 @@ fn merge_children(
 ) {
     for addition in additions {
         if let Some(existing) = children.iter_mut().find(|c| c.name == addition.name) {
+            existing.size = existing.size.or(addition.size);
             merge_children(&mut existing.children, addition.children);
         } else {
             children.push(addition);

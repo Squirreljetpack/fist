@@ -75,6 +75,12 @@ pub struct InPrompt;
 #[derive(Debug)]
 pub struct AcceptFlavor;
 
+/// Set by the Apps pane populate when it spawns the recache task; ensures
+/// recache isn't run more than once (thread-local, so only checked on the
+/// populating thread).
+#[derive(Debug, Clone)]
+pub struct RanRecache;
+
 define_collection_wrapper!(
     /// The targeted filepaths of the last accepted menu action, set on
     /// activation for the non-stash strategies and consumed by the execute

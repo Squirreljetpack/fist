@@ -1,5 +1,5 @@
 mod execute;
-pub use execute::ExecutionMode;
+pub use execute::{resolve_target, ExecutionMode};
 use execute::*;
 
 use std::{ffi::OsString, process::Stdio};
@@ -158,7 +158,7 @@ impl FsMatchmaker {
                 }
                 return;
             }
-            let Some(path) = resolve_target(state) else {
+            let Some(path) = resolve_target(state, false) else {
                 return;
             };
             let cmd = format_path(state.payload(), &path);
@@ -205,7 +205,7 @@ impl FsMatchmaker {
                 TASKS::spawn_blocking(move || run_menu_lua(&lua_cmd, &paths, nav_cwd.as_ref()));
                 return;
             }
-            let Some(path) = resolve_target(state) else {
+            let Some(path) = resolve_target(state, false) else {
                 return;
             };
             let cmd = format_path(state.payload(), &path);
@@ -246,7 +246,7 @@ impl FsMatchmaker {
             if state.payload().is_empty() {
                 return;
             }
-            let Some(path) = resolve_target(state) else {
+            let Some(path) = resolve_target(state, false) else {
                 return;
             };
             let Some(payload) = state.discriminant_payload.take() else {
@@ -354,7 +354,7 @@ impl FsMatchmaker {
             if state.payload().is_empty() {
                 return;
             }
-            let Some(path) = resolve_target(state) else {
+            let Some(path) = resolve_target(state, false) else {
                 return;
             };
             let cmd = format_path(state.payload(), &path);

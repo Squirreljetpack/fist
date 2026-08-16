@@ -97,11 +97,11 @@ fn make_mm(
     let hook_handle = print_handle.clone();
     let hook_template = template.clone();
     let hook_sep = separator.clone();
-    let mut mm = Matchmaker::new(worker, move |state: &mut MMState<'_,>| {
+    let mut mm = Matchmaker::new(worker, move |state: &mut MMState<'_>| {
         if STORE::take::<AcceptFlavor>().is_some() {
             // respect no_multi_accept when this was aliased from Accept
             let items: Vec<PathItem> =
-                if GLOBAL::with_cfg(|c| c.interface.alt_accept && c.interface.no_multi_accept) {
+                if GLOBAL::cfg().interface.alt_accept && GLOBAL::cfg().interface.no_multi_accept {
                     state.current_raw().cloned().into_iter().collect()
                 } else {
                     state.map_selected_to_vec(|_, it| it.clone())
@@ -307,7 +307,7 @@ pub async fn start(
     // start watcher
     watcher.spawn()._ebog();
     // start the archive extraction worker
-    unzip::start();
+    unzip::start(cfg.archive.clone());
 
     // populate mm
     STACK::populate(injector, || {});

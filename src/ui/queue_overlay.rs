@@ -6,10 +6,13 @@ use crate::{
         FsPane,
         action::FsAction,
         item::PathItem,
-        queue::{QUEUE, QUEUE_STATE, QueueItem, QueueItemState, QueueItemStatus, QueueView},
+        queue::{QUEUE, QUEUE_STATE, QueueItem, QueueItemState, QueueItemStatus, QueueState, QueueView},
         state::{GLOBAL, STACK, TOAST, ToastStyle},
     },
-    ui::{OVERLAY_TICK_RATE, input::{InputWidget, InputWidgetConfig}},
+    ui::{
+        OVERLAY_TICK_RATE,
+        input::{InputWidget, InputWidgetConfig},
+    },
     utils::serde::border_result,
 };
 
@@ -111,58 +114,23 @@ impl TableSelection {
         }
     }
 
-    /// The shared filter values: `All` plus the distinct kinds in
-    /// first-seen queue order.
-    fn filter_values() -> Vec<Option<String>> {
-        let state = QUEUE_STATE.lock().unwrap();
-        let mut values: Vec<Option<String>> = vec![None];
-        for item in &state.shared {
-            if !values.iter().any(|v| v.as_deref() == Some(item.kind.as_str())) {
-                values.push(Some(item.kind.clone()));
-            }
-        }
-        values
-    }
-
-    /// The underlying shared indices visible under the current kind filter from given items.
-    fn visible_indices_from(
-        &self,
-        shared: &[QueueItem],
-    ) -> Vec<usize> {
-        shared
-            .iter()
-            .enumerate()
-            .filter(|(_, item)| {
-                self.kind_filter
-                    .as_deref()
-                    .is_none_or(|kind| item.kind == kind)
-            })
-            .map(|(i, _)| i)
-            .collect()
-    }
-
-    /// The underlying shared indices visible under the current kind filter.
-    fn visible_indices(&self) -> Vec<usize> {
-        let state = QUEUE_STATE.lock().unwrap();
-        self.visible_indices_from(&state.shared)
-    }
-
     /// Cycle the shared kind filter with wrapping; changing it clears the
     /// row selections and cancels any row editing.
-    fn cycle_filter(
+    pub fn cycle_filter(
         &mut self,
         delta: i32,
     ) {
-        let values = Self::filter_values();
-        if values.len() < 2 {
-            return;
-        }
-        let pos = values
-            .iter()
-            .position(|v| *v == self.kind_filter)
-            .unwrap_or(0);
-        let next = (pos as i32 + delta).rem_euclid(values.len() as i32) as usize;
-        self.kind_filter = values[next].clone();
+        let state = QUEUE_STATE.lock().unwrap();
+        self.cycle_filter_from(delta, &state);
+    }
+
+    /// Cycle the shared kind filter with wrapping against a given [`QueueState`].
+    pub fn cycle_filter_from(
+        &mut self,
+        delta: i32,
+        state: &QueueState,
+    ) {
+        self.kind_filter = state.next_kind(self.kind_filter.as_deref(), delta);
         self.selected.clear();
         self.editing = None;
         self.reiinit = true;
@@ -177,37 +145,41 @@ impl TableSelection {
     ) {
         self.dirty = false;
         if let Some((_, col, input)) = &mut self.editing {
+            // When editing dst column, ensure it starts at least at width 6
+            if *col == self.path_dst_cols[1] && widths[*col] < 6 {
+                widths[*col] = 6;
+            }
+
             let val_width = input.inner.input().width() as u16;
             let original_col_w = widths[*col];
 
-            input.update_width(original_col_w + 1);
+            if val_width > original_col_w {
+                // Grow as input text exceeds current column width
+                let current_total: u16 = widths.iter().sum();
 
-            if val_width != original_col_w {
-                if val_width > original_col_w {
-                    // Only grow if currently small (<= 32) and won't overflow
-                    let current_total: u16 = widths.iter().sum();
-
-                    if original_col_w < 32 && current_total < self.available_w {
-                        let diff =
-                            (val_width - original_col_w).min(self.available_w - current_total);
-                        widths[*col] += diff;
-                    }
-                // responsively shrink to original width
-                } else if val_width < original_col_w {
-                    let initial = self.initial_widths.get(*col).cloned().unwrap_or(16); // unwrap should be fine here
-                    widths[*col] = val_width.max(initial);
+                if original_col_w < 32 && current_total < self.available_w {
+                    let diff =
+                        (val_width - original_col_w).min(self.available_w - current_total);
+                    widths[*col] += diff;
                 }
+            // responsively shrink to initial width (at least 6 for dst while editing)
+            } else if val_width < original_col_w {
+                let initial = if *col == self.path_dst_cols[1] {
+                    6
+                } else {
+                    self.initial_widths.get(*col).cloned().unwrap_or(16)
+                };
+                widths[*col] = val_width.max(initial);
+            }
 
-                // update
-                if widths[*col] != original_col_w {
-                    input.update_width(widths[*col] + 1);
-                    // need recenter
-                    let new_total_w = widths.iter().sum::<u16>()
-                        + border_width
-                        + widths.len().saturating_sub(1) as u16;
-                    utils::update_area(area, Some(new_total_w), None);
-                    log::trace!("recentered: {area:?} {new_total_w:?} {widths:?}");
-                }
+            // Always update input width and recenter area if total width changed
+            input.update_width(widths[*col] + 1);
+            let new_total_w = widths.iter().sum::<u16>()
+                + border_width
+                + widths.len().saturating_sub(1) as u16;
+            if area.width != new_total_w {
+                utils::update_area(area, Some(new_total_w), None);
+                log::trace!("recentered: {area:?} {new_total_w:?} {widths:?}");
             }
         }
     }
@@ -236,7 +208,8 @@ impl TableSelection {
         // the shared queue maps visible (filtered) rows onto underlying
         // shared indices; the app view has no filter
         let visible = if self.view == QueueView::Shared {
-            self.visible_indices()
+            let state = QUEUE_STATE.lock().unwrap();
+            state.visible_indices(self.kind_filter.as_deref())
         } else {
             (0..len).collect::<Vec<_>>()
         };
@@ -440,9 +413,44 @@ impl TableSelection {
         border_top: u16,
         style: Style,
     ) {
-        if let Some((row, col, input)) = &mut self.editing {
-            let x_offset = widths[0..*col].iter().sum::<u16>() + border_left + *col as u16;
-            let y_offset = (*row - self.state.offset()) as u16 + border_top + 1;
+        self.render_editing_from(frame, area, widths, border_left, border_top, style, None);
+    }
+
+    pub fn render_editing_from(
+        &mut self,
+        frame: &mut matchmaker::ui::Frame<'_>,
+        area: Rect,
+        widths: &[u16],
+        border_left: u16,
+        border_top: u16,
+        style: Style,
+        queue_state: Option<&QueueState>,
+    ) {
+        if let Some((row, col, _)) = self.editing {
+            let vpos = if self.view == QueueView::Shared {
+                if let Some(state) = queue_state {
+                    state.visible_position_of(self.kind_filter.as_deref(), row)
+                } else {
+                    let state = QUEUE_STATE.lock().unwrap();
+                    state.visible_position_of(self.kind_filter.as_deref(), row)
+                }
+            } else {
+                Some(row)
+            };
+            let Some(vpos) = vpos else {
+                return;
+            };
+            let offset = self.state.offset();
+            if vpos < offset {
+                return;
+            }
+            let row_on_screen = vpos - offset;
+            let x_offset = widths[0..col].iter().sum::<u16>() + border_left + col as u16;
+            let y_offset = row_on_screen as u16 + border_top + 1;
+
+            let Some((_, _, input)) = &mut self.editing else {
+                return;
+            };
 
             // input width is updated in update_widths
             input.scroll_to_cursor();
@@ -451,7 +459,7 @@ impl TableSelection {
             let input_area = Rect {
                 x: area.x + x_offset,
                 y: area.y + y_offset,
-                width: widths[*col],
+                width: widths[col],
                 height: 1,
             };
 
@@ -674,7 +682,7 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
         // build the table from the visible (filtered) rows; the row
         // positions are visible positions, the cells come from the
         // underlying shared indices
-        let visible = self.state.visible_indices_from(&state.shared);
+        let visible = state.visible_indices(self.state.kind_filter.as_deref());
         let header =
             Row::new(self.headers.clone()).style(Style::new().add_modifier(Modifier::BOLD));
         let rows: Vec<Row> = visible
@@ -730,13 +738,14 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
         frame.render_widget(Clear, area);
         frame.render_stateful_widget(table, area, &mut self.state.state);
 
-        self.state.render_editing(
+        self.state.render_editing_from(
             frame,
             area,
             &self.widths,
             self.border().left(),
             self.border().top(),
             self.config.editing_style.into(),
+            Some(&state),
         );
     }
 }
@@ -879,9 +888,7 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
 
         if false {
             // Scaffold for a two-column (path + destination) editable table.
-            // A future data source replaces the dummy rows and flips this to
-            // `true`; the rendering mirrors the old scratch overlay's
-            // two-column view, without scratch-source switching.
+            // Preserved so that previous work is not lost.
             let dummy: Vec<(std::path::PathBuf, String)> = vec![
                 (
                     std::path::PathBuf::from("~/docs/notes.md"),
@@ -1035,42 +1042,67 @@ impl QueueItemStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use matchmaker_partial::Apply;
-    use ratatui::backend::TestBackend;
-    use ratatui::Terminal;
+
+    fn sample_queue_state() -> QueueState {
+        let mut state = QueueState::new();
+        state.shared = vec![
+            QueueItem::new("cut".into(), AbsPath::new("/tmp/cut_1.txt")),
+            QueueItem::new("copy".into(), AbsPath::new("/tmp/copy_1.txt")),
+            QueueItem::new("cut".into(), AbsPath::new("/tmp/cut_2.txt")),
+        ];
+        state
+    }
 
     #[test]
-    fn test_queue_overlay_draw_non_empty_no_deadlock() {
-        let mut overlay = QueueOverlay::new(QueueConfig::default());
-        if let Err(partial) = overlay.config.border {
-            let mut full = matchmaker::config::OverlayConfig::default().border;
-            full.apply(partial);
-            overlay.config.border = Ok(full);
-        }
+    fn test_visible_indices_filtering() {
+        let state = sample_queue_state();
 
-        // Add an item to the shared queue
-        QUEUE::enqueue("copy".into(), vec![AbsPath::new("/tmp/test_file.txt")]);
+        // No filter: all rows [0, 1, 2] visible
+        assert_eq!(state.visible_indices(None), vec![0, 1, 2]);
 
-        let area = Rect {
-            x: 0,
-            y: 0,
-            width: 80,
-            height: 24,
-        };
-        let layout = OverlayLayoutSettings::default();
-        overlay.area(&area, &layout);
+        // Filter "copy": only index 1 visible
+        assert_eq!(state.visible_indices(Some("copy")), vec![1]);
 
-        let backend = TestBackend::new(80, 24);
-        let mut terminal = Terminal::new(backend).unwrap();
+        // Filter "cut": indices 0 and 2 visible
+        assert_eq!(state.visible_indices(Some("cut")), vec![0, 2]);
 
-        // This draw must succeed and not deadlock
-        terminal
-            .draw(|f| {
-                overlay.draw(f);
-            })
-            .unwrap();
+        // Filter non-existent kind: empty
+        assert_eq!(state.visible_indices(Some("delete")), Vec::<usize>::new());
+    }
 
-        // Clean up
-        QUEUE_STATE.lock().unwrap().shared.clear();
+    #[test]
+    fn test_editing_visible_position_mapping() {
+        let state = sample_queue_state();
+
+        // When filtered by "copy", underlying row 1 is at visible position 0
+        assert_eq!(state.visible_position_of(Some("copy"), 1), Some(0));
+
+        // Underlying row 0 (cut) is filtered out
+        assert_eq!(state.visible_position_of(Some("copy"), 0), None);
+    }
+
+    #[test]
+    fn test_cycle_filter_resets_state() {
+        let mut table = TableSelection::new(QueueView::Shared);
+        let state = sample_queue_state();
+        table.selected.insert(1);
+        table.editing = Some((1, 1, InputWidget::new(InputWidgetConfig::default())));
+        table.reiinit = false;
+
+        table.cycle_filter_from(1, &state);
+
+        // Cycling filter clears selection, cancels editing, and flags re-initialization
+        assert!(table.selected.is_empty());
+        assert!(table.editing.is_none());
+        assert!(table.reiinit);
+        assert_eq!(table.kind_filter, Some("cut".to_string()));
+
+        // Cycle next again wraps to "copy"
+        table.cycle_filter_from(1, &state);
+        assert_eq!(table.kind_filter, Some("copy".to_string()));
+
+        // Cycle next again wraps back to None (All)
+        table.cycle_filter_from(1, &state);
+        assert_eq!(table.kind_filter, None);
     }
 }

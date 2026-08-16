@@ -35,16 +35,27 @@ pub struct MMConfig {
     // configure the ui
     #[serde(default, flatten)]
     pub render: RenderConfig,
+
+    // binds
+    #[serde(default)]
+    pub binds: BindMap<FsAction>,
+
+    #[serde(default)]
+    pub tui: TerminalConfig,
+    
+    // --- overlays ---
+
     /// Base overlay style
     #[serde(default)]
     pub overlay: OverlayConfig,
 
-    // overlays
+    /// Queue overlay
     #[serde(default)]
     pub queue: QueueConfig,
-    /// UI config of the app view (overlay index 1).
+    /// App overlay
     #[serde(default)]
     pub app: QueueConfig,
+    /// Options overlay
     #[serde(default)]
     pub options: OptionsConfig,
     #[serde(default)]
@@ -53,15 +64,10 @@ pub struct MMConfig {
     pub menu: MenuConfig,
     #[serde(default)]
     pub confirm: ConfirmConfig,
-    #[serde(default)]
-    pub tui: TerminalConfig,
 
+    // --- other ---
     #[serde(default = "default_help_config")]
     pub help: HelpDisplayConfig,
-
-    // binds
-    #[serde(default)]
-    pub binds: BindMap<FsAction>,
 }
 
 fn default_help_config() -> HelpDisplayConfig {

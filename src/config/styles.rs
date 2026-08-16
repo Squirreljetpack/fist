@@ -1,6 +1,7 @@
 //! Based on code from https://github.com/eza-community/eza with modifications
 
 use fist_types::FileCategory;
+use matchmaker::config::StyleSetting;
 use matchmaker::nucleo::{Color, Modifier, Style};
 // -------- STYLES -------------
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -150,52 +151,42 @@ impl Default for FileStyles {
 
 // -------- TOAST STYLES -------------
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 /// Per-level toast styles, configurable under `[styles.toast]`.
 pub struct ToastStyles {
-    pub normal: Style,
-    pub info: Style,
-    pub success: Style,
-    pub warning: Style,
-    pub error: Style,
+    pub normal: StyleSetting,
+    pub info: StyleSetting,
+    pub success: StyleSetting,
+    pub warning: StyleSetting,
+    pub error: StyleSetting,
 }
 
 impl ToastStyles {
     pub const DEFAULT: Self = Self {
-        normal: Style {
+        normal: StyleSetting {
             fg: Some(Color::DarkGray),
             bg: None,
-            add_modifier: Modifier::ITALIC,
-            sub_modifier: Modifier::empty(),
-            underline_color: None,
+            modifier: Modifier::ITALIC,
         },
-        info: Style {
+        info: StyleSetting {
             fg: Some(Color::LightBlue),
             bg: None,
-            add_modifier: Modifier::empty(),
-            sub_modifier: Modifier::empty(),
-            underline_color: None,
+            modifier: Modifier::empty(),
         },
-        success: Style {
+        success: StyleSetting {
             fg: Some(Color::Green),
             bg: None,
-            add_modifier: Modifier::empty(),
-            sub_modifier: Modifier::empty(),
-            underline_color: None,
+            modifier: Modifier::empty(),
         },
-        warning: Style {
+        warning: StyleSetting {
             fg: Some(Color::Yellow),
             bg: None,
-            add_modifier: Modifier::empty(),
-            sub_modifier: Modifier::empty(),
-            underline_color: None,
+            modifier: Modifier::empty(),
         },
-        error: Style {
+        error: StyleSetting {
             fg: Some(Color::Red),
             bg: None,
-            add_modifier: Modifier::empty(),
-            sub_modifier: Modifier::empty(),
-            underline_color: None,
+            modifier: Modifier::empty(),
         },
     };
 }

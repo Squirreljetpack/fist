@@ -100,8 +100,10 @@ fn config_as_code() -> BindMap<FsAction> {
 
         // Stash
         // ----------------------------------
-        // PushStash/OpenStash are bound by the user; the queue insertion
-        // actions are Copy and Cut
+        key!(alt-s) => FsAction::PushStash(String::new()),
+        key!(alt-shift-s) => FsAction::OpenStash(String::new()),
+        key!(alt-b) => FsAction::PushStash("bookmark".into()),
+        key!(alt-shift-b) => FsAction::OpenStash("bookmark".into()),
 
         // Prompt
         // ----------------------------------

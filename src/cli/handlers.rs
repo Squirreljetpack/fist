@@ -669,12 +669,14 @@ async fn handle_tools(
     match tool {
         SubTool::Check => {
             use crate::cli::check;
+            let verbosity = cli.verbosity();
             let code = check::run(
                 &cli.config,
                 &cli.mm_config,
                 lessfilter_cfg_path(),
                 actions_path(),
                 actions_dir(),
+                verbosity,
             );
             exit(code)
         }

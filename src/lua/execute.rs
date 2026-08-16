@@ -9,7 +9,12 @@ use std::{cell::Cell, ptr::NonNull, sync::atomic::AtomicU8};
 
 use mlua::{Lua, MultiValue, Value};
 
-use crate::abspath::AbsPath;
+use matchmaker::nucleo::Span;
+
+use crate::{
+    abspath::AbsPath,
+    run::state::{ToastStyle, TOAST},
+};
 
 // The progress cell of the queue item whose command is running on this
 // thread, if any. The target is set only while a queue item's lua command
@@ -42,6 +47,7 @@ pub fn execute(
 ) -> Result<MultiValue, String> {
     let lua = Lua::new();
     register_progress_global(&lua)?;
+    register_toast_globals(&lua)?;
     override_os_exit(&lua)?;
     let f = lua
         .load(source)
@@ -52,6 +58,18 @@ pub fn execute(
     for (i, p) in paths.iter().enumerate() {
         table
             .raw_seti(i + 1, p.to_string_lossy().into_owned())
+            .map_err(|e| e.to_string())?;
+    }
+    let globals = lua.globals();
+    globals
+        .set("paths", table.clone())
+        .map_err(|e| e.to_string())?;
+    globals
+        .set("dst", dst.to_string())
+        .map_err(|e| e.to_string())?;
+    if let Some(cwd) = nav_cwd {
+        globals
+            .set("nav_cwd", cwd.to_string_lossy().into_owned())
             .map_err(|e| e.to_string())?;
     }
     if let Some(progress) = progress {
@@ -71,10 +89,51 @@ pub fn execute(
 /// `fs :tool check`.
 pub fn check_compiles(source: &str) -> Result<(), String> {
     let lua = Lua::new();
+    register_progress_global(&lua)?;
+    register_toast_globals(&lua)?;
     lua.load(source)
         .into_function()
         .map(|_| ())
         .map_err(|e| e.to_string())
+}
+
+/// Parse a style string into [`ToastStyle`].
+fn parse_toast_style(s: Option<&str>) -> ToastStyle {
+    match s.map(|x| x.trim().to_ascii_lowercase()).as_deref() {
+        Some("info") => ToastStyle::Info,
+        Some("success") => ToastStyle::Success,
+        Some("warning" | "warn") => ToastStyle::Warning,
+        Some("error" | "err") => ToastStyle::Error,
+        _ => ToastStyle::Normal,
+    }
+}
+
+/// Register `toast(style, msg)` and `toast_push(style, prefix, item)` globals on `lua`.
+fn register_toast_globals(lua: &Lua) -> Result<(), String> {
+    let toast_fn = lua
+        .create_function(|_, (style, msg): (Option<String>, String)| {
+            let toast_style = parse_toast_style(style.as_deref());
+            TOAST::notice(toast_style, msg);
+            Ok(())
+        })
+        .map_err(|e| e.to_string())?;
+
+    let toast_push_fn = lua
+        .create_function(
+            |_, (style, prefix, item): (Option<String>, String, String)| {
+                let toast_style = parse_toast_style(style.as_deref());
+                TOAST::push(toast_style, prefix, vec![Span::raw(item)]);
+                Ok(())
+            },
+        )
+        .map_err(|e| e.to_string())?;
+
+    let globals = lua.globals();
+    globals.set("toast", toast_fn).map_err(|e| e.to_string())?;
+    globals
+        .set("toast_push", toast_push_fn)
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 /// Register the `set_progress(v)` global on `lua`. `v` is on the internal
@@ -116,7 +175,7 @@ fn override_os_exit(lua: &Lua) -> Result<(), String> {
                 Some(other) => {
                     return Err(mlua::Error::RuntimeError(format!(
                         "os.exit: unsupported argument {other:?}"
-                    )))
+                    )));
                 }
             };
             Err(mlua::Error::RuntimeError(format!("os.exit({code})")))
@@ -129,16 +188,68 @@ fn override_os_exit(lua: &Lua) -> Result<(), String> {
 mod tests {
     use super::*;
     use crate::abspath::AbsPath;
+    use crate::run::state::GLOBAL;
 
     fn path(s: &str) -> AbsPath {
         AbsPath::new(std::path::PathBuf::from(s))
     }
 
     #[test]
-    fn test_execute_git_diff() {
-        let cmd = r#"os.execute('cd "' .. (...)[1] .. '" 2>/dev/null || cd "$(dirname "' .. (...)[1] .. '")"; git diff -- "' .. (...)[1] .. '"')"#;
-        let res = execute(cmd, &[path("/tmp")], "", None, None);
-        assert!(res.is_ok(), "execute failed: {res:?}");
+    fn test_execute_chmod_script() {
+        use std::os::unix::fs::PermissionsExt;
+
+        GLOBAL::init_test_senders();
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("script.sh");
+        std::fs::write(&file_path, "#!/bin/sh\necho hello\n").unwrap();
+
+        std::fs::set_permissions(&file_path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert_eq!(
+            std::fs::metadata(&file_path).unwrap().permissions().mode() & 0o111,
+            0
+        );
+
+        let abs = path(file_path.to_str().unwrap());
+        let cmd = r#"
+            local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
+            local all_exec = true
+            for _, p in ipairs(paths) do
+              if not os.execute("test -x " .. shq(p)) then
+                all_exec = false
+                break
+              end
+            end
+            local mode = all_exec and "-x" or "+x"
+            local dir = paths[1]:match("^(.*)/") or "."
+            local names = {}
+            for _, p in ipairs(paths) do
+              names[#names + 1] = shq("./" .. (p:match("([^/]+)/?$") or "."))
+            end
+            local ok, how, code = os.execute(
+              "cd " .. shq(dir) .. " && chmod " .. mode .. " " .. table.concat(names, " "))
+            if not ok then error("chmod " .. mode .. " failed: " .. tostring(code)) end
+
+            local prefix = "set " .. mode .. ": "
+            local item = #paths == 1 and (paths[1]:match("([^/]+)/?$") or paths[1]) or (#paths .. " items")
+            toast_push("success", prefix, item)
+        "#;
+        // 1st run: sets +x
+        let res = execute(cmd, &[abs.clone()], "", None, None);
+        assert!(res.is_ok(), "execute +x failed: {res:?}");
+        assert_ne!(
+            std::fs::metadata(&file_path).unwrap().permissions().mode() & 0o111,
+            0,
+            "file should be executable after first toggle"
+        );
+
+        // 2nd run: toggles back to -x
+        let res = execute(cmd, &[abs], "", None, None);
+        assert!(res.is_ok(), "execute -x failed: {res:?}");
+        assert_eq!(
+            std::fs::metadata(&file_path).unwrap().permissions().mode() & 0o111,
+            0,
+            "file should be non-executable after second toggle"
+        );
     }
 
     #[test]
@@ -199,7 +310,7 @@ mod tests {
         )
         .unwrap();
         let cmd = format!("@{}", script.display());
-        let src = crate::run::lua::load_script(&cmd, None).expect("script should load");
+        let src = crate::lua::load_script(&cmd, None).expect("script should load");
         let res = execute(&src, &[path("/tmp")], "", None, None);
         assert!(res.is_ok(), "execute failed: {res:?}");
         assert_eq!(
@@ -217,18 +328,30 @@ mod tests {
         std::fs::create_dir_all(&base).unwrap();
         std::fs::write(base.join("run.lua"), "return 1").unwrap();
 
-        let src = crate::run::lua::load_script("@run.lua", Some(&base)).expect("should load");
+        let src = crate::lua::load_script("@run.lua", Some(&base)).expect("should load");
         assert!(src.contains("return 1"));
 
         // absolute paths ignore the base
-        let src = crate::run::lua::load_script(
-            &format!("@{}", base.join("run.lua").display()),
-            Some(&base),
-        )
-        .expect("should load");
+        let src =
+            crate::lua::load_script(&format!("@{}", base.join("run.lua").display()), Some(&base))
+                .expect("should load");
         assert!(src.contains("return 1"));
 
         // a missing file is None
-        assert!(crate::run::lua::load_script("@nope.lua", Some(&base)).is_none());
+        assert!(crate::lua::load_script("@nope.lua", Some(&base)).is_none());
+    }
+
+    #[test]
+    fn test_lua_toast_functions() {
+        GLOBAL::init_test_senders();
+        let cmd = r#"
+            toast("info", "Information message")
+            toast_push("success", "Processed: ", "file.txt")
+            toast_push("warning", "Skipped: ", "file2.txt")
+            toast("error", "Error message")
+            toast(nil, "Default normal message")
+        "#;
+        let res = execute(cmd, &[], "", None, None);
+        assert!(res.is_ok(), "execute failed: {res:?}");
     }
 }
