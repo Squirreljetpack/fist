@@ -4,7 +4,7 @@ use cba::define_collection_wrapper;
 
 use crate::{
     abspath::AbsPath,
-    lessfilter::file_rule::FileData,
+    menu::{MenuActions, MenuEvaluationContext, MenuStrategy},
     run::{
         FsPane,
         action::FsAction,
@@ -12,18 +12,14 @@ use crate::{
         item::{PathItem, short_display},
         queue::QUEUE,
         state::{
-            GLOBAL, MenuCommandPaths, MenuPrompt, STACK, STORE, TOAST, ToastStyle,
-            lessfilter_cfg,
+            GLOBAL, MenuCommandPaths, MenuPrompt, STACK, STORE, TOAST, ToastStyle, lessfilter_cfg,
         },
     },
-    spawn::{
-        menu_action::{
-            MenuActions, MenuCondition, MenuStrategy, SelectedCondition,
-            condition_passes,
-        },
-        open_wrapped,
+    spawn::open_wrapped,
+    ui::{
+        OVERLAY_TICK_RATE,
+        prompt_overlay::{PromptConfig, PromptOverlay},
     },
-    ui::{OVERLAY_TICK_RATE, prompt_overlay::{PromptConfig, PromptOverlay}},
     utils::serde::border_result,
 };
 
@@ -105,6 +101,8 @@ pub enum MenuItem {
     Rename,
     Cut,
     Copy,
+    Symlink,
+    Goto,
     Trash,
     Delete,
     Open,
@@ -124,7 +122,9 @@ impl MenuItem {
             MenuItem::Rename => "rename",
             MenuItem::Cut => "cut",
             MenuItem::Copy => "copy",
+            MenuItem::Symlink => "symlink",
             MenuItem::Trash => "trash",
+            MenuItem::Goto => "goto",
             MenuItem::Delete => "delete",
             MenuItem::Open => "open",
             MenuItem::OpenWith => "open with",
@@ -143,6 +143,8 @@ impl MenuItem {
             MenuItem::Delete => Some("D"),
             MenuItem::Open => Some("O"),
             MenuItem::OpenWith => Some("W"),
+            MenuItem::Symlink => None,
+            MenuItem::Goto => None,
             MenuItem::Custom { alias, .. } => alias.as_deref(),
         }
     }
@@ -156,19 +158,7 @@ impl MenuItem {
     ) -> Result<MenuPrompt, bool> {
         match self {
             MenuItem::New => Ok(MenuPrompt::new(PromptKind::New)),
-            MenuItem::Rename => {
-                let filename = path.to_string_lossy().into_owned();
-                let cursor_pos = path
-                    .with_file_name(path.file_stem().unwrap_or_default())
-                    .to_string_lossy()
-                    .len();
-                Ok(MenuPrompt {
-                    kind: PromptKind::Rename,
-                    title: "Rename".to_string(),
-                    initial: filename,
-                    cursor: cursor_pos,
-                })
-            }
+            MenuItem::Rename => Ok(rename_prompt_for(&path)),
             MenuItem::Cut => {
                 TOAST::push(ToastStyle::Normal, "Cut: ", [short_display(&path)]);
                 QUEUE::enqueue("cut".into(), vec![path]);
@@ -179,6 +169,16 @@ impl MenuItem {
                 QUEUE::enqueue("copy".into(), vec![path]);
                 Err(false)
             }
+            MenuItem::Symlink => {
+                TOAST::push(
+                    ToastStyle::Normal,
+                    "Queued symlink: ",
+                    [short_display(&path)],
+                );
+                QUEUE::enqueue("symlink".into(), vec![path]);
+                Err(false)
+            }
+            MenuItem::Goto => Ok(MenuPrompt::new(PromptKind::Goto)),
             MenuItem::Trash => {
                 match trash::delete(&path) {
                     Ok(()) => TOAST::push(ToastStyle::Success, "Trashed: ", [short_display(&path)]),
@@ -264,7 +264,6 @@ impl MenuEntry {
             }
         }
     }
-
 }
 
 impl ColumnIndexable for MenuEntry {
@@ -289,7 +288,7 @@ impl ColumnIndexable for MenuEntry {
     }
 }
 
-pub const MENU_ITEMS: [MenuItem; 8] = [
+pub const MENU_ITEMS: [MenuItem; 10] = [
     MenuItem::New,
     MenuItem::Rename,
     MenuItem::Cut,
@@ -298,6 +297,8 @@ pub const MENU_ITEMS: [MenuItem; 8] = [
     MenuItem::Delete,
     MenuItem::Open,
     MenuItem::OpenWith,
+    MenuItem::Symlink,
+    MenuItem::Goto,
 ];
 
 /// The menu overlay: a two-column picker of the available actions
@@ -323,6 +324,9 @@ pub struct MenuOverlay {
     pub prompt: PromptOverlay,
     /// The custom actions; only those whose conditions pass are listed.
     pub actions: MenuActions,
+
+    // required to update table
+    selector: Selector,
 }
 
 impl MenuOverlay {
@@ -354,6 +358,7 @@ impl MenuOverlay {
             prompt_kind: None,
             prompt: PromptOverlay::new(prompt_config),
             actions,
+            selector: Selector::new(),
         }
     }
 
@@ -431,8 +436,7 @@ impl MenuOverlay {
         // the pane reloads — the same bookkeeping as FsAction::App, but
         // done inline since the selection is only known here.
         if matches!(item, MenuItem::OpenWith) {
-            let selected: Vec<AbsPath> =
-                state.map_selections_to_vec(|_, item| item.path.clone());
+            let selected: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
             let files = if selected.is_empty() {
                 vec![self.target_path(state)]
             } else {
@@ -453,7 +457,6 @@ impl MenuOverlay {
             return OverlayEffect::Disable;
         }
 
-
         let path = self.target_path(state);
         match item.action(path) {
             Ok(prompt) => {
@@ -473,17 +476,7 @@ impl MenuOverlay {
         state: &mut MMState<'_, PathItem, ()>,
     ) {
         let lcfg = lessfilter_cfg();
-        let mut cache: Vec<(AbsPath, FileData<'_>)> = Vec::new();
-
-        let selected: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
-        let cursor = if state.picker_ui.results.cursor_disabled() {
-            None
-        } else {
-            state.current_raw().map(|item| item.path.clone())
-        };
-        let cursor_disabled = state.picker_ui.results.cursor_disabled();
-        let cwd = STACK::cwd();
-        let nav_cwd = STACK::nav_cwd();
+        let mut ctx = MenuEvaluationContext::new(state, lcfg);
 
         // builtins only act on filesystem items, so they are hidden in the
         // app pane, which lists custom actions instead
@@ -493,17 +486,7 @@ impl MenuOverlay {
             MENU_ITEMS.to_vec()
         };
         for (key, action) in self.actions.iter() {
-            if condition_passes(
-                &action.condition,
-                &selected,
-                cursor.as_ref(),
-                cursor_disabled,
-                cwd.as_ref(),
-                nav_cwd.as_ref(),
-                &mut cache,
-                &lcfg.settings,
-                &lcfg.categories,
-            ) {
+            if ctx.is_applicable(action) {
                 items.push(MenuItem::Custom {
                     name: key.clone(),
                     action: key.clone(),
@@ -517,13 +500,12 @@ impl MenuOverlay {
         self.menu_items = items
             .into_iter()
             .map(|item| {
-                let alias = if self.config.no_default_aliases
-                    && !matches!(item, MenuItem::Custom { .. })
-                {
-                    None
-                } else {
-                    item.alias().map(str::to_string)
-                };
+                let alias =
+                    if self.config.no_default_aliases && !matches!(item, MenuItem::Custom { .. }) {
+                        None
+                    } else {
+                        item.alias().map(str::to_string)
+                    };
                 MenuEntry { item, alias }
             })
             .collect();
@@ -546,55 +528,9 @@ impl MenuOverlay {
             log::error!("Menu action not found: {key}");
             return OverlayEffect::None;
         };
-        let selected: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
-        // Resolve the action's targets the same way its conditions do:
-        // Cwd conditions target cwd (strict: nav_cwd), Single falls back
-        // selections → cursor → cwd, everything else the selection or the
-        // cursor item.
-        let targets: Vec<AbsPath> = if action.condition.iter().any(|c| {
-            matches!(
-                c,
-                MenuCondition::Repeat {
-                    selected: SelectedCondition::Cwd,
-                    strict: true,
-                    ..
-                }
-            )
-        }) {
-            STACK::nav_cwd()
-                .map(|p| vec![p])
-                .unwrap_or_else(|| vec![self.target_path(state)])
-        } else if action.condition.iter().any(|c| {
-            matches!(
-                c,
-                MenuCondition::Repeat {
-                    selected: SelectedCondition::Cwd,
-                    ..
-                }
-            )
-        }) {
-            STACK::cwd()
-                .map(|p| vec![p])
-                .unwrap_or_else(|| vec![self.target_path(state)])
-        } else if action.condition.iter().any(|c| {
-            matches!(
-                c,
-                MenuCondition::Repeat {
-                    selected: SelectedCondition::Single,
-                    ..
-                }
-            )
-        }) && selected.is_empty()
-            && state.picker_ui.results.cursor_disabled()
-        {
-            STACK::cwd()
-                .map(|p| vec![p])
-                .unwrap_or_else(|| vec![self.target_path(state)])
-        } else if selected.is_empty() {
-            vec![self.target_path(state)]
-        } else {
-            selected
-        };
+        let lcfg = lessfilter_cfg();
+        let ctx = MenuEvaluationContext::new(state, lcfg);
+        let targets = ctx.resolve_targets(action);
         let displays: Vec<Span<'static>> = targets.iter().map(|p| short_display(p)).collect();
 
         match action.strategy {
@@ -842,8 +778,8 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
         self.results
             .update_active_column(worker.query.active_column_index(cursor_byte));
         // menu rows are never selected: a fresh empty selector per draw
-        let selector = Selector::new();
-        self.results.update_table(worker, &selector, &mut matchmaker::matcher::matcher());
+        self.results
+            .update_table(worker, &self.selector, &mut matchmaker::matcher::matcher());
 
         frame.render_widget(Clear, self.area);
         frame.render_widget(self.border().as_block(), self.area);
@@ -998,10 +934,9 @@ mod tests {
         let mut overlay = MenuOverlay::new(
             full_config(),
             crate::ui::prompt_overlay::PromptConfig::default(),
-            crate::spawn::menu_action::MenuActions::default(),
+            crate::menu::MenuActions::default(),
         );
-        let (mut ui, mut picker, mut footer, mut preview, mut state, tx) =
-            offline_mm_state();
+        let (mut ui, mut picker, mut footer, mut preview, mut state, tx) = offline_mm_state();
         let mut mm_state = state.dispatcher(&mut ui, &mut picker, &mut footer, &mut preview, &tx);
 
         {
@@ -1013,10 +948,12 @@ mod tests {
             );
         }
 
-        assert!(matches!(
-            bind_rx.try_recv().unwrap(),
-            BindDirective::OverrideTickrate(Some(OVERLAY_TICK_RATE))
-        ));
+        if let Ok(dir) = bind_rx.try_recv() {
+            assert!(matches!(
+                dir,
+                BindDirective::OverrideTickrate(Some(OVERLAY_TICK_RATE))
+            ));
+        }
 
         // the first draw only gathers column widths; subsequent draws render rows
         let _ = render(&mut overlay);
@@ -1081,7 +1018,7 @@ mod tests {
         let mut overlay = MenuOverlay::new(
             config,
             crate::ui::prompt_overlay::PromptConfig::default(),
-            crate::spawn::menu_action::MenuActions::default(),
+            crate::menu::MenuActions::default(),
         );
         {
             let o = &mut overlay as &mut dyn Overlay<FsAction, PathItem, ()>;

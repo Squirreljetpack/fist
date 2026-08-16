@@ -1,3 +1,11 @@
+//! Atomic state machine for queue items.
+//!
+//! Provides the synchronisation primitives used to track item progress across
+//! threads: [`QueueItemState`] (the enum), [`QueueItems`] (a matching bitflag
+//! set), [`AtomicQueueItemState`] (an `Arc<AtomicU8>` wrapper with typed
+//! accessors), and [`QueueItemStatus`] (state + progress + byte-size bundled
+//! together). No queue logic lives here.
+
 use std::{
     path::Path,
     sync::{

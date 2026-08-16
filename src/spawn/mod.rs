@@ -1,7 +1,6 @@
 mod program;
 use std::ffi::OsString;
 use std::sync::Mutex;
-pub mod menu_action;
 pub mod utils;
 
 use crate::abspath::AbsPath;

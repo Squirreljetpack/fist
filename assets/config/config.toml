@@ -28,27 +28,6 @@ fs_status_template = '''
 preview_layout_index = 3
 show_preview = true
 
-[panes.stashes.""]
-# How the unnamed stash treats its entries while populating:
-# "prune" — delete entries whose path no longer exists from the db
-# "filter" — hide them
-# "transient" — in-memory stash, starts empty each run (default)
-kind = "transient"
-# What to do when stashing a path that is already in the stash:
-# "Replace" (remove the old entry and re-add, moving it to the end of the
-# stash), "Skip" (keep the existing entry), "Duplicate" (add another entry).
-insert = "replace"
-
-### STYLES ####
-
-[styles]
-# Per-level toast styles (each is a Style: fg/bg/add_modifier/sub_modifier/underline_color).
-# [styles.toast]
-# normal = { fg = "DarkGray", add_modifier = "ITALIC" }
-# info = { fg = "LightBlue" }
-# success = { fg = "Green" }
-# warning = { fg = "Yellow" }
-# error = { fg = "Red" }
 ### SETTINGS ###
 
 [fd]
@@ -70,5 +49,6 @@ refind = "Search"
 prompt_locking = true
 # hide the preview when in the query bar
 hide_preview_when_cursor_disabled = true
-# prompt prefix when in the query bar; {s:e} = first s + … + last e components of the path
+
+# prompt prefix when in the query bar: https://squirreljetpack.github.io/fist-docs/16-output-templates#the-format-template
 # cwd_prompt = '{2:2} '

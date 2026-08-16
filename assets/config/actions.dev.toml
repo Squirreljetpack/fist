@@ -1,12 +1,12 @@
 # Dev menu actions (debug builds). See actions.toml for the full schema.
 
 ["git: diff"]
-condition = { repeat = { condition = "git", strict = true } }
+condition = { condition = "git", strict = true }
 command = '''os.execute('cd "' .. (...)[1] .. '" 2>/dev/null || cd "$(dirname "' .. (...)[1] .. '")"; git diff -- "' .. (...)[1] .. '"')'''
 strategy = "ExecPaged"
 
 ["git: log"]
-condition = { repeat = { selected = "cwd", condition = "git", strict = false } }
+condition = { selected = "cwd", condition = "git", strict = false }
 command = '''os.execute('cd "' .. (...)[1] .. '" && git log')'''
 strategy = "ExecPaged"
 
@@ -15,6 +15,6 @@ strategy = "ExecPaged"
 # progress 0 → 255 over 5 seconds (set_progress is a no-op outside
 # queue-item execution).
 ["stash: 2 items"]
-condition = { seq = ["type:f", "type:d"] }
+condition = ["type:f", "type:d"]
 command = '''for i = 1, 5 do os.execute("sleep 1") set_progress(math.floor(i / 5 * 255)) end'''
 strategy = "Queue"

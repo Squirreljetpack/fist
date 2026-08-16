@@ -23,20 +23,27 @@ use crate::{
     config::{InsertionStrategy, StashPaneKind},
     db::DbTable,
     lessfilter::Preset,
+    menu::{MenuEvaluationContext, MenuStrategy},
     run::{
         ahandlers::{enter_dir_pane, enter_prompt, fs_reload, lock_prompt, refresh_prompt},
         item::short_display,
         pane::FsPane,
-        queue::{QueueSelector, QUEUE, SelectorResult, show_queue_variant},
-        register::ExecutionMode,
+        queue::{
+            BUILTIN_KINDS, QUEUE, QueueKind, QueueSelector, SelectorResult, show_queue_variant,
+            validate_queue_kind,
+        },
+        register::{ExecutionMode, resolve_target},
         state::{
             AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, HideMetadata,
-            InPrompt, MenuPrompt, STACK, STORE, TASKS, TOAST, ToastStyle, context::ActionContext,
-            sort,
+            InPrompt, MENU_ACTIONS, MenuPrompt, STACK, STORE, TASKS, TOAST, ToastStyle,
+            context::ActionContext, lessfilter_cfg, sort,
         },
     },
     spawn::open_wrapped,
-    ui::{confirm_overlay::ConfirmPrompt, menu_overlay::PromptKind},
+    ui::{
+        confirm_overlay::ConfirmPrompt,
+        menu_overlay::{PromptKind, rename_prompt_for},
+    },
     unzip,
     utils::trash::trash,
 };
@@ -82,6 +89,8 @@ pub enum FsAction {
     /// Clear the queued operations selected by a queue-kind selector;
     /// `true` skips the confirmation.
     ClearQueue(QueueSelector, bool),
+    /// Enqueue current items under the specified queue kind.
+    Enqueue(QueueKind),
 
     /// Switch to the named stash pane. Empty name = the unnamed stash.
     OpenStash(String),
@@ -233,7 +242,7 @@ impl FsAction {
 // todo: get rid of aliaser for effects
 pub fn fsaction_aliaser(
     a: Action<FsAction>,
-    state: &mut MMState<'_,>,
+    state: &mut MMState<'_>,
 ) -> Actions<FsAction> {
     // prompt-mode state: the raw InPrompt marker (the query bar is active).
     // With prompt_locking on, the direct pathways (LockPrompt action, pane
@@ -271,6 +280,7 @@ pub fn fsaction_aliaser(
                         changed
                     })
                 });
+                // deliberately only process one at a time to prevent vis changes from enabling metadata display (since only one signal can be sent before refilter is called anyways)
                 if vis_changed {
                     // populate re-reads pane sort/vis; fs_reload -> set_sort_in_nucleo applies the mode
                     fs_reload(state, false, false);
@@ -348,7 +358,7 @@ pub fn fsaction_aliaser(
                 // while the prompt mode is on, edit-actions edit the query;
                 // prompt_locking_allow_delete_actions gates the Delete ->
                 // DeleteWord conversion (the lock holds when it's off)
-                if !GLOBAL::with_cfg(|c| c.interface.prompt_locking_allow_delete_actions)
+                if !GLOBAL::cfg().interface.prompt_locking_allow_delete_actions
                     && STORE::contains::<InPrompt>()
                     && !no_confirm
                 {
@@ -360,7 +370,7 @@ pub fn fsaction_aliaser(
                 }
             }
             FsAction::Trash(no_confirm) => {
-                if !GLOBAL::with_cfg(|c| c.interface.prompt_locking_allow_delete_actions)
+                if !GLOBAL::cfg().interface.prompt_locking_allow_delete_actions
                     && in_prompt
                     && !no_confirm
                 {
@@ -399,56 +409,6 @@ pub fn fsaction_aliaser(
                 acs![Action::Overlay(4)]
             }
             // todo: support post-creation actions
-            FsAction::New => {
-                if state.overlay_index() == Some(4) {
-                    // the menu triggers the matching item for this action
-                    return acs![fa];
-                }
-                if state.overlay_index().is_some() {
-                    return acs![];
-                }
-                // no support for creating outside of nav
-                if state.current_raw().is_some() || STACK::nav_cwd().is_some() {
-                    STORE::set_menu_prompt(Some(MenuPrompt::new(PromptKind::New)));
-                    acs![Action::Overlay(4)]
-                } else {
-                    acs![]
-                }
-            }
-            FsAction::NewDir => {
-                if state.overlay_index() == Some(4) {
-                    // the menu triggers the matching item for this action
-                    return acs![fa];
-                }
-                if state.overlay_index().is_some() {
-                    return acs![];
-                }
-                // no support for creating outside of nav
-                if state.current_raw().is_some() || STACK::nav_cwd().is_some() {
-                    STORE::set_menu_prompt(Some(MenuPrompt::new(PromptKind::NewDir)));
-                    acs![Action::Overlay(4)]
-                } else {
-                    acs![]
-                }
-            }
-            FsAction::SetAlias(_) => {
-                if state.overlay_index() == Some(4) {
-                    // the menu triggers the matching item for this action
-                    return acs![fa];
-                }
-                if in_prompt || STACK::in_rg() || state.overlay_index().is_some() {
-                    return acs![];
-                }
-                if let Some(item) = state.current_raw() {
-                    let prepop_value = item.tail_text().to_string();
-                    STORE::set_menu_prompt(Some(
-                        MenuPrompt::new(PromptKind::SetAlias).initial(prepop_value),
-                    ));
-                    acs![Action::Overlay(4)]
-                } else {
-                    acs![]
-                }
-            }
             FsAction::LessfilterPreview(preset, header) => {
                 acs![Action::Preview(preset.to_command_string(header))]
             }
@@ -478,10 +438,10 @@ pub fn fsaction_aliaser(
                 // not in prompt + on pos => accept
                 {
                     let accept: Action<FsAction> =
-                        if GLOBAL::with_cfg(|c| c.interface.autojump_advance) {
+                        if GLOBAL::cfg().interface.autojump_advance {
                             FsAction::Advance.into()
                         } else {
-                            if GLOBAL::with_cfg(|c| c.interface.alt_accept) && !STACK::in_app() {
+                            if GLOBAL::cfg().interface.alt_accept && !STACK::in_app() {
                                 STORE::set(AcceptFlavor);
                             }
                             Action::Accept
@@ -564,7 +524,7 @@ pub fn fsaction_aliaser(
                 } else {
                     // alt_accept swaps the two flavors (XOR); apps always open
                     let is_print = matches!(a, Action::Print(_));
-                    let print_flavor = (GLOBAL::with_cfg(|c| c.interface.alt_accept) ^ is_print)
+                    let print_flavor = (GLOBAL::cfg().interface.alt_accept ^ is_print)
                         && !STACK::in_app();
                     if print_flavor {
                         STORE::set(AcceptFlavor);
@@ -598,7 +558,7 @@ pub fn fsaction_aliaser(
 
 pub fn fsaction_handler(
     a: FsAction,
-    state: &mut MMState<'_,>,
+    state: &mut MMState<'_>,
     context: &mut ActionContext,
 ) {
     let print_handle = &context.print_handle;
@@ -682,8 +642,10 @@ pub fn fsaction_handler(
                 let (content, index) = state.get_content_and_index();
                 STACK::save_input(content, index);
 
-                let [one_line, fixed_strings] =
-                    GLOBAL::with_cfg(|c| [c.panes.search.one_line, c.panes.search.fixed_strings]);
+                let [one_line, fixed_strings] = [
+                    GLOBAL::cfg().panes.search.one_line,
+                    GLOBAL::cfg().panes.search.fixed_strings,
+                ];
 
                 let cwd = STACK::_cwd();
 
@@ -802,12 +764,44 @@ pub fn fsaction_handler(
         FsAction::Parent => {
             // If Nav, go to the parent of the cwd, otherwise go to the parent of the current item
 
-            let current = if let Some(p) = STACK::nav_cwd() {
+            let mut current = if let Some(p) = STACK::nav_cwd() {
                 p
             } else {
                 unwrap!(state.current_raw().map(|x| x.path.clone()))
             };
-            let path = unwrap!(current.parent().map(AbsPath::new_unchecked));
+
+            // Archive exit: while the unzip dir is off-limits (the
+            // default), Parent from an archive's extraction workdir
+            // (`<unzip>/<encoded>--<ts>/<name>`) jumps straight to the
+            // directory containing the archive instead of exposing the
+            // internal skeleton layout
+            let in_archive_workdir = current
+                .parent()
+                .and_then(|p| p.parent())
+                .is_some_and(|p| p == unzip::root());
+            if !GLOBAL::cfg().interface.allow_enter_unzip_directory && in_archive_workdir
+            {
+                let Some(encoded) = current.parent().and_then(|p| p.file_name()) else {
+                    TOAST::notice(
+                        ToastStyle::Error,
+                        format!("Failed to leave archive: {}", short_display(&current)),
+                    );
+                    return;
+                };
+                let Some(archive) = unzip::recover_archive(&encoded.to_string_lossy()) else {
+                    TOAST::notice(
+                        ToastStyle::Error,
+                        format!("Failed to resolve archive for {}", short_display(&current)),
+                    );
+                    return;
+                };
+                current = AbsPath::new_unchecked(archive);
+            }
+
+            let Some(path) = current.parent().map(AbsPath::new_unchecked) else {
+                TOAST::notice(ToastStyle::Error, "No parent directory".to_string());
+                return;
+            };
 
             // save current for lookup
             STORE::set(current);
@@ -844,7 +838,7 @@ pub fn fsaction_handler(
                 }
 
                 // todo: specialized
-                let template = GLOBAL::with_cfg(|c| c.interface.advance_command.clone());
+                let template = GLOBAL::cfg().interface.advance_command.clone();
                 state.set_interrupt(Interrupt::Execute, template);
             }
         }
@@ -937,10 +931,12 @@ pub fn fsaction_handler(
             );
             db_stash(name.clone(), items, reload);
 
-            let mut line = Line::from(vec![Span::styled(
-                format!("Stashed ({}): ", name),
-                ToastStyle::Normal,
-            )]);
+            let prefix = if name.is_empty() {
+                "Stashed: ".to_string()
+            } else {
+                format!("Stashed to {name}: ")
+            };
+            let mut line = Line::from(vec![Span::styled(prefix, ToastStyle::Normal)]);
             line.spans.extend(toast_vec);
             TOAST::msg(line, false);
         }
@@ -1185,9 +1181,7 @@ pub fn fsaction_handler(
                 }
             } else {
                 // report an empty selection without opening the prompt
-                if QUEUE::select(&selector, STACK::nav_cwd().as_ref())
-                    == SelectorResult::NoItems
-                {
+                if QUEUE::select(&selector, STACK::nav_cwd().as_ref()) == SelectorResult::NoItems {
                     TOAST::msg("No items queued.", true);
                     return;
                 }
@@ -1206,6 +1200,72 @@ pub fn fsaction_handler(
                     scroll: 0,
                 });
                 GLOBAL::send_action(FsAction::Confirm);
+            }
+        }
+        FsAction::Enqueue(kind) => {
+            if let Err(err) = validate_queue_kind(&kind, None) {
+                TOAST::notice(ToastStyle::Error, err);
+                return;
+            }
+            let is_builtin = BUILTIN_KINDS.contains(&kind.as_str());
+            if is_builtin {
+                if STACK::in_app() {
+                    TOAST::notice(ToastStyle::Error, format!("Unknown queue kind: {kind}"));
+                    return;
+                }
+                match kind.as_str() {
+                    "cut" => GLOBAL::send_action(FsAction::Cut),
+                    "copy" => GLOBAL::send_action(FsAction::Copy),
+                    _ => {
+                        let mut toast_vec = vec![];
+                        let items = if state.picker_ui.results.cursor_disabled() {
+                            STACK::cwd()
+                                .into_iter()
+                                .inspect(|p| toast_vec.push(short_display(p)))
+                                .collect::<Vec<_>>()
+                        } else {
+                            state.map_selected_to_vec(|_, s| {
+                                toast_vec.push(short_display(&s.path));
+                                s.path.clone()
+                            })
+                        };
+                        if !items.is_empty() {
+                            QUEUE::enqueue(kind.clone(), items);
+                            TOAST::push(
+                                ToastStyle::Normal,
+                                format!("Enqueued ({kind}): "),
+                                toast_vec,
+                            );
+                        }
+                    }
+                }
+                return;
+            }
+
+            if let Some(action) = MENU_ACTIONS.get().and_then(|m| m.get(&kind)) {
+                let mut ctx = MenuEvaluationContext::new(state, lessfilter_cfg());
+                if !ctx.is_applicable(action) {
+                    TOAST::notice(
+                        ToastStyle::Error,
+                        format!("Conditions not met for action '{kind}'"),
+                    );
+                    return;
+                }
+                let targets = ctx.resolve_targets(action);
+                let displays: Vec<Span<'static>> =
+                    targets.iter().map(|p| short_display(p)).collect();
+                match action.strategy {
+                    MenuStrategy::QueueBatch(n) => {
+                        let n = n.max(1);
+                        for chunk in targets.chunks(n) {
+                            QUEUE::enqueue(kind.clone(), chunk.to_vec());
+                        }
+                    }
+                    _ => {
+                        QUEUE::enqueue(kind.clone(), targets);
+                    }
+                }
+                TOAST::push(ToastStyle::Normal, "Queued: ", displays);
             }
         }
         // filters
@@ -1365,7 +1425,7 @@ pub fn fsaction_handler(
 
         FsAction::AcceptPrompt => {
             if let Some(p) = STACK::nav_cwd() {
-                if GLOBAL::with_cfg(|c| c.interface.alt_accept) {
+                if GLOBAL::cfg().interface.alt_accept {
                     // same as below
                     let s = p.display().to_string();
                     print_handle.push(s);
@@ -1394,6 +1454,64 @@ pub fn fsaction_handler(
             }
         }
 
+        // Menu actions: they open the menu's input bar for the matching
+        // item. While another overlay is open they are left to the drain
+        // loop, so the current overlay (e.g. the queue's rename editor)
+        // gets first crack; when the menu itself is open they are handed
+        // back so the menu can trigger the matching item.
+        FsAction::New | FsAction::NewDir | FsAction::Rename | FsAction::SetAlias(_) => {
+            if state.overlay_index() == Some(4) {
+                GLOBAL::send_action(a.clone());
+                return;
+            }
+            match a {
+                FsAction::New => {
+                    // no support for creating outside of nav
+                    if state.current_raw().is_some() || STACK::nav_cwd().is_some() {
+                        STORE::set_menu_prompt(Some(MenuPrompt::new(PromptKind::New)));
+                        GLOBAL::send_action(Action::Overlay(4));
+                    }
+                }
+                FsAction::NewDir => {
+                    // no support for creating outside of nav
+                    if state.current_raw().is_some() || STACK::nav_cwd().is_some() {
+                        STORE::set_menu_prompt(Some(MenuPrompt::new(PromptKind::NewDir)));
+                        GLOBAL::send_action(Action::Overlay(4));
+                    }
+                }
+                FsAction::SetAlias(_) => {
+                    let in_prompt = STORE::contains::<InPrompt>();
+                    if in_prompt || STACK::in_rg() || state.overlay_index().is_some() {
+                        return;
+                    }
+                    if let Some(item) = state.current_raw() {
+                        let prepop_value = item.tail_text().to_string();
+                        STORE::set_menu_prompt(Some(
+                            MenuPrompt::new(PromptKind::SetAlias).initial(prepop_value),
+                        ));
+                        GLOBAL::send_action(Action::Overlay(4));
+                    }
+                }
+                FsAction::Rename => {
+                    // the app pane lists commands, not filesystem items
+                    if STACK::in_app() {
+                        return;
+                    }
+                    // the item under the cursor, or the cwd when the cursor is
+                    // disabled (prompt mode)
+                    let Some(target) = resolve_target(state, true).or_else(STACK::cwd) else {
+                        return;
+                    };
+                    if target.file_name().is_none() {
+                        return;
+                    }
+                    STORE::set_menu_prompt(Some(rename_prompt_for(&target)));
+                    GLOBAL::send_action(Action::Overlay(4));
+                }
+                _ => unreachable!(),
+            }
+        }
+
         _ => {
             log::error!("Encountered unreachable {a:?}");
             unreachable!()
@@ -1410,13 +1528,12 @@ fn db_stash(
     reload: bool,
 ) {
     let pool = GLOBAL::db();
-    let (insert, kind) = GLOBAL::with_cfg(|c| {
-        let setting = c.panes.stashes.get(&name);
-        (
-            setting.map(|s| s.insert).unwrap_or_default(),
-            setting.map(|s| s.kind).unwrap_or_default(),
-        )
-    });
+    let c = GLOBAL::cfg();
+    let setting = c.panes.stashes.get(&name);
+    let (insert, kind) = (
+        setting.map(|s| s.insert).unwrap_or_default(),
+        setting.map(|s| s.kind).unwrap_or_default(),
+    );
     TASKS::spawn(async move {
         match kind {
             StashPaneKind::Transient => {
@@ -1485,9 +1602,13 @@ fn db_stash_remove(
     paths: Vec<PathBuf>,
 ) {
     let pool = GLOBAL::db();
-    let kind = GLOBAL::with_cfg(|c| {
-        c.panes.stashes.get(&name).map(|s| s.kind).unwrap_or_default()
-    });
+    let c = GLOBAL::cfg();
+    let kind = c
+        .panes
+        .stashes
+        .get(&name)
+        .map(|s| s.kind)
+        .unwrap_or_default();
     TASKS::spawn(async move {
         let paths: Vec<AbsPath> = paths.iter().map(AbsPath::new_unchecked).collect();
         match kind {
@@ -1563,11 +1684,11 @@ enum_from_str_display! {
     Backup;
 
     tuples:
-    AutoJump, SetAlias,
+    AutoJump, SetAlias, Enqueue,
     ExecPaged = ExecutePaged, ExecTTY = ExecuteTTY, ExecDetached = ExecuteDetached, ExecSilent = ExecuteSilent, CopyCommand, CopyCommandAsync;
 
     defaults:
-    (Delete, false), (Trash, false), (OpenStash, String::new()), (PushStash, String::new())
+    (Delete, false), (Trash, false), (OpenStash, String::new()), (PushStash = Stash, String::new())
     ;
     options:
     LockPrompt;
@@ -1814,10 +1935,7 @@ mod open_parse_tests {
     #[test]
     fn open_parses_to_lessfilter_open() {
         let fa: FsAction = "Open".parse().unwrap();
-        assert_eq!(
-            fa,
-            FsAction::new_lessfilter(Preset::Open, false)
-        );
+        assert_eq!(fa, FsAction::new_lessfilter(Preset::Open, false));
         assert_eq!(fa.to_string(), "open");
 
         // case insensitive
@@ -1857,6 +1975,12 @@ mod queue_action_parse_tests {
 
         let push: FsAction = "pushstash(mine)".parse().unwrap();
         assert_eq!(push, FsAction::PushStash("mine".into()));
+
+        let stash: FsAction = "Stash".parse().unwrap();
+        assert_eq!(stash, FsAction::PushStash(String::new()));
+
+        let stash_bm: FsAction = "Stash(bookmark)".parse().unwrap();
+        assert_eq!(stash_bm, FsAction::PushStash("bookmark".into()));
     }
 
     #[test]
@@ -1914,5 +2038,38 @@ mod queue_action_parse_tests {
         // the internal confirmation flag is not part of the display
         let confirmed = FsAction::ClearQueue(QueueSelector::All, true);
         assert_eq!(confirmed.to_string(), "ClearQueue");
+    }
+
+    #[test]
+    fn enqueue_actions_parse_and_display() {
+        let action: FsAction = "Enqueue(zip)".parse().unwrap();
+        assert_eq!(action, FsAction::Enqueue("zip".into()));
+        assert_eq!(action.to_string(), "Enqueue(zip)");
+
+        let action: FsAction = "enqueue(copy)".parse().unwrap();
+        assert_eq!(action, FsAction::Enqueue("copy".into()));
+        assert_eq!(action.to_string(), "Enqueue(copy)");
+
+        let action: FsAction = "ENQUEUE(My-Action)".parse().unwrap();
+        assert_eq!(action, FsAction::Enqueue("My-Action".into()));
+        assert_eq!(action.to_string(), "Enqueue(My-Action)");
+
+        // missing data is an error
+        assert!("Enqueue".parse::<FsAction>().is_err());
+
+        // Copy and Cut are standalone unit actions
+        let copy: FsAction = "Copy".parse().unwrap();
+        assert_eq!(copy, FsAction::Copy);
+        let copy_lower: FsAction = "copy".parse().unwrap();
+        assert_eq!(copy_lower, FsAction::Copy);
+
+        let cut: FsAction = "Cut".parse().unwrap();
+        assert_eq!(cut, FsAction::Cut);
+        let cut_lower: FsAction = "cut".parse().unwrap();
+        assert_eq!(cut_lower, FsAction::Cut);
+
+        // Symlink is not an action
+        assert!("Symlink".parse::<FsAction>().is_err());
+        assert!("symlink".parse::<FsAction>().is_err());
     }
 }

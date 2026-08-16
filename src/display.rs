@@ -8,6 +8,7 @@ use strum::{EnumMessage, IntoEnumIterator};
 use crate::{
     db::{zoxide, Entry, Epoch},
     lessfilter::Categories,
+    menu::{MenuAction, MenuActions, MenuCondition, MenuStrategy},
 };
 
 /// Print a formatted table to stdout.
@@ -207,5 +208,71 @@ pub fn human_size(
         format!("{bytes} {}", units[0])
     } else {
         format!("{size:.1} {}", units[unit_idx])
+    }
+}
+
+/// Render the installed menu actions. Detail scales with `verbosity`:
+/// - `< 5`: one action name per line
+/// - `= 5`: every field, echoing actions.toml syntax, without the command
+/// - `> 5`: every field including the command
+pub fn display_menu_actions(
+    actions: &MenuActions,
+    verbosity: u8,
+) -> String {
+    let mut out = format!("installed menu actions ({}):", actions.len());
+    if actions.is_empty() {
+        return out;
+    }
+    if verbosity < 5 {
+        out.push('\n');
+        for key in actions.keys() {
+            out.push_str(&format!("  {key}\n"));
+        }
+        return out;
+    }
+    for (i, (key, action)) in actions.iter().enumerate() {
+        if i > 0 {
+            out.push('\n');
+        }
+        out.push_str(&format!("  [{key}]\n"));
+        let body =
+            toml::to_string_pretty(&ActionToml::new(action, verbosity > 5)).unwrap_or_default();
+        for line in body.lines() {
+            out.push_str(&format!("  {line}\n"));
+        }
+    }
+    out
+}
+
+/// A menu action's fields serialized as TOML; `command` is omitted when
+/// `include_command` is false. The field attributes mirror `MenuAction`'s
+/// own serde setup so the output echoes actions.toml syntax.
+#[derive(serde::Serialize)]
+struct ActionToml {
+    #[serde(with = "cba::bird::one_or_many")]
+    condition: Vec<MenuCondition>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    command: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    alias: Option<String>,
+    strategy: MenuStrategy,
+    requires_dest: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    close: Option<bool>,
+}
+
+impl ActionToml {
+    fn new(
+        action: &MenuAction,
+        include_command: bool,
+    ) -> Self {
+        Self {
+            condition: action.condition.clone(),
+            command: include_command.then(|| action.command.clone()),
+            alias: action.alias.clone(),
+            strategy: action.strategy,
+            requires_dest: action.requires_dest,
+            close: action.close,
+        }
     }
 }

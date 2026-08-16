@@ -1,16 +1,14 @@
 use std::process::{Command, Stdio};
 
-use cba::broc::{tty_or_inherit, CommandExt, EnvVars};
+use cba::broc::{CommandExt, EnvVars, tty_or_inherit};
 use log::{info, warn};
 
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
     cli::paths::{actions_dir, text_renderer_path},
-    run::{
-        lua::{execute, load_script},
-        state::{ExecuteHandlerShouldProcessParent, MENU_ACTIONS, STACK, STORE},
-    },
+    lua::{execute, load_script},
+    run::state::{ExecuteHandlerShouldProcessParent, MENU_ACTIONS, STACK, STORE},
     utils::{command::maybe_tty, formatter::format_path},
 };
 
@@ -306,12 +304,21 @@ pub(super) fn wait_exec(
 /// Resolve the execution target: the cwd when the cursor is disabled,
 /// otherwise the current item. Honors [`ExecuteHandlerShouldProcessParent`]
 /// and returns `None` instead of panicking when there is no target or parent.
-pub(super) fn resolve_target(state: &MMState<'_>) -> Option<AbsPath> {
+/// If `no_take` is true, the [`ExecuteHandlerShouldProcessParent`] flag is not consumed.
+pub fn resolve_target(
+    state: &MMState<'_>,
+    no_take: bool,
+) -> Option<AbsPath> {
     if state.picker_ui.results.cursor_disabled() {
         STACK::cwd()
     } else {
         let item = state.current_raw()?;
-        if STORE::take::<ExecuteHandlerShouldProcessParent>().is_some() {
+        let process_parent = if no_take {
+            STORE::with::<ExecuteHandlerShouldProcessParent, _>(|_| ()).is_some()
+        } else {
+            STORE::take::<ExecuteHandlerShouldProcessParent>().is_some()
+        };
+        if process_parent {
             item.path.parent().map(AbsPath::new_unchecked)
         } else {
             Some(item.path.clone())

@@ -35,13 +35,14 @@
 # (waited, stdout paged, closes the menu), "Queue" (enqueue all targets as
 # one queue item), { QueueBatch = n } (queue items of at most n paths).
 # `close` overrides the strategy's default closing behavior.
-# The command is a lua script (supports the @file syntax), called once
-# with (paths, dst, nav_cwd): the targeted paths as a lua table plus the
-# destination passed verbatim, and the navigation directory as the
-# optional third argument. Scripts may call set_progress(0-255) to set the
-# executing item's progress. The script runs in the process cwd — scripts
-# are responsible for cd (e.g. `os.execute('cd "' .. (...)[1] .. '" &&
-# git log')`).
+# The command is a lua script (supports the @file syntax), executed with
+# (paths, dst, nav_cwd): the targeted absolute paths as a lua table `paths`,
+# the destination `dst` (passed verbatim from queue, empty otherwise), and the
+# navigation directory `nav_cwd` (optional). These are available both as
+# variables in the global environment and as function arguments `...`.
+# Scripts may call set_progress(0-255) to set the executing item's progress.
+# The script runs in the process cwd — scripts are responsible for cd
+# (e.g. `os.execute('cd "' .. paths[1] .. '" && git log')`).
 # `requires_dest = true` marks the action as requiring a non-empty
 # destination when executed from the queue.
 # log-queuer = {
@@ -55,19 +56,29 @@
 # sorted filename order (numeric prefixes order them); the entries above
 # come first and a key defined twice is an error.
 
-# chmod +x: mark the targeted files and directories executable. Shipped as
-# a plugin; more plugins live in assets/actions/ (installed into the
-# actions/ folder by --dump-config).
+# chmod +x: toggle executability of targeted files and directories.
 ["chmod +x"]
-condition = [{ repeat = { condition = "*" } }]
+condition = { selected = "active", condition = "*" }
 command = """
 local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
+local all_exec = true
+for _, p in ipairs(paths) do
+  if not os.execute("test -x " .. shq(p)) then
+    all_exec = false
+    break
+  end
+end
+local mode = all_exec and "-x" or "+x"
 local dir = paths[1]:match("^(.*)/") or "."
 local names = {}
 for _, p in ipairs(paths) do
   names[#names + 1] = shq("./" .. (p:match("([^/]+)/?$") or "."))
 end
 local ok, how, code = os.execute(
-  "cd " .. shq(dir) .. " && chmod +x " .. table.concat(names, " "))
-if not ok then error("chmod +x failed: " .. tostring(code)) end
+  "cd " .. shq(dir) .. " && chmod " .. mode .. " " .. table.concat(names, " "))
+if not ok then error("chmod " .. mode .. " failed: " .. tostring(code)) end
+
+local prefix = "set " .. mode .. ": "
+local item = #paths == 1 and (paths[1]:match("([^/]+)/?$") or paths[1]) or (#paths .. " items")
+toast_push("success", prefix, item)
 """

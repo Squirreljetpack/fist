@@ -9,9 +9,9 @@ use matchmaker::preview::AppendOnly;
 
 use crate::{
     abspath::AbsPath,
+    lua::{compile_script, LuaFn},
     run::{
         item::PathItem,
-        lua::{compile_script, LuaFn},
         state::{InitialPreserveWhitespaceInSearch, GLOBAL, STORE},
     },
 };
@@ -443,18 +443,18 @@ impl FsPane {
                     if matches!(sort, SortOrder::none) {
                         0
                     } else {
-                        40
+                        GLOBAL::cfg().interface.stability_threshold
                     }
                 } else {
                     u32::MAX
                 }
             }
-            FsPane::Custom { .. } => 40, // maybe
+            FsPane::Custom { .. } => GLOBAL::cfg().interface.stability_threshold, // maybe
             FsPane::Nav { sort, .. } | FsPane::Find { sort, .. } | FsPane::Stash { sort, .. } => {
                 if matches!(sort, SortOrder::none) {
                     0
                 } else {
-                    40
+                    GLOBAL::cfg().interface.stability_threshold
                 }
             }
         }
@@ -486,7 +486,7 @@ impl FsPane {
                     input.0.clone()
                 } else {
                     let mut s = join_with_single_quotes(patterns);
-                    if GLOBAL::with_cfg(|c| c.panes.search.preserve_whitespace)
+                    if GLOBAL::cfg().panes.search.preserve_whitespace
                         || STORE::take::<InitialPreserveWhitespaceInSearch>().is_some()
                     {
                         if !s.starts_with('\'') && !s.chars().any(|c| c.is_whitespace()) {

@@ -62,6 +62,10 @@ pub struct Config {
     /// Settings related to saving to and retrieving from history.
     #[serde(default)]
     pub history: HistoryConfig,
+
+    /// Settings for archive extraction.
+    #[serde(default)]
+    pub archive: ArchiveConfig,
 }
 
 impl Default for Config {
@@ -92,6 +96,17 @@ pub struct GlobalConfig {
     /// Matchmaker styling overrides (per-pane).
     /// [Warning!]: Unstable and untested.
     pub mm: MatchmakerOverrides,
+}
+
+/// Settings for archive extraction skeletons.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+#[derive(Default)]
+pub struct ArchiveConfig {
+    /// When a stale skeleton is replaced: whether the previous skeletons of
+    /// the same archive are also removed. When false they stay on disk
+    /// (orphaned) until process exit.
+    pub cleanup_duplicates: bool,
 }
 
 /// Miscellaneous and Tool specific options.
@@ -150,6 +165,14 @@ pub struct InterfaceConfig {
     pub prompt_locking_allow_delete_actions: bool,
     /// Hide the preview while the cursor is disabled (locked onto the cwd).
     pub hide_preview_when_cursor_disabled: bool,
+    /// When false, Parent inside an archive's extraction workdir leaves the
+    /// archive (going to the directory that contains it) instead of
+    /// exposing the internal unzip storage dir.
+    pub allow_enter_unzip_directory: bool,
+    /// Sorting stability for the match list of sorted panes: how tolerant
+    /// the order is to score changes between reloads. Higher keeps the
+    /// current order longer; 0 always re-sorts.
+    pub stability_threshold: u32,
 
     // display
     /// The prefix to display when the cursor is in the prompt.
@@ -176,6 +199,8 @@ impl Default for InterfaceConfig {
             #[cfg(not(target_os = "macos"))]
             prompt_locking_allow_delete_actions: true,
             hide_preview_when_cursor_disabled: false,
+            allow_enter_unzip_directory: false,
+            stability_threshold: 30,
         }
     }
 }

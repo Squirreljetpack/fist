@@ -16,7 +16,7 @@ use fist::{
     config::Config,
     errors::CliError,
     run::state::MENU_ACTIONS,
-    spawn::menu_action::MenuActions,
+    menu::MenuActions,
 };
 use matchmaker::MatchError;
 
@@ -54,7 +54,6 @@ async fn main() {
             )
             ._ebog();
             write_str(actions_path(), include_str!("../assets/config/actions.dev.toml"))._ebog();
-            install_shipped_actions(false);
         }
     }
 
@@ -220,7 +219,6 @@ fn dump_config(
         {
             _ibog!("Wrote config to {}", actions_path().to_string_lossy())
         }
-        install_shipped_actions(true);
     } else {
         // if piped: dump the current cfg
         let contents = toml::to_string_pretty(&cfg).expect("failed to serialize to TOML");
@@ -243,27 +241,6 @@ fn dump_config(
     }
 
     exit(0);
-}
-
-/// The shipped plugin actions installed into `config_dir()/actions/` by
-/// `--dump-config` (and the debug startup block). Entries are written
-/// only when missing, so user edits survive.
-const SHIPPED_ACTIONS: &[(&str, &str)] = &[(
-    "compress.toml",
-    include_str!("../assets/actions/compress.toml"),
-)];
-
-fn install_shipped_actions(log_writes: bool) {
-    let dir = actions_dir();
-    for (name, content) in SHIPPED_ACTIONS {
-        let target = dir.join(name);
-        if !target.exists()
-            && write_str(&target, content)._ebog().is_some()
-            && log_writes
-        {
-            _ibog!("Wrote config to {}", target.to_string_lossy())
-        }
-    }
 }
 
 fn check(cfg: &Config) {

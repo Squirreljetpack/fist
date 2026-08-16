@@ -68,11 +68,11 @@ impl From<ToastStyle> for Style {
             .map(|ui| &ui.toast)
             .unwrap_or(&DEFAULT_TOAST_STYLES);
         match val {
-            ToastStyle::Normal => toast.normal,
-            ToastStyle::Info => toast.info,
-            ToastStyle::Success => toast.success,
-            ToastStyle::Warning => toast.warning,
-            ToastStyle::Error => toast.error,
+            ToastStyle::Normal => toast.normal.into(),
+            ToastStyle::Info => toast.info.into(),
+            ToastStyle::Success => toast.success.into(),
+            ToastStyle::Warning => toast.warning.into(),
+            ToastStyle::Error => toast.error.into(),
         }
     }
 }
@@ -206,12 +206,13 @@ impl TOAST {
     /// If a toast with `prefix` already exists, new items are appended (deduplicated).
     pub fn push(
         style: ToastStyle,
-        prefix: &'static str,
+        prefix: impl Into<std::borrow::Cow<'static, str>>,
         items: impl IntoIterator<Item = Span<'static>>,
     ) {
         let mut state = TOAST.lock().unwrap();
+        let prefix_cow = prefix.into();
         if let Some((_, existing_content)) =
-            state.iter_mut().find(|(p, _)| p.content.as_ref() == prefix)
+            state.iter_mut().find(|(p, _)| p.content == prefix_cow)
         {
             if let ToastContent::List(existing_items) = existing_content {
                 for i in items {
@@ -224,7 +225,7 @@ impl TOAST {
                 *existing_content = ToastContent::List(items.into_iter().collect());
             }
         } else {
-            let prefix_span = Span::styled(prefix, style);
+            let prefix_span = Span::styled(prefix_cow, style);
             state.push((prefix_span, ToastContent::List(items.into_iter().collect())));
         }
 

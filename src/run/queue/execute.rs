@@ -1,3 +1,11 @@
+//! Execution logic for queued items.
+//!
+//! Extends [`QueueItem`] with [`QueueItem::execute`], which runs one item to
+//! completion: builtin transfers (`copy`, `cut`, `symlink`, `none`) or a Lua
+//! script for custom kinds. Also provides [`QUEUE::check_validity`], which
+//! marks pending items whose source paths no longer exist as
+//! [`QueueItemState::PendingErr`].
+
 use super::*;
 
 use std::{fs::create_dir_all, sync::atomic::Ordering};
@@ -7,9 +15,9 @@ use fs_extra::{dir, file};
 
 use crate::{
     cli::paths::actions_dir,
+    lua::{execute, load_script},
     run::{
         item::short_display,
-        lua::{execute, load_script},
         state::{ToastStyle, MENU_ACTIONS, TOAST},
     },
 };
@@ -161,9 +169,7 @@ impl QueueItem {
                         )
                         .map_err(anyhow::Error::msg)
                     });
-                // the run is done: report the progress as complete without
-                // relying on the script calling `set_progress`
-                status.progress.store(255, Ordering::Relaxed);
+                // status.progress.store(255, Ordering::Relaxed);
 
                 match result {
                     Ok(_) => {
@@ -192,5 +198,56 @@ impl QUEUE {
                 item.status.state.store(QueueItemState::PendingErr)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::run::state::GLOBAL;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_execute_copy_and_symlink() {
+        GLOBAL::init_test_senders();
+        let dir = tempdir().unwrap();
+        let src_dir = dir.path().join("src_folder");
+        std::fs::create_dir(&src_dir).unwrap();
+        std::fs::write(src_dir.join("file.txt"), "hello").unwrap();
+
+        let dst_dir = dir.path().join("dst_parent");
+        std::fs::create_dir(&dst_dir).unwrap();
+
+        // 1. Copy directory
+        let dst_folder = dst_dir.join("src_folder");
+        let item = QueueItem {
+            kind: "copy".into(),
+            src: vec![AbsPath::new_unchecked(&src_dir)],
+            dst: dst_folder.as_os_str().to_owned(),
+            status: QueueItemStatus::new(&src_dir),
+        };
+        item.execute(Some(&AbsPath::new_unchecked(&dst_dir)));
+        assert!(dst_folder.exists(), "dst_folder should exist after copy");
+        assert!(
+            dst_folder.join("file.txt").exists(),
+            "file.txt should exist inside copied dst_folder"
+        );
+
+        // 2. Symlink directory
+        let symlink_folder = dst_dir.join("symlink_folder");
+        let sym_item = QueueItem {
+            kind: "symlink".into(),
+            src: vec![AbsPath::new_unchecked(&src_dir)],
+            dst: symlink_folder.as_os_str().to_owned(),
+            status: QueueItemStatus::new(&src_dir),
+        };
+        sym_item.execute(Some(&AbsPath::new_unchecked(&dst_dir)));
+        let read_link = std::fs::read_link(&symlink_folder);
+        println!("symlink target result: {:?}", read_link);
+        assert!(symlink_folder.exists(), "symlink_folder should exist");
+        assert!(
+            symlink_folder.join("file.txt").exists(),
+            "symlink target should resolve correctly"
+        );
     }
 }

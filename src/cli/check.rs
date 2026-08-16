@@ -9,27 +9,27 @@
 
 use std::path::Path;
 
+use cba::prints;
 use matchmaker::action::Action;
 
 use crate::{
     config::Config,
+    display::display_menu_actions,
     lessfilter::LessfilterConfig,
+    lua::{check_compiles, load_script},
+    menu::{MenuActions, MenuStrategy},
     run::{
-        lua::{check_compiles, load_script},
         mm_config::{get_mm_binds, MMConfig},
-        queue::QueueSelector,
+        queue::{validate_queue_kind, QueueSelector},
         FsAction,
     },
-    spawn::menu_action::{MenuActions, MenuStrategy},
 };
-
-/// The builtin queue kinds (exact-case queue matching makes case-colliding
-/// action keys unreachable via `ExecuteQueue(kind)`).
-const BUILTIN_KINDS: [&str; 4] = ["copy", "cut", "symlink", "none"];
 
 pub struct CheckResult {
     pub errors: Vec<String>,
     pub warnings: Vec<String>,
+    /// The merged menu actions (empty when loading failed).
+    pub actions: MenuActions,
 }
 
 impl CheckResult {
@@ -37,6 +37,7 @@ impl CheckResult {
         Self {
             errors: Vec::new(),
             warnings: Vec::new(),
+            actions: MenuActions::default(),
         }
     }
     fn error(
@@ -54,13 +55,16 @@ impl CheckResult {
 }
 
 /// Run the checks over the given config paths (the same files the app
-/// would load). Prints a plain report to stdout and returns the exit code.
+/// would load). Prints a plain report to stdout, followed by the installed
+/// menu actions (see [`crate::display::display_menu_actions`] for the
+/// verbosity-dependent detail), and returns the exit code.
 pub fn run(
     config: &Path,
     mm: &Path,
     lessfilter: &Path,
     actions: &Path,
     actions_dir: &Path,
+    verbosity: u8,
 ) -> i32 {
     let result = check(config, mm, lessfilter, actions, actions_dir);
     for e in &result.errors {
@@ -82,6 +86,11 @@ pub fn run(
             result.warnings.len()
         );
     }
+    let listing = display_menu_actions(&result.actions, verbosity);
+    if !listing.is_empty() {
+        println!();
+        prints!(listing);
+    }
     if result.errors.is_empty() {
         0
     } else {
@@ -98,26 +107,38 @@ fn check(
 ) -> CheckResult {
     let mut r = CheckResult::ok();
 
-    // 1. parse every config file
+    // 1. parse every config file; a missing file is only a warning since
+    //    the app silently falls back to its defaults in that case
     if config.is_file() {
         match read_parse::<Config>(config) {
             Ok(_) => {}
             Err(e) => r.error(e),
         }
     } else {
-        r.error(format!("config file not found: {}", config.display()));
+        r.warn(format!(
+            "config file not found: {}; falling back to default config",
+            config.display()
+        ));
     }
     if mm.is_file() {
         if let Err(e) = read_parse::<MMConfig>(mm) {
             r.error(e);
         }
     } else {
-        r.error(format!("binds file not found: {}", mm.display()));
+        r.warn(format!(
+            "binds file not found: {}; falling back to default binds",
+            mm.display()
+        ));
     }
     if lessfilter.is_file() {
         if let Err(e) = read_parse::<LessfilterConfig>(lessfilter) {
             r.error(e);
         }
+    } else {
+        r.warn(format!(
+            "lessfilter file not found: {}; falling back to default rules",
+            lessfilter.display()
+        ));
     }
     // lessfilter presets carry shell templates, not lua commands
 
@@ -128,6 +149,7 @@ fn check(
             return r;
         }
     };
+    r.actions = actions_map.clone();
 
     // 2. compile every menu-action command (with @file resolution against
     //    the actions folder, exactly as execution does)
@@ -160,7 +182,7 @@ fn check(
     }
 
     // 6. bindings referencing missing action keys (queue selectors only:
-    //    ExecuteQueue/ClearQueue payloads are menu-action keys)
+    //    ExecuteQueue/ClearQueue payloads are menu-action keys, Enqueue is queue kind)
     if mm.is_file() {
         let (binds, _help) = get_mm_binds(mm);
         for bound in binds.values() {
@@ -173,19 +195,15 @@ fn check(
                     FsAction::ClearQueue(sel, _) => Some(sel),
                     _ => None,
                 };
-                let Some(QueueSelector::Kind(kind)) = selector else {
-                    continue;
-                };
-                if BUILTIN_KINDS.iter().any(|b| b == kind) {
-                    continue;
+                if let Some(QueueSelector::Kind(kind)) = selector {
+                    if let Err(err) = validate_queue_kind(kind, Some(&actions_map)) {
+                        r.error(format!("bind references {err}"));
+                    }
                 }
-                if !actions_map.contains_key(kind) {
-                    r.error(format!(
-                        "bind references menu action key {kind:?} which is not defined \
-                         in {} or {}/",
-                        actions.display(),
-                        actions_dir.display()
-                    ));
+                if let FsAction::Enqueue(kind) = fs_action {
+                    if let Err(err) = validate_queue_kind(kind, Some(&actions_map)) {
+                        r.error(format!("bind references {err}"));
+                    }
                 }
             }
         }
@@ -223,8 +241,7 @@ fn check(
     // 9. empty seq conditions never fire intentionally
     for (key, action) in actions_map.iter() {
         for condition in &action.condition {
-            if matches!(condition, crate::spawn::menu_action::MenuCondition::Seq(v) if v.is_empty())
-            {
+            if matches!(condition, crate::menu::MenuCondition::Seq(v) if v.is_empty()) {
                 r.warn(format!(
                     "action {key:?}: an empty seq condition is almost certainly a mistake"
                 ));
@@ -287,7 +304,7 @@ mod tests {
         let toml_str = include_str!("../../assets/config/actions.toml");
         let actions: MenuActions = toml::from_str(toml_str).unwrap();
         assert_eq!(actions.len(), 1);
-        assert!(actions["chmod +x"].command.contains("chmod +x"));
+        assert!(actions["chmod +x"].command.contains("chmod "));
     }
 
     #[test]
@@ -342,6 +359,42 @@ mod tests {
     }
 
     #[test]
+    fn check_bind_enqueue_validation() {
+        let (_d, config, mm, lessfilter, actions_path, actions_dir) = setup(
+            r#"
+            [zip]
+            command = "print('zip')"
+            strategy = "Queue"
+            "#,
+        );
+        // Valid custom and builtin kinds
+        write(
+            &mm,
+            "[binds]\nctrl-z = \"Enqueue(zip)\"\nctrl-c = \"Enqueue(copy)\"\n",
+        );
+        let r = check(&config, &mm, &lessfilter, &actions_path, &actions_dir);
+        assert!(r.errors.is_empty(), "{}", r.errors.join("; "));
+
+        // Unknown custom kind
+        write(&mm, "[binds]\nctrl-z = \"Enqueue(nope)\"\n");
+        let r = check(&config, &mm, &lessfilter, &actions_path, &actions_dir);
+        assert!(
+            r.errors.iter().any(|e| e.contains("nope")),
+            "{}",
+            r.errors.join("; ")
+        );
+
+        // Reserved selector keywords are rejected
+        write(&mm, "[binds]\nctrl-z = \"Enqueue(all)\"\n");
+        let r = check(&config, &mm, &lessfilter, &actions_path, &actions_dir);
+        assert!(
+            r.errors.iter().any(|e| e.contains("all")),
+            "{}",
+            r.errors.join("; ")
+        );
+    }
+
+    #[test]
     fn check_warnings() {
         let (_d, config, mm, lessfilter, actions_path, actions_dir) = setup(
             r#"
@@ -354,7 +407,7 @@ requires_dest = true
 ["git"]
 alias = "g"
 command = "return 1"
-condition = { seq = [] }
+condition = []
 "#,
         );
         let r = check(&config, &mm, &lessfilter, &actions_path, &actions_dir);
@@ -366,17 +419,71 @@ condition = { seq = [] }
     }
 
     #[test]
+    fn check_missing_files_are_warnings() {
+        let (_d, config, mm, lessfilter, actions_path, actions_dir) = setup("");
+        fs::remove_file(&config).unwrap();
+        fs::remove_file(&mm).unwrap();
+        fs::remove_file(&lessfilter).unwrap();
+
+        let r = check(&config, &mm, &lessfilter, &actions_path, &actions_dir);
+        assert!(r.errors.is_empty(), "{}", r.errors.join("; "));
+        let joined = r.warnings.join("; ");
+        assert!(joined.contains("config file not found"), "{joined}");
+        assert!(joined.contains("binds file not found"), "{joined}");
+        assert!(joined.contains("lessfilter file not found"), "{joined}");
+        assert_eq!(
+            run(&config, &mm, &lessfilter, &actions_path, &actions_dir, 4),
+            0
+        );
+    }
+
+    #[test]
+    fn listing_verbosity_tiers() {
+        let (_d, config, mm, lessfilter, actions_path, actions_dir) = setup(
+            r#"
+["zip"]
+alias = "z"
+command = "print('zip')"
+strategy = "Queue"
+requires_dest = true
+condition = { selected = "active", condition = "glob:*.rs" }
+"#,
+        );
+        let r = check(&config, &mm, &lessfilter, &actions_path, &actions_dir);
+        assert!(r.errors.is_empty(), "{}", r.errors.join("; "));
+
+        // verbosity 4: names only
+        let names = display_menu_actions(&r.actions, 4);
+        assert!(names.contains("installed menu actions (1):"), "{names}");
+        assert!(names.contains("zip"), "{names}");
+        assert!(!names.contains("strategy"), "{names}");
+
+        // verbosity 5: everything but the command
+        let detail = display_menu_actions(&r.actions, 5);
+        assert!(detail.contains("[zip]"), "{detail}");
+        assert!(detail.contains("alias = \"z\""), "{detail}");
+        assert!(detail.contains("strategy = \"Queue\""), "{detail}");
+        assert!(detail.contains("requires_dest = true"), "{detail}");
+        assert!(detail.contains("condition"), "{detail}");
+        assert!(!detail.contains("command"), "{detail}");
+
+        // verbosity 6: everything including the command
+        let full = display_menu_actions(&r.actions, 6);
+        assert!(full.contains("command = \"print('zip')\""), "{full}");
+    }
+
+    #[test]
     fn check_run_exit_codes() {
         let (_d, config, mm, lessfilter, actions_path, actions_dir) = setup("");
         assert_eq!(
-            run(&config, &mm, &lessfilter, &actions_path, &actions_dir),
+            run(&config, &mm, &lessfilter, &actions_path, &actions_dir, 4),
             0
         );
 
         let (_d, config, mm, lessfilter, actions_path, actions_dir) =
             setup("[\"bad\"]\ncommand = \"not lua (\"\n");
         assert_eq!(
-            run(&config, &mm, &lessfilter, &actions_path, &actions_dir),
+            run(&config, &mm, &lessfilter, &actions_path, &actions_dir, 4),
             1
         );
     }

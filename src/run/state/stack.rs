@@ -74,7 +74,7 @@ impl STACK {
 
             match stack[*index] {
                 FsPane::Find { .. } => {
-                    if GLOBAL::with_cfg(|c| c.panes.find.on_leave_unset_dirs_only) {
+                    if GLOBAL::cfg().panes.find.on_leave_unset_dirs_only {
                         FILTERS::with_vis_mut(|v| v.dirs = false);
                     }
                 }
@@ -222,7 +222,7 @@ impl STACK {
         });
         set_render_path(if no_relative { None } else { Self::cwd() });
 
-        let cfg = GLOBAL::with_cfg(|c| c.clone());
+        let cfg = GLOBAL::cfg().clone();
         Self::with_current(|pane| {
             let msg = match &pane {
                 FsPane::Nav { cwd, .. } | FsPane::Custom { cwd, .. } => {
@@ -311,7 +311,10 @@ impl STACK {
                     log::debug!("saving: {content} {cursor}");
                     *input = (content, cursor)
                 }
-                FsPane::Find { input, .. } => input.0 = content,
+                FsPane::Find { input, .. } => {
+                    // input.0 = content,
+                    *input = (content, cursor)
+                }
                 _ => {}
             }
         });

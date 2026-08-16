@@ -8,6 +8,8 @@ pub mod errors;
 pub mod find;
 pub mod fs;
 pub mod lessfilter;
+pub mod lua;
+pub mod menu;
 pub mod run;
 pub mod spawn;
 pub mod ui;

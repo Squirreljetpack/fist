@@ -56,7 +56,7 @@ Call as:
 
 - `ctrl-f`/`ctrl-r`: Find files / Search text.
 - `ctrl-g`: History view (Folders and files).
-- `alt-a`/`alt-shift-a`: App view[^2]- `ctrl-z`/`ctrl-y`: Undo / Redo.
+- `ctrl-z`/`ctrl-y`: Undo / Redo.
 
 ---
 
@@ -80,11 +80,9 @@ Call as:
 - `ctrl-[1-9]`: Autojump to item
 - `ctrl-0`: Autojump to prompt
 
-For a full list of binds, press `ctrl-shift-h` within the app. [^1]
+For a full list of binds, press `alt-h` within the app. [^1]
 
 [^1]: For more information on bindings (how they are defined, key testing, and default generic binds), see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
-
-[^2]: You can also reach it through the menu's `open with` action, which preloads the app view with the current selection.
 
 # Panes
 
@@ -229,13 +227,20 @@ f:ist records the **files, directories and applications** that you've visited in
 
 The *Files* and *Folders* panes are most useful when integrated into the ambient context where you usually access files. For example, the [shell](#shell-integration), or a [command launcher](#dependencies).
 
+### Named stashes
+
+`PushStash(name)` adds the selection (or the current directory while the cursor is disabled) to a named stash, and `OpenStash(name)` switches to its pane. Stash panes are transient or database-backed collections of paths, useful for scratch space or bookmarking.
+
 ### App
 
 The apps pane comes prepopulated from the existing applications on your system, and can be accessed either through
 
 - `fs :o -w [..FILES]` on the command-line
 - the `open with` [menu action](#menu)
-- or the `App` action (`alt-a`) in-app.
+- a custom binding for the `App` action.
+
+The `App` action has no default key binding. `fs :o --list` prints the
+currently known application paths without opening the app pane.
 
 <img src=".README.assets/image-20260227220033390.png" alt="image-20260227220033390" style="width:360px;" />
 
@@ -247,49 +252,37 @@ It can be used to select a launch method for a given set of files (provided thro
 
 Panes can be navigated between using the `Undo/Redo` actions.
 
-For more information on any of the panes, run `fs [pane] --help` with the appropriate subcommand (i.e. `:rg`).
-
-# Overlays
-
-### Queue
-
-> [!NOTE]
->
-> Incomplete
-
-<img src=".README.assets/image-20260227222022484.png" alt="image-20260227222022484" style="height:400px;" />
-
-The **Queue** overlay (`ctrl-u`) lists the pending file operations. Rows show their kind, source, destination, and progress, and can be edited, rearranged, removed and executed from the overlay. A transient `[kind: x]` filter (cycled with `Undo`/`Redo`) narrows the overlay to a single queue kind.
-
-`Copy` and `Cut` enqueue items under the `copy` and `cut` kinds. `Paste` (`ctrl-v`) executes every queued `copy`, `cut` and `symlink` item, transferring files into the active directory at the time of *execution* by default.[^7] `ExecuteQueue(kind)` executes the queued items of one kind (`builtins` selects all the builtin transfer kinds), and `ClearQueue` clears the pending items.
-
-Menu actions with the `Queue`/`QueueBatch` strategies enqueue their targets under the action's key; on execution the action's lua script runs once per queued item with `(paths, dst, nav_cwd)`.
-
-[^7]: Although safeguards exist to keep these alive and prevent data loss during normal application execution and shutdown, if reliability is crucial it might be safer to define your own custom actions to perform, manage and monitor these actions externally. Ideas and contributions in this area are welcome!
-
-### Named stashes
-
-`PushStash(name)` adds the selection (or the current directory while the cursor is disabled) to a named stash, and `OpenStash(name)` switches to its pane. Stash panes are database-backed collections of paths and are separate from the operation queue; `Trash`/`Delete` inside a stash pane removes entries from the stash.
-
-### Filters
+Every pane has a **Options overlay** (`ctrl-p`), with settings for filtering, sorting, and other pane-specific controls for the displayed results.
 
 <img src=".README.assets/image-20260227223347559.png" alt="image-20260227223347559" style="height:360px;" />
 
-The **Filters overlay** (`ctrl-i`) contains the filtering, sorting, and other pane-specific controls for the displayed results.
+For more information on any of the panes, run `fs [pane] --help` with the appropriate subcommand (i.e. `:rg`).
+
+# Actions
+
+f:ist supports a flexible "system" custom file-actions:
 
 ### Menu
 
 The **Menu** (`ctrl-e`) houses all the actions available in the current context.
-
-> [!NOTE]
->
-> Incomplete
 
 Custom actions can be added in the `[menu]` section of the config. They consist of 3 parts:
 
 - **Action**: The script to execute -- see [here](#templating) for how placeholders are resolved.
 - **Conditions**: The various conditions which must be satisfied to show this action in the menu.
 - **Execution**: Parameters controlling how the action is executed.
+
+### Queue
+
+<img src=".README.assets/image-20260227222022484.png" alt="image-20260227222022484" style="height:400px;" />
+
+The **Queue** overlay (`ctrl-u`) lists the pending file operations. Rows show their kind, source, destination, and progress, and can be edited, rearranged, removed and executed from the overlay. `Undo`/`Redo` cycles between filters to narrows the overlay to a single queue kind.
+
+`Copy` and `Cut` enqueue items under the `copy` and `cut` kinds. The `Paste` (`ctrl-v`) keybind is available to executes every queued `copy`, `cut` and `symlink` item without enterring the overlay, transferring files into the active directory.[^7]  `ExecuteQueue(selector)`, `Enqueue(kind)` and `ClearQueue(selector)` are also available for binding.
+
+Menu actions with the `Queue`/`QueueBatch` strategies enqueue their targets under the action's key; on execution the action's lua script runs once per queued item with `(paths, dst, nav_cwd)`.
+
+[^7]: Although safeguards exist to keep these alive and prevent data loss during normal application execution and shutdown, if reliability is crucial it might be safer to define your own custom actions to perform, manage and monitor these actions externally. Ideas and contributions in this area are welcome!
 
 # Tools
 
@@ -344,14 +337,13 @@ The previewer is controlled by the lessfilter tool.
 
 The lessfilter tool dispatches to 9 presets:
 
-- preview: For the preview pane
-- display: For terminal display
-- extended: For terminal interaction/verbose display
-- info: Metadata/raw info
-- extract: Extract document contents with [kreuzberg](#https://github.com/kreuzberg-dev)
-- open: System open
-- edit: For editing
-- alternate/alternate2: Extra presets for any use
+- `preview`: the preview pane
+- `display`: terminal display
+- `extended`: terminal interaction or verbose display
+- `info`: metadata and raw information
+- `open`: system open
+- `edit`: editing
+- `alternate` and `alternate2`: extra presets for custom use
 
 <img src=".README.assets/image-20260228113456192.png" alt="image-20260228113456192" style="width: 600px;" alt="the info preset, using mediainfo to display metadata on a folder of images" />
 
@@ -365,15 +357,22 @@ The score modifiers are:
 - Max/Min (n): Take the max/min of the current score with (n) for the new score.
 - Req: Set the score to 0 if the test fails.
 
-The patterns are:
+The patterns and their default scores are:
 
-- Glob: (default score: `Max(100)`)
-- Child: (default score: `Max(50)`)
-- Mime: (default score: `Max(20)`)
-- Cat: (default score: `Max(20)`)
-- Ext: (default score: `Max(10)`)
-- Have: (default score: `Req`)
-- Filetype: (default score: `Req`)
+- `glob`: match the full path — `Max(50)`
+- `child`: match a child name (or a sibling name for a file) — `Max(50)`
+- `ext`: match a file extension — `Max(30)`
+- `mime`: match a MIME type such as `text/plain` or `image/*` — `Max(20)`
+- `cat`: match a built-in or configured file category — `Max(20)`
+- `application`: match a platform-specific application bundle, launcher, or executable — `Max(60)`
+- `*`: match any path — `Max(0)`
+- `have`: require an executable to exist — `Req`
+- `filetype`: require a matching filesystem type — `Req`
+- `git`: require a path inside a Git work tree — `Req`
+
+`Req` makes the whole rule score zero when its test fails. `Max(0)` is useful
+as a universal test alongside a stronger condition, but does not select a rule
+by itself.
 
 Though the syntax has many parts, configuration should be fairly straightforward. F:ist comes with a sane set of defaults with wide coverage for a variety of filetypes, and declaring overrides is as simple as declaring the desired action together with the conditions which it requires. For example:
 
@@ -405,13 +404,18 @@ edit = [
 
 The built-in actions are:
 
-- Text
-- Image
-- Metadata
-- Directory
-- Header
-- None
-- Open
+- `Directory`
+- `Application`
+- `Text`
+- `Image`
+- `Extract`
+- `Metadata`
+- `Open`
+- `Header`
+- `None`
+
+`Extract` is selected inside a rule alongside other actions; it is not one of
+the presets listed above.
 
 Additional actions can be defined with shell syntax. For example:
 
@@ -428,22 +432,21 @@ Note that certain default previews will not display without the required [depend
 
 ### Types
 
-> [!NOTE]
->
-> Incomplete
-
 A list of all supported types, used by the `-t` parameter of the [find subcommand](#find) and the `cat` condition of the [lessfilter](#lessfilter).
 
-### Liza
+### Others
 
-Liza is an eza wrapper used internally by the lessfilter/previewer to display directories. It can accessed directly through the `lz` [alias](#additional).
+fs exposes several of the more generally useful functionalities it uses internally:
 
-### Dependencies
+- diskspace: A stupid fast parallel directory tree/size lister, using the same background worker that is used in the main app for sorting by size.
 
-# Actions
+- trash: cross platform tool for easily moving files to the system trash.
 
-> [!NOTE]
-> todo
+- for the rest, run `fs :tool` to see a full listing.
+
+# Configuration
+
+Configuration is presently only documented in the source files: [Main Config](./src/config/mod.rs), [Panes](./src/config/panes.rs), [Styling](./src/config/styles.rs), [Miscellaneous UI](./src/config/ui.rs), [Lessfilter](./src/lessfilter/config.rs), [Lessfilter](./src/lessfilter/config.rs), [Matchmaker Config](./src/run/mm_config.rs)[^12].
 
 # Additional
 
@@ -473,16 +476,6 @@ spawn_with = ["pueue", "add", "-g", "apps", "--"]
 
 [^11]: `/` on unix and `\` on windows
 
-### Template
-
-Replacements:
-
-- `{}`
-- `{=}`
-- `{.}`
-- `{+}`
-- `{_}`
-
 ### Examples
 
 List every git repository (by locating its `.git` directory) under a couple of directories, sorted by last modification, mapping each `.git` folder to its parent:
@@ -498,10 +491,6 @@ return path, path
 end
 ' --sort mtime $HOME/gh $SSdir '\\.git$'
 ```
-
-# Configuration
-
-Configuration is presently only documented in the source files: [Main Config](./src/config/mod.rs), [Panes](./src/config/panes.rs), [Styling](./src/config/styles.rs), [Miscellaneous UI](./src/config/ui.rs), [Lessfilter](./src/lessfilter/config.rs), [Lessfilter](./src/lessfilter/config.rs), [Matchmaker Config](./src/run/mm_config.rs)[^12].
 
 ---
 

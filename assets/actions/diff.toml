@@ -1,0 +1,100 @@
+# Diff and comparison menu actions.
+
+["diff"]
+strategy = "ExecPaged"
+condition = ["type:f", "type:f"]
+command = """
+local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
+local p1 = shq(paths[1])
+local p2 = shq(paths[2])
+local ok, how, code = os.execute("diff -u --color=always " .. p1 .. " " .. p2 .. " 2>/dev/null")
+if not ok and code ~= 1 then
+  os.execute("git diff --no-index --color=always " .. p1 .. " " .. p2)
+end
+"""
+
+["compare"]
+strategy = "ExecPaged"
+condition = [
+    ["type:text", "type:text"],
+    ["type:text", "type:d"],
+    ["type:d", "type:text"],
+    ["type:d", "type:d"],
+]
+command = """
+local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
+local comp1 = paths[1]
+local comp2 = paths[2]
+
+local is_dir1 = os.execute("test -d " .. shq(comp1)) == true
+local is_dir2 = os.execute("test -d " .. shq(comp2)) == true
+
+if is_dir1 and is_dir2 then
+  local c1 = comp1:gsub("/+$", "") .. "/"
+  local c2 = comp2:gsub("/+$", "") .. "/"
+  if c2:sub(1, #c1) == c1 or c1:sub(1, #c2) == c2 then
+    error("Directories cannot be direct descendants of the other!")
+  end
+end
+
+local function get_items(path, is_dir)
+  local list = {}
+  if is_dir then
+    local p = io.popen("cd " .. shq(path) .. " && fd 2>/dev/null")
+    if p then
+      for line in p:lines() do
+        list[#list + 1] = line
+      end
+      p:close()
+    end
+  else
+    local f = io.open(path, "r")
+    if f then
+      for line in f:lines() do
+        list[#list + 1] = line
+      end
+      f:close()
+    end
+  end
+  return list
+end
+
+local items1 = get_items(comp1, is_dir1)
+local items2 = get_items(comp2, is_dir2)
+
+local set1 = {}
+for _, line in ipairs(items1) do set1[line] = true end
+
+local set2 = {}
+for _, line in ipairs(items2) do set2[line] = true end
+
+-- 1. in comp1 not in comp2
+local only1 = {}
+for line, _ in pairs(set1) do
+  if not set2[line] then only1[#only1 + 1] = line end
+end
+table.sort(only1)
+
+-- 2. in comp2 not in comp1
+local only2 = {}
+for line, _ in pairs(set2) do
+  if not set1[line] then only2[#only2 + 1] = line end
+end
+table.sort(only2)
+
+-- 3. in both comp1 and comp2
+local both = {}
+for line, _ in pairs(set1) do
+  if set2[line] then both[#both + 1] = line end
+end
+table.sort(both)
+
+print("\\n--- " .. comp1 .. " / " .. comp2 .. " ---")
+for _, line in ipairs(only1) do print(line) end
+
+print("\\n--- " .. comp2 .. " / " .. comp1 .. " ---")
+for _, line in ipairs(only2) do print(line) end
+
+print("\\n--- " .. comp1 .. " ^ " .. comp2 .. " ---")
+for _, line in ipairs(both) do print(line) end
+"""

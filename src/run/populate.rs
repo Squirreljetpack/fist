@@ -28,12 +28,12 @@ use crate::{
     abspath::AbsPath,
     db::DbTable,
     find::{apps::collect_apps, fd::build_fd_args, walker::list_dir},
+    lua::call_transform,
     run::{
         FsAction,
         item::PathItem,
-        lua::call_transform,
         start::FsInjector,
-        state::{APP, GLOBAL, STACK, TASKS, sort},
+        state::{GLOBAL, STACK, TASKS, TaskId, sort},
     },
 };
 use crate::{
@@ -41,13 +41,10 @@ use crate::{
     find::rg::{build_rg_args, is_inverted},
     run::{
         FsPane,
-        populate_rg::{
-            BufItem, MultilineRgParser, flush_rg_buffer, process_rg_line,
-        },
-        state::{STORE, ShouldNotAbortOnEmpty, TOAST},
+        populate_rg::{BufItem, MultilineRgParser, flush_rg_buffer, process_rg_line},
+        state::{RanRecache, STORE, ShouldNotAbortOnEmpty, TOAST},
     },
 };
-use TASKS::TaskId;
 use fist_types::filters::SortOrder;
 
 // todo: when do we need be able to restart after STOP
@@ -61,7 +58,7 @@ impl FsPane {
         _callback: impl FnOnce() + 'static + Send + Sync,
     ) -> Option<tokio::task::JoinHandle<anyhow::Result<()>>> {
         log::debug!("Populating: {self:?}");
-        let toast_on_empty = GLOBAL::with_cfg(|c| c.interface.toast_on_empty);
+        let toast_on_empty = GLOBAL::cfg().interface.toast_on_empty;
 
         let ret = match self {
             Self::Custom {
@@ -352,15 +349,9 @@ impl FsPane {
                         stdout,
                         None,
                         move |line| {
-                            parser.process_line(
-                                line,
-                                &cwd_,
-                                no_column,
-                                vis_,
-                                |item| {
-                                    let _ = injector_.push(item);
-                                },
-                            )
+                            parser.process_line(line, &cwd_, no_column, vis_, |item| {
+                                let _ = injector_.push(item);
+                            })
                         },
                         move |count| {
                             if count == Some(0) {
@@ -507,10 +498,8 @@ impl FsPane {
 
                     Ok(())
                 });
-                if APP::RAN_RECACHE
-                    .compare_exchange(false, true, Ordering::Acquire, Ordering::Acquire)
-                    .is_ok()
-                {
+                if !STORE::contains::<RanRecache>() {
+                    STORE::set(RanRecache);
                     tokio::spawn(async move {
                         let mut entries = collect_apps();
                         // initial population in order

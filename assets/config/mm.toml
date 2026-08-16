@@ -123,16 +123,17 @@ word_boundaries = ['.', '/']
 "ctrl-y" = "CopyPath"
 "delete" = "Trash"
 "shift-delete" = "Delete"
+"f2" = "Rename"
 "ctrl-shift-r" = "Rename"
 # alternative if no delete key:
 "ctrl-shift-backspace" = "Delete"
 "shift-cmd-backspace" = "Delete"
 
 ### Stash
-# add the selection to the unnamed stash:
-# "alt-s" = "PushStash"
-# switch to the unnamed stash pane:
-# "alt-a" = "OpenStash"
+"alt-s" = "PushStash"
+"alt-shift-s" = "OpenStash"
+"alt-b" = "PushStash(bookmark)"
+"alt-shift-b" = "OpenStash(bookmark)"
 
 ### Preview / Execute
 ### (DEFAULTS) ####

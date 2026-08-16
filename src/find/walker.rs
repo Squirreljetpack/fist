@@ -6,7 +6,7 @@ use ignore::{
     overrides::{Override, OverrideBuilder},
 };
 
-use fist_types::filters::Visibility;
+use fist_types::{filters::Visibility, git::is_vcs_dir};
 
 // paths are relative to root
 pub fn list_dir(
@@ -41,6 +41,9 @@ pub fn list_dir(
         .filter_map(|e| e.ok())
         .filter(move |e| e.path() != cwd)
         .filter(move |e| {
+            if vis.ignore && !vis.all() && is_vcs_dir(e.file_name()) {
+                return false;
+            }
             let path = e.path();
             vis.post_nav_filter(path)
         })

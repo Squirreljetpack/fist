@@ -6,12 +6,13 @@ use crate::{
     run::{
         FsAction,
         item::{PathItem, short_display},
-        state::{GLOBAL, STACK, TASKS, TOAST, ToastStyle},
+        state::{GLOBAL, MenuPrompt, STACK, TASKS, TOAST, ToastStyle},
     },
 };
 
 use cba::bath::{PathExt, RenamePolicy, auto_dest_for_src};
 use matchmaker::{
+    nucleo::{Color, Span},
     render::MMState,
     ui::{Overlay, OverlayEffect},
 };
@@ -25,8 +26,45 @@ pub enum PromptKind {
     #[strum(serialize = "New folder")]
     NewDir,
     Rename,
+    #[strum(serialize = "Go to")]
+    Goto,
     #[strum(serialize = "Set alias")]
     SetAlias,
+}
+
+/// The rename prompt for `path`: the input is prepopulated with the full path
+/// and the cursor sits at the end of the file stem, so typing replaces the
+/// name while the extension survives.
+pub fn rename_prompt_for(path: &AbsPath) -> MenuPrompt {
+    let filename = path.to_string_lossy().into_owned();
+    let cursor = path
+        .with_file_name(path.file_stem().unwrap_or_default())
+        .to_string_lossy()
+        .len();
+    MenuPrompt {
+        kind: PromptKind::Rename,
+        title: "Rename".to_string(),
+        initial: filename,
+        cursor,
+    }
+}
+
+/// Whether `path` is the process's current working directory. The logical
+/// paths are compared first, falling back to canonical comparison in case the
+/// cwd was reached through a symlink. Must be called while `path` still
+/// exists.
+fn current_dir_matches(path: &AbsPath) -> bool {
+    let cwd = match std::env::current_dir() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    if cwd.as_path() == path.as_path() {
+        return true;
+    }
+    match (cwd.canonicalize(), path.as_path().canonicalize()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
 }
 
 impl MenuOverlay {
@@ -37,10 +75,7 @@ impl MenuOverlay {
         &self,
         state: &mut MMState<'_, PathItem, ()>,
     ) -> AbsPath {
-        state
-            .picker_ui
-            .current_indexed()
-            .map(|(_, p)| p.path.clone())
+        crate::run::register::resolve_target(state, true)
             .or_else(STACK::cwd)
             .unwrap_or_else(STACK::_cwd)
     }
@@ -132,27 +167,80 @@ impl MenuOverlay {
 
                 if dest == old_path {
                     TOAST::push_skipped();
-                } else {
-                    TASKS::spawn(async move {
-                        match rename(&old_path, &dest).await {
-                            Ok(_) => {
-                                let new_display = dest.to_string_lossy().to_string().into();
-                                TOAST::pair(
-                                    ToastStyle::Success,
-                                    "Renamed: ",
-                                    short_display(&old_path),
-                                    new_display,
-                                );
+                    return OverlayEffect::None;
+                }
+
+                // Snapshot the picker and process state before the move: the
+                // old path stops existing, and STACK is thread-local — the
+                // spawned task can only react through GLOBAL::send_action.
+                let renames_cwd = STACK::cwd().as_ref() == Some(&old_path);
+                let renames_process_cwd = current_dir_matches(&old_path);
+
+                TASKS::spawn(async move {
+                    match rename(&old_path, &dest).await {
+                        Ok(_) => {
+                            let new_display = dest.to_string_lossy().to_string().into();
+                            TOAST::pair(
+                                ToastStyle::Success,
+                                "Renamed: ",
+                                short_display(&old_path),
+                                new_display,
+                            );
+                            // the picker stood in the renamed directory: follow it;
+                            // otherwise the watcher's rename event refreshes the
+                            // listing, so no explicit reload is needed
+                            if renames_cwd {
+                                GLOBAL::send_action(FsAction::Jump(vec![dest.clone().into()]));
                             }
-                            Err(_) => {
-                                TOAST::push(
-                                    ToastStyle::Error,
-                                    "Failed to rename: ",
-                                    [short_display(&old_path)],
-                                );
+                            if renames_process_cwd {
+                                // the process's own working directory moved: follow
+                                // it so relative paths and spawned commands resolve
+                                if let Err(e) = std::env::set_current_dir(&dest) {
+                                    log::error!(
+                                        "Failed to follow the renamed working directory {}: {e}",
+                                        dest.to_string_lossy()
+                                    );
+                                    TOAST::notice(
+                                        ToastStyle::Warning,
+                                        "Renamed the working directory; restart to refresh it.",
+                                    );
+                                }
                             }
                         }
-                    });
+                        Err(e) => {
+                            log::error!(
+                                "Failed to rename {} to {}: {e}",
+                                old_path.to_string_lossy(),
+                                dest.to_string_lossy()
+                            );
+                            TOAST::push(
+                                ToastStyle::Error,
+                                "Failed to rename: ",
+                                [short_display(&old_path)],
+                            );
+                        }
+                    }
+                });
+            }
+            PromptKind::Goto => {
+                let input = self.prompt.input.value();
+                let input_path = Path::new(&input);
+                if input_path.as_os_str().is_empty() {
+                    return OverlayEffect::None;
+                }
+                // relative paths resolve against the current directory
+                let dest = AbsPath::new_unchecked(input_path.abs(STACK::_cwd()));
+
+                if dest.is_dir() {
+                    GLOBAL::send_action(FsAction::Jump(vec![dest.into()]));
+                } else {
+                    TOAST::msg(
+                        vec![
+                            Span::styled(dest.to_string_lossy().to_string(), Color::Red),
+                            Span::raw(" is not a valid directory!"),
+                        ],
+                        false,
+                    );
                 }
             }
             PromptKind::SetAlias => {
@@ -166,13 +254,12 @@ impl MenuOverlay {
                 });
 
                 if let Some(name) = stash_name {
-                    let kind = GLOBAL::with_cfg(|c| {
-                        c.panes
-                            .stashes
-                            .get(&name)
-                            .map(|s| s.kind)
-                            .unwrap_or_default()
-                    });
+                    let kind = GLOBAL::cfg()
+                        .panes
+                        .stashes
+                        .get(&name)
+                        .map(|s| s.kind)
+                        .unwrap_or_default();
                     let pool = GLOBAL::db();
                     let tail = alias.clone();
                     let path = path.clone();
@@ -183,9 +270,7 @@ impl MenuOverlay {
                             }
                             _ => match pool.get_conn(DbTable::stashes).await {
                                 Ok(mut conn) => {
-                                    if let Err(e) =
-                                        conn.set_stash_tail(&name, &path, &tail).await
-                                    {
+                                    if let Err(e) = conn.set_stash_tail(&name, &path, &tail).await {
                                         log::error!("Error setting stash tail: {e}");
                                     }
                                 }

@@ -1,3 +1,11 @@
+//! Queue state, types, and operations.
+//!
+//! Defines the core types ([`QueueItem`], [`QueueState`], [`QueueSelector`],
+//! [`QueueView`]) and the [`QUEUE`] namespace struct that exposes all queue
+//! operations: enqueueing, view CRUD, selector-based dispatch, and clearing.
+//! The two module-level statics [`QUEUE_STATE`] and [`QUEUE_ACTION_HISTORY`]
+//! are the sole owners of live queue data.
+
 mod execute;
 mod status;
 pub use status::*;
@@ -42,6 +50,45 @@ pub enum QueueSelector {
     /// A specific queue kind.
     #[strum(default, to_string = "{0}")]
     Kind(QueueKind),
+}
+
+impl QueueSelector {
+    /// Returns the custom or builtin kind string if this is `QueueSelector::Kind`.
+    pub fn as_kind(&self) -> Option<&str> {
+        match self {
+            Self::Kind(k) => Some(k.as_str()),
+            _ => None,
+        }
+    }
+}
+
+/// Whether a string is a valid queue category (non-empty and not a reserved selector keyword).
+pub fn is_valid_queue_kind(kind: &str) -> bool {
+    !kind.is_empty() && matches!(kind.parse::<QueueSelector>(), Ok(QueueSelector::Kind(_)))
+}
+
+/// Shared validation function for runtime execution and `fs :tool check`.
+pub fn validate_queue_kind(
+    kind: &str,
+    actions: Option<&crate::menu::MenuActions>,
+) -> Result<(), String> {
+    if !is_valid_queue_kind(kind) {
+        return Err(format!("Unknown queue kind: {kind}"));
+    }
+    if BUILTIN_KINDS.contains(&kind) {
+        return Ok(());
+    }
+    let is_custom = match actions {
+        Some(acts) => acts.contains_key(kind),
+        None => crate::run::state::MENU_ACTIONS
+            .get()
+            .is_some_and(|m| m.contains_key(kind)),
+    };
+    if is_custom {
+        Ok(())
+    } else {
+        Err(format!("Unknown queue kind: {kind}"))
+    }
 }
 
 /// Outcome of matching a selector against the pending shared rows.
@@ -107,6 +154,58 @@ impl QueueState {
             mode: 0,
         }
     }
+
+    /// The underlying shared indices visible under the given kind filter.
+    pub fn visible_indices(
+        &self,
+        kind: Option<&str>,
+    ) -> Vec<usize> {
+        self.shared
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| kind.is_none_or(|k| item.kind == k))
+            .map(|(i, _)| i)
+            .collect()
+    }
+
+    /// The screen position of a queue item row under the given kind filter.
+    pub fn visible_position_of(
+        &self,
+        kind: Option<&str>,
+        row: usize,
+    ) -> Option<usize> {
+        self.visible_indices(kind)
+            .into_iter()
+            .position(|idx| idx == row)
+    }
+
+    /// Cycle the kind filter (+1 / -1) through `[None, distinct kinds...]` with wrapping.
+    pub fn next_kind(
+        &self,
+        current: Option<&str>,
+        delta: i32,
+    ) -> Option<String> {
+        let mut kinds: Vec<&str> = Vec::new();
+        for item in &self.shared {
+            if !kinds.contains(&item.kind.as_str()) {
+                kinds.push(item.kind.as_str());
+            }
+        }
+        let total = kinds.len() + 1;
+        if total < 2 {
+            return None;
+        }
+        let pos = match current {
+            None => 0,
+            Some(c) => kinds.iter().position(|&k| k == c).map(|i| i + 1).unwrap_or(0),
+        };
+        let next_pos = (pos as i32 + delta).rem_euclid(total as i32) as usize;
+        if next_pos == 0 {
+            None
+        } else {
+            Some(kinds[next_pos - 1].to_string())
+        }
+    }
 }
 
 pub static QUEUE_STATE: Mutex<QueueState> = Mutex::new(QueueState::new());
@@ -141,7 +240,7 @@ impl QUEUE {
         paths: Vec<AbsPath>,
     ) {
         debug_assert!(
-            !kind.is_empty() && matches!(kind.parse::<QueueSelector>(), Ok(QueueSelector::Kind(_))),
+            is_valid_queue_kind(&kind),
             "enqueue kinds must parse as an ordinary queue kind, got {kind:?}"
         );
         if paths.is_empty() {
@@ -400,7 +499,7 @@ impl QUEUE {
 
         TOAST::msg(format!("Starting {} items.", queue.len()), true);
 
-        let rename_policy = GLOBAL::with_cfg(|c| c.fs.rename_policy.clone());
+        let rename_policy = GLOBAL::cfg().fs.rename_policy.clone();
 
         TASKS::spawn_blocking(move || {
             for mut item in queue {
@@ -528,5 +627,89 @@ mod selector_tests {
         assert_eq!(QueueSelector::Builtins.to_string(), "Builtins");
         assert_eq!(QueueSelector::First.to_string(), "First");
         assert_eq!(QueueSelector::Kind("k".into()).to_string(), "k");
+    }
+
+    #[test]
+    fn selector_as_kind() {
+        assert_eq!(QueueSelector::All.as_kind(), None);
+        assert_eq!(QueueSelector::Builtins.as_kind(), None);
+        assert_eq!(QueueSelector::First.as_kind(), None);
+        assert_eq!(QueueSelector::Last.as_kind(), None);
+        assert_eq!(QueueSelector::Kind("copy".into()).as_kind(), Some("copy"));
+        assert_eq!(QueueSelector::Kind("zip".into()).as_kind(), Some("zip"));
+    }
+
+    #[test]
+    fn test_is_valid_queue_kind() {
+        assert!(!is_valid_queue_kind(""));
+        assert!(!is_valid_queue_kind("all"));
+        assert!(!is_valid_queue_kind("ALL"));
+        assert!(!is_valid_queue_kind("builtins"));
+        assert!(!is_valid_queue_kind("first"));
+        assert!(!is_valid_queue_kind("last"));
+
+        assert!(is_valid_queue_kind("copy"));
+        assert!(is_valid_queue_kind("cut"));
+        assert!(is_valid_queue_kind("symlink"));
+        assert!(is_valid_queue_kind("none"));
+        assert!(is_valid_queue_kind("zip"));
+        assert!(is_valid_queue_kind("my-action"));
+    }
+
+    #[test]
+    fn test_validate_queue_kind() {
+        // Builtins pass with or without custom actions map
+        assert!(validate_queue_kind("copy", None).is_ok());
+        assert!(validate_queue_kind("cut", None).is_ok());
+        assert!(validate_queue_kind("symlink", None).is_ok());
+        assert!(validate_queue_kind("none", None).is_ok());
+
+        // Reserved selectors fail
+        assert_eq!(
+            validate_queue_kind("all", None).unwrap_err(),
+            "Unknown queue kind: all"
+        );
+        assert_eq!(
+            validate_queue_kind("ALL", None).unwrap_err(),
+            "Unknown queue kind: ALL"
+        );
+        assert_eq!(
+            validate_queue_kind("builtins", None).unwrap_err(),
+            "Unknown queue kind: builtins"
+        );
+        assert_eq!(
+            validate_queue_kind("first", None).unwrap_err(),
+            "Unknown queue kind: first"
+        );
+        assert_eq!(
+            validate_queue_kind("last", None).unwrap_err(),
+            "Unknown queue kind: last"
+        );
+        assert_eq!(
+            validate_queue_kind("", None).unwrap_err(),
+            "Unknown queue kind: "
+        );
+
+        // Unknown custom action without map or global state
+        assert_eq!(
+            validate_queue_kind("unknown", None).unwrap_err(),
+            "Unknown queue kind: unknown"
+        );
+
+        // Custom action with provided actions map
+        let actions: crate::menu::MenuActions = toml::from_str(
+            r#"
+            [zip]
+            command = "print('zip')"
+            strategy = "Queue"
+            "#,
+        )
+        .unwrap();
+
+        assert!(validate_queue_kind("zip", Some(&actions)).is_ok());
+        assert_eq!(
+            validate_queue_kind("rar", Some(&actions)).unwrap_err(),
+            "Unknown queue kind: rar"
+        );
     }
 }

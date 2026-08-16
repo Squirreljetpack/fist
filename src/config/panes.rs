@@ -389,7 +389,10 @@ impl PanesConfig {
     /// Settings for the stash pane `name`. Stashes without an entry fall
     /// back to the default setting; the first lookup of a nonempty
     /// undefined name logs a warning.
-    pub fn stash_setting(&self, name: &str) -> &StashPaneSetting {
+    pub fn stash_setting(
+        &self,
+        name: &str,
+    ) -> &StashPaneSetting {
         match self.stashes.get(name) {
             Some(setting) => setting,
             None => {
@@ -408,7 +411,6 @@ impl PanesConfig {
 
 /// Fallback applied to stash panes without an entry: kind Transient,
 /// insert Replace.
-static DEFAULT_STASH_SETTING: LazyLock<StashPaneSetting> =
-    LazyLock::new(StashPaneSetting::default);
+static DEFAULT_STASH_SETTING: LazyLock<StashPaneSetting> = LazyLock::new(StashPaneSetting::default);
 /// Names whose missing config was already warned about (warn once per run).
 static WARNED_STASH_NAMES: Mutex<Vec<String>> = Mutex::new(Vec::new());

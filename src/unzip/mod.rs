@@ -9,11 +9,16 @@
 //! Format support lives behind [`ArchiveBackend`]: the `decompress` crate
 //! covers zip/tar family/ar/rar, and sevenz-rust2 covers 7z.
 //!
-//! Every source path maps to exactly one skeleton for the lifetime of the
-//! process: re-entering an archive reuses its skeleton instead of
-//! extracting again. Regenerating the contents requires exiting the app —
-//! all skeletons are removed on exit. A hard exit strands the per-process
-//! root under the system temp dir, where the system tmp cleaner reclaims it.
+//! Every source path maps to one current skeleton for the lifetime of the
+//! process: re-entering an archive reuses its skeleton unless the archive
+//! changed after the skeleton was created, in which case the skeleton is
+//! regenerated. The skeleton dir is named `<percent-encoded path>--<unix
+//! seconds>` under the unzip root, and holds one subfolder named after the
+//! archive (extension included) which is the extraction workdir — so the
+//! archive's absolute path is recoverable from the skeleton dir name alone
+//! (see [`recover_archive`]). Removing all skeletons happens on exit; a
+//! hard exit strands the per-process root under the system temp dir, where
+//! the system tmp cleaner reclaims it.
 
 use std::{
     collections::HashMap,
@@ -27,6 +32,7 @@ use matchmaker::nucleo::{Color, Span, Style};
 use crate::{
     abspath::AbsPath,
     cli::paths::__unzip,
+    config::ArchiveConfig,
     run::state::{GLOBAL, TOAST, ToastStyle},
     watcher::WatcherMessage,
 };
@@ -177,7 +183,7 @@ fn backend_for(path: &Path) -> Option<&'static dyn ArchiveBackend> {
 
 /// Root of every extraction skeleton:
 /// `<tmp>/fist/<process-id>/unzipped_storage_press_undo_to_go_back`.
-fn root() -> PathBuf {
+pub fn root() -> PathBuf {
     __unzip().to_path_buf()
 }
 
@@ -194,8 +200,11 @@ enum EntryState {
 
 /// One registered archive: its skeleton dir and lifecycle state.
 struct Entry {
-    /// Skeleton dir the archive is extracted into.
+    /// Skeleton dir holding the archive-name workdir.
     temp: PathBuf,
+    /// The extraction workdir (the archive-name subfolder) the user
+    /// navigates into.
+    workdir: PathBuf,
     /// Active-user counter, reserved for refcounted cleanup.
     #[allow(dead_code)]
     active: u32,
@@ -206,6 +215,7 @@ struct Entry {
 struct Job {
     /// Canonical archive path (also the map key).
     source: PathBuf,
+    /// Extraction destination: the archive-name workdir.
     temp: PathBuf,
 }
 
@@ -214,6 +224,8 @@ struct Worker {
     jobs: Mutex<Option<mpsc::Sender<Job>>>,
     /// Source path → entry, consulted by [`init`] to avoid re-extracting.
     entries: Mutex<HashMap<PathBuf, Entry>>,
+    /// Extraction settings.
+    config: ArchiveConfig,
 }
 
 static WORKER: OnceLock<Worker> = OnceLock::new();
@@ -223,7 +235,7 @@ fn worker() -> &'static Worker {
 }
 
 /// Spawn the extraction worker pool.
-pub fn start() {
+pub fn start(config: ArchiveConfig) {
     let (tx, rx) = mpsc::channel();
     let rx = Arc::new(Mutex::new(rx));
     let workers = std::thread::available_parallelism()
@@ -262,6 +274,7 @@ pub fn start() {
     let _ = WORKER.set(Worker {
         jobs: Mutex::new((spawned > 0).then_some(tx)),
         entries: Mutex::new(HashMap::new()),
+        config,
     });
 
     // best-effort cleanup for exit paths that skip [`shutdown`]
@@ -287,18 +300,20 @@ pub fn supported(path: &Path) -> bool {
 
 /// Synchronously create (or reuse) the extraction skeleton for `path`,
 /// queue its extraction on the worker pool, and re-arm must-watch on the
-/// skeleton dir.
+/// extraction workdir.
 ///
-/// Returns the skeleton dir to navigate into; `None` means the archive
-/// could not be listed (or previously failed) and the caller should handle
-/// the path normally.
+/// Returns the workdir to navigate into; `None` means the archive could
+/// not be listed (or previously failed) and the caller should handle the
+/// path normally.
 pub fn init(path: &Path) -> Option<AbsPath> {
     let source = path.canonicalize().ok()?;
     let backend = backend_for(&source)?;
     let w = worker();
 
-    // re-entering an archive reuses its skeleton — extraction may still be
-    // running or may already be done
+    // Re-entering an archive reuses its skeleton — extraction may still be
+    // running or already done — but only while the skeleton is newer than
+    // the archive itself; an archive changed after its skeleton was
+    // created makes the cached tree stale and it is regenerated.
     if let Some(entry) = w.entries.lock().ok()?.get(&source) {
         if matches!(entry.state, EntryState::Failed) {
             TOAST::notice(
@@ -307,9 +322,15 @@ pub fn init(path: &Path) -> Option<AbsPath> {
             );
             return None;
         }
-        must_watch(&entry.temp);
-        toast_entering();
-        return Some(AbsPath::new_unchecked(entry.temp.clone()));
+        if skeleton_is_fresh(&entry.temp, &source) {
+            must_watch(&entry.workdir);
+            toast_entering();
+            return Some(AbsPath::new_unchecked(entry.workdir.clone()));
+        }
+        log::info!("Stale skeleton for {}, re-extracting", source.display());
+        if w.config.cleanup_duplicates {
+            remove_stale_skeletons(&source);
+        }
     }
 
     log::info!(
@@ -325,16 +346,20 @@ pub fn init(path: &Path) -> Option<AbsPath> {
         }
     };
 
-    let temp = alloc_dir(&source)?;
+    let workdir = alloc_dir(&source)?;
     for entry in &listing {
-        skeleton_dir(&temp, entry);
+        skeleton_dir(&workdir, entry);
     }
 
     // register before queuing so a re-entry can never double-extract
     w.entries.lock().ok()?.insert(
         source.clone(),
         Entry {
-            temp: temp.clone(),
+            temp: workdir
+                .parent()
+                .expect("the workdir sits inside its skeleton")
+                .to_path_buf(),
+            workdir: workdir.clone(),
             active: 0,
             state: EntryState::Skeleton,
         },
@@ -344,47 +369,166 @@ pub fn init(path: &Path) -> Option<AbsPath> {
         && jobs
             .send(Job {
                 source,
-                temp: temp.clone(),
+                temp: workdir.clone(),
             })
             .is_err()
     {
         log::error!(
             "Unzip worker not running; extraction of {} was dropped",
-            temp.display()
+            workdir.display()
         );
     }
 
-    must_watch(&temp);
+    must_watch(&workdir);
     toast_entering();
-    Some(AbsPath::new_unchecked(temp))
+    Some(AbsPath::new_unchecked(workdir))
 }
 
-/// Allocates the skeleton dir for `source`, named by [`skeleton_name`].
+/// Allocates the skeleton dir for `source` (named by [`skeleton_name`])
+/// plus its archive-name workdir — the extraction destination and the dir
+/// the user navigates into.
 fn alloc_dir(source: &Path) -> Option<PathBuf> {
     let dir = root().join(skeleton_name(source));
     std::fs::create_dir_all(&dir).ok()?;
-    Some(dir)
+    let workdir = dir.join(archive_dir_name(source));
+    std::fs::create_dir_all(&workdir).ok()?;
+    Some(workdir)
 }
 
-/// Skeleton dir name for `source`: `ar--<escaped path>--<hash>` — the
-/// canonical path with every slash replaced by `--` (leading dashes
-/// trimmed), plus a hash of the canonical path, so distinct archives never
-/// share a dir.
+/// Skeleton dir name for `source`:
+/// `<percent-encoded canonical path>--<unix seconds>`. The timestamp makes
+/// regenerated skeletons unique; the encoded path (see [`encode_path`])
+/// keeps the original archive path recoverable from the dir name alone
+/// (see [`recover_archive`]).
 fn skeleton_name(source: &Path) -> String {
-    let escaped = source
-        .to_string_lossy()
-        .replace('/', "--")
-        .trim_start_matches('-')
-        .to_string();
-    format!("ar--{escaped}--{:x}", hash_path(source))
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    format!("{}--{now}", encode_path(source))
 }
 
-fn hash_path(path: &Path) -> u64 {
-    use std::hash::{Hash, Hasher};
+/// The workdir name inside a skeleton: the archive file name, extension
+/// included, so the archive's parent is recoverable from the path alone.
+fn archive_dir_name(source: &Path) -> String {
+    source
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| encode_path(source))
+}
 
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    path.hash(&mut hasher);
-    hasher.finish()
+/// Percent-encodes `path` for use as a skeleton dir name: `/` becomes
+/// `%2F` and each literal `%` becomes `%25` (escaped as it is met, so the
+/// encoding is unambiguous); every other character is kept as-is.
+fn encode_path(path: &Path) -> String {
+    let mut out = String::with_capacity(path.as_os_str().len());
+    for c in path.to_string_lossy().chars() {
+        match c {
+            '/' => out.push_str("%2F"),
+            '%' => out.push_str("%25"),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// Recovers the canonical archive path a skeleton dir name was built from:
+/// strips the trailing `--<timestamp>` and percent-decodes. `None` when
+/// `name` does not look like a skeleton dir name.
+pub fn recover_archive(name: &str) -> Option<PathBuf> {
+    let encoded = strip_timestamp(name)?;
+    let bytes = encoded.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%'
+            && let Some(byte) = percent_byte(&bytes[i..])
+        {
+            out.push(byte);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    Some(PathBuf::from(String::from_utf8_lossy(&out).into_owned()))
+}
+
+/// Decodes the `%xx` escape at the start of `bytes`, or `None` when it is
+/// not a valid escape.
+fn percent_byte(bytes: &[u8]) -> Option<u8> {
+    if bytes.len() < 3 || bytes[0] != b'%' {
+        return None;
+    }
+    let hi = (bytes[1] as char).to_digit(16)?;
+    let lo = (bytes[2] as char).to_digit(16)?;
+    Some((hi * 16 + lo) as u8)
+}
+
+/// Strips the trailing `--<digits>` timestamp suffix from a skeleton dir
+/// name. The suffix is always the last `--` in the name (the encoded path
+/// is a strict prefix), which is what `rsplit_once` picks.
+fn strip_timestamp(name: &str) -> Option<&str> {
+    let (prefix, suffix) = name.rsplit_once("--")?;
+    if suffix.is_empty() || !suffix.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    Some(prefix)
+}
+
+/// Parses the `--<unix seconds>` timestamp suffix of a skeleton dir name.
+/// `None` when the name has no valid timestamp suffix.
+fn skeleton_timestamp(name: &str) -> Option<u64> {
+    let (_, suffix) = name.rsplit_once("--")?;
+    if suffix.is_empty() || !suffix.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    suffix.parse().ok()
+}
+
+/// Whether `skeleton`'s cached extraction is still current for `source`.
+/// The skeleton's allocation time is read from the `--<unix seconds>`
+/// suffix of its dir name — no filesystem timestamps are consulted — and
+/// compared, at second granularity, against the archive's mtime. A name
+/// without a parseable suffix is not a skeleton and counts as stale, so
+/// re-entry allocates a fresh workdir.
+fn skeleton_is_fresh(
+    skeleton: &Path,
+    source: &Path,
+) -> bool {
+    let Some(ts) = skeleton
+        .file_name()
+        .and_then(|n| n.to_str())
+        .and_then(skeleton_timestamp)
+    else {
+        return false;
+    };
+    let Ok(archive) = std::fs::metadata(source) else {
+        return true;
+    };
+    let mtime_secs = archive
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    ts > mtime_secs
+}
+
+/// Removes every skeleton under the unzip root that decodes back to
+/// `source` (older timestamped copies included).
+fn remove_stale_skeletons(source: &Path) {
+    if let Ok(entries) = std::fs::read_dir(root()) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let Some(name) = name.to_str() else {
+                continue;
+            };
+            if recover_archive(name).as_deref() == Some(source) {
+                let _ = std::fs::remove_dir_all(entry.path());
+            }
+        }
+    }
 }
 
 /// Creates the directories implied by one archive entry: the entry itself
@@ -550,20 +694,92 @@ mod tests {
     #[test]
     fn skeleton_names() {
         let path = Path::new("/tmp/fist-archives.x/archive.7z");
-        assert_eq!(
-            skeleton_name(path),
-            format!(
-                "ar--tmp--fist-archives.x--archive.7z--{:x}",
-                hash_path(path)
-            )
-        );
+        let name = skeleton_name(path);
+
+        // <percent-encoded path>--<unix seconds>, recovering the source
+        let (encoded, ts) = name.rsplit_once("--").unwrap();
+        assert_eq!(encoded, "%2Ftmp%2Ffist-archives.x%2Farchive.7z");
+        assert!(!ts.is_empty() && ts.bytes().all(|b| b.is_ascii_digit()));
+        assert_eq!(recover_archive(&name).as_deref(), Some(path));
 
         // a path at the root has no leading separator to trim
         let root_path = Path::new("/a.tar");
-        assert_eq!(
-            skeleton_name(root_path),
-            format!("ar--a.tar--{:x}", hash_path(root_path))
+        let root_name = skeleton_name(root_path);
+        let (encoded, ts) = root_name.rsplit_once("--").unwrap();
+        assert_eq!(encoded, "%2Fa.tar");
+        assert!(!ts.is_empty() && ts.bytes().all(|b| b.is_ascii_digit()));
+        assert_eq!(recover_archive(&root_name).as_deref(), Some(root_path));
+    }
+
+    #[test]
+    fn skeleton_roundtrip() {
+        // % and / are escaped so the original path is losslessly recoverable
+        let path = Path::new("/tmp/a%2Fb (1)/ar..zip");
+        let name = skeleton_name(path);
+        assert_eq!(recover_archive(&name).as_deref(), Some(path));
+
+        // a path ending in --<digits> still recovers the full path
+        let tricky = Path::new("/x/a--123");
+        let name = skeleton_name(tricky);
+        assert_eq!(recover_archive(&name).as_deref(), Some(tricky));
+
+        // names without a timestamp suffix are not skeletons
+        assert_eq!(recover_archive("whatever"), None);
+    }
+
+    #[test]
+    fn skeleton_freshness() {
+        let dir = std::env::temp_dir().join(format!("fist-unzip-fresh-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let archive = dir.join("a.zip");
+        std::fs::write(&archive, b"x").unwrap();
+        let modified = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000);
+        std::fs::File::options()
+            .write(true)
+            .open(&archive)
+            .unwrap()
+            .set_modified(modified)
+            .unwrap();
+
+        // freshness comes from the --<unix seconds> suffix alone; the
+        // skeleton dir itself is never stat-ed
+        let skeleton = |ts: u64| dir.join(format!("whatever--{ts}"));
+
+        // skeleton allocated after the archive's mtime -> fresh
+        assert!(skeleton_is_fresh(&skeleton(1_800_000_000), &archive));
+        // skeleton allocated before the archive's mtime -> stale
+        assert!(!skeleton_is_fresh(&skeleton(1_500_000_000), &archive));
+        // same-second allocation counts as stale (second granularity)
+        assert!(!skeleton_is_fresh(&skeleton(1_700_000_000), &archive));
+        // name without a parseable timestamp -> stale, a fresh workdir is
+        // allocated on entry
+        assert!(!skeleton_is_fresh(&dir.join("no-timestamp"), &archive));
+        // an archive we cannot stat -> reuse whatever is cached
+        assert!(skeleton_is_fresh(&skeleton(0), &dir.join("missing.zip")));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn skeleton_timestamp_parsing() {
+        let name = format!(
+            "{}--{}",
+            encode_path(Path::new("/a/b.zip")),
+            1_727_000_000u64
         );
+        assert_eq!(skeleton_timestamp(&name), Some(1_727_000_000));
+        assert_eq!(
+            recover_archive(&name).as_deref(),
+            Some(Path::new("/a/b.zip"))
+        );
+
+        // missing or malformed suffixes parse to None (stale on entry)
+        assert_eq!(skeleton_timestamp("whatever"), None);
+        assert_eq!(skeleton_timestamp("a--"), None);
+        assert_eq!(skeleton_timestamp("a--x"), None);
+        assert_eq!(skeleton_timestamp("a--1x"), None);
     }
 
     #[test]
