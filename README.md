@@ -197,10 +197,9 @@ done |
 fs :custom --opener ob-open \
   --tail-sep $'\t' \
   --transform '
-return function(path, tail)
-    local display = (tail and tail ~= "") and ("/" .. path):match("^.-/" .. tail:gsub("%W", "%%%1") .. "/(.*)") or path
-    return path, display:gsub("^/+", ""):gsub("%.md$", ""), tail
-end
+local path, tail = ...
+local display = (tail and tail ~= "") and ("/" .. path):match("^.-/" .. tail:gsub("%W", "%%%1") .. "/(.*)") or path
+return path, display:gsub("^/+", ""):gsub("%.md$", ""), tail
 '
 ```
 
@@ -482,13 +481,12 @@ List every git repository (by locating its `.git` directory) under a couple of d
 
 ```shell
 fs -a --transform '
-return function(path, tail)
+local path, tail = ...
 local parent = path:gsub("/%.git$", "")
 if parent ~= path then
     return parent, parent:match("[^/]+$")
 end
 return path, path
-end
 ' --sort mtime $HOME/gh $SSdir '\\.git$'
 ```
 
