@@ -99,7 +99,7 @@ define_collection_wrapper!(
 pub enum MenuItem {
     New,
     Rename,
-    Cut,
+    Move,
     Copy,
     Symlink,
     Goto,
@@ -120,7 +120,7 @@ impl MenuItem {
         match self {
             MenuItem::New => "new",
             MenuItem::Rename => "rename",
-            MenuItem::Cut => "cut",
+            MenuItem::Move => "move",
             MenuItem::Copy => "copy",
             MenuItem::Symlink => "symlink",
             MenuItem::Trash => "trash",
@@ -137,7 +137,7 @@ impl MenuItem {
         match self {
             MenuItem::New => Some("N"),
             MenuItem::Rename => Some("R"),
-            MenuItem::Cut => Some("X"),
+            MenuItem::Move => Some("M"),
             MenuItem::Copy => Some("C"),
             MenuItem::Trash => Some("T"),
             MenuItem::Delete => Some("D"),
@@ -159,9 +159,9 @@ impl MenuItem {
         match self {
             MenuItem::New => Ok(MenuPrompt::new(PromptKind::New)),
             MenuItem::Rename => Ok(rename_prompt_for(&path)),
-            MenuItem::Cut => {
-                TOAST::push(ToastStyle::Normal, "Cut: ", [short_display(&path)]);
-                QUEUE::enqueue("cut".into(), vec![path]);
+            MenuItem::Move => {
+                TOAST::push(ToastStyle::Normal, "Move: ", [short_display(&path)]);
+                QUEUE::enqueue("move".into(), vec![path]);
                 Err(false)
             }
             MenuItem::Copy => {
@@ -241,7 +241,14 @@ impl MenuEntry {
         let Some(letter) = self.alias.as_deref().and_then(|a| a.chars().next()) else {
             return Line::from(Span::raw(label.to_string()));
         };
-        let style = Style::default().add_modifier(Modifier::ITALIC | Modifier::BOLD);
+        // default (builtin) actions get a bold white hotkey letter; custom
+        // menu actions keep the italic-bold hotkey letter
+        let style = match &self.item {
+            MenuItem::Custom { .. } => {
+                Style::default().add_modifier(Modifier::ITALIC | Modifier::BOLD)
+            }
+            _ => Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+        };
 
         match label
             .char_indices()
@@ -291,7 +298,7 @@ impl ColumnIndexable for MenuEntry {
 pub const MENU_ITEMS: [MenuItem; 10] = [
     MenuItem::New,
     MenuItem::Rename,
-    MenuItem::Cut,
+    MenuItem::Move,
     MenuItem::Copy,
     MenuItem::Trash,
     MenuItem::Delete,
@@ -967,8 +974,8 @@ mod tests {
             "hotkey letter inside the label: \n{text}"
         );
         assert!(
-            text.contains("cut (X)"),
-            "alias letter appended when not in the label: \n{text}"
+            text.contains("Move"),
+            "the renamed action renders with its hotkey letter: \n{text}"
         );
         assert!(
             !text.contains("> "),
@@ -978,7 +985,7 @@ mod tests {
         // a bound FsAction is dropped while the menu is open
         let effect = {
             let o = &mut overlay as &mut dyn Overlay<FsAction, PathItem, ()>;
-            o.handle_action(&Action::Custom(FsAction::Cut), &mut mm_state)
+            o.handle_action(&Action::Custom(FsAction::Move), &mut mm_state)
         };
         assert!(matches!(effect, OverlayEffect::None));
 
@@ -986,7 +993,7 @@ mod tests {
         // input only filters
         let (alias_effect, filter_effect) = {
             let o = &mut overlay as &mut dyn Overlay<FsAction, PathItem, ()>;
-            let alias = o.handle_input('X', &mut mm_state);
+            let alias = o.handle_input('M', &mut mm_state);
             let filter = o.handle_input('z', &mut mm_state);
             (alias, filter)
         };

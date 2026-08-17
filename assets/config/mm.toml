@@ -116,7 +116,7 @@ word_boundaries = ['.', '/']
 
 ### File Actions
 "ctrl-v" = "Paste"
-"ctrl-x" = "Cut"
+"ctrl-x" = "Move"
 "ctrl-c" = "Copy"
 "ctrl-n" = "New"
 "ctrl-shift-n" = "NewDir"

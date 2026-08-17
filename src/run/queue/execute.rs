@@ -1,7 +1,7 @@
 //! Execution logic for queued items.
 //!
 //! Extends [`QueueItem`] with [`QueueItem::execute`], which runs one item to
-//! completion: builtin transfers (`copy`, `cut`, `symlink`, `none`) or a Lua
+//! completion: builtin transfers (`copy`, `move`, `symlink`, `none`) or a Lua
 //! script for custom kinds. Also provides [`QUEUE::check_validity`], which
 //! marks pending items whose source paths no longer exist as
 //! [`QueueItemState::PendingErr`].
@@ -24,7 +24,7 @@ use crate::{
 
 impl QueueItem {
     /// Execute this item according to its kind:
-    /// - `"copy"` / `"cut"` / `"symlink"` run the builtin transfer logic on
+    /// - `"copy"` / `"move"` / `"symlink"` run the builtin transfer logic on
     ///   each source path, using the destination as-is (single-path items
     ///   are pre-resolved by the caller);
     /// - `"none"` is a no-op;
@@ -54,7 +54,7 @@ impl QueueItem {
 
         status.state.store(QueueItemState::Started);
 
-        let is_move = kind == "cut";
+        let is_move = kind == "move";
 
         let mut any_success = false;
 
@@ -76,7 +76,7 @@ impl QueueItem {
                 status.state.store(QueueItemState::CompleteOk);
                 any_success = true;
             }
-            "copy" | "cut" => {
+            "copy" | "move" => {
                 for path in src {
                     let QueueItemStatus {
                         state,

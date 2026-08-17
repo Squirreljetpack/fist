@@ -53,6 +53,15 @@ impl<'de> Deserialize<'de> for Action {
     }
 }
 
+// pub enum CommandStrategy {
+// Pager(OsString)
+// Header,
+// Metadata(OsString)
+// Prog(OsString, Vec<OsString>)
+// }
+// impl CommandStrategy
+// fn new_prog(prog: Vec<OsString>)
+
 #[allow(warnings)]
 impl Action {
     /// submit to [crate::spawn::spawn]
