@@ -94,7 +94,7 @@ fn config_as_code() -> BindMap<FsAction> {
         key!(ctrl-v) => FsAction::Paste("".into()),
 
         // these behave the same on the prompt
-        key!(ctrl-x) => FsAction::Cut,
+        key!(ctrl-x) => FsAction::Move,
         key!(ctrl-c) => FsAction::Copy,
         key!(ctrl-n) => FsAction::New,
 

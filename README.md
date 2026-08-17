@@ -60,7 +60,7 @@ Call as:
 
 ---
 
-- `ctrl-x`/`ctrl-c`/`ctrl-v`: Cut, Copy, Paste.
+- `ctrl-x`/`ctrl-c`/`ctrl-v`: Move, Copy, Paste.
 - `delete/shift-delete`: Trash/Delete.
 - `ctrl-e`: Open menu.
 - `ctrl-u`: Open queue.
@@ -278,7 +278,7 @@ Custom actions can be added in the `[menu]` section of the config. They consist 
 
 The **Queue** overlay (`ctrl-u`) lists the pending file operations. Rows show their kind, source, destination, and progress, and can be edited, rearranged, removed and executed from the overlay. `Undo`/`Redo` cycles between filters to narrows the overlay to a single queue kind.
 
-`Copy` and `Cut` enqueue items under the `copy` and `cut` kinds. The `Paste` (`ctrl-v`) keybind is available to executes every queued `copy`, `cut` and `symlink` item without enterring the overlay, transferring files into the active directory.[^7] `ExecuteQueue(selector)`, `Enqueue(kind)` and `ClearQueue(selector)` are also available for binding.
+`Move` and `Copy` enqueue items under the `move` and `copy` kinds. The `Paste` (`ctrl-v`) keybind is available to executes every queued `copy`, `move` and `symlink` item without enterring the overlay, transferring files into the active directory.[^7] `ExecuteQueue(selector)`, `Enqueue(kind)` and `ClearQueue(selector)` are also available for binding.
 
 Menu actions with the `Queue`/`QueueBatch` strategies enqueue their targets under the action's key; on execution the action's lua script runs once per queued item with `(paths, dst, nav_cwd)`.
 

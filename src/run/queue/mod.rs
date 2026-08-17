@@ -23,15 +23,15 @@ use crate::{
     },
 };
 
-/// The kind of a queued operation: a builtin (`copy`, `cut`, `symlink`,
+/// The kind of a queued operation: a builtin (`copy`, `move`, `symlink`,
 /// `none`) or a custom menu-action key.
 pub type QueueKind = String;
 
 /// The builtin queue kinds, enqueued one row per path.
-pub const BUILTIN_KINDS: [&str; 4] = ["copy", "cut", "symlink", "none"];
+pub const BUILTIN_KINDS: [&str; 4] = ["copy", "move", "symlink", "none"];
 
 /// The builtin queue kinds that require a destination to execute.
-pub const DEST_KINDS: [&str; 3] = ["copy", "cut", "symlink"];
+pub const DEST_KINDS: [&str; 3] = ["copy", "move", "symlink"];
 
 /// Selector over queued operations used by `ExecuteQueue`/`ClearQueue`.
 /// Parsing is ASCII case-insensitive for the reserved spellings; any other
@@ -41,7 +41,7 @@ pub const DEST_KINDS: [&str; 3] = ["copy", "cut", "symlink"];
 pub enum QueueSelector {
     /// Every queue kind.
     All,
-    /// The builtin transfer kinds (`copy`, `cut`, `symlink`).
+    /// The builtin transfer kinds (`copy`, `move`, `symlink`).
     Builtins,
     /// The first pending row.
     First,
@@ -137,7 +137,7 @@ impl QueueItem {
 
 /// The shared queue state.
 pub struct QueueState {
-    /// Items added under a queue kind (`copy`/`cut`/`symlink` builtins, or a
+    /// Items added under a queue kind (`copy`/`move`/`symlink` builtins, or a
     /// custom kind which executes as a lua script — see [`QueueItem::execute`]).
     pub shared: Vec<QueueItem>,
     /// Not implemented anywhere — kept inert as specified by STASHPANE.md.
@@ -649,7 +649,7 @@ mod selector_tests {
         assert!(!is_valid_queue_kind("last"));
 
         assert!(is_valid_queue_kind("copy"));
-        assert!(is_valid_queue_kind("cut"));
+        assert!(is_valid_queue_kind("move"));
         assert!(is_valid_queue_kind("symlink"));
         assert!(is_valid_queue_kind("none"));
         assert!(is_valid_queue_kind("zip"));
@@ -660,7 +660,7 @@ mod selector_tests {
     fn test_validate_queue_kind() {
         // Builtins pass with or without custom actions map
         assert!(validate_queue_kind("copy", None).is_ok());
-        assert!(validate_queue_kind("cut", None).is_ok());
+        assert!(validate_queue_kind("move", None).is_ok());
         assert!(validate_queue_kind("symlink", None).is_ok());
         assert!(validate_queue_kind("none", None).is_ok());
 

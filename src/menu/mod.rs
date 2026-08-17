@@ -34,7 +34,7 @@ impl Default for MenuActions {
 /// selectors; defining an action under one of these (case-insensitively) or
 /// under the empty key is a config error.
 pub const RESERVED_KEYS: [&str; 8] = [
-    "copy", "cut", "symlink", "none", "all", "builtins", "first", "last",
+    "copy", "move", "symlink", "none", "all", "builtins", "first", "last",
 ];
 
 impl<'de> Deserialize<'de> for MenuActions {
@@ -72,7 +72,10 @@ impl MenuActions {
             merge_actions(&mut merged, primary, &content)?;
         }
         let mut files = Vec::new();
-        fn collect_toml_files(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) -> Result<(), std::io::Error> {
+        fn collect_toml_files(
+            dir: &std::path::Path,
+            files: &mut Vec<std::path::PathBuf>,
+        ) -> Result<(), std::io::Error> {
             if dir.is_dir() {
                 for entry in std::fs::read_dir(dir)? {
                     let entry = entry?;
@@ -187,7 +190,9 @@ impl MenuAction {
                 })
             )
         }) {
-            nav_cwd.map(|p| vec![p]).unwrap_or_else(|| vec![fallback_target])
+            nav_cwd
+                .map(|p| vec![p])
+                .unwrap_or_else(|| vec![fallback_target])
         } else if self.condition.iter().any(|c| {
             matches!(
                 c,
@@ -197,7 +202,8 @@ impl MenuAction {
                 })
             )
         }) {
-            cwd.map(|p| vec![p]).unwrap_or_else(|| vec![fallback_target])
+            cwd.map(|p| vec![p])
+                .unwrap_or_else(|| vec![fallback_target])
         } else if self.condition.iter().any(|c| {
             matches!(
                 c,
@@ -209,7 +215,8 @@ impl MenuAction {
         }) && selected.is_empty()
             && cursor_disabled
         {
-            cwd.map(|p| vec![p]).unwrap_or_else(|| vec![fallback_target])
+            cwd.map(|p| vec![p])
+                .unwrap_or_else(|| vec![fallback_target])
         } else if selected.is_empty() {
             vec![fallback_target]
         } else {
@@ -494,7 +501,10 @@ pub struct MenuEvaluationContext<'a> {
 }
 
 impl<'a> MenuEvaluationContext<'a> {
-    pub fn new(state: &MMState<'_, PathItem, ()>, lcfg: &'a LessfilterConfig) -> Self {
+    pub fn new(
+        state: &MMState<'_, PathItem, ()>,
+        lcfg: &'a LessfilterConfig,
+    ) -> Self {
         let selected: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
         let cursor_disabled = state.picker_ui.results.cursor_disabled();
         let cursor = if cursor_disabled {
@@ -520,7 +530,10 @@ impl<'a> MenuEvaluationContext<'a> {
         }
     }
 
-    pub fn is_applicable(&mut self, action: &MenuAction) -> bool {
+    pub fn is_applicable(
+        &mut self,
+        action: &MenuAction,
+    ) -> bool {
         condition_passes(
             &action.condition,
             &self.selected,
@@ -534,7 +547,10 @@ impl<'a> MenuEvaluationContext<'a> {
         )
     }
 
-    pub fn resolve_targets(&self, action: &MenuAction) -> Vec<AbsPath> {
+    pub fn resolve_targets(
+        &self,
+        action: &MenuAction,
+    ) -> Vec<AbsPath> {
         action.resolve_targets(
             self.selected.clone(),
             self.fallback.clone(),
@@ -601,7 +617,11 @@ mod tests {
         let inner_file = sub_dir.join("inner.toml");
 
         std::fs::write(&top_file, "[top_action]\ncommand = \"print('top')\"\n").unwrap();
-        std::fs::write(&inner_file, "[inner_action]\ncommand = \"print('inner')\"\n").unwrap();
+        std::fs::write(
+            &inner_file,
+            "[inner_action]\ncommand = \"print('inner')\"\n",
+        )
+        .unwrap();
 
         let primary = temp_dir.join("primary.toml");
         let actions = MenuActions::load_all(&primary, &temp_dir).unwrap();

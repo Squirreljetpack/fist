@@ -1046,9 +1046,9 @@ mod tests {
     fn sample_queue_state() -> QueueState {
         let mut state = QueueState::new();
         state.shared = vec![
-            QueueItem::new("cut".into(), AbsPath::new("/tmp/cut_1.txt")),
+            QueueItem::new("move".into(), AbsPath::new("/tmp/move_1.txt")),
             QueueItem::new("copy".into(), AbsPath::new("/tmp/copy_1.txt")),
-            QueueItem::new("cut".into(), AbsPath::new("/tmp/cut_2.txt")),
+            QueueItem::new("move".into(), AbsPath::new("/tmp/move_2.txt")),
         ];
         state
     }
@@ -1063,8 +1063,8 @@ mod tests {
         // Filter "copy": only index 1 visible
         assert_eq!(state.visible_indices(Some("copy")), vec![1]);
 
-        // Filter "cut": indices 0 and 2 visible
-        assert_eq!(state.visible_indices(Some("cut")), vec![0, 2]);
+        // Filter "move": indices 0 and 2 visible
+        assert_eq!(state.visible_indices(Some("move")), vec![0, 2]);
 
         // Filter non-existent kind: empty
         assert_eq!(state.visible_indices(Some("delete")), Vec::<usize>::new());
@@ -1077,7 +1077,7 @@ mod tests {
         // When filtered by "copy", underlying row 1 is at visible position 0
         assert_eq!(state.visible_position_of(Some("copy"), 1), Some(0));
 
-        // Underlying row 0 (cut) is filtered out
+        // Underlying row 0 (move) is filtered out
         assert_eq!(state.visible_position_of(Some("copy"), 0), None);
     }
 
@@ -1095,7 +1095,7 @@ mod tests {
         assert!(table.selected.is_empty());
         assert!(table.editing.is_none());
         assert!(table.reiinit);
-        assert_eq!(table.kind_filter, Some("cut".to_string()));
+        assert_eq!(table.kind_filter, Some("move".to_string()));
 
         // Cycle next again wraps to "copy"
         table.cycle_filter_from(1, &state);

@@ -15,7 +15,7 @@ The action key serves two roles:
   rows by the exact key.
 
 The following keys are reserved and rejected (case-insensitively): the
-builtin queue kinds `copy`, `cut`, `symlink`, `none`, the selectors `all`,
+builtin queue kinds `copy`, `move`, `symlink`, `none`, the selectors `all`,
 `builtins`, `first`, `last`, and the empty key.
 
 ## Fields
@@ -194,4 +194,4 @@ command = "print('processing log ' .. paths[1] .. ' -> ' .. dst)"
   (`ExecuteQueue` with no argument) silently skips such rows with an empty
   destination, exact selectors report an error.
 - The queue overlay's `[kind: x]` filter cycles the shared queue by kind;
-  `Paste` executes all pending `copy`, `cut`, and `symlink` rows.
+  `Paste` executes all pending `copy`, `move`, and `symlink` rows.

@@ -109,8 +109,8 @@ pub enum FsAction {
 
     // file actions
     // ----------------------------------
-    /// Cut file (to the [`QUEUE`] and the system clipboard).
-    Cut,
+    /// Move file (to the [`QUEUE`] and the system clipboard).
+    Move,
     /// Copy file (to the [`QUEUE`] and the system clipboard).
     Copy,
     /// Copy full path.
@@ -133,7 +133,7 @@ pub enum FsAction {
     Delete(bool),
     /// Internal confirmation action.
     Confirm,
-    /// Execute the queued copy, cut, and symlink operations into the
+    /// Execute the queued copy, move, and symlink operations into the
     /// current or specified directory.
     Paste(PathBuf),
     /// Execute an action on the current item according [Lessfilter rules](crate::lessfilter::RulesConfig)
@@ -846,7 +846,7 @@ pub fn fsaction_handler(
         // File actions
         // --------------------------------
         // the active item is the cwd while cursor_disabled
-        FsAction::Cut => {
+        FsAction::Move => {
             let mut toast_vec = vec![];
             let mut cb_vec = vec![];
             let items = if state.picker_ui.results.cursor_disabled() {
@@ -865,8 +865,8 @@ pub fn fsaction_handler(
                 })
             };
             if !items.is_empty() {
-                QUEUE::enqueue("cut".into(), items);
-                TOAST::push(ToastStyle::Normal, "Cut: ", toast_vec);
+                QUEUE::enqueue("move".into(), items);
+                TOAST::push(ToastStyle::Normal, "Move: ", toast_vec);
                 copy_files(cb_vec, false);
             };
         }
@@ -1214,7 +1214,7 @@ pub fn fsaction_handler(
                     return;
                 }
                 match kind.as_str() {
-                    "cut" => GLOBAL::send_action(FsAction::Cut),
+                    "move" => GLOBAL::send_action(FsAction::Move),
                     "copy" => GLOBAL::send_action(FsAction::Copy),
                     _ => {
                         let mut toast_vec = vec![];
@@ -1680,7 +1680,7 @@ enum_from_str_display! {
     Undo, Redo,
     ShowOptions, ShowQueue,
     ShowMenu, FsToggle, ToggleHidden,
-    Cut, Copy, CopyPath, New, NewDir, Rename,
+    Move, Copy, CopyPath, New, NewDir, Rename,
     Backup;
 
     tuples:
@@ -2057,16 +2057,16 @@ mod queue_action_parse_tests {
         // missing data is an error
         assert!("Enqueue".parse::<FsAction>().is_err());
 
-        // Copy and Cut are standalone unit actions
+        // Copy and Move are standalone unit actions
         let copy: FsAction = "Copy".parse().unwrap();
         assert_eq!(copy, FsAction::Copy);
         let copy_lower: FsAction = "copy".parse().unwrap();
         assert_eq!(copy_lower, FsAction::Copy);
 
-        let cut: FsAction = "Cut".parse().unwrap();
-        assert_eq!(cut, FsAction::Cut);
-        let cut_lower: FsAction = "cut".parse().unwrap();
-        assert_eq!(cut_lower, FsAction::Cut);
+        let mv: FsAction = "Move".parse().unwrap();
+        assert_eq!(mv, FsAction::Move);
+        let mv_lower: FsAction = "move".parse().unwrap();
+        assert_eq!(mv_lower, FsAction::Move);
 
         // Symlink is not an action
         assert!("Symlink".parse::<FsAction>().is_err());
