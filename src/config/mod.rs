@@ -10,10 +10,7 @@ use cba::{
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
-    cli::{
-        clap_helpers::ClapStyleOverride,
-        paths::{liza_path, text_renderer_path},
-    },
+    cli::{clap_helpers::ClapStyleOverride, paths::liza_path},
     db::zoxide::HistoryConfig,
     watcher::WatcherConfig,
 };
@@ -74,6 +71,44 @@ impl Default for Config {
     }
 }
 
+fn default_pager_bat_opts() -> Option<Vec<String>> {
+    Some(vec!["--color=always".into(), "--style=changes".into()])
+}
+
+/// Configure the pager (bat passthrough into minus).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PagerConfig {
+    /// Bat passthrough args. Defaults to forcing color + style on.
+    /// `None` disables bat entirely (raw stream into the pager).
+    #[serde(default = "default_pager_bat_opts")]
+    pub bat_opts: Option<Vec<String>>,
+
+    /// Show line numbers in the pager.
+    pub line_numbers: bool,
+
+    /// Start the pager in follow mode (auto-scroll as new output arrives).
+    pub follow: bool,
+
+    /// Footer prompt text shown by the pager. Defaults to `/ or ? to search`.
+    pub prompt: Option<String>,
+
+    /// Always enable horizontal scrolling (Ctrl+h still toggles it).
+    pub horizontal_scroll: bool,
+}
+
+impl Default for PagerConfig {
+    fn default() -> Self {
+        Self {
+            bat_opts: default_pager_bat_opts(),
+            line_numbers: false,
+            follow: false,
+            prompt: None,
+            horizontal_scroll: false,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct GlobalConfig {
@@ -96,6 +131,9 @@ pub struct GlobalConfig {
     /// Matchmaker styling overrides (per-pane).
     /// [Warning!]: Unstable and untested.
     pub mm: MatchmakerOverrides,
+
+    /// Pager configuration (bat passthrough args).
+    pub pager: PagerConfig,
 }
 
 /// Settings for archive extraction skeletons.
@@ -382,10 +420,6 @@ impl Config {
     ) {
         let files = [
             (liza_path(), include_str!("../../assets/scripts/liza")),
-            (
-                text_renderer_path(),
-                include_str!("../../assets/scripts/pager"),
-            ),
             (
                 show_error_path(),
                 include_str!("../../assets/scripts/fist_show_error"),

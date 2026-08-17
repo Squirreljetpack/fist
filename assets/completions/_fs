@@ -877,7 +877,7 @@ _fs__subcmd__:tool_commands() {
 'liza:List directory (eza wrapper)' \
 'shell:Dump the initialization code for your shell' \
 'lessfilter:Context and preset dependent file handler' \
-'pager:' \
+'pager:Page a file or stdin through bat into minus (single optional path)' \
 'bump:Bump history entries' \
 'trash:Trash files with timed fallback prompts' \
 'show-binds:Show binds' \

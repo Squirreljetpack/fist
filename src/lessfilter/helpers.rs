@@ -16,25 +16,47 @@ use crossterm::style::Stylize;
 
 pub use super::application_helper::application_icon_path;
 use super::env::line_column;
-use crate::cli::paths::{current_exe, text_renderer_path};
+use crate::cli::paths::current_exe;
 use crate::lessfilter::mime_helpers::{detect_encoding, is_native};
+use crate::pager;
 
-#[allow(clippy::ptr_arg)]
-pub fn is_header(cmd: &Vec<OsString>) -> bool {
-    cmd.is_empty()
-}
+/// Subtool-side bat args derived from the process env. Returns `None` to skip bat entirely:
+/// `PG_RAW=true` (the parent's Paged flow will color the stream itself).
+///
+/// Args: `PG_FLAGS` set → comma-split with doubled-escape (raw, caller-supplied flags);
+/// otherwise the default triple `--color=always --paging=never --style=changes`. Then
+/// `PG_LANG` → `-l`, `PG_FILENAME` → `--file-name`, `HIGHLIGHT_LINE` → `--highlight-line`
+/// are appended. `PG_RAW` set → `None` (skip bat entirely).
+pub fn env_bat_opts() -> Option<Vec<String>> {
+    fn env_val(name: &str) -> Option<String> {
+        env::var(name).ok().filter(|s| !s.is_empty())
+    }
 
-pub fn simple_header(_path: &Path) -> Vec<OsString> {
-    vec_![]
-}
+    if env_val("PG_RAW").is_some_and(|v| v == "true") {
+        return None;
+    }
 
-#[allow(clippy::ptr_arg)]
-pub fn is_metadata(cmd: &Vec<OsString>) -> bool {
-    cmd.len() == 1 && cmd[0].is_empty()
-}
-
-pub fn simple_metadata(_path: &Path) -> Vec<OsString> {
-    vec_![: ""]
+    let mut args = match env_val("PG_FLAGS") {
+        Some(flags) => {
+            cba::bring::split::split_on_delimiter_with_doubled_escape(&flags, ',')
+        }
+        None => vec!["--color=always".into(), "--paging=never".into(), "--style=changes".into()],
+    };
+    if let Some(lang) = env_val("PG_LANG") {
+        args.push("-l".into());
+        args.push(lang);
+    }
+    if let Some(name) = env_val("PG_FILENAME") {
+        args.push("--file-name".into());
+        args.push(name);
+    }
+    if let Some(line) =
+        env_val("HIGHLIGHT_LINE").filter(|s| s.chars().all(|c| c.is_ascii_digit()))
+    {
+        args.push("--highlight-line".into());
+        args.push(line);
+    }
+    Some(args)
 }
 
 // don't show header when printing to tty
@@ -414,9 +436,6 @@ pub fn extract(path: &Path) -> bool {
         return false;
     };
 
-    let mut pager = Command::new(text_renderer_path());
-
-    pager.stdin(kreuzberg);
-
-    pager.status()._ebog().is_some_and(|s| s.success())
+    // pipe kreuzberg's plain text straight into the in-process pager
+    pager::page_reader(kreuzberg, false, env_bat_opts()).is_ok()
 }

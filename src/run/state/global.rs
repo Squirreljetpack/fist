@@ -55,10 +55,10 @@ impl GLOBAL {
         #[cfg(test)]
         {
             if CONFIG.with(|c| c.get().is_some()) {
-                return
+                return;
             }
         }
-    
+
         // need to handle the patterns listened on by sync_handler
         let sort = pane.sort_order();
         let visibility = match &pane {
@@ -71,7 +71,7 @@ impl GLOBAL {
         debug!("Initial filters: {sort}, {visibility:?}");
         FILTERS::set(visibility);
 
-        let _ = CONFIG.with(|c| c.set(config));
+        CONFIG.with(|c| c.set(config).ok());
         let _ = DB.with(|db| db.set(db_pool));
         let _ = RENDER_TX.set(render_tx);
         let _ = WATCHER_TX.set(watcher_tx);
@@ -85,6 +85,12 @@ impl GLOBAL {
             .with(tls_ref)
             .get()
             .expect("GlobalConfig not initialized")
+    }
+
+    /// The global config when `GLOBAL::init` has been called, else `None`
+    /// (subtool processes never run the TUI, so they have no global state).
+    pub fn cfg_opt() -> Option<&'static GlobalConfig> {
+        CONFIG.with(tls_ref).get()
     }
 
     /// `#[cfg(test)]` helper: wire the render/watcher/bind senders to dummy

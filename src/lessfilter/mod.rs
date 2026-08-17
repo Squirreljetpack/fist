@@ -6,8 +6,8 @@ mod config;
 pub mod file_rule;
 mod helpers;
 pub mod rule_matcher;
-use cba::broc::tty_or_inherit;
 pub use config::*;
+pub use helpers::env_bat_opts;
 pub mod env;
 pub mod mime_helpers;
 
@@ -16,18 +16,16 @@ use cba::bog::BogUnwrapExt;
 use cba::{_trace, ebog, unwrap};
 use cba::{bog::BogOkExt, broc::CommandExt};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 use crate::cli::clap_tools::LessfilterCommand;
 use crate::lessfilter::env::line_column;
-use crate::lessfilter::helpers::{
-    extract, is_header, is_metadata, show_header, show_simple_metadata,
-};
-use crate::utils::formatter::format_path;
+use crate::lessfilter::helpers::{extract, show_header, show_simple_metadata};use crate::utils::formatter::format_path;
+use crate::pager;
 use crate::{
     abspath::AbsPath,
     lessfilter::{
-        action::Action,
+        action::{Action, CommandStrategy},
         file_rule::{FileData, FileRule},
         rule_matcher::RuleMatcher,
     },
@@ -88,14 +86,6 @@ pub fn handle(
     }
     log::debug!("rule found: {rule:?}");
 
-    let maybe_tty = || {
-        if tty || matches!(preset, Preset::Edit) {
-            tty_or_inherit()
-        } else {
-            Stdio::inherit()
-        }
-    };
-
     let rl = rule.len().saturating_sub(1);
 
     for (i, action) in rule.iter().enumerate() {
@@ -112,48 +102,52 @@ pub fn handle(
             log::trace!("spawning custom: {script}");
 
             if !no_exec && i == rl {
-                cmd.stdin(maybe_tty()).stdout(maybe_tty())._exec();
+                cmd._exec();
             }
 
-            cmd.stdout(maybe_tty()).stdin(maybe_tty());
             cmd.status()._ebog().is_some_and(|s| s.success())
         } else if matches!(action, Action::Extract) {
             extract(path)
         } else {
-            let (progs, perms) = action.to_progs(path, preset);
+            let (strategies, perms) = action.to_progs(path, preset);
             let mut progs_success = true;
 
-            // let pl = progs.iter().rposition(|x| !is_header(x) && !is_metadata(x));
-            let pl = (!progs.is_empty()).then_some(progs.len() - 1);
+            let pl = (!strategies.is_empty()).then_some(strategies.len() - 1);
 
-            for (pi, mut prog) in progs.into_iter().enumerate() {
-                _trace!(prog);
-                // filter out headers
-                let current_success = if is_header(&prog) {
-                    if header.is_none() {
-                        for p in &paths {
-                            show_header(p)
+            for (pi, strategy) in strategies.into_iter().enumerate() {
+                _trace!(strategy);
+                let current_success = match strategy {
+                    CommandStrategy::Header => {
+                        if header.is_none() {
+                            for p in &paths {
+                                show_header(p)
+                            }
                         }
+                        true
                     }
-                    true
-                } else if is_metadata(&prog) {
-                    paths.iter().all(|p| show_simple_metadata(p, pi == 0))
-                } else {
-                    // Handle singleton execution
-                    if !no_exec && Some(pi) == pl && i == rl {
-                        let mut cmd = Command::new(prog.remove(0))
-                            .with_args(prog)
-                            .with_args(&paths[1..]);
-                        cmd.stdin(maybe_tty()).stdout(maybe_tty())._exec();
+                    CommandStrategy::Metadata(p) => {
+                        paths.iter().all(|path| show_simple_metadata(path, pi == 0))
                     }
+                    CommandStrategy::Pager(p) => {
+                        // in-process render replacing the renderer subprocess:
+                        // the singleton-exec optimization is lost for this path.
+                        paths.iter().all(|path| {
+                            matches!(pager::render_text(path, env_bat_opts()), Ok(true))
+                        })
+                    }
+                    // an empty command line renders nothing; not a failure
+                    CommandStrategy::None => true,
 
-                    let mut cmd = Command::new(prog.remove(0));
-                    cmd.args(prog)
-                        .args(&paths[1..])
-                        .stdin(maybe_tty())
-                        .stdout(maybe_tty());
+                    CommandStrategy::Prog(prog, args) => {
+                        if !no_exec && Some(pi) == pl && i == rl {
+                            let mut cmd = Command::new(prog);
+                            cmd.args(args).args(&paths[1..])._exec();
+                        }
 
-                    cmd.status()._ebog().is_some_and(|s| s.success())
+                        let mut cmd = Command::new(prog);
+                        cmd.args(args).args(&paths[1..]);
+                        cmd.status()._ebog().is_some_and(|s| s.success())
+                    }
                 };
 
                 if !current_success {
@@ -245,11 +239,21 @@ fn run_diagnose(
                             .to_progs(path, preset)
                             .0
                             .into_iter()
-                            .map(|prog| {
-                                prog.iter()
+                            .map(|strategy| match strategy {
+                                CommandStrategy::Header => "<header>".to_string(),
+                                CommandStrategy::Metadata(p) => {
+                                    format!("<metadata {}>", p.display())
+                                }
+                                CommandStrategy::Pager(p) => {
+                                    format!("<pager {}>", p.display())
+                                }
+                                CommandStrategy::None => "<none>".to_string(),
+
+                                CommandStrategy::Prog(prog, args) => std::iter::once(prog)
+                                    .chain(args)
                                     .map(|part| part.to_string_lossy().into_owned())
                                     .collect::<Vec<_>>()
-                                    .join(" ")
+                                    .join(" "),
                             })
                             .collect()
                     };

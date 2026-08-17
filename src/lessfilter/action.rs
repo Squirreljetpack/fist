@@ -1,16 +1,14 @@
 use std::ffi::OsString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use arrayvec::ArrayVec;
 use cba::vec_;
 use serde::{Deserialize, Deserializer};
 
 use crate::arr;
-use crate::cli::paths::{current_exe, show_error_path, text_renderer_path};
+use crate::cli::paths::{current_exe, show_error_path};
+use crate::lessfilter::helpers::{application_icon_path, image_viewer, infer_editor, infer_visual};
 use crate::lessfilter::Preset;
-use crate::lessfilter::helpers::{
-    application_icon_path, image_viewer, infer_editor, infer_visual, simple_header, simple_metadata,
-};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, serde::Serialize)]
 #[serde(untagged)]
@@ -53,25 +51,47 @@ impl<'de> Deserialize<'de> for Action {
     }
 }
 
-// pub enum CommandStrategy {
-// Pager(OsString)
-// Header,
-// Metadata(OsString)
-// Prog(OsString, Vec<OsString>)
-// }
-// impl CommandStrategy
-// fn new_prog(prog: Vec<OsString>)
+/// One renderable step for a file: either an in-process display (header,
+/// metadata, pager) or a program to spawn with args.
+///
+/// A `Vec<OsString>` command line converts into a [`Prog`](CommandStrategy::Prog)
+/// wrap (first element = program, rest = args); an empty line becomes
+/// [`None`](CommandStrategy::None).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CommandStrategy {
+    /// Render [PathBuf] through the in-process pager (bat + minus).
+    Pager(PathBuf),
+    /// Show the app header in-process.
+    Header,
+    /// Show metadata for [PathBuf] in-process.
+    Metadata(PathBuf),
+    /// Spawn the given program with args.
+    Prog(OsString, Vec<OsString>),
+    /// No program to spawn (empty command line).
+    None,
+}
+
+/// Wrap a complete command line (program + args) into a spawn strategy; an
+/// empty line becomes [`None`](CommandStrategy::None).
+impl From<Vec<OsString>> for CommandStrategy {
+    fn from(line: Vec<OsString>) -> Self {
+        let mut it = line.into_iter();
+        match it.next() {
+            Some(prog) => CommandStrategy::Prog(prog, it.collect()),
+            None => CommandStrategy::None,
+        }
+    }
+}
 
 #[allow(warnings)]
 impl Action {
-    /// submit to [crate::spawn::spawn]
-    // pushing the path at the end may be a bit redundant but it shouldn't really matter either way
-    // todo: some way of communicating which permissions are needed on the target
     pub fn to_progs(
         &self,
         path: &Path,
         preset: Preset,
-    ) -> (ArrayVec<Vec<OsString>, 5>, [bool; 3]) {
+    ) -> (ArrayVec<CommandStrategy, 5>, [bool; 3]) {
+        use CommandStrategy::{Header, Metadata, Pager, Prog};
+
         match preset {
             Preset::Default => return Default::default(), // do nothing, should be unreachable
             Preset::Open | Preset::Alternate => {
@@ -85,7 +105,7 @@ impl Action {
                         | Action::Application
                 ) {
                     return (
-                        arr![vec_![: current_exe(), ":open", "--", path]],
+                        arr![Prog(current_exe().into(), vec_![: ":open", "--", path])],
                         [true, false, false],
                     );
                 }
@@ -96,51 +116,61 @@ impl Action {
         match self {
             Action::Directory => match preset {
                 Preset::Preview => (
-                    arr![vec_![: current_exe(), ":tool", "liza", ":u2", "--", path]],
+                    arr![Prog(
+                        current_exe().into(),
+                        vec_![: ":tool", "liza", ":u2", "--", path]
+                    )],
                     [true, false, true], // read + execute
                 ),
                 Preset::Display => (
-                    arr![vec_![: current_exe(), ":tool", "liza", ":u", "--",path]],
+                    arr![Prog(
+                        current_exe().into(),
+                        vec_![: ":tool", "liza", ":u", "--", path]
+                    )],
                     [true, false, true],
                 ),
                 Preset::Extended => (
                     arr![
-                        simple_header(path),
-                        vec_![: current_exe(), ":tool", "liza", "::nav", ":a", "--",path]
+                        Header,
+                        Prog(
+                            current_exe().into(),
+                            vec_![: ":tool", "liza", "::nav", ":a", "--", path]
+                        )
                     ],
                     [true, false, true],
                 ),
                 Preset::Info => (
-                    arr![vec_![: current_exe(), ":tool", "liza", ":sba", "--", path]],
+                    arr![Prog(
+                        current_exe().into(),
+                        vec_![: ":tool", "liza", ":sba", "--", path]
+                    )],
                     [true, false, true],
                 ),
-                Preset::Edit => (arr![infer_visual(path)], [true, false, true]),
+                Preset::Edit => (arr![infer_visual(path).into()], [true, false, true]),
                 Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
                     unreachable!()
                 }
             },
             Action::Text => match preset {
-                Preset::Preview | Preset::Display => (
-                    arr![vec_![: text_renderer_path(), "--", path]],
-                    [true, false, false],
-                ),
+                Preset::Preview | Preset::Display => {
+                    (arr![Pager(path.into())], [true, false, false])
+                }
                 // bat has a "native" header but using our app header is more consistent
                 Preset::Extended => (
-                    arr![
-                        simple_header(path),
-                        vec_![: text_renderer_path(), "--",path],
-                        simple_metadata(path)
-                    ],
+                    arr![Header, Pager(path.into()), Metadata(path.into())],
                     [true, false, false],
                 ),
                 Preset::Info => (
                     arr![
-                        vec_![: current_exe(), ":tool", "liza", ":l", "--", path],
-                        simple_metadata(path)
+                        Prog(
+                            current_exe().into(),
+                            vec_![: ":tool", "liza", ":l", "--", path]
+                        ),
+                        Metadata(path.into())
                     ],
                     [true, false, false],
                 ),
-                Preset::Edit => (arr![infer_editor(path)], [true, true, false]),
+                Preset::Edit => (arr![infer_editor(path).into()], [true, true, false]),
 
                 Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
                     unreachable!()
@@ -148,22 +178,19 @@ impl Action {
             },
             Action::Image => match preset {
                 Preset::Preview | Preset::Display => {
-                    (arr![image_viewer(path, None)], [true, false, false])
+                    (arr![image_viewer(path, None).into()], [true, false, false])
                 }
                 Preset::Extended => (
                     arr![
-                        simple_header(path),
-                        image_viewer(path, None),
-                        simple_metadata(path)
+                        Header,
+                        image_viewer(path, None).into(),
+                        Metadata(path.into())
                     ],
                     [true, false, false],
                 ),
-                Preset::Info => (
-                    arr![simple_header(path), simple_metadata(path)],
-                    [true, false, false],
-                ),
+                Preset::Info => (arr![Header, Metadata(path.into())], [true, false, false]),
                 Preset::Edit => (
-                    arr![vec_![: current_exe(), ":open", "--", path]],
+                    arr![Prog(current_exe().into(), vec_![: ":open", "--", path])],
                     [true, false, false],
                 ),
                 Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
@@ -183,7 +210,7 @@ impl Action {
                         } else {
                             application_fallback(path)
                         };
-                        (arr![ac], [false, false, false])
+                        (arr![ac.into()], [false, false, false])
                     }
                     Preset::Extended => {
                         let ac = if let Some(icon) = display_path {
@@ -192,14 +219,14 @@ impl Action {
                             application_fallback(path)
                         };
 
-                        (arr![simple_header(path), ac], [true, false, true])
+                        (
+                            arr![Header, ac.into(), Metadata(path.into())],
+                            [true, false, true],
+                        )
                     }
-                    Preset::Info => (
-                        arr![simple_header(path), simple_metadata(path)],
-                        [true, false, true],
-                    ),
+                    Preset::Info => (arr![Header, Metadata(path.into())], [true, false, true]),
                     Preset::Edit => (
-                        arr![vec_![: current_exe(), ":open", "--", path]],
+                        arr![Prog(current_exe().into(), vec_![: ":open", "--", path])],
                         [false, false, false],
                     ),
                     Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
@@ -208,47 +235,38 @@ impl Action {
                 }
             }
 
-            // this action is basically just simple_metadata except for extended
+            // this action is basically just metadata except for extended
             // where we show stats (+ metadata if file)
             Action::Metadata => match preset {
-                Preset::Extended => (
+                Preset::Extended | Preset::Info => {
                     // show file stats in addition to metadata like Info
-                    if path.is_file() {
-                        arr![
-                            vec_![: current_exe(), ":tool", "liza", ":l", "--",path],
-                            simple_metadata(path)
-                        ]
-                    } else {
-                        // not a file => skip the metadata
-                        // altho simple_metadata = stats if !file, that's just a coincidence and semantically it only makes sense to show stats
-                        arr![vec_![: current_exe(), ":tool", "liza", ":l", "--",path]]
-                    },
-                    [true, false, true],
-                ),
-                Preset::Info => (
-                    // preset info should display size
-                    if path.is_file() {
-                        arr![
-                            vec_![: current_exe(), ":tool", "liza", ":l", "--",path],
-                            simple_metadata(path)
-                        ]
-                    } else {
-                        arr![vec_![: current_exe(), ":tool", "liza", ":l", "--",path]]
-                    },
-                    [true, false, true],
-                ),
-                Preset::Edit => (
-                    arr![vec_![: show_error_path(), "No handler configured."]],
-                    [true, false, false],
-                ),
-                _ => (arr![simple_metadata(path)], [true, false, true]),
+                    let main = Prog(
+                        current_exe().into(),
+                        vec_![: ":tool", "liza", ":l", "--", path],
+                    );
+                    (
+                        if path.is_file() {
+                            arr![main, Metadata(path.into())]
+                        } else {
+                            // not a file => skip the metadata
+                            // altho metadata = stats if !file, that's just a coincidence and semantically it only makes sense to show stats
+                            arr![main]
+                        },
+                        [true, false, true],
+                    )
+                }
+                Preset::Edit => {
+                    let error_cmd = vec_![: show_error_path(), "No handler configured."];
+                    (arr![error_cmd.into()], [true, false, false])
+                }
+                _ => (arr![Metadata(path.into())], [true, false, true]),
             },
 
             Action::Open => (
-                arr![vec_![: current_exe(), ":open", "--", path]],
+                arr![Prog(current_exe().into(), vec_![: ":open", "--", path])],
                 [false, false, false],
             ),
-            Action::Header => (arr![simple_header(path)], [true, false, false]),
+            Action::Header => (arr![Header], [true, false, false]),
             Action::Custom(_) => unreachable!(),
             Action::Extract => unreachable!(),
             Action::None => (arr![], [false, false, false]),

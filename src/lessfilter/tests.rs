@@ -1,12 +1,10 @@
-use std::ffi::OsString;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
 
 use super::{action::*, file_rule::*, *};
 use crate::abspath::AbsPath;
-use crate::cli::paths::{current_exe, text_renderer_path};
-use crate::lessfilter::helpers::simple_metadata;
+use crate::cli::paths::current_exe;
 use crate::lessfilter::rule_matcher::Test;
 use cba::vec_;
 use fist_types::FileCategory;
@@ -79,7 +77,8 @@ fn test_directory_matching() {
 
     let progs = action.to_progs(path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    let expected: Vec<OsString> = vec_![: current_exe(), ":tool", "liza", ":u2", "--", path];
+    let expected =
+        CommandStrategy::Prog(current_exe(), vec_![: ":tool", "liza", ":u2", "--", path]);
     assert_eq!(progs.0[0], expected);
 }
 
@@ -95,10 +94,7 @@ fn test_text_file_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(
-        progs.0[0],
-        vec![text_renderer_path(), Path::new("--"), &path]
-    );
+    assert_eq!(progs.0[0], CommandStrategy::Pager(path.clone()));
 
     // the edit preset (used by `Advance`) matches the same file
     let edit_action = best_action(&cfg, Preset::Edit, &path).unwrap();
@@ -122,10 +118,7 @@ fn test_rust_file_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(
-        progs.0[0],
-        vec![text_renderer_path(), Path::new("--"), &path]
-    );
+    assert_eq!(progs.0[0], CommandStrategy::Pager(path.clone()));
 }
 
 #[test]
@@ -140,15 +133,17 @@ fn test_image_file_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(progs.0[0][0], OsString::from("chafa"));
+    assert!(matches!(&progs.0[0], CommandStrategy::Prog(prog, _) if prog == "chafa"));
 
     // Test extended preset for multiple commands
     let extended_action = best_action(&cfg, Preset::Extended, &path).unwrap();
     let extended_progs = extended_action.to_progs(&path, Preset::Extended);
     assert_eq!(extended_progs.0.len(), 3);
-    assert!(extended_progs.0[0].is_empty()); // header
-    assert_eq!(extended_progs.0[1][0], OsString::from("chafa")); // image viewer
-    assert_eq!(extended_progs.0[2], simple_metadata(&path)); // metadata
+    assert_eq!(extended_progs.0[0], CommandStrategy::Header); // header
+    assert!(
+        matches!(&extended_progs.0[1], CommandStrategy::Prog(prog, _) if prog == "chafa") // image viewer
+    );
+    assert_eq!(extended_progs.0[2], CommandStrategy::Metadata(path.clone())); // metadata
 }
 
 #[test]
@@ -239,7 +234,7 @@ fn test_archive_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(progs.0[0], simple_metadata(&path));
+    assert_eq!(progs.0[0], CommandStrategy::Metadata(path.clone()));
 }
 
 #[test]
@@ -258,7 +253,7 @@ fn test_fallback_to_metadata() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(progs.0[0], simple_metadata(&path));
+    assert_eq!(progs.0[0], CommandStrategy::Metadata(path.clone()));
 }
 
 #[test]
