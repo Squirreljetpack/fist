@@ -32,7 +32,7 @@ use super::{
 };
 use crate::{
     abspath::AbsPath,
-    cli::{SubTool, clap_helpers::ListMode, paths::text_renderer_path},
+    cli::{SubTool, clap_helpers::ListMode},
     config::Config,
     db::{DbTable, Pool, zoxide::RetryStrat},
     display::{display_entries, display_types_overview},
@@ -691,7 +691,33 @@ async fn handle_tools(
             prints!(help_str.to_string());
             Ok(())
         }
-        SubTool::Pager { args } => Command::new(text_renderer_path()).args(args)._exec(),
+        SubTool::Pager { mut args } => {
+            // clap's trailing_var_arg passes a leading `--` through, like liza.
+            if args
+                .first()
+                .is_some_and(|a| a.as_os_str() == std::ffi::OsStr::new("--"))
+            {
+                args.remove(0);
+            }
+            let bat = lessfilter::env_bat_opts();
+            let code = match args.as_slice() {
+                // No path: page stdin (empty input pages nothing and exits 0).
+                [] => crate::pager::page_reader(std::io::stdin(), false, bat)
+                    .map(|_| 0)
+                    .unwrap_or(1),
+                // Single path: render the file; bat opens it directly. Nothing
+                // rendered (the file cannot be opened) is an error: exit 1.
+                [path] => match crate::pager::render_text(Path::new(path), bat) {
+                    Ok(true) => 0,
+                    Ok(false) | Err(_) => 1,
+                },
+                _ => {
+                    ebog!("fs :tool pager accepts at most one optional path");
+                    2
+                }
+            };
+            exit(code)
+        }
         SubTool::Liza { args } => Command::new(liza_path()).args(args)._exec(),
         SubTool::Shell { mut args } => {
             // note: this seems to already be the short path of the exe, not that im complaining

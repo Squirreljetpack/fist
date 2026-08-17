@@ -58,6 +58,7 @@ border = { type = "Rounded", color = "darkGrey", padding = 1 }
 border = { type = "Rounded", sides = "ALL", color = "blue" }
 # word movement stops at these characters in addition to whitespace
 word_boundaries = ['.', '/']
+reset_cursor_on_query_change = true
 
 [binds]
 # Alternate scheme:

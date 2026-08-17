@@ -49,5 +49,8 @@ fs_status_template = '''
 [misc]
 append_mode_logging = true
 
+[pager]
+bat_opts = ["--color=always", "--style=changes"]
+
 [history]
 refind = "Search"

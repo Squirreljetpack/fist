@@ -40,6 +40,9 @@ empty_pattern = "-v ^ *$"
 
 [misc]
 
+[pager]
+bat_opts = ["--color=always", "--style=changes"]
+
 [history]
 refind = "Search"
 

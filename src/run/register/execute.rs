@@ -1,13 +1,14 @@
 use std::process::{Command, Stdio};
 
-use cba::broc::{CommandExt, EnvVars, tty_or_inherit};
+use cba::broc::{tty_or_inherit, CommandExt, EnvVars};
 use log::{info, warn};
 
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
-    cli::paths::{actions_dir, text_renderer_path},
+    cli::paths::actions_dir,
     lua::{execute, load_script},
+    pager,
     run::state::{ExecuteHandlerShouldProcessParent, MENU_ACTIONS, STACK, STORE},
     utils::{command::maybe_tty, formatter::format_path},
 };
@@ -108,57 +109,52 @@ pub(super) fn run_menu_lua_paged(
         return;
     };
 
-    // The pager is spawned BEFORE the stdout redirect so its inherited
-    // stdout is the terminal (the render loop left the alt screen for the
-    // execute interrupt), not the pipe it reads from.
+    // Bat opts are read on the calling thread before the feeder starts, so the
+    // lua script cannot influence them mid-run.
     #[cfg(unix)]
-    let pager = std::process::Command::new(text_renderer_path())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::inherit())
-        .env("PG_FORCE_TTY", "true")
-        ._spawn();
-    #[cfg(not(unix))]
-    let pager: Option<std::process::Child> = None;
-
-    let mut pager = match pager {
-        Some(p) => p,
-        None => {
-            #[cfg(unix)]
-            warn!(
-                "Failed to spawn pager: {:?}; running unpaged",
-                text_renderer_path()
-            );
-            run_menu_lua(command, paths, nav_cwd);
-            return;
-        }
-    };
+    let bat = STORE::get_bat_opts();
 
     #[cfg(unix)]
     {
-        let Some(pipe) = pager.stdin.take() else {
-            run_menu_lua(command, paths, nav_cwd);
-            return;
-        };
-        let redirect = match stdout_redirect::StdoutRedirect::to(&pipe) {
-            Ok(r) => r,
+        let (reader, writer) = match std::io::pipe() {
+            Ok(p) => p,
             Err(e) => {
-                warn!("Failed to redirect stdout to pager: {e}; running unpaged");
-                drop(pipe);
-                let _ = pager.wait();
+                warn!("Failed to create stdout pipe for paged lua: {e}; running unpaged");
                 run_menu_lua(command, paths, nav_cwd);
                 return;
             }
         };
+        // The pipe write end is dup'd onto fd 1 so the script's stdout lands in
+        // the pipe; a feeder thread runs the pager on the read end. When minus
+        // quits early, `page_reader` drops the read end and later script writes
+        // hit EPIPE instead of blocking forever (deadlock guard, D10).
+        let redirect = match stdout_redirect::StdoutRedirect::to(&writer) {
+            Ok(r) => r,
+            Err(e) => {
+                warn!("Failed to redirect stdout for paged lua: {e}; running unpaged");
+                run_menu_lua(command, paths, nav_cwd);
+                return;
+            }
+        };
+
+        let feeder = std::thread::spawn(move || {
+            let _ = pager::page_reader(reader, true, bat);
+        });
 
         let result = execute(&source, paths, "", nav_cwd, None);
         if let Err(e) = result {
             log::error!("Menu action lua error: {e}");
         }
 
-        // Restore stdout, then close the pipe: EOF ends the pager.
+        // Restore stdout, then close the write end: EOF ends the feeder.
         drop(redirect);
-        drop(pipe);
-        let _ = pager.wait();
+        drop(writer);
+        let _ = feeder.join();
+    }
+
+    #[cfg(not(unix))]
+    {
+        run_menu_lua(command, paths, nav_cwd);
     }
 }
 
@@ -259,33 +255,19 @@ pub(super) fn wait_exec(
     mode: ExecutionMode,
     cmd: &str,
     mut child: std::process::Child,
+    bat: Option<Vec<String>>,
 ) -> bool {
     match mode {
-        ExecutionMode::Paged => {
-            let Some(stdout) = child.stdout.take() else {
-                return false;
-            };
-            let Some(mut pager) = std::process::Command::new(text_renderer_path())
-                .stdin(stdout)
-                .stdout(Stdio::inherit())
-                .env("PG_FORCE_TTY", "true")
-                ._spawn()
-            else {
-                warn!("Failed to spawn pager: {:?}", text_renderer_path());
-                return false;
-            };
-
-            match pager.wait() {
-                Ok(i) => {
-                    info!("Command [{cmd}] exited with {i}");
-                    i.success()
-                }
-                Err(e) => {
-                    info!("Failed to wait on command [{cmd}]: {e}");
-                    false
-                }
+        ExecutionMode::Paged => match pager::page(child, true, bat) {
+            Ok(ok) => {
+                info!("Command [{cmd}] paged (success={ok})");
+                ok
             }
-        }
+            Err(e) => {
+                info!("Failed to page command [{cmd}]: {e}");
+                false
+            }
+        },
         ExecutionMode::Detached | ExecutionMode::Silent => false,
         ExecutionMode::Normal | ExecutionMode::Tty => match child.wait() {
             Ok(i) => {

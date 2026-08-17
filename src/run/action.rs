@@ -4,8 +4,7 @@
 use std::path::PathBuf;
 
 use cba::{
-    bait::ResultExt, bath::PathExt, bring::split::join_with_single_quotes, broc::shell_quote,
-    unwrap, wbog,
+    bait::ResultExt, bath::PathExt, bring::split::join_with_single_quotes, unwrap,
 };
 use matchmaker::{
     acs,
@@ -18,7 +17,7 @@ use ratatui::text::{Line, Text};
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
-    cli::paths::{__home, text_renderer_path},
+    cli::paths::__home,
     clipboard::{copy_files, copy_paths_as_text},
     config::{InsertionStrategy, StashPaneKind},
     db::DbTable,
@@ -34,9 +33,9 @@ use crate::{
         },
         register::{ExecutionMode, resolve_target},
         state::{
-            AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, HideMetadata,
-            InPrompt, MENU_ACTIONS, MenuPrompt, STACK, STORE, TASKS, TOAST, ToastStyle,
-            context::ActionContext, lessfilter_cfg, sort,
+            AcceptFlavor, BatOpts, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL,
+            HideMetadata, InPrompt, MENU_ACTIONS, MenuPrompt, STACK, STORE, TASKS, TOAST,
+            ToastStyle, context::ActionContext, lessfilter_cfg, sort,
         },
     },
     spawn::open_wrapped,
@@ -1331,7 +1330,7 @@ pub fn fsaction_handler(
                 STORE::set(ExecuteHandlerShouldProcessParent {});
             }
 
-            let mut template = if special == 1 {
+            let template = if special == 1 {
                 format!(
                     "'{}' :tool show-binds",
                     crate::cli::paths::current_exe()
@@ -1343,36 +1342,17 @@ pub fn fsaction_handler(
             };
 
             if paging {
-                // we need to use the renderer because the first pass of renderer won't render when it sees it is being piped
-                if let Some(pp) = shell_quote(text_renderer_path()) {
-                    // Match the special code to its corresponding environment variable setting
-                    let env_var = match special {
-                        1 => Some("PG_LANG=ini"),
-                        _ => None,
-                    };
-
-                    #[cfg(windows)]
-                    {
-                        if let Some(env) = env_var {
-                            template.push_str(&format!(" | cmd /c \"set {env} && {pp}\" > CON"));
-                        } else {
-                            template.push_str(&format!(" | cmd /c \"{pp}\" > CON"));
-                        }
-                    }
-
-                    #[cfg(unix)]
-                    {
-                        if let Some(env) = env_var {
-                            template.push_str(&format!(" | {env} {pp} > /dev/tty"));
-                        } else {
-                            template.push_str(&format!(" | {pp} > /dev/tty"));
-                        }
-                    }
+                // Bat passthrough for the parent's pager (the only set_bat_opts
+                // caller): store presence opts the Paged execution into bat, and
+                // the special code maps to bat language args. PG_RAW lands on the
+                // child env at spawn (register_execute_handler) so the subtool
+                // skips its own bat.
+                STORE::set_bat_opts(BatOpts(if special == 1 {
+                    vec!["-l".into(), "ini".into()]
                 } else {
-                    wbog!(
-                        "Pager path could not be decoded, please check your installation's cache directory."
-                    )
-                }
+                    vec![]
+                }));
+                state.discriminant_payload = Some(ExecutionMode::Paged.discriminant());
             }
 
             state.set_interrupt(Interrupt::Execute, template);
@@ -1872,7 +1852,7 @@ macro_rules! enum_from_str_display {
                                     let Some(values) = data else {
                                         return Ok(Self::Jump(vec![]))
                                     };
-                                    let paths = cba::bring::split::split_on_unescaped_delimiter(values, ",").iter().map(PathBuf::from).collect();
+                                    let paths = cba::bring::split::split_on_delimiter_with_doubled_escape(values, ',').iter().map(PathBuf::from).collect();
                                     Ok(Self::Jump(paths))
                                 }
                                 n if n.eq_ignore_ascii_case("ExecuteQueue") => {

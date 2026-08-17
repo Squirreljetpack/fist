@@ -5,7 +5,7 @@ use std::{
 
 use cba::{
     bog::BogOkExt,
-    broc::{CommandExt, EnvVars, SHELL, tty_or_inherit},
+    broc::{tty_or_inherit, CommandExt, EnvVars, SHELL},
     env_vars,
 };
 use easy_ext::ext;
@@ -19,15 +19,14 @@ use tokio::io::AsyncReadExt;
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
-    cli::paths::text_renderer_path,
     clipboard,
     run::{
-        FsMatchmaker,
         ahandlers::fs_reload,
         item::PathItem,
         pane::FsPane,
         selection,
-        state::{ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, STORE, TASKS, sort},
+        state::{sort, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, STACK, STORE, TASKS},
+        FsMatchmaker,
     },
     utils::formatter::format_path,
 };

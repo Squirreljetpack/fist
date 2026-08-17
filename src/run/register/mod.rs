@@ -170,10 +170,20 @@ impl FsMatchmaker {
             let cwd = STACK::cwd();
             let vars = collect_exec_env(state, &path);
 
-            let Some(child) = build_exec_command(mode, &cmd, cwd, vars).unwrap()._spawn() else {
+            // Bat passthrough for Paged: decided once here (STORE take), then
+            // reflected into the child env so the subtool skips its own bat
+            // (PG_RAW) and handed to the pager at wait time.
+            let bat = (mode == ExecutionMode::Paged)
+                .then(STORE::get_bat_opts)
+                .flatten();
+            let mut builder = build_exec_command(mode, &cmd, cwd, vars).unwrap();
+            if bat.is_some() {
+                builder.env("PG_RAW", "true");
+            }
+            let Some(child) = builder._spawn() else {
                 return;
             };
-            if wait_exec(mode, &cmd, child) {
+            if wait_exec(mode, &cmd, child, bat) {
                 GLOBAL::db().bump_path(path.is_dir(), path);
             }
         });
@@ -226,7 +236,7 @@ impl FsMatchmaker {
                             clipboard::copy_text(contents, true);
                         };
                     } else if let Some(child) = c._spawn() {
-                        if wait_exec(mode, &cmd, child) {
+                        if wait_exec(mode, &cmd, child, None) {
                             GLOBAL::db().bump_path(path.is_dir(), path);
                         }
                     };
