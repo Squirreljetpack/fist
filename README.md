@@ -90,7 +90,7 @@ For a full list of binds, press `alt-h` within the app. [^1]
 
 To begin, call `fs` without any positional arguments.
 
-<img src=".README.assets/image-20260227213112814.png" alt="image-20260227213112814" style="height:400px;" />
+<img src=".README.assets/nav-pane.png" alt="Navigation pane" style="height:400px;" />
 
 Once inside, you can navigate and re-enter from other panes by pressing the left/right arrow keys (corresponding to the `Parent`/ `Advance` actions).
 
@@ -102,7 +102,7 @@ You can search through all files recursively by
 - by calling `fs` directly with the same arguments
 - or by triggering the `Find` action (`ctrl-f`) in-app.
 
-<img src=".README.assets/image-20260227223347559.png" alt="image-20260227223347559" style="height:309px;" />
+<img src=".README.assets/filters-overlay.png" alt="Filters overlay" style="height:309px;" />
 
 The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Filters overlay](#filters).
 
@@ -139,7 +139,7 @@ This pane operates in a query and a filter mode, which can be switched between[^
 >
 > When the active item is `advance`/`executed` on, the matched line and column are saved in the environment variables `HIGHLIGHT_LINE` and `HIGHLIGHT_COLUMN`. If your system has a compatible editor, the `Lessfilter::Edit` action can automatically open the file to the corresponding position -- otherwise, you can configure this manually.
 
-<img src=".README.assets/image-20260227181856867.png" alt="image-20260227181856867" style="width: 700px;" />
+<img src=".README.assets/search-pane.png" alt="Search pane" style="width: 700px;" />
 
 [^3]: In the previous panes, the secondary column was simply empty and therefore not displayed.
 
@@ -217,13 +217,13 @@ uri() {
 fs :o "obsidian://open?path=$(uri $1)"
 ```
 
-<img src=".README.assets/image-20260228112637463.png" alt="image-20260228112637463" style="height:177px;" /> <img src=".README.assets/image-20260228151634342.png" alt="creating a new note" style="height:177px" />
+<img src=".README.assets/custom-stream-directory-preview.png" alt="Custom stream directory preview" style="height:177px;" /> <img src=".README.assets/custom-stream-new-note.png" alt="Creating a new note" style="height:177px" />
 
 ### History
 
 f:ist records the **files, directories and applications** that you've visited in a local database, where they are displayed in the `Files`/`Folders` (`ctrl-g`) and `Apps` panes, sorted by relevance[^6].
 
-<img src=".README.assets/image-20260301082915830.png" alt="image-20260301082915830" style="width:500px" />
+<img src=".README.assets/history-pane.png" alt="History pane" style="width:500px" />
 
 The *Files* and *Folders* panes are most useful when integrated into the ambient context where you usually access files. For example, the [shell](#shell-integration), or a [command launcher](#dependencies).
 
@@ -242,7 +242,7 @@ The apps pane comes prepopulated from the existing applications on your system, 
 The `App` action has no default key binding. `fs :o --list` prints the
 currently known application paths without opening the app pane.
 
-<img src=".README.assets/image-20260227220033390.png" alt="image-20260227220033390" style="width:360px;" />
+<img src=".README.assets/app-pane.png" alt="Apps pane" style="width:360px;" />
 
 It can be used to select a launch method for a given set of files (provided through the command line, or collected in the app view's pending files).
 
@@ -254,7 +254,7 @@ Panes can be navigated between using the `Undo/Redo` actions.
 
 Every pane has a **Options overlay** (`ctrl-p`), with settings for filtering, sorting, and other pane-specific controls for the displayed results.
 
-<img src=".README.assets/image-20260227223347559.png" alt="image-20260227223347559" style="height:360px;" />
+<img src=".README.assets/filters-overlay.png" alt="Options overlay" style="height:360px;" />
 
 For more information on any of the panes, run `fs [pane] --help` with the appropriate subcommand (i.e. `:rg`).
 
@@ -274,7 +274,7 @@ Custom actions can be added in the `[menu]` section of the config. They consist 
 
 ### Queue
 
-<img src=".README.assets/image-20260227222022484.png" alt="image-20260227222022484" style="height:400px;" />
+<img src=".README.assets/queue-overlay.png" alt="Queue overlay" style="height:400px;" />
 
 The **Queue** overlay (`ctrl-u`) lists the pending file operations. Rows show their kind, source, destination, and progress, and can be edited, rearranged, removed and executed from the overlay. `Undo`/`Redo` cycles between filters to narrows the overlay to a single queue kind.
 
@@ -345,7 +345,7 @@ The lessfilter tool dispatches to 9 presets:
 - `edit`: editing
 - `alternate` and `alternate2`: extra presets for custom use
 
-<img src=".README.assets/image-20260228113456192.png" alt="image-20260228113456192" style="width: 600px;" alt="the info preset, using mediainfo to display metadata on a folder of images" />
+<img src=".README.assets/lessfilter-info-preview.png" alt="The info preset, using mediainfo to display metadata on a folder of images" style="width: 600px;" />
 
 Each preset is configured by a rules table in the [config file](#https://github.com/Squirreljetpack/fist/blob/main/assets/config/lessfilter.toml). Each rule is a pair (Actions, Patterns), and for a given file, the rule whose patterns score the highest is selected -- its actions are invoked on the target file.
 
