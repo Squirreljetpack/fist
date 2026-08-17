@@ -278,7 +278,7 @@ Custom actions can be added in the `[menu]` section of the config. They consist 
 
 The **Queue** overlay (`ctrl-u`) lists the pending file operations. Rows show their kind, source, destination, and progress, and can be edited, rearranged, removed and executed from the overlay. `Undo`/`Redo` cycles between filters to narrows the overlay to a single queue kind.
 
-`Copy` and `Cut` enqueue items under the `copy` and `cut` kinds. The `Paste` (`ctrl-v`) keybind is available to executes every queued `copy`, `cut` and `symlink` item without enterring the overlay, transferring files into the active directory.[^7]  `ExecuteQueue(selector)`, `Enqueue(kind)` and `ClearQueue(selector)` are also available for binding.
+`Copy` and `Cut` enqueue items under the `copy` and `cut` kinds. The `Paste` (`ctrl-v`) keybind is available to executes every queued `copy`, `cut` and `symlink` item without enterring the overlay, transferring files into the active directory.[^7] `ExecuteQueue(selector)`, `Enqueue(kind)` and `ClearQueue(selector)` are also available for binding.
 
 Menu actions with the `Queue`/`QueueBatch` strategies enqueue their targets under the action's key; on execution the action's lua script runs once per queued item with `(paths, dst, nav_cwd)`.
 
@@ -438,11 +438,11 @@ A list of all supported types, used by the `-t` parameter of the [find subcomman
 
 fs exposes several of the more generally useful functionalities it uses internally:
 
-- diskspace: A stupid fast parallel directory tree/size lister, using the same background worker that is used in the main app for sorting by size.
+- `diskspace`: A stupid fast parallel directory tree/size lister, using the same background worker that is used in the main app for sorting by size.
 
-- trash: cross platform tool for easily moving files to the system trash.
+- `trash`: cross platform tool for easily moving files to the system trash.
 
-- for the rest, run `fs :tool` to see a full listing.
+- as for the rest, run `fs :tool` to see a full listing.
 
 # Configuration
 

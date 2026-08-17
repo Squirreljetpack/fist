@@ -50,8 +50,9 @@ mod tests {
             [a1]\n\
             condition = { selected = \"active\", condition = \"*\" }\n\
             command = \"print('x')\"\n\
-            "
-        ).unwrap();
+            ",
+        )
+        .unwrap();
         assert!(matches!(
             &actions["a1"].condition[0],
             MenuCondition::Repeat(RepeatCondition {
@@ -66,8 +67,9 @@ mod tests {
             [a2]\n\
             condition = [\"type:f\", \"type:d\"]\n\
             command = \"print('x')\"\n\
-            "
-        ).unwrap();
+            ",
+        )
+        .unwrap();
         assert!(matches!(
             &actions["a2"].condition[0],
             MenuCondition::Seq(rules) if rules.len() == 2
@@ -80,7 +82,8 @@ mod tests {
             condition = { invalid_key = true, condition = \"*\" }\n\
             command = \"print('x')\"\n\
             "
-        ).is_err());
+        )
+        .is_err());
     }
 
     #[test]
@@ -90,16 +93,16 @@ mod tests {
         let stash_action = &actions["stash: 2 items"];
 
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-        let todo_md = AbsPath::new(root.join("TODO.md"));
-        let todo_dir = AbsPath::new(root.join("TODO"));
+        let manifest = AbsPath::new(root.join("Cargo.toml"));
+        let src_dir = AbsPath::new(root.join("src"));
 
         let settings = LessfilterSettings::default();
         let categories = Categories::default();
 
         let mut cache = cba::vecmap::VecMap::new();
 
-        // Selected [TODO.md, TODO] (file, dir)
-        let selected = vec![todo_md.clone(), todo_dir.clone()];
+        // Selected [Cargo.toml, src] (file, dir)
+        let selected = vec![manifest.clone(), src_dir.clone()];
         let passes = condition_passes(
             &stash_action.condition,
             &selected,

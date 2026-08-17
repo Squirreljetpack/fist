@@ -460,6 +460,17 @@ impl FsPane {
         }
     }
 
+    /// Whether the pane sits on its configured default-sort override, with a
+    /// `none` default never counting. This is the state that hides the metadata
+    /// column ([`HideMetadata`]) until the first explicit re-sort.
+    #[inline]
+    pub fn on_default_sort(&self) -> bool {
+        GLOBAL::cfg()
+            .panes
+            .default_sort(self)
+            .is_some_and(|d| d != SortOrder::none && self.sort_order() == d)
+    }
+
     #[inline]
     pub fn should_cancel_input_entering_dir(&self) -> bool {
         true

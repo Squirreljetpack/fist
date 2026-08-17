@@ -60,17 +60,15 @@ mod tests {
             depth: 0,
         };
 
-        if !GLOBAL::is_init() {
-            GLOBAL::init(
-                GlobalConfig::default(),
-                render_tx,
-                watcher_tx,
-                pool,
-                pane,
-                bind_tx,
-            );
-            std::mem::forget((bind_rx, render_rx, watcher_rx));
-        }
+        GLOBAL::init(
+            GlobalConfig::default(),
+            render_tx,
+            watcher_tx,
+            pool,
+            pane,
+            bind_tx,
+        );
+        // std::mem::forget((bind_rx, render_rx, watcher_rx));
 
         let cfg: &'static GlobalConfig = GLOBAL::cfg();
         assert_eq!(

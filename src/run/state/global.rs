@@ -52,6 +52,13 @@ impl GLOBAL {
         pane: FsPane,
         bind_tx: BindSender<FsAction>,
     ) {
+        #[cfg(test)]
+        {
+            if CONFIG.with(|c| c.get().is_some()) {
+                return
+            }
+        }
+    
         // need to handle the patterns listened on by sync_handler
         let sort = pane.sort_order();
         let visibility = match &pane {
@@ -72,24 +79,12 @@ impl GLOBAL {
         STACK::init(pane);
     }
 
-    #[cfg(test)]
-    pub fn is_init() -> bool {
-        CONFIG.with(|c| c.get().is_some())
-    }
-
     /// This lifetime should be 'thread, but there is no such lifetime. Do not pass into async!
     pub fn cfg() -> &'static GlobalConfig {
         CONFIG
             .with(tls_ref)
             .get()
             .expect("GlobalConfig not initialized")
-    }
-
-    pub fn with_cfg<F, R>(f: F) -> R
-    where
-        F: FnOnce(&GlobalConfig) -> R,
-    {
-        f(Self::cfg())
     }
 
     /// `#[cfg(test)]` helper: wire the render/watcher/bind senders to dummy
