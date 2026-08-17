@@ -146,10 +146,10 @@ fn make_mm(
 /// an empty tail, else the tail text.
 ///
 /// The metadata override is skipped while a fresh sort override is hiding it
-/// ([`HideMetadata`], stored by [`crate::run::ahandlers::fs_post_reload_new`]
-/// when the pane's sort matches its configured `default_sort`, and consumed
-/// by `ReSort`): the pane renders the plain tail until the first explicit
-/// re-sort.
+/// ([`HideMetadata`], stored by [`crate::run::ahandlers::fs_reload`] and the
+/// start initializer when the pane's sort matches its configured `default_sort`,
+/// and consumed by `ReSort`): the pane renders the plain tail until the first
+/// explicit re-sort.
 ///
 /// mtime/atime values live on the item ([`PathItem::value`], unset =
 /// `u64::MAX` → blank). Size is deliberately NOT stored on the item — the
@@ -266,6 +266,11 @@ pub async fn start(
         .ext_handler(move |x, y| fsaction_handler(x, y, &mut context))
         .ext_aliaser(fsaction_aliaser)
         .initializer(move |state| {
+            // initial pane: hide the metadata column while it sits on its
+            // default sort, before the sort push reads the marker
+            if STACK::with_current(FsPane::on_default_sort) {
+                STORE::set(HideMetadata);
+            }
             sort::set_sort_from_pane(state);
             state.picker_ui.query.show_border = false;
             fs_post_reload_new(state);

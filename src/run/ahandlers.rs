@@ -283,6 +283,15 @@ pub fn fs_reload(
         state.picker_ui.selector.clear();
     }
 
+    // a new pane whose sort matches its configured default override (startup
+    // pane, pane switch with apply_default_sort, undo/redo) hides the metadata
+    // column until the user explicitly re-sorts (ReSort takes it); set before
+    // the sort push so the threshold decision in `set_global_sort_only_from_pane`
+    // reads the marker
+    if is_new && STACK::with_current(FsPane::on_default_sort) {
+        STORE::set(HideMetadata);
+    }
+
     // apply the pane's sort
     sort::set_sort_from_pane(state);
     if sort::get_sort().order == SortOrder::size // don't clear dirsize cache for auto-reloads (todo: lowpri: configurable)
@@ -396,15 +405,6 @@ pub fn fs_post_reload_new(state: &mut MMState<'_,>) {
                     .apply(partial.preview.clone());
             }
     });
-
-    // a pane whose sort matches its configured default override (startup
-    // pane, pane switch with apply_default_sort, undo/redo) hides the
-    // metadata column until the user explicitly re-sorts (ReSort takes it)
-    if STACK::with_current(|pane| {
-        GLOBAL::cfg().panes.default_sort(pane).is_some_and(|d| pane.sort_order() == d)
-    }) {
-        STORE::set(HideMetadata);
-    }
 
     // Reset transient state settings without any configuration knob
     // ----

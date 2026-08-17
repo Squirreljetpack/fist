@@ -17,7 +17,7 @@ use crate::{
     aliases::MMState,
     run::{
         item::PathItem,
-        state::{GLOBAL, STACK, TASKS},
+        state::{HideMetadata, GLOBAL, STACK, STORE, TASKS},
         FsAction, FsPane,
     },
 };
@@ -29,7 +29,9 @@ pub struct SortMode {
 }
 
 // order:    SortOrder::none = no nucleo sort fn (db/rg panes, or the pane sort is none)
-//           anything else   = hard sort engaged (threshold u32::MAX)
+//           anything else   = hard sort engaged; while the fresh default sort is
+//                             hiding metadata (the HideMetadata marker) the threshold
+//                             is the pane stability, else u32::MAX
 static SORT_MODE: Mutex<SortMode> = Mutex::new(SortMode {
     order: SortOrder::none,
     threshold: 0,
@@ -61,6 +63,13 @@ fn set_global_sort_only_from_pane() -> SortMode {
     };
     let threshold = match order {
         SortOrder::none => STACK::with_current(FsPane::stability_threshold),
+        // hard sort while a fresh default sort is hiding the metadata column
+        // (marker set by fs_reload / the start initializer, consumed by ReSort):
+        // engage the pane stability instead of u32::MAX so the match list
+        // re-sorts with the configured tolerance
+        _ if STORE::get::<HideMetadata>().is_some() => {
+            STACK::with_current(FsPane::stability_threshold)
+        }
         _ => u32::MAX,
     };
     let mode = SortMode { order, threshold };
