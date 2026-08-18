@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::run::item::short_display;
-use crate::run::state::{GLOBAL, TASKS, TOAST, ToastStyle};
+use crate::run::state::{ToastStyle, GLOBAL, TASKS, TOAST};
 use crate::utils::osc52;
 
 /// Holds the local arboard handle (if active) and configuration options.
@@ -104,7 +104,7 @@ pub fn copy_texts(
     if texts.is_empty() {
         return;
     }
-    TASKS::spawn_blocking(move || {
+    TASKS::spawn_blocking("clipboard copy", move || {
         let mut guard = CLIPBOARD.lock().unwrap();
         let item_delay = guard
             .as_ref()
@@ -148,7 +148,7 @@ pub fn copy_paths_as_text(
     if paths.is_empty() {
         return;
     }
-    TASKS::spawn_blocking(move || {
+    TASKS::spawn_blocking("clipboard copy paths", move || {
         let spans: Vec<Span<'static>> = paths.iter().map(|p| short_display(p)).collect();
         let mut guard = CLIPBOARD.lock().unwrap();
         let item_delay = guard
@@ -192,7 +192,7 @@ pub fn copy_files(
     if paths.is_empty() {
         return;
     }
-    TASKS::spawn_blocking(move || {
+    TASKS::spawn_blocking("clipboard copy files", move || {
         let spans: Vec<Span<'static>> = paths.iter().map(|p| short_display(p)).collect();
         let mut guard = CLIPBOARD.lock().unwrap();
         let item_delay = guard
@@ -265,7 +265,7 @@ pub fn copy_text(
     mut text: String,
     toast: bool,
 ) {
-    TASKS::spawn_blocking(move || {
+    TASKS::spawn_blocking("clipboard copy text", move || {
         let mut guard = CLIPBOARD.lock().unwrap();
         let copy_trailing_newline = guard.as_ref().is_some_and(|fcb| fcb.copy_trailing_newline);
         apply_newline_policy(&mut text, copy_trailing_newline);

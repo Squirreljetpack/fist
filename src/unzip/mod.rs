@@ -33,7 +33,7 @@ use crate::{
     abspath::AbsPath,
     cli::paths::__unzip,
     config::ArchiveConfig,
-    run::state::{GLOBAL, TOAST, ToastStyle},
+    run::state::{GLOBAL, TASKS, TOAST, ToastFlags, ToastStyle},
     watcher::WatcherMessage,
 };
 
@@ -313,7 +313,8 @@ pub fn init(path: &Path) -> Option<AbsPath> {
     // Re-entering an archive reuses its skeleton — extraction may still be
     // running or already done — but only while the skeleton is newer than
     // the archive itself; an archive changed after its skeleton was
-    // created makes the cached tree stale and it is regenerated.
+    // created makes the cached tree stale and it is regenerated. An
+    // emptied workdir is likewise not reusable and is recreated.
     if let Some(entry) = w.entries.lock().ok()?.get(&source) {
         if matches!(entry.state, EntryState::Failed) {
             TOAST::notice(
@@ -322,14 +323,24 @@ pub fn init(path: &Path) -> Option<AbsPath> {
             );
             return None;
         }
-        if skeleton_is_fresh(&entry.temp, &source) {
+        // An emptied workdir is not reusable: remove the skeleton so the
+        // recreate path below builds a fresh one. Only completed entries
+        // are eligible — a Skeleton entry is an extraction that may still
+        // be populating the workdir.
+        if matches!(entry.state, EntryState::Complete) && workdir_is_empty(&entry.workdir) {
+            log::info!("Empty skeleton for {}, re-extracting", source.display());
+            let _ = std::fs::remove_dir_all(&entry.temp);
+        } else if skeleton_is_fresh(&entry.temp, &source) {
             must_watch(&entry.workdir);
-            toast_entering();
             return Some(AbsPath::new_unchecked(entry.workdir.clone()));
-        }
-        log::info!("Stale skeleton for {}, re-extracting", source.display());
-        if w.config.cleanup_duplicates {
-            remove_stale_skeletons(&source);
+        } else {
+            log::info!("Stale skeleton for {}, re-extracting", source.display());
+            if w.config.cleanup_duplicates {
+                let source = source.clone();
+                TASKS::spawn_blocking("unzip stale cleanup", move || {
+                    remove_stale_skeletons(&source);
+                });
+            }
         }
     }
 
@@ -380,7 +391,6 @@ pub fn init(path: &Path) -> Option<AbsPath> {
     }
 
     must_watch(&workdir);
-    toast_entering();
     Some(AbsPath::new_unchecked(workdir))
 }
 
@@ -515,6 +525,14 @@ fn skeleton_is_fresh(
     ts > mtime_secs
 }
 
+/// Whether an extraction workdir holds no entries. A missing directory
+/// counts as empty.
+fn workdir_is_empty(workdir: &Path) -> bool {
+    std::fs::read_dir(workdir)
+        .map(|mut it| it.next().is_none())
+        .unwrap_or(true)
+}
+
 /// Removes every skeleton under the unzip root that decodes back to
 /// `source` (older timestamped copies included).
 fn remove_stale_skeletons(source: &Path) {
@@ -600,8 +618,29 @@ fn must_watch(temp: &Path) {
     GLOBAL::send_watcher(WatcherMessage::MustWatch(temp.to_path_buf()));
 }
 
-fn toast_entering() {
-    TOAST::notice(ToastStyle::Info, "Entering archive");
+pub fn toast_entering(path: &Path) {
+    let source = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let is_complete = worker()
+        .entries
+        .lock()
+        .ok()
+        .and_then(|entries| entries.get(&source).map(|e| matches!(e.state, EntryState::Complete)))
+        .unwrap_or(false);
+
+    if is_complete {
+        TOAST::msg(Span::styled("Entering archive", ToastStyle::Info), true);
+    } else {
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| path.to_string_lossy().to_string());
+        TOAST::push_with_flag(
+            ToastStyle::Info,
+            "Extracting: ",
+            [Span::raw(name)],
+            ToastFlags::PERSIST_CURSOR | ToastFlags::PERSIST_PANE,
+        );
+    }
 }
 
 fn toast_extracted(source: &Path) {
@@ -609,6 +648,7 @@ fn toast_extracted(source: &Path) {
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| source.to_string_lossy().to_string());
+    TOAST::pop("Extracting: ", &Span::raw(name.clone()));
     TOAST::msg(
         vec![
             Span::styled("Extracted: ", Style::new().fg(Color::Red)),
@@ -622,6 +662,12 @@ fn toast_extract_error(
     job: &Job,
     msg: &str,
 ) {
+    let name = job
+        .source
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| job.source.to_string_lossy().to_string());
+    TOAST::pop("Extracting: ", &Span::raw(name));
     TOAST::notice(
         ToastStyle::Error,
         format!("Failed to extract {}: {msg}", job.source.display()),
@@ -780,6 +826,23 @@ mod tests {
         assert_eq!(skeleton_timestamp("a--"), None);
         assert_eq!(skeleton_timestamp("a--x"), None);
         assert_eq!(skeleton_timestamp("a--1x"), None);
+    }
+
+    #[test]
+    fn workdir_emptiness() {
+        let dir = std::env::temp_dir().join(format!("fist-unzip-empty-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // an empty directory reports empty
+        assert!(workdir_is_empty(&dir));
+        // a missing directory counts as empty
+        assert!(workdir_is_empty(&dir.join("missing")));
+        // entries make it non-empty
+        std::fs::write(dir.join("f.txt"), b"x").unwrap();
+        assert!(!workdir_is_empty(&dir));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

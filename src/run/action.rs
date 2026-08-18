@@ -35,7 +35,7 @@ use crate::{
         state::{
             AcceptFlavor, BatOpts, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL,
             HideMetadata, InPrompt, MENU_ACTIONS, MenuPrompt, STACK, STORE, TASKS, TOAST,
-            ToastStyle, context::ActionContext, lessfilter_cfg, sort,
+            ToastFlags, ToastStyle, context::ActionContext, lessfilter_cfg, sort,
         },
     },
     spawn::open_wrapped,
@@ -824,14 +824,16 @@ pub fn fsaction_handler(
 
                 // enter archives through a temp extraction skeleton
                 if item.path.is_file() && unzip::supported(item.path.as_path()) {
-                    match unzip::init(item.path.as_path()) {
+                    let archive_path = item.path.clone();
+                    match unzip::init(archive_path.as_path()) {
                         Some(skeleton) => {
                             enter_dir_pane(state, skeleton);
+                            unzip::toast_entering(archive_path.as_path());
                             return;
                         }
                         None => TOAST::notice(
                             ToastStyle::Error,
-                            format!("Failed to enter archive: {}", short_display(&item.path)),
+                            format!("Failed to enter archive: {}", short_display(&archive_path)),
                         ),
                     }
                 }
@@ -1000,7 +1002,7 @@ pub fn fsaction_handler(
             }
 
             // not heavy computationally, but still blocking...
-            TASKS::spawn_blocking(|| {
+            TASKS::spawn_blocking("trash", || {
                 for path in items {
                     match trash(&path) {
                         Ok(()) => {
@@ -1101,7 +1103,26 @@ pub fn fsaction_handler(
                 return;
             }
 
-            TASKS::spawn(async move {
+            TASKS::spawn("delete", async move {
+                // Surface long-running deletes with a persistent progress
+                // toast; the size walk runs off-thread so the UI is not
+                // blocked while it gathers totals.
+                let items_for_size = items.clone();
+                let big_delete = tokio::task::spawn_blocking(move || {
+                    paths_total_size(&items_for_size) > DELETE_NOTIFY_SIZE
+                })
+                .await
+                .unwrap_or(false);
+
+                if big_delete {
+                    TOAST::push_with_flag(
+                        ToastStyle::Info,
+                        "Deleting: ",
+                        items.iter().map(|p| short_display(p)),
+                        ToastFlags::PERSIST_CURSOR | ToastFlags::PERSIST_PANE,
+                    );
+                }
+
                 for path in items {
                     let result = if path.is_dir() {
                         tokio::fs::remove_dir_all(&path).await
@@ -1121,6 +1142,10 @@ pub fn fsaction_handler(
                                 [short_display(&path)],
                             );
                         }
+                    }
+
+                    if big_delete {
+                        TOAST::pop("Deleting: ", &short_display(&path));
                     }
                 }
             });
@@ -1419,7 +1444,7 @@ pub fn fsaction_handler(
                     let path = p.inner().into();
                     let pool = GLOBAL::db();
 
-                    TASKS::spawn(async move {
+                    TASKS::spawn("open", async move {
                         let conn = unwrap!(pool.get_conn(crate::db::DbTable::dirs).await.ok());
                         open_wrapped(conn, None, &[path], true).await._elog();
                     });
@@ -1507,72 +1532,73 @@ fn db_stash(
     paths: Vec<AbsPath>,
     reload: bool,
 ) {
-    let pool = GLOBAL::db();
     let c = GLOBAL::cfg();
     let setting = c.panes.stashes.get(&name);
     let (insert, kind) = (
         setting.map(|s| s.insert).unwrap_or_default(),
         setting.map(|s| s.kind).unwrap_or_default(),
     );
-    TASKS::spawn(async move {
-        match kind {
-            StashPaneKind::Transient => {
-                for path in paths {
-                    match insert {
-                        InsertionStrategy::Duplicate => {
-                            crate::run::stash::mem_add(&name, &path);
-                        }
-                        InsertionStrategy::Skip => {
-                            if !crate::run::stash::mem_has(&name, &path) {
-                                crate::run::stash::mem_add(&name, &path);
-                            }
-                        }
-                        InsertionStrategy::Replace => {
-                            // the old entry is removed and the path re-added,
-                            // which moves it to the front of the stash (fresh
-                            // add time)
-                            crate::run::stash::mem_remove(&name, std::slice::from_ref(&path));
-                            crate::run::stash::mem_add(&name, &path);
-                        }
+
+    if kind == StashPaneKind::Transient {
+        for path in paths {
+            match insert {
+                InsertionStrategy::Duplicate => {
+                    crate::run::stash::mem_add(&name, &path);
+                }
+                InsertionStrategy::Skip => {
+                    if !crate::run::stash::mem_has(&name, &path) {
+                        crate::run::stash::mem_add(&name, &path);
                     }
                 }
-            }
-            _ => {
-                // prunes/filters missing paths while populating, so inserts
-                // go straight to the db
-                if let Some(mut conn) = pool.get_conn(crate::db::DbTable::stashes).await._elog() {
-                    for path in paths {
-                        match insert {
-                            InsertionStrategy::Duplicate => {
-                                conn.add_stash_entry(&name, &path).await._elog();
-                            }
-                            InsertionStrategy::Skip => {
-                                let exists = conn
-                                    .stash_has_entry(&name, &path)
-                                    .await
-                                    ._elog()
-                                    .unwrap_or(false);
-                                if !exists {
-                                    conn.add_stash_entry(&name, &path).await._elog();
-                                }
-                            }
-                            InsertionStrategy::Replace => {
-                                // the old entry is removed and the path re-added, which
-                                // moves it to the end of the stash (fresh add time)
-                                conn.remove_stash_entries(&name, std::slice::from_ref(&path))
-                                    .await
-                                    ._elog();
-                                conn.add_stash_entry(&name, &path).await._elog();
-                            }
-                        }
-                    }
+                InsertionStrategy::Replace => {
+                    // the old entry is removed and the path re-added,
+                    // which moves it to the front of the stash (fresh
+                    // add time)
+                    crate::run::stash::mem_remove(&name, std::slice::from_ref(&path));
+                    crate::run::stash::mem_add(&name, &path);
                 }
             }
         }
         if reload {
             GLOBAL::send_action(FsAction::Reload);
         }
-    });
+    } else {
+        let pool = GLOBAL::db();
+        TASKS::spawn("db stash", async move {
+            // prunes/filters missing paths while populating, so inserts
+            // go straight to the db
+            if let Some(mut conn) = pool.get_conn(crate::db::DbTable::stashes).await._elog() {
+                for path in paths {
+                    match insert {
+                        InsertionStrategy::Duplicate => {
+                            conn.add_stash_entry(&name, &path).await._elog();
+                        }
+                        InsertionStrategy::Skip => {
+                            let exists = conn
+                                .stash_has_entry(&name, &path)
+                                .await
+                                ._elog()
+                                .unwrap_or(false);
+                            if !exists {
+                                conn.add_stash_entry(&name, &path).await._elog();
+                            }
+                        }
+                        InsertionStrategy::Replace => {
+                            // the old entry is removed and the path re-added, which
+                            // moves it to the end of the stash (fresh add time)
+                            conn.remove_stash_entries(&name, std::slice::from_ref(&path))
+                                .await
+                                ._elog();
+                            conn.add_stash_entry(&name, &path).await._elog();
+                        }
+                    }
+                }
+            }
+            if reload {
+                GLOBAL::send_action(FsAction::Reload);
+            }
+        });
+    }
 }
 
 /// Remove `paths` from the named stash, then reload once the removals
@@ -1581,7 +1607,6 @@ fn db_stash_remove(
     name: String,
     paths: Vec<PathBuf>,
 ) {
-    let pool = GLOBAL::db();
     let c = GLOBAL::cfg();
     let kind = c
         .panes
@@ -1589,17 +1614,20 @@ fn db_stash_remove(
         .get(&name)
         .map(|s| s.kind)
         .unwrap_or_default();
-    TASKS::spawn(async move {
+
+    if kind == StashPaneKind::Transient {
         let paths: Vec<AbsPath> = paths.iter().map(AbsPath::new_unchecked).collect();
-        match kind {
-            StashPaneKind::Transient => {
-                let n = crate::run::stash::mem_remove(&name, &paths);
-                TOAST::notice(
-                    ToastStyle::Success,
-                    format!("Removed {n} item(s) from stash ({name})"),
-                );
-            }
-            _ => match pool.get_conn(crate::db::DbTable::stashes).await {
+        let n = crate::run::stash::mem_remove(&name, &paths);
+        TOAST::notice(
+            ToastStyle::Success,
+            format!("Removed {n} item(s) from stash ({name})"),
+        );
+        GLOBAL::send_action(FsAction::Reload);
+    } else {
+        let pool = GLOBAL::db();
+        TASKS::spawn("db stash remove", async move {
+            let paths: Vec<AbsPath> = paths.iter().map(AbsPath::new_unchecked).collect();
+            match pool.get_conn(crate::db::DbTable::stashes).await {
                 Ok(mut conn) => match conn.remove_stash_entries(&name, &paths).await {
                     Ok(n) => {
                         TOAST::notice(
@@ -1615,10 +1643,10 @@ fn db_stash_remove(
                 Err(e) => {
                     log::error!("Error getting connection: {e}");
                 }
-            },
-        }
-        GLOBAL::send_action(FsAction::Reload);
-    });
+            }
+            GLOBAL::send_action(FsAction::Reload);
+        });
+    }
 }
 
 /// Remove `paths` from the db table backing a history pane (files/dirs/apps),
@@ -1628,7 +1656,7 @@ fn db_remove_history_entries(
     paths: Vec<PathBuf>,
 ) {
     let pool = GLOBAL::db();
-    TASKS::spawn(async move {
+    TASKS::spawn("db remove history", async move {
         let paths: Vec<AbsPath> = paths.iter().map(AbsPath::new_unchecked).collect();
         match pool.get_conn(table).await {
             Ok(mut conn) => match conn.remove_entries(&paths).await {
@@ -1907,6 +1935,22 @@ macro_rules! enum_from_str_display {
                 };
             }
 use enum_from_str_display;
+
+/// Deletes whose total size exceeds this threshold are surfaced with a
+/// persistent `Deleting:` progress toast. 2 GiB.
+const DELETE_NOTIFY_SIZE: u64 = 2 * 1024 * 1024 * 1024;
+
+/// Total on-disk size (bytes) of `paths`, walking directories recursively.
+/// Sizes are read through the shared size cache so previously-computed
+/// values are reused; paths that cannot be measured count as 0.
+fn paths_total_size(paths: &[PathBuf]) -> u64 {
+    let cache = sort::dir_size();
+    for p in paths {
+        cache.add(p);
+    }
+    cache.wait();
+    paths.iter().map(|p| cache.get_path(p).unwrap_or(0)).sum()
+}
 
 #[cfg(test)]
 mod open_parse_tests {

@@ -12,7 +12,7 @@ pub use stack::*;
 pub mod context;
 mod temp;
 pub mod toast;
-pub use toast::{TOAST, ToastContent, ToastStyle};
+pub use toast::{TOAST, ToastContent, ToastFlags, ToastStyle};
 pub mod ui;
 pub use temp::*;
 

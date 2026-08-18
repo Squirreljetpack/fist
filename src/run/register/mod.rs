@@ -212,7 +212,7 @@ impl FsMatchmaker {
                     return;
                 };
                 let nav_cwd = STACK::nav_cwd();
-                TASKS::spawn_blocking(move || run_menu_lua(&lua_cmd, &paths, nav_cwd.as_ref()));
+                TASKS::spawn_blocking("menu lua", move || run_menu_lua(&lua_cmd, &paths, nav_cwd.as_ref()));
                 return;
             }
             let Some(path) = resolve_target(state, false) else {
@@ -272,7 +272,7 @@ impl FsMatchmaker {
             let vars = collect_exec_env(state, &path);
 
             if payload < 2 {
-                TASKS::spawn(async move {
+                TASKS::spawn("execute copy", async move {
                     let mut builder = tokio_from_script(&cmd);
                     builder
                         .envs(vars)
@@ -325,7 +325,7 @@ impl FsMatchmaker {
                 return;
             };
 
-            TASKS::spawn(async move {
+            TASKS::spawn("execute async", async move {
                 let mut builder = tokio_from_script(&cmd);
                 builder
                     .envs(vars)

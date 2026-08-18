@@ -23,7 +23,7 @@ impl Pool {
         folder: bool,
         path: AbsPath,
     ) {
-        TASKS::spawn(async move {
+        TASKS::spawn("db bump path", async move {
             let table = if folder {
                 DbTable::dirs
             } else {
@@ -50,7 +50,7 @@ impl Pool {
         alias: String,
         table: DbTable,
     ) {
-        TASKS::spawn(async move {
+        TASKS::spawn("db set alias", async move {
             match self.get_conn(table).await {
                 Ok(mut conn) => {
                     if let Err(e) = conn.bump_path(path.clone(), 1).await {
