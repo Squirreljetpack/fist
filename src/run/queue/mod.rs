@@ -501,7 +501,7 @@ impl QUEUE {
 
         let rename_policy = GLOBAL::cfg().fs.rename_policy.clone();
 
-        TASKS::spawn_blocking(move || {
+        TASKS::spawn_blocking("queue dispatch", move || {
             for mut item in queue {
                 // single-path items resolve their destination here against
                 // the effective navigation directory; multi-path items pass

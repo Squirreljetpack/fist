@@ -11,6 +11,36 @@ thread_local! {
     static JOINSET: RefCell<JoinSet<()>> = RefCell::new(JoinSet::new());
 }
 
+/// Descriptions of in-flight tasks, keyed by name and counted for duplicates,
+/// so shutdown can name what it is waiting on. Process-global because the
+/// multi-thread runtime polls tasks on arbitrary worker threads, and entries
+/// are written both at spawn and at task completion.
+static TASK_NAMES: Mutex<BTreeMap<String, usize>> = Mutex::new(BTreeMap::new());
+
+/// Removes this task's description from [`TASK_NAMES`] when the task ends,
+/// even if it panics.
+struct TaskNameGuard(String);
+
+impl Drop for TaskNameGuard {
+    fn drop(&mut self) {
+        let mut names = TASK_NAMES
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        match names.get_mut(&self.0) {
+            Some(count) if *count > 1 => *count -= 1,
+            _ => {
+                names.remove(&self.0);
+            }
+        }
+    }
+}
+
+/// Records `desc` as an in-flight task description.
+fn register_name(desc: String) {
+    let mut names = TASK_NAMES.lock().unwrap();
+    *names.entry(desc).or_insert(0) += 1;
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TaskId {
     Populate = 0,
@@ -94,21 +124,39 @@ impl TASKS {
         zombies.len()
     }
 
-    pub fn spawn<F>(fut: F)
-    where
+    /// Spawn a background future tracked under the given description. The
+    /// description is shown by [`TASKS::shutdown`] while it waits.
+    pub fn spawn<F>(
+        desc: impl Into<String>,
+        fut: F,
+    ) where
         F: std::future::Future<Output = ()> + Send + 'static,
     {
+        let desc = desc.into();
+        register_name(desc.clone());
         JOINSET.with(|tasks| {
-            tasks.borrow_mut().spawn(fut);
+            tasks.borrow_mut().spawn(async move {
+                let _guard = TaskNameGuard(desc);
+                fut.await;
+            });
         });
     }
 
-    pub fn spawn_blocking<F>(f: F)
-    where
+    /// Spawn a blocking background task tracked under the given description.
+    /// The description is shown by [`TASKS::shutdown`] while it waits.
+    pub fn spawn_blocking<F>(
+        desc: impl Into<String>,
+        f: F,
+    ) where
         F: FnOnce() + Send + 'static,
     {
+        let desc = desc.into();
+        register_name(desc.clone());
         JOINSET.with(|tasks| {
-            tasks.borrow_mut().spawn_blocking(f);
+            tasks.borrow_mut().spawn_blocking(move || {
+                let _guard = TaskNameGuard(desc);
+                f();
+            });
         });
     }
 
@@ -174,8 +222,8 @@ impl TASKS {
                 _ = &mut warn_deadline => {
                     if !join_set.is_empty() {
                         wbog!(
-                            "Waiting on {} task(s). (Press Ctrl-C to exit).",
-                            join_set.len()
+                            "{} (Press Ctrl-C to exit).",
+                            waiting_on(join_set.len())
                         );
                         warned = true;
 
@@ -200,5 +248,22 @@ impl TASKS {
         if Self::prune_children() > 0 {
             _wbog!("Some background processes are still terminating...");
         }
+    }
+}
+
+/// Formats the shutdown wait message: names the first outstanding task's
+/// description and counts the rest, e.g. `Waiting on db stash and 2 others.`
+fn waiting_on(total: usize) -> String {
+    let names = TASK_NAMES
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    match names.keys().next() {
+        Some(name) if total <= 1 => format!("Waiting on {name}."),
+        Some(name) => {
+            let others = total - 1;
+            let plural = if others == 1 { "" } else { "s" };
+            format!("Waiting on {name} and {others} other{plural}.")
+        }
+        None => format!("Waiting on {total} task(s)."),
     }
 }

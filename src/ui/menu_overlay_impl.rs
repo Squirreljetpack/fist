@@ -105,7 +105,7 @@ impl MenuOverlay {
                 let dest = auto_dest(input_path, &current_item_parent); // replaced if input is absolute
                 let dest_slice = [dest];
 
-                TASKS::spawn(async move {
+                TASKS::spawn("create", async move {
                     match create_all(&dest_slice).await {
                         Ok(_) => {
                             let dest_path = match &dest_slice[0] {
@@ -133,7 +133,7 @@ impl MenuOverlay {
                 let dest = AbsPath::new_unchecked(input_path.abs(current_item_parent));
                 let cd = input.ends_with(std::path::MAIN_SEPARATOR);
 
-                TASKS::spawn(async move {
+                TASKS::spawn("mkdir", async move {
                     match std::fs::create_dir_all(&dest) {
                         Ok(_) => {
                             TOAST::push(ToastStyle::Success, "New: ", [short_display(&dest)]);
@@ -176,7 +176,7 @@ impl MenuOverlay {
                 let renames_cwd = STACK::cwd().as_ref() == Some(&old_path);
                 let renames_process_cwd = current_dir_matches(&old_path);
 
-                TASKS::spawn(async move {
+                TASKS::spawn("rename", async move {
                     match rename(&old_path, &dest).await {
                         Ok(_) => {
                             let new_display = dest.to_string_lossy().to_string().into();
@@ -260,27 +260,29 @@ impl MenuOverlay {
                         .get(&name)
                         .map(|s| s.kind)
                         .unwrap_or_default();
-                    let pool = GLOBAL::db();
                     let tail = alias.clone();
                     let path = path.clone();
-                    TASKS::spawn(async move {
-                        match kind {
-                            StashPaneKind::Transient => {
-                                crate::run::stash::mem_set_tail(&name, &path, &tail);
-                            }
-                            _ => match pool.get_conn(DbTable::stashes).await {
+
+                    if kind == StashPaneKind::Transient {
+                        // in-memory stash: nothing async needed
+                        crate::run::stash::mem_set_tail(&name, &path, &tail);
+                        GLOBAL::send_action(FsAction::Reload);
+                    } else {
+                        let pool = GLOBAL::db();
+                        TASKS::spawn("set alias", async move {
+                            match pool.get_conn(DbTable::stashes).await {
                                 Ok(mut conn) => {
                                     if let Err(e) = conn.set_stash_tail(&name, &path, &tail).await {
-                                        log::error!("Error setting stash tail: {e}");
+                                        log::error!("Error setting alias: {e}");
                                     }
                                 }
                                 Err(e) => {
                                     log::error!("Error getting connection: {e}");
                                 }
-                            },
-                        }
-                        GLOBAL::send_action(FsAction::Reload);
-                    });
+                            }
+                            GLOBAL::send_action(FsAction::Reload);
+                        });
+                    }
                 } else {
                     let pool = GLOBAL::db();
                     let table = if path.is_dir() {

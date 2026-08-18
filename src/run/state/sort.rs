@@ -189,7 +189,7 @@ pub fn fill_then_resort(state: &MMState<'_>) {
         }
         SortOrder::mtime | SortOrder::atime | SortOrder::size => {
             let items = state.picker_ui.worker.nucleo.items();
-            TASKS::spawn_blocking(move || {
+            TASKS::spawn_blocking("sort fill", move || {
                 match order {
                     SortOrder::mtime | SortOrder::atime => {
                         for (_, item) in items.iter() {
@@ -221,7 +221,7 @@ pub fn fill_then_resort(state: &MMState<'_>) {
 /// Post-populate size fill: paths were submitted during injection; wait for
 /// the cache, then let `ReSort` apply the values and resort.
 pub fn wait_sizes_then_resort() {
-    TASKS::spawn_blocking(|| {
+    TASKS::spawn_blocking("sort sizes", || {
         DIR_SIZE.wait();
         GLOBAL::send_action(FsAction::ReSort);
     });
