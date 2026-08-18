@@ -147,6 +147,11 @@ expr_as_path_fn!(
 #[cfg(not(debug_assertions))]
 expr_as_path_fn!(lessfilter_cfg_path, config_dir().join("lessfilter.toml"));
 
+#[cfg(debug_assertions)]
+expr_as_path_fn!(pager_cfg_path, config_dir().join("pager.dev.toml"));
+#[cfg(not(debug_assertions))]
+expr_as_path_fn!(pager_cfg_path, config_dir().join("pager.toml"));
+
 // menu actions: the primary file plus the actions folder merged in
 // sorted-filename order (see [`MenuActions::load_all`])
 #[cfg(debug_assertions)]

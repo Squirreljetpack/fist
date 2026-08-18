@@ -1,0 +1,20 @@
+# Pager configuration (bat passthrough into minus). See docs/pager.md.
+
+# Bat passthrough args (fs only). Commenting out this line disables bat entirely.
+bat_opts = ["--color=always", "--style=changes"]
+
+# Show line numbers in the pager.
+line_numbers = false
+
+# Start the pager in follow mode (auto-scroll as new output arrives).
+follow = false
+
+# Footer prompt text shown by the pager.
+# prompt = ""
+
+# Enable horizontal scrolling on start.
+horizontal_scroll = false
+
+# Smart case search: when enabled, queries with no uppercase characters
+# match case-insensitively; queries containing uppercase stay case-sensitive.
+smart_case = true

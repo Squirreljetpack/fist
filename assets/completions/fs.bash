@@ -79,8 +79,8 @@ _fs() {
             fs__subcmd__:tool,shell)
                 cmd="fs__subcmd__:tool__subcmd__shell"
                 ;;
-            fs__subcmd__:tool,show-binds)
-                cmd="fs__subcmd__:tool__subcmd__show__subcmd__binds"
+            fs__subcmd__:tool,showbinds)
+                cmd="fs__subcmd__:tool__subcmd__showbinds"
                 ;;
             fs__subcmd__:tool,trash)
                 cmd="fs__subcmd__:tool__subcmd__trash"
@@ -719,7 +719,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool)
-            opts="-q -v --help --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener colors liza shell lessfilter pager bump trash show-binds types diskspace check"
+            opts="-q -v --help --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener colors liza shell lessfilter pager bump trash showbinds types diskspace check"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1168,7 +1168,7 @@ _fs() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        fs__subcmd__:tool__subcmd__show__subcmd__binds)
+        fs__subcmd__:tool__subcmd__showbinds)
             opts="-q -v --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )

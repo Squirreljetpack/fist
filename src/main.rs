@@ -11,7 +11,9 @@ use fist::{
     cli::{
         Cli, SubCmd, ToolsCmd,
         handlers::handle_subcommand,
-        paths::{BINARY_FULL, actions_dir, actions_path, lessfilter_cfg_path},
+        paths::{
+            BINARY_FULL, actions_dir, actions_path, lessfilter_cfg_path, pager_cfg_path,
+        },
     },
     config::Config,
     errors::CliError,
@@ -51,6 +53,11 @@ async fn main() {
             write_str(
                 lessfilter_cfg_path(),
                 include_str!("../assets/config/lessfilter.dev.toml"),
+            )
+            ._ebog();
+            write_str(
+                pager_cfg_path(),
+                include_str!("../assets/config/pager.dev.toml"),
             )
             ._ebog();
             write_str(actions_path(), include_str!("../assets/config/actions.dev.toml"))._ebog();
@@ -212,6 +219,17 @@ fn dump_config(
             .is_some()
         {
             _ibog!("Wrote config to {}", lessfilter_cfg_path.to_string_lossy())
+        }
+        let pager_cfg_path = pager_cfg_path();
+        if !pager_cfg_path.exists()
+            && write_str(
+                pager_cfg_path,
+                include_str!("../assets/config/pager.toml"),
+            )
+            ._ebog()
+            .is_some()
+        {
+            _ibog!("Wrote config to {}", pager_cfg_path.to_string_lossy())
         }
         if write_str(actions_path(), include_str!("../assets/config/actions.toml"))
             ._ebog()

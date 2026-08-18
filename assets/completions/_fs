@@ -504,7 +504,7 @@ _arguments "${_arguments_options[@]}" : \
 '*::args:_default' \
 && ret=0
 ;;
-(show-binds)
+(showbinds)
 _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -718,7 +718,7 @@ _arguments "${_arguments_options[@]}" : \
 '*::args:_default' \
 && ret=0
 ;;
-(show-binds)
+(showbinds)
 _arguments "${_arguments_options[@]}" : \
 '--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
@@ -880,7 +880,7 @@ _fs__subcmd__:tool_commands() {
 'pager:Page a file or stdin through bat into minus (single optional path)' \
 'bump:Bump history entries' \
 'trash:Trash files with timed fallback prompts' \
-'show-binds:Show binds' \
+'showbinds:Show binds' \
 'types:List mappings supported by the --type parameter' \
 'diskspace:Disk usage\: compute directory sizes concurrently and print them' \
 'check:Validate configuration and scripts; exits non-zero on errors' \
@@ -927,10 +927,10 @@ _fs__subcmd__:tool__subcmd__shell_commands() {
     local commands; commands=()
     _describe -t commands 'fs :tool shell commands' commands "$@"
 }
-(( $+functions[_fs__subcmd__:tool__subcmd__show-binds_commands] )) ||
-_fs__subcmd__:tool__subcmd__show-binds_commands() {
+(( $+functions[_fs__subcmd__:tool__subcmd__showbinds_commands] )) ||
+_fs__subcmd__:tool__subcmd__showbinds_commands() {
     local commands; commands=()
-    _describe -t commands 'fs :tool show-binds commands' commands "$@"
+    _describe -t commands 'fs :tool showbinds commands' commands "$@"
 }
 (( $+functions[_fs__subcmd__:tool__subcmd__trash_commands] )) ||
 _fs__subcmd__:tool__subcmd__trash_commands() {

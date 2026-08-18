@@ -1,10 +1,10 @@
 //! Rust pager: optional bat passthrough into minus.
 //!
-//! `page` pages a spawned child's stdout (execute paths, `force_tty=true` —
-//! minus draws on `/dev/tty`). `page_reader` and `render_text` render a stream
-//! or file with `force_tty=false`: stdout is probed — a terminal runs
-//! interactive minus on it, a pipe or file is passed straight through without
-//! paging. `render_text` opens a file and pages it to the subtool's own stdout.
+//! `page_child` pages a spawned child's stdout, drawing on `/dev/tty`
+//! (execute paths). `page_reader` and `render_text` render a stream or file
+//! with `force_tty=false`: stdout is probed — a terminal runs interactive
+//! minus on it, a pipe or file is passed straight through without paging.
+//! `render_text` opens a file and pages it to the subtool's own stdout.
 //!
 //! When `bat` is `Some(opts)` and the `bat` binary exists, the stream is piped
 //! through it first. The pager never starts on empty output (first-line gate).
@@ -19,11 +19,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::config::PagerConfig;
-use crate::run::state::GLOBAL;
-use cba::broc::{TTY_HANDLE, has};
+use crate::config::pager_cfg;
+use cba::broc::{has, TTY_HANDLE};
 use log::error;
-use minus::{LineNumbers, Pager, hooks::Hook};
+use minus::{hooks::Hook, LineNumbers, Pager};
 
 /// Poll a child's exit status for up to `timeout`, then kill it; returns whether
 /// it exited successfully.
@@ -79,16 +78,12 @@ fn kill_child(slot: &Mutex<Option<Child>>) {
     }
 }
 
-/// Apply the `[pager]` config to a minus pager: line numbers, follow mode,
-/// horizontal scroll, and the footer prompt (default `/ or ? to search`).
-/// Subtool processes have no global state (`GLOBAL::init` never runs there), so
-/// they fall back to the defaults.
+/// Apply the `pager.toml` config to a minus pager: line numbers, follow mode,
+/// horizontal scroll, smart case search, and the footer prompt (default
+/// `/ or ? to search`). Loaded through [`pager_cfg`], which works in subtool
+/// processes too (no `GLOBAL::init` needed).
 fn configure_pager(pager: &Pager) {
-    let default = PagerConfig::default();
-    let cfg = match GLOBAL::cfg_opt() {
-        Some(cfg) => &cfg.pager,
-        None => &default,
-    };
+    let cfg = pager_cfg();
     let _ = pager.set_line_numbers(if cfg.line_numbers {
         LineNumbers::Enabled
     } else {
@@ -100,11 +95,23 @@ fn configure_pager(pager: &Pager) {
     if cfg.horizontal_scroll {
         let _ = pager.horizontal_scroll(true);
     }
+    let _ = pager.set_smart_case(cfg.smart_case);
     let prompt = cfg
         .prompt
         .clone()
-        .unwrap_or_else(|| "/ or ? to search, q to quit".to_string());
+        .unwrap_or_else(|| "alt-h for help, q to quit".to_string());
     let _ = pager.set_prompt(prompt);
+
+    // Default bindings plus the Alt-h help binding.
+    let mut input_register = minus::input::HashedEventRegister::default();
+    input_register.add_help_key(&[]);
+    let _ = pager.set_input_classifier(Box::new(input_register));
+
+    // Route pager selection copies through fist's existing clipboard handle
+    // instead of a fresh arboard connection.
+    let _ = pager.set_clipboard_handler(Box::new(|text| {
+        crate::clipboard::copy_from_pager(text.to_string());
+    }));
 }
 
 /// Neutralize minus's pre-populated `PostPagerExit` id-1 hook (`process::exit`)
@@ -156,23 +163,22 @@ fn open_source(path: &Path) -> io::Result<Box<dyn Read + Send>> {
         .map(|f| Box::new(f) as Box<dyn Read + Send>)
 }
 
-/// Page a spawned child's stdout. `force_tty=true`: minus's output sink is
-/// `/dev/tty` (from `cba::broc::TTY_HANDLE`); when the handle is absent or not
-/// cloneable, minus is not run — the stream is drained and `Ok(false)`
-/// returned. `bat`: Some(opts) → pipe through `bat` first if the binary exists.
+/// Page a spawned child's stdout. Minus's output sink is `/dev/tty` (from
+/// `cba::broc::TTY_HANDLE`); when the handle is absent or not cloneable, minus
+/// is not run — the stream is drained and `Ok(false)` returned. `bat`:
+/// Some(opts) → pipe through `bat` first if the binary exists.
 ///
 /// Returns whether the child exited successfully before the pipe closed
 /// (`false` on empty output, early quit, or a killed child); drives the DB bump.
-pub fn page(
+pub fn page_child(
     mut child: Child,
-    force_tty: bool,
     bat: Option<Vec<String>>,
 ) -> io::Result<bool> {
     let stdout = child
         .stdout
         .take()
         .expect("paged child stdout must be piped");
-    page_inner(Ok(Box::new(stdout)), Some(child), force_tty, bat)
+    page_inner(Ok(Box::new(stdout)), Some(child), true, bat)
 }
 
 /// Render any reader (no child). `force_tty=false` for the subtool paths:
