@@ -4,7 +4,7 @@ F:ist is a fast and intuitive search tool for the filesystem.
 
 // video
 
-> *Skeptic: What would you say is your biggest strength?*
+> *Skeptic: What is your biggest strength?*
 >
 >> Speed, simplicity, power, capability, extensibility, customizability, adaptability, minimalism, flexibility, utility, efficiency, versatility, robustness, reliability, precision, clarity, elegance, performance, responsiveness, portability, composability, modularity, interoperability, scalability, maintainability, resilience, configurability, programmability, expressiveness, concision, practicality, pragmatism, openness, autonomy, control, freedom, agency, coherence, consistency, discoverability, usability, intuitiveness, observability.
 >>
@@ -21,8 +21,9 @@ curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/fist/main/install.s
 Install the required dependencies:
 
 ```shell
-# dependencies (optional)
-cargo install bat fd-find eza ripgrep
+cargo install fd-find ripgrep
+# (optional)
+cargo install bat eza chafa kreuzberg mediainfo
 ```
 
 Optionally, setup shell integration:
@@ -64,7 +65,7 @@ Call as:
 - `delete/shift-delete`: Trash/Delete.
 - `ctrl-e`: Open menu.
 - `ctrl-u`: Open queue.
-- `ctrl-p` : Open filters.
+- `ctrl-p` : Open options.
 - `ctrl-s`/`alt-h`: Toggle hidden.
 - `ctrl-d`: Toggle contextual visibility.
 
@@ -104,7 +105,7 @@ You can search through all files recursively by
 
 <img src=".README.assets/filters-overlay.png" alt="Filters overlay" style="height:309px;" />
 
-The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Filters overlay](#filters).
+The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Options overlay](#options).
 
 > [!NOTE]
 >
@@ -277,7 +278,7 @@ Custom actions can be added in the `[menu]` section of the config. They consist 
 
 The **Queue** overlay (`ctrl-u`) lists the pending file operations. Rows show their kind, source, destination, and progress, and can be edited, rearranged, removed and executed from the overlay. `Undo`/`Redo` cycles between filters to narrows the overlay to a single queue kind.
 
-`Move` and `Copy` enqueue items under the `move` and `copy` kinds. The `Paste` (`ctrl-v`) keybind is available to executes every queued `copy`, `move` and `symlink` item without enterring the overlay, transferring files into the active directory.[^7] `ExecuteQueue(selector)`, `Enqueue(kind)` and `ClearQueue(selector)` are also available for binding.
+`Move` and `Copy` enqueue items under the `move` and `copy` kinds. The `Paste` (`ctrl-v`) keybind is available to executes every queued `copy`, `move` and `symlink` item without enterring the overlay, transferring files into the active directory[^7]. `ExecuteQueue(selector)`, `Enqueue(kind)` and `ClearQueue(selector)` are also available for binding.
 
 Menu actions with the `Queue`/`QueueBatch` strategies enqueue their targets under the action's key; on execution the action's lua script runs once per queued item with `(paths, dst, nav_cwd)`.
 
@@ -302,7 +303,7 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 > - the only argument is a valid path: `cd`.
 > - no arguments: interactively select from history.
 > - last argument is `.` : interactively search subdirectories of the best match.
-> - otherwise: cd into the best match for the search term (if one exists).[^9]
+> - otherwise: cd into the best match for the search term (if one exists)[^9].
 >
 > One final change from zoxide is the introduction of the `history.refind` setting in the [config](#configuration).
 > When no match is found, or when the top result is the current directory, this setting causes the the interactive interface to be started.
@@ -326,7 +327,7 @@ Including the `--aliases` flag will add a few simple alias definitions into the 
   - In case your shell doesn't support uppercase function names, this one can be renamed like so: `fs :tool shell --aliases --shell csh --nav-name x`.
 - `zf`: recent files history
 
-For speed and safety, it is recommended pass your actual shell through to `--shell`.[^10]
+For speed and safety, it is recommended pass your actual shell through to `--shell`[^10].
 
 [^10]: Another optimization you can make is to cache the generated command: my [zcomet fork](#https://github.com/Squirreljetpack/zcomet) supports this.
 
@@ -352,9 +353,9 @@ The patterns can be prefixed with a score modifier which dictates how the score 
 
 The score modifiers are:
 
-- Add/Sub (n): Add/Sub (n) to the current score.
-- Max/Min (n): Take the max/min of the current score with (n) for the new score.
-- Req: Set the score to 0 if the test fails.
+- `Add/Sub (n)`: Add/Sub (n) to the current score.
+- `Max/Min (n)`: Take the max/min of the current score with (n) for the new score.
+- `Req`: Set the score to 0 if the test fails.
 
 The patterns and their default scores are:
 
@@ -413,9 +414,6 @@ The built-in actions are:
 - `Header`
 - `None`
 
-`Extract` is selected inside a rule alongside other actions; it is not one of
-the presets listed above.
-
 Additional actions can be defined with shell syntax. For example:
 
 ```toml
@@ -441,6 +439,8 @@ fs exposes several of the more generally useful functionalities it uses internal
 
 - `trash`: cross platform tool for easily moving files to the system trash.
 
+- `pager`: smart compatible pager that feeds `bat` for syntax highlighting into `minus` for modern aesthetics.
+
 - as for the rest, run `fs :tool` to see a full listing.
 
 # Configuration
@@ -453,7 +453,7 @@ Configuration is presently only documented in the source files: [Main Config](./
 
 - fd-find
 - ripgrep
-- bat (preview)
+- bat (optional: preview)
 - eza (optional: preview)
 - chafa (optional: preview)
 - kreuzberg (optional: preview)

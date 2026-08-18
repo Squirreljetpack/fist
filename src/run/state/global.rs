@@ -87,12 +87,6 @@ impl GLOBAL {
             .expect("GlobalConfig not initialized")
     }
 
-    /// The global config when `GLOBAL::init` has been called, else `None`
-    /// (subtool processes never run the TUI, so they have no global state).
-    pub fn cfg_opt() -> Option<&'static GlobalConfig> {
-        CONFIG.with(tls_ref).get()
-    }
-
     /// `#[cfg(test)]` helper: wire the render/watcher/bind senders to dummy
     /// channels so tests that emit actions/toasts don't trip the
     /// expect-based senders.

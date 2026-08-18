@@ -20,9 +20,11 @@ use crate::{
 };
 use fist_types::When;
 
+mod pager;
 mod panes;
 mod partial;
 mod styles;
+pub use pager::*;
 pub use panes::*;
 pub use partial::*;
 pub mod ui;
@@ -71,44 +73,6 @@ impl Default for Config {
     }
 }
 
-fn default_pager_bat_opts() -> Option<Vec<String>> {
-    Some(vec!["--color=always".into(), "--style=changes".into()])
-}
-
-/// Configure the pager (bat passthrough into minus).
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct PagerConfig {
-    /// Bat passthrough args. Defaults to forcing color + style on.
-    /// `None` disables bat entirely (raw stream into the pager).
-    #[serde(default = "default_pager_bat_opts")]
-    pub bat_opts: Option<Vec<String>>,
-
-    /// Show line numbers in the pager.
-    pub line_numbers: bool,
-
-    /// Start the pager in follow mode (auto-scroll as new output arrives).
-    pub follow: bool,
-
-    /// Footer prompt text shown by the pager. Defaults to `/ or ? to search`.
-    pub prompt: Option<String>,
-
-    /// Always enable horizontal scrolling (Ctrl+h still toggles it).
-    pub horizontal_scroll: bool,
-}
-
-impl Default for PagerConfig {
-    fn default() -> Self {
-        Self {
-            bat_opts: default_pager_bat_opts(),
-            line_numbers: false,
-            follow: false,
-            prompt: None,
-            horizontal_scroll: false,
-        }
-    }
-}
-
 #[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct GlobalConfig {
@@ -131,9 +95,6 @@ pub struct GlobalConfig {
     /// Matchmaker styling overrides (per-pane).
     /// [Warning!]: Unstable and untested.
     pub mm: MatchmakerOverrides,
-
-    /// Pager configuration (bat passthrough args).
-    pub pager: PagerConfig,
 }
 
 /// Settings for archive extraction skeletons.
@@ -456,8 +417,30 @@ mod tests {
             toml::from_str(include_str!("../../assets/config/lessfilter.toml")).unwrap();
         let _: LessfilterConfig =
             toml::from_str(include_str!("../../assets/config/lessfilter.dev.toml")).unwrap();
+        let _: PagerConfig =
+            toml::from_str(include_str!("../../assets/config/pager.toml")).unwrap();
+        let _: PagerConfig =
+            toml::from_str(include_str!("../../assets/config/pager.dev.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.dev.toml")).unwrap();
+    }
+
+    #[test]
+    fn pager_config_defaults() {
+        let default = PagerConfig::default();
+        assert!(!default.smart_case);
+        assert!(default.bat_opts.is_some());
+        assert!(!default.line_numbers);
+        assert!(!default.follow);
+        assert!(default.prompt.is_none());
+        assert!(!default.horizontal_scroll);
+
+        // a partial toml (missing keys) fills in defaults
+        let parsed: PagerConfig = toml::from_str("smart_case = false\n").unwrap();
+        assert_eq!(parsed, default);
+        // smart_case parses and round-trips
+        let on: PagerConfig = toml::from_str("smart_case = true\n").unwrap();
+        assert!(on.smart_case);
     }
 
     #[test]

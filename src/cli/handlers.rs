@@ -659,7 +659,7 @@ async fn handle_tools(
             SubTool::Bump { args: args.clone() },
             SubTool::Trash { args: args.clone() },
             SubTool::Types { args: args.clone() },
-            SubTool::Ds { args: args.clone() },
+            SubTool::DiskSpace { args: args.clone() },
         ])
         .await?
     };
@@ -702,7 +702,7 @@ async fn handle_tools(
             let bat = lessfilter::env_bat_opts();
             let code = match args.as_slice() {
                 // No path: page stdin (empty input pages nothing and exits 0).
-                [] => crate::pager::page_reader(std::io::stdin(), false, bat)
+                [] => crate::pager::page_reader(std::io::stdin(), false, bat.filter(|v| !v.is_empty()))
                     .map(|_| 0)
                     .unwrap_or(1),
                 // Single path: render the file; bat opens it directly. Nothing
@@ -922,7 +922,7 @@ async fn handle_tools(
             display_types_overview(&lcfg.categories);
             Ok(())
         }
-        SubTool::Ds { args } => super::ds::handle(args),
+        SubTool::DiskSpace { args } => super::ds::handle(args),
         SubTool::Trash { mut args } => {
             let path = current_exe().basename();
             args.insert(0, format!("{path} :tool trash").into());

@@ -6,11 +6,9 @@ use anymap::AnyMap;
 use cba::{_dbg, define_collection_wrapper};
 
 use crate::{
-    abspath::AbsPath, cli::paths::lessfilter_cfg_path, lessfilter::LessfilterConfig,
-    ui::menu_overlay::PromptKind,
+    abspath::AbsPath, cli::paths::lessfilter_cfg_path, config::pager_cfg,
+    lessfilter::LessfilterConfig, ui::menu_overlay::PromptKind,
 };
-
-use super::GLOBAL;
 
 thread_local! {
     static TLS_MAP: RefCell<AnyMap> = RefCell::new(AnyMap::new());
@@ -146,8 +144,8 @@ impl MenuPrompt {
 pub struct STORE;
 
 /// Bat passthrough argument extras, handed to the pager via the STORE TLS map.
-/// Set by the [`FsAction::Lessfilter`](crate::run::FsAction::Lessfilter) paging handler;
-/// consumed one-shot by `STORE::get_bat_opts`.
+/// Set by the [`FsAction::Lessfilter`](crate::run::FsAction::Lessfilter) paging handler
+/// (help flow); consumed one-shot by `STORE::get_bat_opts`.
 #[derive(Debug, Clone)]
 pub struct BatOpts(pub Vec<String>);
 
@@ -197,19 +195,21 @@ impl STORE {
     /// # Additional
     /// When the prompt is set and the target is Ok, the target's filename is shown in the title of the input bar.
     /// Set bat passthrough extras for the next [`STORE::get_bat_opts`] call.
-    /// Only called by the [`FsAction::Lessfilter`](crate::run::FsAction::Lessfilter)
-    /// paging handler; consumed one-shot by `get_bat_opts` (take semantics).
-    pub fn set_bat_opts(opts: BatOpts) {
-        STORE::set(opts);
+    /// Called by the [`FsAction::Lessfilter`](crate::run::FsAction::Lessfilter)
+    /// paging handler for the help (special=1) flow; consumed one-shot by
+    /// `get_bat_opts` (take semantics).
+    pub fn set_bat_opts(opts: Vec<String>) {
+        STORE::set(BatOpts(opts));
     }
 
-    /// Merge the store-held [`BatOpts`] extras (taken once) with the config
-    /// `[pager] bat_opts` base. Returns `None` when either is absent: no BatOpts
-    /// was set for this paging (plain ExecutePaged → raw) or the config disables
-    /// bat (`pager.bat_opts = None`). Does not consult the environment.
+    /// Merge the store-held [`BatOpts`] extras (taken once) with the
+    /// `pager.toml` `bat_opts` base ([`pager_cfg`]). Returns `None` when
+    /// either is absent: no BatOpts was set for this paging (plain
+    /// ExecutePaged → raw) or the config disables bat
+    /// (`bat_opts = None`). Does not consult the environment.
     pub fn get_bat_opts() -> Option<Vec<String>> {
         let BatOpts(extra) = STORE::take::<BatOpts>()?;
-        let mut opts = GLOBAL::cfg().pager.bat_opts.clone()?;
+        let mut opts = pager_cfg().bat_opts.clone()?;
         opts.extend(extra);
         Some(opts)
     }

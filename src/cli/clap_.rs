@@ -3,6 +3,9 @@ use clap::Subcommand;
 use std::ffi::OsString;
 
 #[derive(Subcommand, Debug, Clone, strum_macros::Display)]
+// lowercase keeps the clap command names and the fuzzy picker's strum
+// Display in lockstep (DiskSpace -> diskspace, ShowBinds -> showbinds)
+#[command(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
 pub enum SubTool {
     Colors,
@@ -47,9 +50,8 @@ pub enum SubTool {
         args: Vec<OsString>,
     },
     /// Disk usage: compute directory sizes concurrently and print them.
-    #[strum(serialize = "diskspace")]
-    #[command(name = "diskspace", alias = "ds")]
-    Ds {
+    #[command(alias = "ds")]
+    DiskSpace {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<OsString>,
     },

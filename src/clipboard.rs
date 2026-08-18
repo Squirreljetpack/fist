@@ -97,6 +97,34 @@ pub fn apply_newline_policy(
     }
 }
 
+/// Copy text from the pager through the initialized backend. The pager runs
+/// on its own thread (outside the task runtime), so the write happens
+/// synchronously here; failures are logged, not toasted. When the clipboard
+/// was never initialized (no arboard handle), the copy falls back to OSC 52.
+pub fn copy_from_pager(text: String) {
+    let mut guard = CLIPBOARD.lock().unwrap();
+    let mut text = text;
+    match guard.as_mut() {
+        Some(fcb) => apply_newline_policy(&mut text, fcb.copy_trailing_newline),
+        None => apply_newline_policy(&mut text, false),
+    }
+    if text.is_empty() {
+        return;
+    }
+    match guard.as_mut().and_then(|fcb| fcb.arboard.as_mut()) {
+        Some(cb) => {
+            if let Err(e) = cb.set_text(text) {
+                log::error!("Clipboard set_text failed: {e}");
+            }
+        }
+        None => {
+            if let Err(e) = osc52::write_osc52(&text) {
+                log::error!("OSC52 clipboard write failed: {e}");
+            }
+        }
+    }
+}
+
 pub fn copy_texts(
     texts: Vec<String>,
     toast: bool,

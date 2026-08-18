@@ -33,7 +33,7 @@ use crate::{
         },
         register::{ExecutionMode, resolve_target},
         state::{
-            AcceptFlavor, BatOpts, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL,
+            AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL,
             HideMetadata, InPrompt, MENU_ACTIONS, MenuPrompt, STACK, STORE, TASKS, TOAST,
             ToastFlags, ToastStyle, context::ActionContext, lessfilter_cfg, sort,
         },
@@ -1357,7 +1357,7 @@ pub fn fsaction_handler(
 
             let template = if special == 1 {
                 format!(
-                    "'{}' :tool show-binds",
+                    "'{}' :tool showbinds",
                     crate::cli::paths::current_exe()
                         .to_str()
                         .unwrap_or(crate::cli::paths::BINARY_SHORT),
@@ -1367,16 +1367,15 @@ pub fn fsaction_handler(
             };
 
             if paging {
-                // Bat passthrough for the parent's pager (the only set_bat_opts
-                // caller): store presence opts the Paged execution into bat, and
-                // the special code maps to bat language args. PG_RAW lands on the
-                // child env at spawn (register_execute_handler) so the subtool
-                // skips its own bat.
-                STORE::set_bat_opts(BatOpts(if special == 1 {
-                    vec!["-l".into(), "ini".into()]
-                } else {
-                    vec![]
-                }));
+                // Bat passthrough for the parent's pager: only the special
+                // showbinds flow stores opts (forcing ini syntax on the help
+                // text); other paged lessfilter runs store nothing, so the
+                // subtool colors its own output with the path it knows. PG_RAW
+                // lands on the child env at spawn (register_execute_handler)
+                // so the subtool skips its own bat.
+                if special == 1 {
+                    STORE::set_bat_opts(vec!["-l".into(), "ini".into()]);
+                }
                 state.discriminant_payload = Some(ExecutionMode::Paged.discriminant());
             }
 

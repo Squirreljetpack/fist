@@ -372,7 +372,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('pager', 'pager', [CompletionResultType]::ParameterValue, 'Page a file or stdin through bat into minus (single optional path)')
             [CompletionResult]::new('bump', 'bump', [CompletionResultType]::ParameterValue, 'Bump history entries')
             [CompletionResult]::new('trash', 'trash', [CompletionResultType]::ParameterValue, 'Trash files with timed fallback prompts')
-            [CompletionResult]::new('show-binds', 'show-binds', [CompletionResultType]::ParameterValue, 'Show binds')
+            [CompletionResult]::new('showbinds', 'showbinds', [CompletionResultType]::ParameterValue, 'Show binds')
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
             [CompletionResult]::new('diskspace', 'diskspace', [CompletionResultType]::ParameterValue, 'Disk usage: compute directory sizes concurrently and print them')
             [CompletionResult]::new('check', 'check', [CompletionResultType]::ParameterValue, 'Validate configuration and scripts; exits non-zero on errors')
@@ -399,7 +399,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('pager', 'pager', [CompletionResultType]::ParameterValue, 'Page a file or stdin through bat into minus (single optional path)')
             [CompletionResult]::new('bump', 'bump', [CompletionResultType]::ParameterValue, 'Bump history entries')
             [CompletionResult]::new('trash', 'trash', [CompletionResultType]::ParameterValue, 'Trash files with timed fallback prompts')
-            [CompletionResult]::new('show-binds', 'show-binds', [CompletionResultType]::ParameterValue, 'Show binds')
+            [CompletionResult]::new('showbinds', 'showbinds', [CompletionResultType]::ParameterValue, 'Show binds')
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
             [CompletionResult]::new('diskspace', 'diskspace', [CompletionResultType]::ParameterValue, 'Disk usage: compute directory sizes concurrently and print them')
             [CompletionResult]::new('check', 'check', [CompletionResultType]::ParameterValue, 'Validate configuration and scripts; exits non-zero on errors')
@@ -615,7 +615,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
-        'fs;:tool;show-binds' {
+        'fs;:tool;showbinds' {
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
@@ -630,7 +630,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             break
         }
-        'fs;:t;show-binds' {
+        'fs;:t;showbinds' {
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')

@@ -1,0 +1,13 @@
+# Dev pager configuration (bat passthrough into minus). See docs/pager.md.
+
+bat_opts = ["--color=always", "--style=changes"]
+
+line_numbers = false
+
+follow = false
+
+# prompt = ""
+
+horizontal_scroll = false
+
+smart_case = false

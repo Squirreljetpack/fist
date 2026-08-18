@@ -17,16 +17,18 @@ use crossterm::style::Stylize;
 pub use super::application_helper::application_icon_path;
 use super::env::line_column;
 use crate::cli::paths::current_exe;
+use crate::config::pager_cfg;
 use crate::lessfilter::mime_helpers::{detect_encoding, is_native};
 use crate::pager;
 
-/// Subtool-side bat args derived from the process env. Returns `None` to skip bat entirely:
-/// `PG_RAW=true` (the parent's Paged flow will color the stream itself).
+/// Subtool-side bat args derived from the process env and the pager config.
+/// Returns `None` to skip bat entirely: `PG_RAW=true` (the parent's Paged flow
+/// will color the stream itself) or the pager config's `bat_opts = None`.
 ///
-/// Args: `PG_FLAGS` set → comma-split with doubled-escape (raw, caller-supplied flags);
-/// otherwise the default triple `--color=always --paging=never --style=changes`. Then
-/// `PG_LANG` → `-l`, `PG_FILENAME` → `--file-name`, `HIGHLIGHT_LINE` → `--highlight-line`
-/// are appended. `PG_RAW` set → `None` (skip bat entirely).
+/// Args: `PG_FLAGS` set → comma-split with doubled-escape (raw, caller-supplied
+/// flags); otherwise the `pager.toml` `bat_opts` ([`pager_cfg`]). Then `PG_LANG`
+/// → `-l`, `PG_FILENAME` → `--file-name`, `HIGHLIGHT_LINE` → `--highlight-line`
+/// are appended.
 pub fn env_bat_opts() -> Option<Vec<String>> {
     fn env_val(name: &str) -> Option<String> {
         env::var(name).ok().filter(|s| !s.is_empty())
@@ -40,7 +42,7 @@ pub fn env_bat_opts() -> Option<Vec<String>> {
         Some(flags) => {
             cba::bring::split::split_on_delimiter_with_doubled_escape(&flags, ',')
         }
-        None => vec!["--color=always".into(), "--paging=never".into(), "--style=changes".into()],
+        None => pager_cfg().bat_opts.clone()?,
     };
     if let Some(lang) = env_val("PG_LANG") {
         args.push("-l".into());

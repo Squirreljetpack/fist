@@ -258,7 +258,7 @@ pub(super) fn wait_exec(
     bat: Option<Vec<String>>,
 ) -> bool {
     match mode {
-        ExecutionMode::Paged => match pager::page(child, true, bat) {
+        ExecutionMode::Paged => match pager::page_child(child, bat) {
             Ok(ok) => {
                 info!("Command [{cmd}] paged (success={ok})");
                 ok
