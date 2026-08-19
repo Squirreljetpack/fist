@@ -6,9 +6,14 @@ F:ist is a fast and intuitive search tool for the filesystem.
 
 > *Skeptic: What is your biggest strength?*
 >
->> Speed, simplicity, power, capability, extensibility, customizability, adaptability, minimalism, flexibility, utility, efficiency, versatility, robustness, reliability, precision, clarity, elegance, performance, responsiveness, portability, composability, modularity, interoperability, scalability, maintainability, resilience, configurability, programmability, expressiveness, concision, practicality, pragmatism, openness, autonomy, control, freedom, agency, coherence, consistency, discoverability, usability, intuitiveness, observability.
+>> Speed, simplicity, power, capability, extensibility, customizability, adaptability, minimalism, flexibility, utility, efficiency, versatility, robustness, reliability, precision, clarity, elegance, performance, responsiveness, portability, composability, modularity, interoperability, scalability, maintainability, resilience, configurability, programmability, expressiveness, concision, practicality, pragmatism, openness, autonomy, control, freedom, agency, coherence, consistency, usability, intuitiveness, observability.
 >>
 >> <p align="right">— <b>f:ist</b></p>
+
+> [!WARNING]
+>
+> The README is currently a little outdated, but the essentials are covered, and it should be enough to start with, all you really need beyond it is the 'alt-h' key to show the bindings help.
+
 
 # Installation
 
@@ -159,63 +164,9 @@ f:ist can also accept **arbitrary lists of files from a command** or **input str
 - filtering and sorting
 - and so on.
 
-The following is an example script for browsing directories of markdown notes:
+A complete, real-world example — browsing an Obsidian vault's markdown notes with `fs :custom`, `--tail-sep`, `--transform`, and `--opener`, plus an `ob-open` helper that records the chosen file in your history — lives on The Custom Pane page of the docs:
 
-```zsh
-### --- ob-notes -- ###
-
-#!/bin/zsh
-
-# This first command demonstrates the use of fs as a wrapper for fd,
-# by use of the `--list` and `--` parameters:
-# `--list` (available for all panes), starts fs non-interactively,
-# while arguments after `--` passed through to `fd`.
-# The effect however, is simply to list all folders in a given folder.
-fs -t d --list $OBSIDIAN_HOME . -- --max-depth 1 |
-while read -r line; do
-  # This command finds all markdown files, and prints them in a custom format:
-  # {a:b} is a slicing syntax for path components
-  # {-1:} means take all components including and after the last
-  # omitting either end takes the full range in that direction
-  # 3 different delimiters are supported for slicing: `:`, `=` and `.`
-  # `:` targets the current item and adds single quotes around it
-  # `=` targets the current item without single quotes
-  # `.` targets the current working directory without single quotes
-  # `{}` prints the full path.
-  #
-  # Here, the effect is to print alongside each note their containing "vault".
-  fs -t .md --list --format '{=}\t{-1.}' $line .
-done |
-# This command browses the results. Note that a bare `fs` call no longer
-# consumes piped input -- browsing a listing is now an explicit `fs :custom`:
-# --opener: use this program to open the selected file
-# --tail-sep: use this delimiter to split each input line into a Path
-#                   and a Context (the tail column)
-# --transform: a lua function (path, tail) -> (path, display, tail). The input path
-#                 is absolute, the input tail is the --tail-sep remainder; a missing
-#                 path omits the entry; missing display/tail keep the current values.
-#                 Note: Files can be supplied with the `@` prefix.
-fs :custom --opener ob-open \
-  --tail-sep $'\t' \
-  --transform '
-local path, tail = ...
-local display = (tail and tail ~= "") and ("/" .. path):match("^.-/" .. tail:gsub("%W", "%%%1") .. "/(.*)") or path
-return path, display:gsub("^/+", ""):gsub("%.md$", ""), tail
-'
-```
-
-```shell
-### --- ob-open -- ###
-
-# This script takes a filepath, and opens it with Obsidian.
-# We pass the uri to fs :o so that it records it in our history, which we can later access using `fs :file`.
-
-uri() {
-  print -nl $@ | sed 's/ /%20/g; s/\//%2F/g'
-  # or more reliably, print -nl $@ | jq -sRr @uri
-}
-fs :o "obsidian://open?path=$(uri $1)"
-```
+- [The custom pane (Stream) — example](https://squirreljetpack.github.io/fist-docs/custom-pane#example-browsing-markdown-notes)
 
 <img src=".README.assets/custom-stream-directory-preview.png" alt="Custom stream directory preview" style="height:177px;" /> <img src=".README.assets/custom-stream-new-note.png" alt="Creating a new note" style="height:177px" />
 
@@ -229,7 +180,12 @@ The *Files* and *Folders* panes are most useful when integrated into the ambient
 
 ### Named stashes
 
-`PushStash(name)` adds the selection (or the current directory while the cursor is disabled) to a named stash, and `OpenStash(name)` switches to its pane. Stash panes are transient or database-backed collections of paths, useful for scratch space or bookmarking.
+`PushStash(name)` adds the selection (or the current directory while the cursor is disabled) to a named stash, and `OpenStash(name)` switches to its pane. Stash panes are transient, database, or filesystem-backed collections of paths, useful for scratch space, bookmarking, or simple backup. 
+
+> [!NOTE]
+>
+> Combined with contextual [Menu actions](#Menu actions), the (default) transient pane (`alt-s` to push, `alt-shift-s` to open), they are f:st's answer to all cross-directory workflows, such as comparing files and folders, archiving, or bulk-renaming.
+> Simple actions like Copy and Paste don't require a stash, simply [jump](#history) to your source files to queue them up, jump (or [undo](#additional-notes) if you came from there) to your destination, and [paste](#queue).
 
 ### App
 
@@ -252,25 +208,37 @@ It can be used to select a launch method for a given set of files (provided thro
 
 Panes can be navigated between using the `Undo/Redo` actions.
 
-Every pane has a **Options overlay** (`ctrl-p`), with settings for filtering, sorting, and other pane-specific controls for the displayed results.
-
 <img src=".README.assets/filters-overlay.png" alt="Options overlay" style="height:360px;" />
 
 For more information on any of the panes, run `fs [pane] --help` with the appropriate subcommand (i.e. `:rg`).
 
-# Actions
+# Options
 
-f:ist supports a flexible "system" custom file-actions:
+Every pane has a **Options overlay** (`ctrl-p`), with settings for [filtering](https://squirreljetpack.github.io/fist-docs/visibility), [sorting](https://squirreljetpack.github.io/fist-docs/sorting), and other pane-specific controls for the displayed results.
+
+Selecting a sort does not interrupt the current results; items are resorted on the fly. The active sort key is displayed on the right.
+
+Panes can also configure a default sort. This applies a soft sort to the results: initially, results are ordered according to the sort, but once a filter is applied, the ordering reflects a combination of query relevance and the sort order. The sort key is not displayed when soft sorting is active.
+
+# Actions
 
 ### Menu
 
 The **Menu** (`ctrl-e`) houses all the actions available in the current context.
 
-Custom actions can be added in the `[menu]` section of the config. They consist of 3 parts:
+Custom actions can be added in `actions.toml` and from files in `actions/`. They consist of 3 parts:
 
-- **Action**: The script to execute -- see [here](#templating) for how placeholders are resolved.
+- **Action**: The script to execute.
 - **Conditions**: The various conditions which must be satisfied to show this action in the menu.
 - **Execution**: Parameters controlling how the action is executed.
+
+For more information, consult the [docs](https://squirreljetpack.github.io/fist-docs/menu-actions).
+
+### Binds
+
+The other, more direct way to add arbitrary execution flows is by adding Execute* actions in the [binds] section. These work the same way as binds from [matchmaker](https://github.com/Squirreljetpack/matchmaker) or [fzf](https://github.com/junegunn/fzf).
+
+For example, the default `mm.toml` binds `Ctrl-Esc` to `Execute($SHELL)`: the inner string is executed in your shell environment, allowing you to drop into a shell from your current directory in f:st. On exit, you return to f:st. There are additional variants such as `ExecPaged` or `Become`, which transforms the process into the script provided, and does not return to f:st on exit.
 
 ### Queue
 
@@ -278,11 +246,12 @@ Custom actions can be added in the `[menu]` section of the config. They consist 
 
 The **Queue** overlay (`ctrl-u`) lists the pending file operations. Rows show their kind, source, destination, and progress, and can be edited, rearranged, removed and executed from the overlay. `Undo`/`Redo` cycles between filters to narrows the overlay to a single queue kind.
 
-`Move` and `Copy` enqueue items under the `move` and `copy` kinds. The `Paste` (`ctrl-v`) keybind is available to executes every queued `copy`, `move` and `symlink` item without enterring the overlay, transferring files into the active directory[^7]. `ExecuteQueue(selector)`, `Enqueue(kind)` and `ClearQueue(selector)` are also available for binding.
+`Move` and `Copy` enqueue items under the `move` and `copy` kinds. The `Paste` (`ctrl-v`) keybind is available to executes every queued `copy`, `move` and `symlink` item without enterring the overlay, transferring files into the active directory[^7]. `ExecuteQueue(selector)`, `Enqueue(kind)` and `ClearQueue(selector)` are also available for binding[^20].
 
-Menu actions with the `Queue`/`QueueBatch` strategies enqueue their targets under the action's key; on execution the action's lua script runs once per queued item with `(paths, dst, nav_cwd)`.
+Menu actions with the `Queue`/`QueueBatch` strategies enqueue their targets under the action's key; on execution the action's lua script runs once per queued item with `(paths, dst, nav_cwd?)`. `dst` is read from the `to` column of the overlay, and `nav_cwd` is supplied when executed from a [Nav pane](#nav).
 
 [^7]: Although safeguards exist to keep these alive and prevent data loss during normal application execution and shutdown, if reliability is crucial it might be safer to define your own custom actions to perform, manage and monitor these actions externally. Ideas and contributions in this area are welcome!
+[^20]: `selector` is similar to `kind`, but with the addition of the reserved strings `all` (default), `first`, `last`, and `builtins` (i.e. Paste is just `ExecuteQueue(builtins)`).
 
 # Tools
 
@@ -305,12 +274,10 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 > - last argument is `.` : interactively search subdirectories of the best match.
 > - otherwise: cd into the best match for the search term (if one exists)[^9].
 >
-> One final change from zoxide is the introduction of the `history.refind` setting in the [config](#configuration).
+> One final change from zoxide is the introduction of the `history.refind` setting in the [config](#configuration)[^14].
 > When no match is found, or when the top result is the current directory, this setting causes the the interactive interface to be started.
 
 [^9]: There is one final case: if the last argument is `./`: z interactively navigates the best match. If you have [aliases](#aliases) enabled, this is also just `Z`.
-
-The jump+open function (`zz`) is an analogous replacement for [`lessfilter edit`](#lessfilter): if the query head exists, it opens the target(s) in the editor. Otherwise the query is passed to `z`, and the editor opens in the destination.
 
 ##### Additional
 
@@ -323,8 +290,8 @@ Including the `--aliases` flag will add a few simple alias definitions into the 
 - `ll`: lessfilter (info preset)
 - `n`: edit (lessfilter with edit preset)
 - `o`: [open](#app)
-- `Z`: jump (`z`), then navigate
-  - In case your shell doesn't support uppercase function names, this one can be renamed like so: `fs :tool shell --aliases --shell csh --nav-name x`.
+- `x`: jump (`z`), then navigate in f:st
+  - This one can be renamed like so: `fs :tool shell --aliases --shell zsh --nav-name Z`.
 - `zf`: recent files history
 
 For speed and safety, it is recommended pass your actual shell through to `--shell`[^10].
@@ -347,7 +314,7 @@ The lessfilter tool dispatches to 9 presets:
 
 <img src=".README.assets/lessfilter-info-preview.png" alt="The info preset, using mediainfo to display metadata on a folder of images" style="width: 600px;" />
 
-Each preset is configured by a rules table in the [config file](#https://github.com/Squirreljetpack/fist/blob/main/assets/config/lessfilter.toml). Each rule is a pair (Actions, Patterns), and for a given file, the rule whose patterns score the highest is selected -- its actions are invoked on the target file.
+Each preset is configured by a rules table in the [config file](https://github.com/Squirreljetpack/fist/blob/main/assets/config/lessfilter.toml). Each rule is a pair (Actions, Patterns), and for a given file, the rule whose patterns score the highest is selected -- its actions are invoked on the target file.
 
 The patterns can be prefixed with a score modifier which dictates how the score is modified by a successful match of the pattern - if this is omitted, the default score modifier for the pattern is used.
 

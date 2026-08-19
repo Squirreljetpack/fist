@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    sync::{LazyLock, Mutex},
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::run::FsPane;
 use fist_types::filters::*;
@@ -280,6 +276,20 @@ pub struct StashPaneSetting {
     /// What to do when stashing a path that is already in the stash.
     pub insert: InsertionStrategy,
 }
+
+impl StashPaneSetting {
+    /// Fallback applied to stash panes without a configured entry: kind
+    /// Transient, insert Replace.
+    pub const DEFAULT: Self = Self {
+        prompt: None,
+        show_preview: None,
+        lock_prompt: None,
+        preview_layout_index: 0,
+        kind: StashPaneKind::Transient,
+        insert: InsertionStrategy::Replace,
+    };
+}
+
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AppPaneSettings {
@@ -387,30 +397,11 @@ impl PanesConfig {
     }
 
     /// Settings for the stash pane `name`. Stashes without an entry fall
-    /// back to the default setting; the first lookup of a nonempty
-    /// undefined name logs a warning.
+    /// back to the default setting.
     pub fn stash_setting(
         &self,
         name: &str,
     ) -> &StashPaneSetting {
-        match self.stashes.get(name) {
-            Some(setting) => setting,
-            None => {
-                if !name.is_empty() {
-                    let mut warned = WARNED_STASH_NAMES.lock().unwrap();
-                    if !warned.iter().any(|n| n == name) {
-                        warned.push(name.to_string());
-                        log::warn!("stash {name:?} is not configured; using default settings");
-                    }
-                }
-                &DEFAULT_STASH_SETTING
-            }
-        }
+        self.stashes.get(name).unwrap_or(&StashPaneSetting::DEFAULT)
     }
 }
-
-/// Fallback applied to stash panes without an entry: kind Transient,
-/// insert Replace.
-static DEFAULT_STASH_SETTING: LazyLock<StashPaneSetting> = LazyLock::new(StashPaneSetting::default);
-/// Names whose missing config was already warned about (warn once per run).
-static WARNED_STASH_NAMES: Mutex<Vec<String>> = Mutex::new(Vec::new());
