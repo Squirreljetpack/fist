@@ -1,14 +1,15 @@
-function lessfilter() {
-  fs :tool lessfilter $@
+#: sh,bash,zsh,dash,ksh,ash,posix
+lessfilter() {
+  fs :tool lessfilter "$@"
 }
-function lz() {
-  fs :tool liza $@
+lz() {
+  fs :tool liza "$@"
 }
-function ds() {
-  fs :tool diskspace $@
+ds() {
+  fs :tool diskspace "$@"
 }
-function tra() {
-  fs :tool trash $@
+tra() {
+  fs :tool trash "$@"
 }
 
 l()  { fs :tool lessfilter display  "${@:-.}"; }
@@ -29,15 +30,120 @@ n() {
   fi
 }
 
-# open
 o()  { FS_VERBOSITY=1 fs :o "${@:-.}"; }
 
-# navigate
-$${NAV_NAME}() {
-  FS_VERBOSITY=1 z "$@" ./;
-  [ $? -eq 22 ] && FS_INITIAL_INPUT="$*" z
+alias zf="fs :file --sort atime --lock-prompt=false"
+#:
+
+#: fish
+function lessfilter
+  fs :tool lessfilter $argv
+end
+function lz
+  fs :tool liza $argv
+end
+function ds
+  fs :tool diskspace $argv
+end
+function tra
+  fs :tool trash $argv
+end
+
+function l
+  if test (count $argv) -gt 0
+    fs :tool lessfilter display $argv
+  else
+    fs :tool lessfilter display .
+  end
+end
+function la
+  if test (count $argv) -gt 0
+    fs :tool lessfilter extended $argv
+  else
+    fs :tool lessfilter extended .
+  end
+end
+function ll
+  if test (count $argv) -gt 0
+    fs :tool lessfilter info $argv
+  else
+    fs :tool lessfilter info .
+  end
+end
+
+function n
+  set -l editor (set -q EDITOR; and echo $EDITOR; or echo nano)
+  set -l editor_cmd (string split " " -- $editor)[1]
+  if not command -v "$editor_cmd" >/dev/null 2>&1
+    set editor nano
+  end
+
+  if test (count $argv) -gt 0 -a -e "$argv[1]"
+    fs :tool lessfilter edit $argv
+  else
+    eval $editor (string escape -- $argv)
+  end
+end
+
+function o
+  set -lx FS_VERBOSITY 1
+  if test (count $argv) -gt 0
+    fs :o $argv
+  else
+    fs :o .
+  end
+end
+
+alias zf="fs :file --sort atime --lock-prompt=false"
+#:
+
+#: nu,nushell
+def lessfilter [...args: string] { ^fs ":tool" lessfilter ...$args }
+def lz [...args: string] { ^fs ":tool" liza ...$args }
+def ds [...args: string] { ^fs ":tool" diskspace ...$args }
+def tra [...args: string] { ^fs ":tool" trash ...$args }
+
+def l [...args: string] {
+    if ($args | is-empty) {
+        ^fs ":tool" lessfilter display .
+    } else {
+        ^fs ":tool" lessfilter display ...$args
+    }
+}
+def la [...args: string] {
+    if ($args | is-empty) {
+        ^fs ":tool" lessfilter extended .
+    } else {
+        ^fs ":tool" lessfilter extended ...$args
+    }
+}
+def ll [...args: string] {
+    if ($args | is-empty) {
+        ^fs ":tool" lessfilter info .
+    } else {
+        ^fs ":tool" lessfilter info ...$args
+    }
 }
 
-# recent files
-alias zf="fs :file --sort atime --lock-prompt=false"
+def n [...args: string] {
+    let editor = ($env.EDITOR? | default "nano")
+    if ($args | length) > 0 and ($args.0 | path exists) {
+        ^fs ":tool" lessfilter edit ...$args
+    } else {
+        ^$editor ...$args
+    }
+}
+
+def --env o [...args: string] {
+    with-env { FS_VERBOSITY: "1" } {
+        if ($args | is-empty) {
+            ^fs ":o" .
+        } else {
+            ^fs ":o" ...$args
+        }
+    }
+}
+
+alias zf = ^fs ":file" --sort atime --lock-prompt=false
+#:
 
