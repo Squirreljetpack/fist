@@ -7,10 +7,11 @@ members = [
 ]
 
 [workspace.package]
-version = "0.0.3"
+version = "0.0.4"
 edition = "2024"
 license-file = "LICENSE"
 repository = "https://github.com/Squirreljetpack/fist"
+homepage = "https://github.com/Squirreljetpack/fist"
 
 [workspace.dependencies]
 cli_boilerplate_automation = { version = "0.*", features = ["bring", "serde"] }
@@ -32,11 +33,12 @@ version.workspace = true
 edition.workspace = true
 license-file.workspace = true
 repository.workspace = true
+homepage.workspace = true
 description = "Fist: Interactive Search Tool"
 
 [dependencies]
 cli_boilerplate_automation = { workspace = true }
-fist-size = { version = "0.0.3", path = "fist-size" }
+fist-size = { version = "0.0.4", path = "fist-size" }
 fist-types = { workspace = true, features = ["serde", "file-format"] }
 matchmaker-lib = { version = "0.*", features = ["bracketed-paste"] }
 matchmaker-partial = { version = "0.*", optional = true }
@@ -81,7 +83,6 @@ toml = "0.9.8"
 
 # filesystem
 arboard = { version = "3.6.1", features = ["wayland-data-control"] }
-decompress = { version = "0.6", default-features = false, features = ["zip", "targz", "tarball", "tarxz", "tarbz", "tarzst", "ar", "gz", "bz2", "xz", "zstd", "rar"] }
 fs_extra = "1.3.0"
 image = { version = "0.25.9", default-features = false, features = [] }
 notify = "8.2.0"
@@ -95,10 +96,17 @@ atoi = "2.0.0"
 charset-normalizer-rs = { version = "1.1.0" }
 file-format = { workspace = true, optional = true }
 infer = { version = "0.19.0", optional = true }
-minus = { package = "matchmaker-minus", version = "5.*", features = ["dynamic_output", "search", "clipboard"] }
 mimalloc = { version = "*", features = ["v3"] }
 mime_guess = "2.0.5"
+minus = { package = "matchmaker-minus", version = "5.*", features = ["dynamic_output", "search", "clipboard"] }
 sysinfo = { version = "0.39.5", default-features = false, features = ["system", "disk"] }
+
+# decompress: include rar on platforms with working C++ toolchains, exclude on aarch64 / musl
+[target.'cfg(all(not(target_arch = "aarch64"), not(target_env = "musl")))'.dependencies]
+decompress = { version = "0.6", default-features = false, features = ["zip", "targz", "tarball", "tarxz", "tarbz", "tarzst", "ar", "gz", "bz2", "xz", "zstd", "rar"] }
+
+[target.'cfg(any(target_arch = "aarch64", target_env = "musl"))'.dependencies]
+decompress = { version = "0.6", default-features = false, features = ["zip", "targz", "tarball", "tarxz", "tarbz", "tarzst", "ar", "gz", "bz2", "xz", "zstd"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -154,3 +162,12 @@ image-all = [
 file-format = ["dep:file-format"]
 file-format-reader = ["file-format", "file-format/reader"]
 infer = ["dep:infer"]
+
+
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+codegen-units = 1
+lto = "fat"
+

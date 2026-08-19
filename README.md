@@ -17,18 +17,22 @@ F:ist is a fast and intuitive search tool for the filesystem.
 
 # Installation
 
-Install from GitHub releases[^20]:
-
-```shell
-curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/fist/main/install.sh | sh
-```
-
 Install the required dependencies:
 
 ```shell
 cargo install fd-find ripgrep
 # (optional)
 cargo install bat eza chafa kreuzberg mediainfo
+```
+
+Download the binary with the install script (or choose one of the options below)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/fist/main/install.sh | sh
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Squirreljetpack/fist/releases/latest/download/fist-installer.ps1 | iex"
 ```
 
 Optionally, setup shell integration:
@@ -46,6 +50,34 @@ Call as:
 - `z [query]`: directory jump (requires [shell integration](#shell-integration))
 
 [^20]: f:ist is also on cargo: `cargo install fist`, but this method is not recommended as fist is currently missing features
+
+##### Homebrew
+
+```sh
+brew install Squirreljetpack/tap/fist
+```
+
+##### AUR
+
+Not available
+
+##### npm
+
+```sh
+npm install -g @squirreljetpack/fist
+```
+
+##### npm
+
+```sh
+npm install -g @squirreljetpack/fist
+```
+
+##### Cargo
+
+```sh
+cargo install fist
+```
 
 # Commands
 
@@ -441,21 +473,6 @@ spawn_with = ["pueue", "add", "-g", "apps", "--"]
 ```
 
 [^11]: `/` on unix and `\` on windows
-
-### Examples
-
-List every git repository (by locating its `.git` directory) under a couple of directories, sorted by last modification, mapping each `.git` folder to its parent:
-
-```shell
-fs -a --transform '
-local path, tail = ...
-local parent = path:gsub("/%.git$", "")
-if parent ~= path then
-    return parent, parent:match("[^/]+$")
-end
-return path, path
-' --sort mtime $HOME/gh $SSdir '\\.git$'
-```
 
 ---
 
