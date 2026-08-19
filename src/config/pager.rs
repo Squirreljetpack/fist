@@ -40,10 +40,7 @@ impl Default for PagerConfig {
     }
 }
 
-/// The user's pager config, loaded once from `pager.toml` on first use.
-/// Falls back to [`PagerConfig::default`] when the file is missing or
-/// cannot be parsed.
-pub static PAGER_CFG: LazyLock<PagerConfig> = LazyLock::new(|| {
+static PAGER_CFG: LazyLock<PagerConfig> = LazyLock::new(|| {
     let cfg = std::fs::read_to_string(pager_cfg_path()).ok();
     match cfg.as_deref().and_then(|s| toml::from_str(s).ok()) {
         Some(cfg) => cfg,
@@ -57,8 +54,7 @@ pub static PAGER_CFG: LazyLock<PagerConfig> = LazyLock::new(|| {
     }
 });
 
-/// The global pager config ([`PAGER_CFG`]). Unlike `GLOBAL::cfg()`, this is
-/// available in subtool processes (which never run `GLOBAL::init`).
+/// Pager config from pager_cfg_path()
 pub fn pager_cfg() -> &'static PagerConfig {
     &PAGER_CFG
 }

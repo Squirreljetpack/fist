@@ -144,8 +144,7 @@ impl MenuPrompt {
 pub struct STORE;
 
 /// Bat passthrough argument extras, handed to the pager via the STORE TLS map.
-/// Set by the [`FsAction::Lessfilter`](crate::run::FsAction::Lessfilter) paging handler
-/// (help flow); consumed one-shot by `STORE::get_bat_opts`.
+/// Consumed one-shot by `STORE::get_bat_opts`, output is wrapped with bat before paging iff this is present.
 #[derive(Debug, Clone)]
 pub struct BatOpts(pub Vec<String>);
 

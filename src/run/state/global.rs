@@ -79,7 +79,7 @@ impl GLOBAL {
         STACK::init(pane);
     }
 
-    /// This lifetime should be 'thread, but there is no such lifetime. Do not pass into async!
+    /// This lifetime should be 'thread, but there is no such lifetime. Do not pass off thread!
     pub fn cfg() -> &'static GlobalConfig {
         CONFIG
             .with(tls_ref)
