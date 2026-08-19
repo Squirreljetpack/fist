@@ -26,15 +26,15 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = default_open_cmd())]
     pub open_cmd: String,
 
-    /// Bind for the directory widget.
-    #[arg(long, default_value_t = String::from("^[[1;2D"))]
-    pub dir_widget_bind: String,
-    /// Bind for the directory widget.
-    #[arg(long, default_value_t = String::from("^[[1;2C"))]
-    pub file_widget_bind: String,
-    /// Bind for the directory widget.
-    #[arg(long, default_value_t = String::from("^[[1;2B"))]
-    pub rg_widget_bind: String,
+    /// Bind for the directory widget [default: ⇧+←]
+    #[arg(long)]
+    pub dir_widget_bind: Option<String>,
+    /// Bind for the file widget [default: ⇧+→]
+    #[arg(long)]
+    pub file_widget_bind: Option<String>,
+    /// Bind for the rg widget [default: ⇧+↓]
+    #[arg(long)]
+    pub rg_widget_bind: Option<String>,
 
     #[arg(long)]
     pub file_open_cmd: Option<String>,
@@ -52,8 +52,8 @@ pub struct ShellCommand {
 
     #[arg(long, default_value_t)]
     pub aliases: bool,
-    /// Name for the nav function created by --aliases.
-    #[arg(long, default_value_t = String::from("Z"))]
+    /// Name for nav function.
+    #[arg(long, default_value_t = String::from("x"))]
     pub nav_name: String,
 
     #[arg(long)]
