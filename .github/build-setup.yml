@@ -1,0 +1,7 @@
+- name: Update Rust toolchain
+  shell: bash
+  run: |
+    if command -v rustup > /dev/null 2>&1; then
+      rustup update stable
+      rustup default stable
+    fi
