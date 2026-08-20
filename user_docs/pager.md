@@ -17,7 +17,7 @@ bat_opts = ["--color=always", "--style=changes"]
 line_numbers = false
 follow = false
 horizontal_scroll = false
-smart_case = false
+smart_case = true
 # prompt = "" # disable prompt text
 ```
 

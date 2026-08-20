@@ -502,7 +502,8 @@ pub fn fsaction_aliaser(
             // Accept (enter) and Print("") (alt-enter) share one arm: the
             // print-vs-open decision lives in the make_mm accept hook, which
             // reads the AcceptFlavor flag set here. Non-empty Print payloads
-            // pass through to the interrupt handler untouched.
+            // pass through to the interrupt handler untouched. Print is not
+            // intercepted by the prompt mode.
             Action::Accept | Action::Print(_) => {
                 // non-empty Print payloads pass through to the interrupt handler;
                 // overlays own accept keys while open
@@ -510,7 +511,7 @@ pub fn fsaction_aliaser(
                     || state.overlay_index().is_some()
                 {
                     acs![a]
-                } else if in_prompt {
+                } else if in_prompt && matches!(a, Action::Accept) {
                     if state.picker_ui.results.cursor_disabled() {
                         // already locked: accept on the cwd
                         acs![FsAction::AcceptPrompt]

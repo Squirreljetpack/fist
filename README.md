@@ -149,9 +149,9 @@ To begin, call `fs` without any positional arguments.
 Once inside, you can navigate and re-enter from other panes by pressing the `left`/`right` arrow keys (corresponding to the `Parent`/ `Advance` actions).
 
 
-##### Prompt locking
+#### Prompt locking
 
-F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. However, it has its downsides: as the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions by necessity have to be rebound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in more query-focused panes like `Find` or `Search`, the pane enters a `locked` state for these by default: this is visible by the appearance of a blue border around your prompt. When the prompt is locked, the `Parent` and `BackwardChar` actions switch roles, and likewise for `Advance` and `ForwardChar`. On macos, the default `cmd+delete` is also restricted to `DeleteWord` instead of the conventional `Trash` action.
+F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. However, it has its downsides: as the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions by necessity have to be rebound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in more query-focused panes like `Find` or `Search`, the pane enters a `locked` state for these by default: this is visible by the appearance of a blue border around your prompt. When the prompt is locked, the `Parent` and `BackwardChar` actions switch roles, and likewise for `Advance` and `ForwardChar`. The `Accept` action is also intercepted, focusing you on the pane directory, or accepting it if already focused. On macos, the default `cmd+delete` is also restricted to `DeleteWord` instead of the conventional `Trash` action.
 
 The locked state can also be entered by _entering the prompt_ -- pressing up at the first result, or down at the last (when `results.cycle` is enabled). Note that `in_prompt` ⇒ `locked_prompt`: in this state, the prompt displays your current directory, and all actions apply to that instead. To exit the prompt, just press up or down again. To exit _the locked state_, there is also the default bind `alt-space`[^126] -- however, this is usually unnecessary as you can just press `shift-left`/`right` to recover the `Parent`/`Advance` actions.
 
@@ -243,8 +243,9 @@ The *Files* and *Folders* panes are most useful when integrated into the ambient
 
 > [!NOTE]
 >
-> Combined with contextual [Menu actions](#menu), the (default) transient pane (`alt-s` to push, `alt-shift-s` to open), they are f:st's answer to all cross-directory workflows, such as comparing files and folders, archiving, or bulk-renaming.
-> Simple actions like Copy and Paste don't require a stash, simply [jump](#history) to your source files to queue them up, jump (or [undo](#additional-notes) if you came from there) to your destination, and [paste](#queue).
+> Combined with contextual [Menu actions](#menu) and the (default) transient pane (`alt-s`/`alt-shift-s`), they are f:st's answer to all cross-directory workflows, such as comparing files and folders, archiving, or bulk-renaming.
+> 
+> Note that simple actions like Copy and Paste don't require a stash, simply [jump](#history) to your source files to queue them up, jump (or [undo](#additional-notes) if you came from there) to your destination, and [paste](#queue).
 
 ### App
 
@@ -345,16 +346,18 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 
 The line-editor widget functions push your selected paths onto your command line. By default, `shift+left` binds to recursive directory search, `shift+right` binds to recursive file search. There is also a full-text search widget bound to `shift+down`: this one does not modify your command-line, but is useful rather because it leaves it *intact*.
 
+To disable any function/widget, just set its bind to the empty string.
+
+#####
 > [!NOTE]
 >
-> These are also fzf's default keybinds (and function similarily), so if you have those enabled, which set you get will probably depend on your initialization order.
-> Before adding them to your shell startup, you can also run the output directly to try them out. On POSIX shells, this is just `eval "$(fs :tool shell --myshell)"`.
+> These are also fzf's default keybinds (and function similarily), so it's recommended to disable those when using f:st.
+> 
+> Also, before adding them to your shell startup, you can also run the output directly to try them out. On POSIX shells, this is just `eval "$(fs :tool shell --myshell)"`.
 
 [^9]: There is one final case: if the last argument is `./`: z interactively navigates the best match. This is also provided directly by `x` (configurable via `--nav-name`).
 
-Working within the terminal, the 
-
-##### Additional
+#### Additional
 
 Including the `--aliases` flag will add a few simple alias definitions into the initialization:
 
