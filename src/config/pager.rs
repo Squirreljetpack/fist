@@ -35,7 +35,7 @@ impl Default for PagerConfig {
             follow: false,
             prompt: None,
             horizontal_scroll: false,
-            smart_case: false,
+            smart_case: true, // nonstandard in the terminal but conventional in modern apps
         }
     }
 }

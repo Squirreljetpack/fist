@@ -10,3 +10,5 @@ drag into nav pane: ask copy or move.
 drag file to system
 
 render path relies on bat's exit status instead of file existance checks since it makes sense to also fail unreadable paths, however this incorrectly fails early exits from the pager.
+
+Custom crate for proper copy/move handling: reference yazi for touchpoints

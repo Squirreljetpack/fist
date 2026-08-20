@@ -11,6 +11,7 @@ use crate::{
     },
     ui::{
         OVERLAY_TICK_RATE,
+        components::Gauge,
         input::{InputWidget, InputWidgetConfig},
     },
     utils::serde::border_result,
@@ -719,7 +720,7 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
                 } else {
                     Cell::from(item.dst.to_string_lossy().into_owned().pad(0, 1))
                 };
-                let size = Cell::from(item.status.render(&self.config));
+                let size = Cell::from(item.status.render(self.widths[3] as usize, &self.config));
 
                 Row::new(vec![kind, path_cell, dst_cell, size]).style(row_style)
             })
@@ -1016,26 +1017,27 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
 impl QueueItemStatus {
     pub fn render(
         &self,
+        width: usize,
         cfg: &QueueConfig,
     ) -> Line<'static> {
         let size = self.size.load(Ordering::Relaxed);
         let progress = self.progress.load(Ordering::Relaxed);
         let state = self.state.load();
 
+        let width = if width == 0 { 10 } else { width };
+
         let style = match state {
             QueueItemState::Pending => Style::default(),
             QueueItemState::Started => {
-                let percent = progress as f32 / 255.0;
-                let text =
-                    format!("{:5.2}%", percent * 100.0).pad_to(10, std::fmt::Alignment::Center);
-                return Line::from(Span::styled(text, Style::default().bg(Color::Cyan)));
+                let ratio = progress as f64 / 255.0;
+                return Gauge::new().ratio(ratio).render_line(width);
             }
             QueueItemState::CompleteOk => Style::default().fg(Color::Green),
             QueueItemState::PendingErr => Style::default().fg(Color::LightRed),
             QueueItemState::CompleteErr => Style::default().fg(Color::Red),
         };
 
-        Line::styled(human_size(size, true).pad_to(10, Alignment::Left), style)
+        Line::styled(human_size(size, true).pad_to(width, Alignment::Left), style)
     }
 }
 
@@ -1104,5 +1106,20 @@ mod tests {
         // Cycle next again wraps back to None (All)
         table.cycle_filter_from(1, &state);
         assert_eq!(table.kind_filter, None);
+    }
+
+    #[test]
+    fn test_queue_item_status_render_started_gauge() {
+        let status = QueueItemStatus::default();
+        status.state.store(QueueItemState::Started);
+        status.progress.store(128, Ordering::Relaxed);
+
+        let cfg = QueueConfig::default();
+        let line = status.render(10, &cfg);
+
+        let total_chars: usize = line.spans.iter().map(|s| s.content.chars().count()).sum();
+        assert_eq!(total_chars, 10);
+        let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+        assert!(text.contains("50."));
     }
 }

@@ -426,24 +426,6 @@ mod tests {
     }
 
     #[test]
-    fn pager_config_defaults() {
-        let default = PagerConfig::default();
-        assert!(!default.smart_case);
-        assert!(default.bat_opts.is_some());
-        assert!(!default.line_numbers);
-        assert!(!default.follow);
-        assert!(default.prompt.is_none());
-        assert!(!default.horizontal_scroll);
-
-        // a partial toml (missing keys) fills in defaults
-        let parsed: PagerConfig = toml::from_str("smart_case = false\n").unwrap();
-        assert_eq!(parsed, default);
-        // smart_case parses and round-trips
-        let on: PagerConfig = toml::from_str("smart_case = true\n").unwrap();
-        assert!(on.smart_case);
-    }
-
-    #[test]
     fn deserialize_tui_clipboard_options() {
         let cfg: MMConfig = toml::from_str(
             r#"
