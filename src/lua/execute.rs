@@ -13,7 +13,7 @@ use matchmaker::nucleo::Span;
 
 use crate::{
     abspath::AbsPath,
-    run::state::{ToastStyle, TOAST},
+    run::state::{TOAST, ToastStyle},
 };
 
 // The progress cell of the queue item whose command is running on this

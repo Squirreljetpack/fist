@@ -4,8 +4,8 @@ use cba::{bird::transform::camelcase_normalized, define_collection_wrapper};
 use mime_guess::Mime;
 
 use crate::{
-    cli::paths::{current_exe, BINARY_SHORT},
-    lessfilter::{file_rule::ParseFileRuleError, RulesConfig},
+    cli::paths::{BINARY_SHORT, current_exe},
+    lessfilter::{RulesConfig, file_rule::ParseFileRuleError},
 };
 use fist_types::{FileCategory, When};
 
@@ -59,10 +59,7 @@ pub enum Preset {
 }
 
 impl Preset {
-    pub fn to_command_string(
-        self,
-        header: When,
-    ) -> String {
+    pub fn to_command_string(self, header: When) -> String {
         let header = match header {
             When::Always => "--header=true",
             When::Never => "--header=false",
@@ -178,34 +175,22 @@ impl FromStr for MimeString {
 }
 
 impl std::fmt::Display for MimeString {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
     }
 }
 
 impl MimeString {
-    pub fn equal(
-        &self,
-        mime: &Mime,
-    ) -> bool {
+    pub fn equal(&self, mime: &Mime) -> bool {
         self.0 == mime.to_string()
     }
 
-    pub fn matches_type(
-        &self,
-        r#type: &str,
-    ) -> bool {
+    pub fn matches_type(&self, r#type: &str) -> bool {
         let (type_, _subtype) = self.0.split_once('/').unwrap();
         type_.is_empty() || type_ == "*" || r#type == type_
     }
 
-    pub fn matches_subtype(
-        &self,
-        subtype: &str,
-    ) -> bool {
+    pub fn matches_subtype(&self, subtype: &str) -> bool {
         let (_type_, subtype_) = self.0.split_once('/').unwrap();
         subtype_.is_empty() || subtype_ == "*" || subtype == subtype_
     }

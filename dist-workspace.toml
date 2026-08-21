@@ -31,4 +31,3 @@ publish-jobs = ["homebrew"]
 install-updater = false
 # Extra steps injected into build-local-artifacts jobs before `dist build`
 github-build-setup = "../build-setup.yml"
-

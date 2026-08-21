@@ -1,8 +1,8 @@
+mod check;
 mod clap;
 mod clap_;
 pub mod clap_helpers;
 pub mod clap_tools;
-mod check;
 mod ds;
 pub mod handlers;
 pub mod list;

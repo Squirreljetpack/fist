@@ -148,7 +148,6 @@ pub fn build_rg_args(
     "--hyperlink-format="
     ]);
 
-
     let case = match case {
         When::Never => "--ignore-case",
         When::Auto => "--smart-case",
@@ -261,4 +260,3 @@ mod tests {
         assert!(args_multi_line.contains(&OsString::from("--null")));
     }
 }
-

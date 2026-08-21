@@ -18,7 +18,7 @@ use crate::{
     lua::{execute, load_script},
     run::{
         item::short_display,
-        state::{ToastStyle, MENU_ACTIONS, TOAST},
+        state::{MENU_ACTIONS, TOAST, ToastStyle},
     },
 };
 
@@ -39,10 +39,7 @@ impl QueueItem {
     /// A custom kind with no mapping fails the item with an error toast. The
     /// action history records one entry per executed item that completed
     /// successfully.
-    pub fn execute(
-        self,
-        nav_cwd: Option<&AbsPath>,
-    ) {
+    pub fn execute(self, nav_cwd: Option<&AbsPath>) {
         log::debug!("Transferring: {self:?}");
 
         let Self {

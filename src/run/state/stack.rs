@@ -1,4 +1,5 @@
 #![allow(clippy::upper_case_acronyms)]
+#![allow(unused_variables)]
 
 use std::{cell::RefCell, mem::discriminant, sync::RwLock};
 

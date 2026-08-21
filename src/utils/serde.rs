@@ -51,7 +51,7 @@ pub mod border_result {
     }
 
     pub fn deserialize<'de, D>(
-        deserializer: D
+        deserializer: D,
     ) -> Result<Result<BorderSetting, PartialBorderSetting>, D::Error>
     where
         D: Deserializer<'de>,

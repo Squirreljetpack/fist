@@ -11,14 +11,12 @@ use fist::{
     cli::{
         Cli, SubCmd, ToolsCmd,
         handlers::handle_subcommand,
-        paths::{
-            BINARY_FULL, actions_dir, actions_path, lessfilter_cfg_path, pager_cfg_path,
-        },
+        paths::{BINARY_FULL, actions_dir, actions_path, lessfilter_cfg_path, pager_cfg_path},
     },
     config::Config,
     errors::CliError,
-    run::state::MENU_ACTIONS,
     menu::MenuActions,
+    run::state::MENU_ACTIONS,
 };
 use matchmaker::MatchError;
 
@@ -60,7 +58,11 @@ async fn main() {
                 include_str!("../assets/config/pager.dev.toml"),
             )
             ._ebog();
-            write_str(actions_path(), include_str!("../assets/config/actions.dev.toml"))._ebog();
+            write_str(
+                actions_path(),
+                include_str!("../assets/config/actions.dev.toml"),
+            )
+            ._ebog();
         }
     }
 
@@ -105,6 +107,7 @@ async fn main() {
         Err(e) => {
             let code = match e {
                 CliError::MatchError(MatchError::EventLoopClosed) => 127,
+                CliError::MatchError(MatchError::Abort(i)) => exit(i),
                 CliError::MatchError(MatchError::NoMatch) => {
                     if verbosity >= 1 {
                         ebog!("{e}")
@@ -120,14 +123,8 @@ async fn main() {
     }
 }
 
-fn init_logger(
-    verbosity: u8,
-    log_path: PathBuf,
-    append: bool,
-) {
+fn init_logger(verbosity: u8, log_path: PathBuf, append: bool) {
     // init bogger
-    #[allow(unused_imports)]
-    use log::LevelFilter::*;
     bog::init_bogger(true, true);
     bog::init_filter(verbosity);
 
@@ -139,6 +136,7 @@ fn init_logger(
     if rust_log.is_none() {
         #[cfg(debug_assertions)]
         {
+            use log::LevelFilter::*;
             builder
                 .filter(None, Info)
                 .filter(Some("nucleo"), Debug)
@@ -183,60 +181,27 @@ fn init_logger(
     builder.init();
 }
 
-fn dump_config(
-    opts: &fist::cli::CliOpts,
-    cfg: &Config,
-) {
+fn dump_config(opts: &fist::cli::CliOpts, cfg: &Config) {
     let lessfilter_cfg_path = lessfilter_cfg_path();
     // if stdout: dump the default cfg (with comments)
     // + (if not yet existing), dump the default run cfg
     if atty::is(atty::Stream::Stdout) {
-        // todo: prompt about overwriting
-        if write_str(&opts.config, include_str!("../assets/config/config.toml"))
-            ._ebog()
-            .is_some()
-        {
-            _ibog!("Wrote config to {}", &opts.config.to_string_lossy());
-            // overwrite helper files
-            Config::default().check_scripts(true);
-        } else {
-            cfg.check_scripts(true);
+        macro_rules! init_config {
+            ($path:expr, $asset:expr) => {
+                let path = $path;
+                if !path.exists() && write_str(path, include_str!($asset))._ebog().is_some() {
+                    _ibog!("Wrote config to {}", path.to_string_lossy());
+                }
+            };
         }
 
-        if !opts.mm_config.exists()
-            && write_str(&opts.mm_config, include_str!("../assets/config/mm.toml"))
-                ._ebog()
-                .is_some()
-        {
-            _ibog!("Wrote config to {}", opts.mm_config.to_string_lossy())
-        }
-        if !lessfilter_cfg_path.exists()
-            && write_str(
-                lessfilter_cfg_path,
-                include_str!("../assets/config/lessfilter.toml"),
-            )
-            ._ebog()
-            .is_some()
-        {
-            _ibog!("Wrote config to {}", lessfilter_cfg_path.to_string_lossy())
-        }
-        let pager_cfg_path = pager_cfg_path();
-        if !pager_cfg_path.exists()
-            && write_str(
-                pager_cfg_path,
-                include_str!("../assets/config/pager.toml"),
-            )
-            ._ebog()
-            .is_some()
-        {
-            _ibog!("Wrote config to {}", pager_cfg_path.to_string_lossy())
-        }
-        if write_str(actions_path(), include_str!("../assets/config/actions.toml"))
-            ._ebog()
-            .is_some()
-        {
-            _ibog!("Wrote config to {}", actions_path().to_string_lossy())
-        }
+        init_config!(&opts.config, "../assets/config/config.toml");
+        init_config!(&opts.mm_config, "../assets/config/mm.toml");
+        init_config!(&lessfilter_cfg_path, "../assets/config/lessfilter.toml");
+        init_config!(&pager_cfg_path(), "../assets/config/pager.toml");
+        init_config!(&actions_path(), "../assets/config/actions.toml");
+
+        cfg.check_scripts(true);
     } else {
         // if piped: dump the current cfg
         let contents = toml::to_string_pretty(&cfg).expect("failed to serialize to TOML");
