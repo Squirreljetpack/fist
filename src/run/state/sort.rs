@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 //! Sort state: the single `SORT_MODE` global and the nucleo application points.
 //!
 //! The pane is the source of truth for its sort; this module only records the
@@ -37,7 +39,15 @@ static SORT_MODE: Mutex<SortMode> = Mutex::new(SortMode {
     threshold: 0,
 });
 
-static DIR_SIZE: LazyLock<fist_size::DirSizeCache> = LazyLock::new(fist_size::DirSizeCache::new);
+static DIR_SIZE: LazyLock<fist_size::DirSizeCache> = LazyLock::new(|| {
+    let cache = fist_size::DirSizeCache::new();
+    cache.set_on_complete(|| {
+        if get_sort().order == SortOrder::size {
+            GLOBAL::send_action(FsAction::ResortSizes);
+        }
+    });
+    cache
+});
 
 pub fn set_sort(order: SortOrder) {
     SORT_MODE.lock().unwrap().order = order;
@@ -216,13 +226,4 @@ pub fn fill_then_resort(state: &MMState<'_>) {
             });
         }
     }
-}
-
-/// Post-populate size fill: paths were submitted during injection; wait for
-/// the cache, then let `ReSort` apply the values and resort.
-pub fn wait_sizes_then_resort() {
-    TASKS::spawn_blocking("sort sizes", || {
-        DIR_SIZE.wait();
-        GLOBAL::send_action(FsAction::ReSort);
-    });
 }

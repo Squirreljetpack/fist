@@ -148,10 +148,7 @@ pub fn follow_symlink_chain(path: &Path) -> Vec<AbsPath> {
 /// `recursive = true` walks every target in chain order. Results are deduplicated
 /// and stable-ordered via [`IndexSet`]; a chain that hits an already-queued target
 /// is truncated there (cycle break).
-pub fn expand_follow(
-    paths: impl IntoIterator<Item = PathBuf>,
-    recursive: bool,
-) -> Vec<PathBuf> {
+pub fn expand_follow(paths: impl IntoIterator<Item = PathBuf>, recursive: bool) -> Vec<PathBuf> {
     let mut queue: IndexSet<PathBuf> = IndexSet::new();
 
     for p in paths {

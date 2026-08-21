@@ -42,9 +42,8 @@ pub struct MMConfig {
 
     #[serde(default)]
     pub tui: TerminalConfig,
-    
-    // --- overlays ---
 
+    // --- overlays ---
     /// Base overlay style
     #[serde(default)]
     pub overlay: OverlayConfig,
@@ -99,10 +98,7 @@ pub fn get_mm_binds(path: &Path) -> (ResolvedBindMap<FsAction>, HelpDisplayConfi
     (mm_cfg.binds.resolve_semantics(&[]), mm_cfg.help)
 }
 
-pub fn get_mm_cfg(
-    path: &Path,
-    cfg: &Config,
-) -> MMConfig {
+pub fn get_mm_cfg(path: &Path, cfg: &Config) -> MMConfig {
     let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
     #[cfg(feature = "mm_overrides")]
     if let Some(partial) = get_mm_partial() {

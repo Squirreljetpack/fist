@@ -1,3 +1,4 @@
+use crate::run::state::GLOBAL::db;
 use crate::{
     abspath::AbsPath,
     config::StashPaneKind,
@@ -71,19 +72,13 @@ impl MenuOverlay {
     /// The current item under the cursor, or the stack cwd when the cursor is
     /// disabled. The picker state cannot change while the menu overlay is
     /// open (input is intercepted), so this equals the state at menu open.
-    pub fn target_path(
-        &self,
-        state: &mut MMState<'_, PathItem, ()>,
-    ) -> AbsPath {
+    pub fn target_path(&self, state: &mut MMState<'_, PathItem, ()>) -> AbsPath {
         crate::run::register::resolve_target(state, true)
             .or_else(STACK::cwd)
             .unwrap_or_else(STACK::_cwd)
     }
 
-    pub fn target_parent(
-        &self,
-        state: &mut MMState<'_, PathItem, ()>,
-    ) -> AbsPath {
+    pub fn target_parent(&self, state: &mut MMState<'_, PathItem, ()>) -> AbsPath {
         state
             .picker_ui
             .current_indexed()
@@ -268,9 +263,8 @@ impl MenuOverlay {
                         crate::run::stash::mem_set_tail(&name, &path, &tail);
                         GLOBAL::send_action(FsAction::Reload);
                     } else {
-                        let pool = GLOBAL::db();
                         TASKS::spawn("set alias", async move {
-                            match pool.get_conn(DbTable::stashes).await {
+                            match db().get_conn(DbTable::stashes).await {
                                 Ok(mut conn) => {
                                     if let Err(e) = conn.set_stash_tail(&name, &path, &tail).await {
                                         log::error!("Error setting alias: {e}");
@@ -284,14 +278,13 @@ impl MenuOverlay {
                         });
                     }
                 } else {
-                    let pool = GLOBAL::db();
                     let table = if path.is_dir() {
                         DbTable::dirs
                     } else {
                         DbTable::files
                     };
 
-                    pool.set_path_alias(path.clone(), alias.clone(), table);
+                    db().set_path_alias(path.clone(), alias.clone(), table);
                 }
 
                 if alias.is_empty() {

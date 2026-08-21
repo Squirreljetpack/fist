@@ -6,7 +6,7 @@ use matchmaker::{
 use crate::cli::SubTool;
 
 pub async fn mm_get<T: SSS + Render + Clone>(
-    items: impl IntoIterator<Item = T>
+    items: impl IntoIterator<Item = T>,
 ) -> Result<T, MatchError> {
     let worker = Worker::new_single_column();
     worker.append(items);

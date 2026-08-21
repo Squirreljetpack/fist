@@ -15,9 +15,8 @@ use std::{
     process::{Command, exit},
 };
 
-#[allow(unused_imports)]
 use cba::{
-    _dbg, _ibog,
+    _ibog,
     bait::ResultExt,
     bo::load_type_or_default,
     bog::{BogOkExt, BogUnwrapExt},
@@ -28,7 +27,10 @@ use super::{
     clap::*,
     clap_tools::*,
     mm_::mm_get,
-    paths::{__cwd, __home, actions_dir, actions_path, config_path, current_exe, lessfilter_cfg_path, liza_path, mm_cfg_path},
+    paths::{
+        __cwd, __home, actions_dir, actions_path, config_path, current_exe, lessfilter_cfg_path,
+        liza_path, mm_cfg_path,
+    },
 };
 use crate::{
     abspath::AbsPath,
@@ -60,10 +62,7 @@ use fist_types::{
     filters::PartialVisibility,
 };
 
-pub async fn handle_subcommand(
-    cli: Cli,
-    cfg: Config,
-) -> Result<(), CliError> {
+pub async fn handle_subcommand(cli: Cli, cfg: Config) -> Result<(), CliError> {
     log::debug!("{:?}", cli.subcommand);
 
     match cli.subcommand {
@@ -78,23 +77,14 @@ pub async fn handle_subcommand(
     }
 }
 
-async fn handle_open(
-    cli: CliOpts,
-    cmd: OpenCmd,
-    mut cfg: Config,
-) -> Result<(), CliError> {
+async fn handle_open(cli: CliOpts, cmd: OpenCmd, mut cfg: Config) -> Result<(), CliError> {
     let pool = Pool::new_from_cfg(&cfg).await?;
 
     // fs :o or fs :o --with= files
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
         cfg.global.interface.no_multi_accept = true;
         // the files ride on the app pane; the program picked there opens them
-        let pane = FsPane::new_apps(
-            cmd.files
-                .into_iter()
-                .map(AbsPath::new_unchecked)
-                .collect(),
-        );
+        let pane = FsPane::new_apps(cmd.files.into_iter().map(AbsPath::new_unchecked).collect());
 
         let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
 
@@ -112,11 +102,7 @@ async fn handle_open(
 }
 
 // todo: partitioned info
-async fn handle_info(
-    cli: CliOpts,
-    cmd: InfoCmd,
-    cfg: Config,
-) -> Result<(), CliError> {
+async fn handle_info(cli: CliOpts, cmd: InfoCmd, cfg: Config) -> Result<(), CliError> {
     let limit = cmd.limit.unwrap_or(if cmd.minimal { 0 } else { 50 });
     let pool = Pool::new_from_cfg(&cfg).await?;
 
@@ -156,11 +142,7 @@ async fn handle_info(
 }
 
 // Need:
-async fn handle_files(
-    cli: CliOpts,
-    cmd: FilesCmd,
-    cfg: Config,
-) -> Result<(), CliError> {
+async fn handle_files(cli: CliOpts, cmd: FilesCmd, cfg: Config) -> Result<(), CliError> {
     let pane = FsPane::Files {
         sort: SortOrder::none,
         input: (cmd.query, 0),
@@ -172,11 +154,7 @@ async fn handle_files(
     start(pane, cfg, mm_cfg, pool, cli).await
 }
 
-async fn handle_rg(
-    cli: CliOpts,
-    mut cmd: SearchCommand,
-    mut cfg: Config,
-) -> Result<(), CliError> {
+async fn handle_rg(cli: CliOpts, mut cmd: SearchCommand, mut cfg: Config) -> Result<(), CliError> {
     let vis = cmd
         .vis
         .into_resolved(cfg.global.panes.search.default_visibility);
@@ -258,11 +236,7 @@ async fn handle_rg(
     start(pane, cfg, mm_cfg, pool, cli).await
 }
 
-async fn handle_dirs(
-    cli: CliOpts,
-    mut cmd: DirsCmd,
-    mut cfg: Config,
-) -> Result<(), CliError> {
+async fn handle_dirs(cli: CliOpts, mut cmd: DirsCmd, mut cfg: Config) -> Result<(), CliError> {
     let pool = Pool::new_from_cfg(&cfg).await?;
     if cmd.cd && cmd.list.is_some() {
         return Err(CliError::ConflictingFlags("cd", "list"));
@@ -322,14 +296,12 @@ async fn handle_dirs(
     start(pane, cfg, mm_cfg, pool, cli).await
 }
 
-#[allow(unused)] // is_default_dir is not read
 async fn handle_default(
     cli: CliOpts,
     mut cmd: DefaultCommand,
     mut cfg: Config,
 ) -> Result<(), CliError> {
     // check input
-    let mut is_default_dir = true;
     if !cmd.types.is_empty() {
         if cmd
             .types
@@ -358,11 +330,7 @@ async fn handle_default(
     }
 
     // resolve custom `-t <group>` args against the lessfilter [categories] table
-    let types = if cmd
-        .types
-        .iter()
-        .any(|t| matches!(t, FileTypeArg::Group(_)))
-    {
+    let types = if cmd.types.iter().any(|t| matches!(t, FileTypeArg::Group(_))) {
         let lcfg: LessfilterConfig =
             load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
         resolve_group_types(&cmd.types, &lcfg)
@@ -401,7 +369,7 @@ async fn handle_default(
         let cwd = if cmd.paths.len() > 1
         // treat paths as zoxide args (since searching over multiple paths should be uncommon with --cd)
         {
-            let mut conn = pool.get_conn(DbTable::dirs).await?;
+            let conn = pool.get_conn(DbTable::dirs).await?;
 
             // the last path is the pattern, so determine the best match from keywords formed by all but the last
             let num_keywords = cmd.paths.len() - 1;
@@ -412,7 +380,7 @@ async fn handle_default(
                 .map(|f| f.to_string_lossy().into_owned())
                 .collect();
 
-            let mut db_filter = cfg.history.clone().with_keywords(kw.clone());
+            let db_filter = cfg.history.clone().with_keywords(kw.clone());
 
             match conn
                 .return_best_by_frecency(&db_filter, DbTable::dirs)
@@ -451,7 +419,6 @@ async fn handle_default(
             if cmd.paths.is_empty() {
                 cmd.paths.push("..".into())
             };
-            is_default_dir = true;
 
             // the z shell function passes through here when the last provided argument is ., .. or ./, corresponding to:
             // - `.`: search all directories in default_dir
@@ -471,7 +438,7 @@ async fn handle_default(
         };
 
         if nav_pane {
-            let mut vis = cmd
+            let vis = cmd
                 .vis
                 .into_resolved(cfg.global.panes.nav.default_visibility)
                 .enable_hidden_if_empty_otherwise(
@@ -489,15 +456,7 @@ async fn handle_default(
         // interactively search the best match
         {
             let vis = resolve_fd_visibility(cmd.vis, &cmd, &cfg);
-            FsPane::new_fd_full(
-                cwd,
-                vis,
-                cmd.sort,
-                types,
-                cmd.paths,
-                cmd.fd,
-                cmd.transform,
-            )
+            FsPane::new_fd_full(cwd, vis, cmd.sort, types, cmd.paths, cmd.fd, cmd.transform)
         }
     } else if
     // any fd arg is specified
@@ -508,7 +467,6 @@ async fn handle_default(
     {
         // pattern specified
         let cwd = if cmd.paths.len() == 1 {
-            is_default_dir = true;
             // support `..` as a shorthand for 'search (any pattern in) current directory'
             let force_search_in_cwd = cmd.paths[0].cmp_exch("..", ".".into());
 
@@ -567,15 +525,7 @@ async fn handle_default(
         };
 
         let vis = resolve_fd_visibility(cmd.vis, &cmd, &cfg);
-        FsPane::new_fd_full(
-            cwd,
-            vis,
-            cmd.sort,
-            types,
-            cmd.paths,
-            cmd.fd,
-            cmd.transform,
-        )
+        FsPane::new_fd_full(cwd, vis, cmd.sort, types, cmd.paths, cmd.fd, cmd.transform)
     } else {
         let DefaultCommand { sort, .. } = cmd;
         let cwd = __cwd();
@@ -603,11 +553,7 @@ async fn handle_default(
     start(pane, cfg, mm_cfg, pool, cli).await
 }
 
-async fn handle_custom(
-    cli: CliOpts,
-    cmd: CustomCommand,
-    mut cfg: Config,
-) -> Result<(), CliError> {
+async fn handle_custom(cli: CliOpts, cmd: CustomCommand, mut cfg: Config) -> Result<(), CliError> {
     let cmd_ = (!cmd.cmd.is_empty()).then(|| (cmd.cmd[0].clone(), cmd.cmd[1..].to_vec()));
     if cmd_.is_none() && atty::is(atty::Stream::Stdin) {
         ebog!(":custom expects a command or piped stdin");
@@ -702,9 +648,13 @@ async fn handle_tools(
             let bat = lessfilter::env_bat_opts();
             let code = match args.as_slice() {
                 // No path: page stdin (empty input pages nothing and exits 0).
-                [] => crate::pager::page_reader(std::io::stdin(), false, bat.filter(|v| !v.is_empty()))
-                    .map(|_| 0)
-                    .unwrap_or(1),
+                [] => crate::pager::page_reader(
+                    std::io::stdin(),
+                    false,
+                    bat.filter(|v| !v.is_empty()),
+                )
+                .map(|_| 0)
+                .unwrap_or(1),
                 // Single path: render the file; bat opens it directly. Nothing
                 // rendered (the file cannot be opened) is an error: exit 1.
                 [path] => match crate::pager::render_text(Path::new(path), bat) {
@@ -740,8 +690,7 @@ async fn handle_tools(
             let lcfg: LessfilterConfig =
                 load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
 
-            let mut handle = if !cmd.diagnose
-                && lcfg.settings.tracked_presets.contains(&cmd.preset)
+            let mut handle = if !cmd.diagnose && lcfg.settings.tracked_presets.contains(&cmd.preset)
             {
                 let paths = cmd
                     .paths
@@ -1088,11 +1037,7 @@ async fn handle_tools(
     }
 }
 
-pub fn print(
-    path: &std::path::Path,
-    template: &Option<String>,
-    output_sep: &str,
-) {
+pub fn print(path: &std::path::Path, template: &Option<String>, output_sep: &str) {
     let mut display = if let Some(template) = &template {
         format_path(template, &AbsPath::new(path))
     } else {

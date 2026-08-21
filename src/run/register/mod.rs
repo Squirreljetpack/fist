@@ -1,6 +1,6 @@
 mod execute;
-pub use execute::{resolve_target, ExecutionMode};
 use execute::*;
+pub use execute::{ExecutionMode, resolve_target};
 
 use std::{ffi::OsString, process::Stdio};
 
@@ -16,6 +16,7 @@ use matchmaker::{
 };
 use tokio::io::AsyncReadExt;
 
+use crate::run::state::GLOBAL::db;
 use crate::{
     aliases::MMState,
     clipboard,
@@ -25,19 +26,15 @@ use crate::{
         item::PathItem,
         pane::FsPane,
         selection,
-        state::{FILTERS, GLOBAL, MenuCommandPaths, STACK, STORE, TASKS, sort},
+        state::{FILTERS, MenuCommandPaths, STACK, STORE, TASKS},
     },
     utils::{command::tokio_from_script, formatter::format_path},
 };
-use fist_types::filters::SortOrder;
 
 //  Apply recovery methods which depend on all entries being present.
 /// Rehydrates the selections that [`crate::run::ahandlers::fs_reload`] snapshotted as path hashes once the
 /// fresh listing has landed.
-pub fn sync_handler(
-    state: &mut MMState<'_,>,
-    _: &Event,
-) {
+pub fn sync_handler(state: &mut MMState<'_>, _: &Event) {
     // reload saved state
     if let Some(seek) = STORE::take()
         && let Some(i) = state
@@ -71,18 +68,9 @@ pub fn sync_handler(
         state.picker_ui.selector.clear();
         state.picker_ui.selector.extend(indices);
     }
-
-    // the pane has finished populating: for a size sort, wait for the dir
-    // sizes (added during populate) and let ReSort apply + resort them
-    if sort::get_sort().order == SortOrder::size {
-        sort::wait_sizes_then_resort();
-    }
 }
 
-pub fn query_handler(
-    _state: &mut MMState<'_,>,
-    _: &Event,
-) {
+pub fn query_handler(_state: &mut MMState<'_>, _: &Event) {
     // rg query change is handled by rebinds
 }
 
@@ -184,7 +172,7 @@ impl FsMatchmaker {
                 return;
             };
             if wait_exec(mode, &cmd, child, bat) {
-                GLOBAL::db().bump_path(path.is_dir(), path);
+                db().bump_path(path.is_dir(), path);
             }
         });
     }
@@ -212,7 +200,9 @@ impl FsMatchmaker {
                     return;
                 };
                 let nav_cwd = STACK::nav_cwd();
-                TASKS::spawn_blocking("menu lua", move || run_menu_lua(&lua_cmd, &paths, nav_cwd.as_ref()));
+                TASKS::spawn_blocking("menu lua", move || {
+                    run_menu_lua(&lua_cmd, &paths, nav_cwd.as_ref())
+                });
                 return;
             }
             let Some(path) = resolve_target(state, false) else {
@@ -237,7 +227,7 @@ impl FsMatchmaker {
                         };
                     } else if let Some(child) = c._spawn() {
                         if wait_exec(mode, &cmd, child, None) {
-                            GLOBAL::db().bump_path(path.is_dir(), path);
+                            db().bump_path(path.is_dir(), path);
                         }
                     };
                 }
@@ -429,9 +419,6 @@ pub fn emit_print(
     }
 }
 
-pub fn path_formatter(
-    item: &PathItem,
-    template: &str,
-) -> String {
+pub fn path_formatter(item: &PathItem, template: &str) -> String {
     format_path(template, &item.path)
 }

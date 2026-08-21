@@ -10,9 +10,9 @@ use serde::{Deserialize, Deserializer};
 use crate::{
     abspath::AbsPath,
     lessfilter::{
+        Categories, LessfilterConfig, LessfilterSettings,
         file_rule::{FileData, FileRule},
         rule_matcher::Test,
-        Categories, LessfilterConfig, LessfilterSettings,
     },
     run::{item::PathItem, register::resolve_target, state::STACK},
 };
@@ -61,10 +61,7 @@ impl MenuActions {
     /// subfolders resolved first, then sorted path order (numeric prefixes order them).
     /// The primary file's entries come first; a key defined in a later file is an error.
     /// A missing primary file or folder yields the empty set.
-    pub fn load_all(
-        primary: &std::path::Path,
-        dir: &std::path::Path,
-    ) -> Result<Self, String> {
+    pub fn load_all(primary: &std::path::Path, dir: &std::path::Path) -> Result<Self, String> {
         let mut merged = Self::new();
         if primary.is_file() {
             let content = std::fs::read_to_string(primary)
@@ -296,10 +293,7 @@ pub enum SelectedCondition {
 }
 
 impl serde::Serialize for SelectedCondition {
-    fn serialize<S: serde::Serializer>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
             SelectedCondition::Cursor => serializer.serialize_str("cursor"),
             SelectedCondition::Cwd => serializer.serialize_str("cwd"),
@@ -315,24 +309,15 @@ impl<'de> Deserialize<'de> for SelectedCondition {
         impl<'de> serde::de::Visitor<'de> for Visitor {
             type Value = SelectedCondition;
 
-            fn expecting(
-                &self,
-                formatter: &mut std::fmt::Formatter,
-            ) -> std::fmt::Result {
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("a non-negative integer or \"cursor\", \"cwd\", \"active\"")
             }
 
-            fn visit_u64<E: serde::de::Error>(
-                self,
-                v: u64,
-            ) -> Result<Self::Value, E> {
+            fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
                 Ok(SelectedCondition::Selections(v as usize))
             }
 
-            fn visit_i64<E: serde::de::Error>(
-                self,
-                v: i64,
-            ) -> Result<Self::Value, E> {
+            fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Self::Value, E> {
                 if v < 0 {
                     Err(E::custom("selections count must be non-negative"))
                 } else {
@@ -340,10 +325,7 @@ impl<'de> Deserialize<'de> for SelectedCondition {
                 }
             }
 
-            fn visit_str<E: serde::de::Error>(
-                self,
-                v: &str,
-            ) -> Result<Self::Value, E> {
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
                 match v {
                     "cursor" => Ok(SelectedCondition::Cursor),
                     "cwd" => Ok(SelectedCondition::Cwd),
@@ -352,10 +334,7 @@ impl<'de> Deserialize<'de> for SelectedCondition {
                 }
             }
 
-            fn visit_string<E: serde::de::Error>(
-                self,
-                v: String,
-            ) -> Result<Self::Value, E> {
+            fn visit_string<E: serde::de::Error>(self, v: String) -> Result<Self::Value, E> {
                 self.visit_str(&v)
             }
         }
@@ -501,10 +480,7 @@ pub struct MenuEvaluationContext<'a> {
 }
 
 impl<'a> MenuEvaluationContext<'a> {
-    pub fn new(
-        state: &MMState<'_, PathItem, ()>,
-        lcfg: &'a LessfilterConfig,
-    ) -> Self {
+    pub fn new(state: &MMState<'_, PathItem, ()>, lcfg: &'a LessfilterConfig) -> Self {
         let selected: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
         let cursor_disabled = state.picker_ui.results.cursor_disabled();
         let cursor = if cursor_disabled {
@@ -530,10 +506,7 @@ impl<'a> MenuEvaluationContext<'a> {
         }
     }
 
-    pub fn is_applicable(
-        &mut self,
-        action: &MenuAction,
-    ) -> bool {
+    pub fn is_applicable(&mut self, action: &MenuAction) -> bool {
         condition_passes(
             &action.condition,
             &self.selected,
@@ -547,10 +520,7 @@ impl<'a> MenuEvaluationContext<'a> {
         )
     }
 
-    pub fn resolve_targets(
-        &self,
-        action: &MenuAction,
-    ) -> Vec<AbsPath> {
+    pub fn resolve_targets(&self, action: &MenuAction) -> Vec<AbsPath> {
         action.resolve_targets(
             self.selected.clone(),
             self.fallback.clone(),

@@ -1,10 +1,6 @@
 # Bugs
 
-stale row metadata entry sometimes after toggling
-maybe some kind of sort races but not worth it to make airtight
 rg should read input from stdin with a separate flag for paths
-refactor queue execute: lots of duplication, can take Either<Builtin,Lua>
-stash: copy variant: store in fist/state/stashes/name ->, parent looks for last nav_cwd and jumps there instead
 
 drag into nav pane: ask copy or move.
 drag file to system
@@ -12,3 +8,7 @@ drag file to system
 render path relies on bat's exit status instead of file existance checks since it makes sense to also fail unreadable paths, however this incorrectly fails early exits from the pager.
 
 Custom crate for proper copy/move handling: reference yazi for touchpoints
+
+smarter determination for when to clear the dirsizecache: not too often so that entering + return doesn't need to recompute say ~, and also not too aggresive so that invalidation occurs at a sensible time
+
+- maybe size resort makes sense to reset cursor to 0 as well

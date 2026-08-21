@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use std::{
     cell::RefCell,
     collections::VecDeque,
@@ -24,6 +26,7 @@ use cba::{
 use matchmaker::{SSS, message::RenderCommand, nucleo::injector::Injector};
 use tokio::task::spawn_blocking;
 
+use crate::run::state::GLOBAL::db;
 use crate::{
     abspath::AbsPath,
     db::DbTable,
@@ -366,10 +369,9 @@ impl FsPane {
             }
             Self::Files { sort, .. } => {
                 let sort = *sort;
-                let pool = GLOBAL::db();
 
                 tokio::spawn(async move {
-                    let mut conn = pool.get_conn(DbTable::files).await.elog()?;
+                    let mut conn = db().get_conn(DbTable::files).await.elog()?;
                     let entries = GLOBAL::get_db_entries(&mut conn, sort).await?;
                     if entries.is_empty() && toast_on_empty {
                         TOAST::toast_empty();
@@ -386,10 +388,9 @@ impl FsPane {
             Self::Folders { sort, .. } => {
                 let sort = *sort;
                 let cwd = STACK::_cwd();
-                let pool = GLOBAL::db();
 
                 tokio::spawn(async move {
-                    let mut conn = pool.get_conn(DbTable::dirs).await.elog()?;
+                    let mut conn = db().get_conn(DbTable::dirs).await.elog()?;
                     let entries = GLOBAL::get_db_entries(&mut conn, sort).await?;
                     if entries.is_empty() && toast_on_empty {
                         TOAST::toast_empty();
@@ -423,15 +424,13 @@ impl FsPane {
                     .get(&stash_name)
                     .map(|s| s.kind)
                     .unwrap_or_default();
-                let pool = GLOBAL::db();
-
                 tokio::spawn(async move {
                     // Transient stashes are in-memory; the other kinds are
                     // db-backed and prune/filter missing paths.
                     let mut conn = if matches!(kind, StashPaneKind::Transient) {
                         None
                     } else {
-                        Some(pool.get_conn(DbTable::stashes).await.elog()?)
+                        Some(db().get_conn(DbTable::stashes).await.elog()?)
                     };
                     let entries = if let Some(conn) = conn.as_mut() {
                         conn.get_stash_entries(&stash_name).await.elog()?
@@ -480,11 +479,8 @@ impl FsPane {
             }
             Self::Apps { sort, .. } => {
                 let sort = *sort;
-                let pool = GLOBAL::db();
-                let pool_clone = pool.clone();
-
                 let ret = tokio::spawn(async move {
-                    let mut conn = pool.get_conn(DbTable::apps).await.elog()?;
+                    let mut conn = db().get_conn(DbTable::apps).await.elog()?;
                     let entries = GLOBAL::get_db_entries(&mut conn, sort).await?;
 
                     if toast_on_empty && entries.is_empty() {
@@ -504,7 +500,7 @@ impl FsPane {
                         let mut entries = collect_apps();
                         // initial population in order
                         entries.sort_by(|a, b| a.name.cmp(&b.name));
-                        let mut conn = pool_clone.get_conn(DbTable::apps).await.elog()?;
+                        let mut conn = db().get_conn(DbTable::apps).await.elog()?;
                         if conn.create_many(&entries).await? > 0 {
                             GLOBAL::send_action(FsAction::Reload);
                         }

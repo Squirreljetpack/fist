@@ -16,3 +16,6 @@ consult yazi, use using platform C bindings on macos (libc::copyfile with COPYFI
 Stage 2:
 Hard Links & Inode Deduplication
 Strategies: Fail, Overwrite, Skip, Rename/Suffix
+
+note: cleanup is not accounted for by TASKS currently
+queue dispatch: needs more specific queue kind name
