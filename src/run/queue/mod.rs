@@ -111,10 +111,7 @@ pub struct QueueItem {
 }
 
 impl QueueItem {
-    pub fn new(
-        kind: QueueKind,
-        src: AbsPath,
-    ) -> Self {
+    pub fn new(kind: QueueKind, src: AbsPath) -> Self {
         Self {
             kind,
             status: QueueItemStatus::new(&src),
@@ -156,10 +153,7 @@ impl QueueState {
     }
 
     /// The underlying shared indices visible under the given kind filter.
-    pub fn visible_indices(
-        &self,
-        kind: Option<&str>,
-    ) -> Vec<usize> {
+    pub fn visible_indices(&self, kind: Option<&str>) -> Vec<usize> {
         self.shared
             .iter()
             .enumerate()
@@ -169,22 +163,14 @@ impl QueueState {
     }
 
     /// The screen position of a queue item row under the given kind filter.
-    pub fn visible_position_of(
-        &self,
-        kind: Option<&str>,
-        row: usize,
-    ) -> Option<usize> {
+    pub fn visible_position_of(&self, kind: Option<&str>, row: usize) -> Option<usize> {
         self.visible_indices(kind)
             .into_iter()
             .position(|idx| idx == row)
     }
 
     /// Cycle the kind filter (+1 / -1) through `[None, distinct kinds...]` with wrapping.
-    pub fn next_kind(
-        &self,
-        current: Option<&str>,
-        delta: i32,
-    ) -> Option<String> {
+    pub fn next_kind(&self, current: Option<&str>, delta: i32) -> Option<String> {
         let mut kinds: Vec<&str> = Vec::new();
         for item in &self.shared {
             if !kinds.contains(&item.kind.as_str()) {
@@ -197,7 +183,11 @@ impl QueueState {
         }
         let pos = match current {
             None => 0,
-            Some(c) => kinds.iter().position(|&k| k == c).map(|i| i + 1).unwrap_or(0),
+            Some(c) => kinds
+                .iter()
+                .position(|&k| k == c)
+                .map(|i| i + 1)
+                .unwrap_or(0),
         };
         let next_pos = (pos as i32 + delta).rem_euclid(total as i32) as usize;
         if next_pos == 0 {
@@ -235,10 +225,7 @@ impl QUEUE {
     /// add one row per path, replacing a pending row with the same source
     /// and kind (moved to the tail); custom menu kinds add one multi-path
     /// row.
-    pub fn enqueue(
-        kind: QueueKind,
-        paths: Vec<AbsPath>,
-    ) {
+    pub fn enqueue(kind: QueueKind, paths: Vec<AbsPath>) {
         debug_assert!(
             is_valid_queue_kind(&kind),
             "enqueue kinds must parse as an ordinary queue kind, got {kind:?}"
@@ -282,10 +269,7 @@ impl QUEUE {
     }
 
     /// `(src, dst)` for the entry at `index`; app entries have no dst.
-    pub fn view_get(
-        view: QueueView,
-        index: usize,
-    ) -> Option<(Vec<AbsPath>, OsString)> {
+    pub fn view_get(view: QueueView, index: usize) -> Option<(Vec<AbsPath>, OsString)> {
         match view {
             QueueView::Shared => QUEUE_STATE
                 .lock()
@@ -336,11 +320,7 @@ impl QUEUE {
         }
     }
 
-    pub fn view_swap(
-        view: QueueView,
-        i: usize,
-        j: usize,
-    ) {
+    pub fn view_swap(view: QueueView, i: usize, j: usize) {
         match view {
             QueueView::Shared => QUEUE_STATE.lock().unwrap().shared.swap(i, j),
             QueueView::Apps => STACK::with_current_mut(|pane| {
@@ -354,10 +334,7 @@ impl QUEUE {
         }
     }
 
-    pub fn view_remove(
-        view: QueueView,
-        index: usize,
-    ) {
+    pub fn view_remove(view: QueueView, index: usize) {
         match view {
             QueueView::Shared => {
                 let mut state = QUEUE_STATE.lock().unwrap();
@@ -380,10 +357,7 @@ impl QUEUE {
     /// Whether a pending row cannot execute because its destination is
     /// missing given the effective navigation directory. Builtin kinds infer
     /// an empty destination from it; custom `requires_dest` kinds do not.
-    fn dest_missing(
-        item: &QueueItem,
-        nav_cwd: Option<&AbsPath>,
-    ) -> bool {
+    fn dest_missing(item: &QueueItem, nav_cwd: Option<&AbsPath>) -> bool {
         if !item.dst.is_empty() {
             return false;
         }
@@ -403,10 +377,7 @@ impl QUEUE {
     /// an exact kind and `First`/`Last` report
     /// [`SelectorResult::MissingDestination`] when their selected work
     /// cannot execute.
-    pub fn select(
-        selector: &QueueSelector,
-        nav_cwd: Option<&AbsPath>,
-    ) -> SelectorResult {
+    pub fn select(selector: &QueueSelector, nav_cwd: Option<&AbsPath>) -> SelectorResult {
         let state = QUEUE_STATE.lock().unwrap();
         let pending: Vec<usize> = state
             .shared
@@ -481,10 +452,7 @@ impl QUEUE {
     /// Execute the shared items at `indices` against the effective
     /// navigation directory. Rows that are already started are skipped; no
     /// pending filtering happens here — callers select the rows.
-    pub fn dispatch(
-        indices: Vec<usize>,
-        nav_cwd: Option<AbsPath>,
-    ) {
+    pub fn dispatch(indices: Vec<usize>, nav_cwd: Option<AbsPath>) {
         let queue: Vec<QueueItem> = {
             let state = QUEUE_STATE.lock().unwrap();
             indices
@@ -526,10 +494,7 @@ impl QUEUE {
     // ------------- clear --------------
 
     /// Whether `kind` is covered by `selector`.
-    fn kind_matches(
-        selector: &QueueSelector,
-        kind: &str,
-    ) -> bool {
+    fn kind_matches(selector: &QueueSelector, kind: &str) -> bool {
         match selector {
             QueueSelector::All => true,
             QueueSelector::Builtins => DEST_KINDS.contains(&kind),
@@ -575,10 +540,7 @@ impl QUEUE {
 }
 
 impl PartialEq for QueueItem {
-    fn eq(
-        &self,
-        other: &Self,
-    ) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.src == other.src && self.kind == other.kind
     }
 }

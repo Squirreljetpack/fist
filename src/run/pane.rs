@@ -1,24 +1,24 @@
 use std::{
     ffi::OsString,
     path::PathBuf,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{Arc, atomic::AtomicBool},
 };
 
-use cba::{bring::split::join_with_single_quotes, StringError};
+use cba::{StringError, bring::split::join_with_single_quotes};
 use matchmaker::preview::AppendOnly;
 
 use crate::{
     abspath::AbsPath,
-    lua::{compile_script, LuaFn},
+    lua::{LuaFn, compile_script},
     run::{
         item::PathItem,
-        state::{InitialPreserveWhitespaceInSearch, GLOBAL, STORE},
+        state::{GLOBAL, InitialPreserveWhitespaceInSearch, STORE},
     },
 };
 use fist_types::{
+    When,
     filetypes::FileTypeArg,
     filters::{SortOrder, Visibility},
-    When,
 };
 
 /// PartialEq is defined by discriminant
@@ -177,11 +177,7 @@ impl FsPane {
     }
 
     /// Create a fd pane in the current directory
-    pub fn new_fd(
-        cwd: AbsPath,
-        sort: SortOrder,
-        vis: Visibility,
-    ) -> Self {
+    pub fn new_fd(cwd: AbsPath, sort: SortOrder, vis: Visibility) -> Self {
         Self::Find {
             paths: vec![cwd.inner().into(), ".".into()], // last is pattern
             cwd,
@@ -243,11 +239,7 @@ impl FsPane {
         }
     }
 
-    pub fn new_nav(
-        cwd: AbsPath,
-        vis: Visibility,
-        sort: SortOrder,
-    ) -> Self {
+    pub fn new_nav(cwd: AbsPath, vis: Visibility, sort: SortOrder) -> Self {
         Self::Nav {
             cwd,
             sort,
@@ -307,10 +299,7 @@ impl FsPane {
 
     /// Validate and apply a CLI-specified sort. Errors when the order is not
     /// one of this pane type's supported orders (see [`Self::sort_options`]).
-    pub fn sort(
-        mut self,
-        order: SortOrder,
-    ) -> Result<Self, StringError> {
+    pub fn sort(mut self, order: SortOrder) -> Result<Self, StringError> {
         if !self.sort_options().contains(&order) {
             return Err(format!(
                 "Invalid sort order '{}' for the {} pane",
@@ -529,10 +518,7 @@ impl FsPane {
 // --------------------BOILERPLATE-------------------------------
 
 impl PartialEq for FsPane {
-    fn eq(
-        &self,
-        other: &Self,
-    ) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         std::mem::discriminant(self) == std::mem::discriminant(other)
     }
 }

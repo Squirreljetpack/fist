@@ -71,10 +71,7 @@ pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(ArrayVec<String, 10>, String
     Ok(result)
 }
 
-pub fn valid_key(
-    s: &str,
-    extended: bool,
-) -> bool {
+pub fn valid_key(s: &str, extended: bool) -> bool {
     !s.is_empty()
         && s.chars().all(|c| {
             (extended && c.is_ascii_graphic()) || c.is_ascii_lowercase() || "_".contains(c)
@@ -83,10 +80,7 @@ pub fn valid_key(
 
 /// Determine if a sequence of words should be interpreted as words representing key-value pairs (in which case they are split in two), or not (in which case the words are unchanged).
 /// This is relevant to Maps and Structs as they are defined given a word sequences, interpreting it in word pairs.
-pub fn try_split_kv(
-    vec: &mut Vec<String>,
-    extended_keys: bool,
-) -> anyhow::Result<()> {
+pub fn try_split_kv(vec: &mut Vec<String>, extended_keys: bool) -> anyhow::Result<()> {
     // Check first element for '='
     if let Some(first) = vec.first()
         && let Some(pos) = first.find('=')

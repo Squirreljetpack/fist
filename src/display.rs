@@ -1,12 +1,12 @@
 use cba::{bog::BogUnwrapExt, prints};
 use chrono::{DateTime, Local};
-use comfy_table::{presets::UTF8_FULL, ContentArrangement, Row, Table};
-use fist_types::{filetypes::FileType, FileCategory};
+use comfy_table::{ContentArrangement, Row, Table, presets::UTF8_FULL};
+use fist_types::{FileCategory, filetypes::FileType};
 use std::str::FromStr;
 use strum::{EnumMessage, IntoEnumIterator};
 
 use crate::{
-    db::{zoxide, Entry, Epoch},
+    db::{Entry, Epoch, zoxide},
     lessfilter::Categories,
     menu::{MenuAction, MenuActions, MenuCondition, MenuStrategy},
 };
@@ -21,11 +21,7 @@ use crate::{
 /// be `MAX(atime)` (matching the SQL `ORDER BY` in
 /// [`crate::db::Connection::get_entries_range`]); for wall-clock mode it
 /// should be the current wall-clock time.
-pub fn display_entries(
-    entries: &[Entry],
-    lambda: Option<f64>,
-    now: Epoch,
-) {
+pub fn display_entries(entries: &[Entry], lambda: Option<f64>, now: Epoch) {
     let mut table = Table::new();
 
     // Style
@@ -183,10 +179,7 @@ pub fn display_epoch(epoch: Epoch) -> String {
 /// flag selecting the unit system:
 /// - `decimal = true`  -> 1000-based SI units (B, KB, MB, GB, TB, PB)
 /// - `decimal = false` -> 1024-based IEC units (B, KiB, MiB, GiB, TiB, PiB)
-pub fn human_size(
-    bytes: u64,
-    decimal: bool,
-) -> String {
+pub fn human_size(bytes: u64, decimal: bool) -> String {
     const DECIMAL_UNITS: [&str; 6] = ["B", "KB", "MB", "GB", "TB", "PB"];
     const BINARY_UNITS: [&str; 6] = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
 
@@ -215,10 +208,7 @@ pub fn human_size(
 /// - `< 5`: one action name per line
 /// - `= 5`: every field, echoing actions.toml syntax, without the command
 /// - `> 5`: every field including the command
-pub fn display_menu_actions(
-    actions: &MenuActions,
-    verbosity: u8,
-) -> String {
+pub fn display_menu_actions(actions: &MenuActions, verbosity: u8) -> String {
     let mut out = format!("installed menu actions ({}):", actions.len());
     if actions.is_empty() {
         return out;
@@ -262,10 +252,7 @@ struct ActionToml {
 }
 
 impl ActionToml {
-    fn new(
-        action: &MenuAction,
-        include_command: bool,
-    ) -> Self {
+    fn new(action: &MenuAction, include_command: bool) -> Self {
         Self {
             condition: action.condition.clone(),
             command: include_command.then(|| action.command.clone()),

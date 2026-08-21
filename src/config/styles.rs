@@ -25,10 +25,7 @@ pub struct FileStyles {
 }
 
 impl FileStyles {
-    pub fn style(
-        &self,
-        file: &FileCategory,
-    ) -> Style {
+    pub fn style(&self, file: &FileCategory) -> Style {
         match file {
             FileCategory::Image => self.image,
             FileCategory::Video => self.video,

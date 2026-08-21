@@ -52,10 +52,7 @@ impl Clone for PathItem {
 }
 
 impl PathItem {
-    pub fn new(
-        path: impl Into<PathBuf>,
-        cwd: &Path,
-    ) -> Self {
+    pub fn new(path: impl Into<PathBuf>, cwd: &Path) -> Self {
         let path_ = path.into().abs(cwd);
         let path = AbsPath::new_unchecked(path_);
         Self {
@@ -116,11 +113,7 @@ impl PathItem {
         self.path.to_string_lossy()
     }
 
-    pub fn set_loc(
-        &self,
-        line: u32,
-        col: u32,
-    ) {
+    pub fn set_loc(&self, line: u32, col: u32) {
         let v = ((line as u64) << 32) | (col as u64);
         self.metadata.store(v, Ordering::Relaxed);
     }
@@ -130,10 +123,7 @@ impl PathItem {
         ((v >> 32) as u32, (v & 0xFFFF_FFFF) as u32)
     }
 
-    pub fn set_value(
-        &self,
-        v: u64,
-    ) {
+    pub fn set_value(&self, v: u64) {
         self.metadata.store(v, Ordering::Relaxed);
     }
 
@@ -153,10 +143,7 @@ pub fn short_display(path: &Path) -> Span<'static> {
     }
 }
 
-fn render(
-    path: &Path,
-    cwd: Option<&Path>,
-) -> Text<'static> {
+fn render(path: &Path, cwd: Option<&Path>) -> Text<'static> {
     render_with(&global_ui().path, path, cwd)
 }
 
@@ -164,11 +151,7 @@ fn render(
 ///
 /// `cwd: None` (no render path — initial pane) disables relative display:
 /// `path.relative` never triggers and paths render absolute.
-fn render_with(
-    cfg: &PathDisplayConfig,
-    mut path: &Path,
-    cwd: Option<&Path>,
-) -> Text<'static> {
+fn render_with(cfg: &PathDisplayConfig, mut path: &Path, cwd: Option<&Path>) -> Text<'static> {
     let full_path = path;
     let relative = cfg.relative;
 
@@ -311,10 +294,7 @@ fn render_with(
 }
 
 impl PartialEq for PathItem {
-    fn eq(
-        &self,
-        other: &Self,
-    ) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.path == other.path
     }
 }

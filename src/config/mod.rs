@@ -10,13 +10,13 @@ use cba::{
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
+    cli::{CliOpts, paths::*},
+    lessfilter::Preset,
+};
+use crate::{
     cli::{clap_helpers::ClapStyleOverride, paths::liza_path},
     db::zoxide::HistoryConfig,
     watcher::WatcherConfig,
-};
-use crate::{
-    cli::{paths::*, CliOpts},
-    lessfilter::Preset,
 };
 use fist_types::When;
 
@@ -158,10 +158,10 @@ pub struct InterfaceConfig {
     /// ([`crate::run::ahandlers::enter_prompt`], entered via Up/Down past
     /// the ends or AutoJump(0)). Leaving the prompt is never gated.
     pub prompt_locking: bool,
-    /// While in the prompt, whether the Delete and Trash actions act on
+    /// While in the prompt, whether the Trash action acts on
     /// the selected item instead of editing the query (DeleteWord).
     /// Defaults to false on macOS.
-    pub prompt_locking_allow_delete_actions: bool,
+    pub prompt_locking_allow_trash_action: bool,
     /// Hide the preview while the cursor is disabled (locked onto the cwd).
     pub hide_preview_when_cursor_disabled: bool,
     /// When false, Parent inside an archive's extraction workdir leaves the
@@ -172,6 +172,9 @@ pub struct InterfaceConfig {
     /// the order is to score changes between reloads. Higher keeps the
     /// current order longer; 0 always re-sorts.
     pub stability_threshold: u32,
+    /// When true, preserve the directory size cache on directory change if the
+    /// target directory is already cached.
+    pub preserve_size_cache: bool,
 
     // display
     /// The prefix to display when the cursor is in the prompt.
@@ -194,12 +197,13 @@ impl Default for InterfaceConfig {
             autojump_advance: false,
             prompt_locking: false,
             #[cfg(target_os = "macos")]
-            prompt_locking_allow_delete_actions: false,
+            prompt_locking_allow_trash_action: false,
             #[cfg(not(target_os = "macos"))]
-            prompt_locking_allow_delete_actions: true,
+            prompt_locking_allow_trash_action: true,
             hide_preview_when_cursor_disabled: false,
             allow_enter_unzip_directory: false,
             stability_threshold: 30,
+            preserve_size_cache: false,
         }
     }
 }
@@ -290,10 +294,7 @@ impl Default for FsConfig {
 // -------------- IMPL --------------------------
 
 impl Config {
-    pub fn override_from(
-        &mut self,
-        cli: &CliOpts,
-    ) {
+    pub fn override_from(&mut self, cli: &CliOpts) {
         let style = &mut self.styles.path;
         match cli.style {
             ClapStyleOverride::Auto => {
@@ -375,10 +376,7 @@ impl Config {
     }
 
     // initialize helper files
-    pub fn check_scripts(
-        &self,
-        force: bool,
-    ) {
+    pub fn check_scripts(&self, force: bool) {
         let files = [
             (liza_path(), include_str!("../../assets/scripts/liza")),
             (
@@ -388,10 +386,12 @@ impl Config {
         ];
 
         for (path, script) in files {
-            let error_prefix = format!("Failed set executability of {path:?}");
             if (force || !path.exists())
                 && write_str(path, script)._ebog().is_some()
-                && set_executable(path).prefix(&error_prefix)._ebog().is_some()
+                && set_executable(path)
+                    .prefix(format!("Failed set executability of {path:?}"))
+                    ._ebog()
+                    .is_some()
             {
                 if !force
                 // less noise for debug
@@ -423,93 +423,5 @@ mod tests {
             toml::from_str(include_str!("../../assets/config/pager.dev.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.dev.toml")).unwrap();
-    }
-
-    #[test]
-    fn deserialize_tui_clipboard_options() {
-        let cfg: MMConfig = toml::from_str(
-            r#"
-            [tui]
-            osc52 = false
-            copy_trailing_newline = true
-            "#,
-        )
-        .unwrap();
-        assert!(!cfg.tui.osc52);
-        assert!(cfg.tui.copy_trailing_newline);
-
-        let defaults: MMConfig = toml::from_str("[tui]").unwrap();
-        assert!(defaults.tui.osc52);
-        assert!(!defaults.tui.copy_trailing_newline);
-    }
-
-    #[test]
-    fn deserialize_notify_thrash() {
-        let cfg: Config = toml::from_str(
-            r#"
-            [notify]
-            [notify.thrash_threshold]
-            count = 3
-            duration_ms = 1000
-            resume_delay_ms = 500
-            "#,
-        )
-        .unwrap();
-        assert_eq!(cfg.notify.thrash_threshold.count, 3);
-        assert_eq!(
-            cfg.notify.thrash_threshold.duration_ms,
-            std::time::Duration::from_secs(1)
-        );
-        assert_eq!(
-            cfg.notify.thrash_threshold.resume_delay_ms,
-            std::time::Duration::from_millis(500)
-        );
-    }
-
-    #[test]
-    fn stash_pane_settings_defaults_and_parse() {
-        // with no `stashes` entries, lookups fall back to the default
-        // setting (kind Transient, insert Replace)
-        let defaults = PanesConfig::default();
-        assert!(defaults.stashes.is_empty());
-        assert_eq!(defaults.stash_setting("").kind, StashPaneKind::Transient);
-        assert_eq!(
-            defaults.stash_setting("").insert,
-            InsertionStrategy::Replace
-        );
-
-        let parsed: Config = toml::from_str(
-            r#"
-            [panes.stashes.mine]
-            kind = "filter"
-            insert = "duplicate"
-            "#,
-        )
-        .unwrap();
-        assert_eq!(
-            parsed.global.panes.stashes["mine"].kind,
-            StashPaneKind::Filter
-        );
-        assert_eq!(
-            parsed.global.panes.stashes["mine"].insert,
-            InsertionStrategy::Duplicate
-        );
-
-        // entries without a kind default to Transient
-        let skip: Config = toml::from_str(
-            r#"
-            [panes.stashes.other]
-            insert = "skip"
-            "#,
-        )
-        .unwrap();
-        assert_eq!(
-            skip.global.panes.stashes["other"].kind,
-            StashPaneKind::Transient
-        );
-        assert_eq!(
-            skip.global.panes.stashes["other"].insert,
-            InsertionStrategy::Skip
-        );
     }
 }

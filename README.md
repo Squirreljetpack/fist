@@ -24,7 +24,7 @@ cargo install fd-find ripgrep
 cargo install bat eza chafa kreuzberg mediainfo
 ```
 
-Download the binary with the install script (or choose one of the options below)
+Get the binary with the install script (or choose one of the options below)
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/fist/main/install.sh | sh
@@ -65,7 +65,13 @@ Call as:
 - `generate_paths | fs :custom`: enriched fuzzy searching of paths
 - `z [query]`: directory jump (requires [shell integration](#shell-integration))
 
-[^20]: f:ist is also on cargo: `cargo install fist`, but this method is not recommended as fist is currently missing features
+Finally, when you're ready, initialize the configuration files, and try out the new (!) [bundled menu actions](#menu).
+
+```sh
+fs --dump-config
+```
+
+---
 
 ##### Homebrew
 
@@ -76,12 +82,6 @@ brew install Squirreljetpack/tap/fist
 ##### AUR
 
 Not available
-
-##### npm
-
-```sh
-npm install -g @squirreljetpack/fist
-```
 
 ##### npm
 
@@ -134,9 +134,9 @@ cargo install fist
 - `ctrl-[1-9]`: Autojump to item
 - `ctrl-0`: Autojump to prompt
 
-For a full list of binds, press `alt-h` within the app. [^1]
+For a full list of binds, press `alt-h` within the app[^binds].
 
-[^1]: For more information on bindings (how they are defined, key testing, and default generic binds), see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
+[^binds]: For more information on bindings (how they are defined, key testing, and default generic binds), see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
 
 # Panes
 
@@ -148,16 +148,13 @@ To begin, call `fs` without any positional arguments.
 
 Once inside, you can navigate and re-enter from other panes by pressing the `left`/`right` arrow keys (corresponding to the `Parent`/ `Advance` actions).
 
-
 #### Prompt locking
 
-F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. However, it has its downsides: as the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions by necessity have to be rebound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in more query-focused panes like `Find` or `Search`, the pane enters a `locked` state for these by default: this is visible by the appearance of a blue border around your prompt. When the prompt is locked, the `Parent` and `BackwardChar` actions switch roles, and likewise for `Advance` and `ForwardChar`. The `Accept` action is also intercepted, focusing you on the pane directory, or accepting it if already focused. On macos, the default `cmd+delete` is also restricted to `DeleteWord` instead of the conventional `Trash` action.
+F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. However, it has its downsides: as the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions by necessity have to be rebound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in query-reliant panes like [`Find`](#Find) or [`Search`](#Search), the pane enters a `locked` state for these: this is visible by the appearance of a blue border around your prompt. When the prompt is locked, the `Parent` and `BackwardChar` actions switch roles, and likewise for `Advance` and `ForwardChar`. The `Accept` action is also intercepted, focusing you on the pane directory, or accepting it if already focused. On macos, the default `cmd+delete` is also restricted to `DeleteWord` instead of the conventional `Trash` action.
 
-The locked state can also be entered by _entering the prompt_ -- pressing up at the first result, or down at the last (when `results.cycle` is enabled). Note that `in_prompt` ⇒ `locked_prompt`: in this state, the prompt displays your current directory, and all actions apply to that instead. To exit the prompt, just press up or down again. To exit _the locked state_, there is also the default bind `alt-space`[^126] -- however, this is usually unnecessary as you can just press `shift-left`/`right` to recover the `Parent`/`Advance` actions.
+The locked state can also be entered by *entering the prompt* -- pressing up at the first result, (or down at the last with `results.cycle`). Note that `in_prompt` ⇒ `locked_prompt`: in this state, the prompt displays your current directory, and all actions apply to that instead. To exit the prompt, just press up or down again. To exit *the locked state*, there is also the default bind `alt-space`[^prompt-lock] -- but this is usually unnecessary as you can just press `shift-left`/`right` to recover the `Parent`/`Advance` actions.
 
-Unfortunately, this is by far the least straightforward feature of F:st. Hopefully, it will make more sense when you start to use it. If it doesn't, you can always set `interface.prompt_locking` to false to make your arrow keys always do "the same thing". In fact, rather more is true: every aspect of the above described behavior can be adjusted to your preference through configuration. This is one of the guiding heuristics of the project: it seeks to provide the best out-of-the-box experience through opiniated defaults, but wherever there is room for individual circumstance/preference, it should also provide customizability, extensibility or escape hatches at least.
-
-[^126]: necessarily, this will also drop you out of the prompt if you were in it
+Unfortunately, this is by far the least straightforward feature of F:st. Hopefully, it will make more sense when you start to use it. If it doesn't, you can always set `interface.prompt_locking` to false to make your arrow keys always do "the same thing". In fact, rather more is true: every aspect of the above described behavior can be adjusted to your preference through configuration. This is one of the guiding heuristics of the project: it seeks to provide the best out-of-the-box experience through opiniated defaults, but full power should always remain with the user: beneath the polished surface, everything is customizable or extensible.
 
 ### Find
 
@@ -187,11 +184,11 @@ You can perform a full text search
 - using the subcommand: `fs : [OPTIONS] [PATTERNS]... [-- <RG_ARGS>...]`
 - or by triggering the `Search` action (`ctrl-r`) in-app.
 
-In f:ist, each result supports two columns: the main filepath column, and a secondary context column[^3].
+In f:ist, each result supports two columns: the main filepath column, and a secondary context column[^columns].
 
 In this pane, the context column contains the query matches (and any requested context lines around them).
 
-This pane operates in a query and a filter mode, which can be switched between[^4]:
+This pane operates in a query and a filter mode, which can be switched between[^mode-switch]:
 
 - In *query mode*, the results are (dynamically) populated with all text matches of a given query (your input).
 - In *filter mode*, the results are filtered to only lines matching your input.
@@ -205,10 +202,6 @@ This pane operates in a query and a filter mode, which can be switched between[^
 > When the active item is `advance`/`executed` on, the matched line and column are saved in the environment variables `HIGHLIGHT_LINE` and `HIGHLIGHT_COLUMN`. If your system has a compatible editor, the `Lessfilter::Edit` action can automatically open the file to the corresponding position -- otherwise, you can configure this manually.
 
 <img src=".README.assets/search-pane.png" alt="Search pane" style="width: 700px;" />
-
-[^3]: In the previous panes, the secondary column was simply empty and therefore not displayed.
-
-[^4]: via the same action.
 
 ### Stream/Custom
 
@@ -229,7 +222,7 @@ A complete example of a notes manager this can be used for can be found [here](h
 
 ### History
 
-f:ist records the **files, directories and applications** that you've visited in a local database, where they are displayed in the `Files`/`Folders` (`ctrl-g`) and `Apps` panes, sorted by relevance[^6].
+f:ist records the **files, directories and applications** that you've visited in a local database, where they are displayed in the `Files`/`Folders` (`ctrl-g`) and `Apps` panes, sorted by relevance[^relevance].
 
 <img src=".README.assets/history-pane.png" alt="History pane" style="width:500px" />
 
@@ -237,14 +230,12 @@ The *Files* and *Folders* panes are most useful when integrated into the ambient
 
 ### Named stashes
 
-`PushStash(name)` adds the selection (or the current directory while the cursor is disabled) to a named stash, and `OpenStash(name)` switches to its pane. Stash panes are transient or database-backed collections of paths, useful for scratch space or bookmarking[^128].
-
-[^128]: I had considered also adding filesystem-backed paths for some kind of backup or templating functionality, but came to the conclusion that this is a purpose better suited to a custom [Menu action](#menu), or more simply, done by binding to something like [`Copy`, `Paste(dest)`] + `Jump(dest)`.
+`PushStash(name)` adds the selection (or the current directory while the cursor is disabled) to a named stash, and `OpenStash(name)` switches to its pane. Stash panes are transient or database-backed collections of paths, useful for scratch space or bookmarking[^stashes].
 
 > [!NOTE]
 >
 > Combined with contextual [Menu actions](#menu) and the (default) transient pane (`alt-s`/`alt-shift-s`), they are f:st's answer to all cross-directory workflows, such as comparing files and folders, archiving, or bulk-renaming.
-> 
+>
 > Note that simple actions like Copy and Paste don't require a stash, simply [jump](#history) to your source files to queue them up, jump (or [undo](#additional-notes) if you came from there) to your destination, and [paste](#queue).
 
 ### App
@@ -262,8 +253,6 @@ currently known application paths without opening the app pane.
 
 It can be used to select a launch method for a given set of files (provided through the command line, or collected in the app view's pending files).
 
-[^6]: frequency, recency, and similarity to query.
-
 ### Options
 
 Every pane has a **Options overlay** (`ctrl-p`), with settings for [filtering](https://squirreljetpack.github.io/fist-docs/visibility), [sorting](https://squirreljetpack.github.io/fist-docs/sorting), and other pane-specific controls for the displayed results.
@@ -280,7 +269,15 @@ Panes can be navigated between using the `Undo/Redo` actions.
 
 For more information on any of the panes, run `fs [pane] --help` with the appropriate subcommand (i.e. `:rg`).
 
+[^prompt-lock]: necessarily, this will also drop you out of the prompt if you were in it
 
+[^columns]: In the previous panes, the secondary column was simply empty and therefore not displayed.
+
+[^mode-switch]: via the same action.
+
+[^relevance]: frequency, recency, and similarity to query.
+
+[^stashes]: I had considered also adding filesystem-backed paths for some kind of backup or templating functionality, but came to the conclusion that this is a purpose better suited to a custom [Menu action](#menu), or more simply, done by binding to something like [`Copy`, `Paste(dest)`] + `Jump(dest)`.
 
 # Actions
 
@@ -294,8 +291,6 @@ Custom actions can be added in `actions.toml` and from files in `actions/`. They
 - **Conditions**: The various conditions which must be satisfied to show this action in the menu.
 - **Execution**: Parameters controlling how the action is executed.
 
-These are f:st's _plugins_. Actions execute with the full capacity of standard [lua](https://www.lua.org/about.html) virtual machine. A function `set_progress` is available for actions with `ExecuteStrategy::Queue/Batch` to display their progress, and functions `toast`, `toast_push` are available to create notification toasts. In time and if there is demand, more of the api may become available to actions, such as sending arbitrary actions or creating overlays.
-
 You can find a couple official actions [here](https://github.com/Squirreljetpack/fist/tree/main/assets/actions), providing contextual actions for compression and comparison (of files/folders).
 
 For more information, consult the [docs](https://squirreljetpack.github.io/fist-docs/menu-actions).
@@ -304,7 +299,7 @@ For more information, consult the [docs](https://squirreljetpack.github.io/fist-
 
 The other, more direct way to add arbitrary execution flows is by adding `Execute`-type actions in the `[binds]` section. These work the same way as binds from [matchmaker](https://github.com/Squirreljetpack/matchmaker) or [fzf](https://github.com/junegunn/fzf).
 
-For example, the default `mm.toml` binds `Ctrl-Esc` to `Execute($SHELL)`: the inner string is executed in your shell environment, allowing you to drop into a shell from your current directory in `f:st`. On exit, you return to the main app. There are also additional variants such as `ExecPaged`, which lets you view your results in a navigable interface, or `Become` -- which transforms the process into the script provided instead of pausing `f:st`.
+For example, the default `mm.toml` binds `Ctrl-Esc` to `Execute($SHELL)`: the inner string is executed in your shell environment, allowing you to drop into a shell from your current directory in f:st. On exit, you return to the main app. There are also additional variants such as `ExecPaged`, which lets you view your results in a navigable interface, or `Become` -- which transforms the process into the script provided instead of pausing f:st.
 
 ### Queue
 
@@ -312,13 +307,13 @@ For example, the default `mm.toml` binds `Ctrl-Esc` to `Execute($SHELL)`: the in
 
 The **Queue** overlay (`ctrl-u`) lists the pending file operations. Rows show their kind, source, destination, and progress, and can be edited, rearranged, removed and executed from the overlay. `Undo`/`Redo` cycles between filters to narrows the overlay to a single queue kind.
 
-`Move` and `Copy` enqueue items under the `move` and `copy` kinds. The `Paste` (`ctrl-v`) keybind is available to executes every queued `copy`, `move` and `symlink` item without enterring the overlay, transferring files into the active directory[^7]. `ExecuteQueue(selector)`, `Enqueue(kind)` and `ClearQueue(selector)` are also available for binding[^20].
+`Move` and `Copy` enqueue items under the `move` and `copy` kinds. `Paste` (`ctrl-v`) executes every queued `copy`, `move` and `symlink` item without enterring the overlay, transferring files into the active directory[^paste-safety]. `ExecuteQueue(selector)`, `Enqueue(kind)` and `ClearQueue(selector)` are also available for binding[^selectors].
 
 Menu actions with the `Queue`/`QueueBatch` strategies enqueue their targets under the action's key; on execution the action's lua script runs once per queued item with `(paths, dst, nav_cwd?)`. `dst` is read from the `to` column of the overlay, and `nav_cwd` is supplied when executed from a [Nav pane](#nav).
 
-[^7]: Although safeguards exist to keep these alive and prevent data loss during normal application execution and shutdown, if reliability is crucial it might be safer to define your own custom actions to perform, manage and monitor these actions externally. Ideas and contributions in this area are welcome!
+[^paste-safety]: Although safeguards exist to keep these alive and prevent data loss during normal application execution and shutdown, if reliability is crucial it might be safer to define your own custom actions to perform, manage and monitor these actions externally. Ideas and contributions in this area are welcome!
 
-[^20]: `selector` is similar to `kind`, but with the addition of the reserved strings `all` (default), `first`, `last`, and `builtins` (i.e. Paste is just `ExecuteQueue(builtins)`).
+[^selectors]: `selector` is similar to `kind`, but with the addition of the reserved strings `all` (default), `first`, `last`, and `builtins` (i.e. Paste is just `ExecuteQueue(builtins)`).
 
 # Tools
 
@@ -330,7 +325,7 @@ Supports **Zsh**, **Bash** (4.3+), **Fish**, **Nushell**, and standard **POSIX**
 
 The output of `fs :tool shell` will, when sourced, provide the jump, nav, open, and interactive line-editor widget functions:
 
-The jump function (`z`) is a replacement for `cd`, except that incomplete queries are matched to a most likely destination drawn from the unified f:ist database. This behavior is inspired by zoxide[^13].
+The jump function (`z`) is a replacement for `cd`, except that incomplete queries are matched to a most likely destination drawn from the unified f:ist database. This behavior is inspired by zoxide[^zoxide].
 
 > [!NOTE]
 >
@@ -339,23 +334,22 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 > - the only argument is a valid path: `cd`.
 > - no arguments: interactively select from history.
 > - last argument is `.` : interactively search subdirectories of the best match.
-> - otherwise: cd into the best match for the search term (if one exists)[^9].
+> - otherwise: cd into the best match for the search term (if one exists)[^jump-nav].
 >
-> One final change from zoxide is the introduction of the `history.refind` setting in the [config](#configuration)[^14].
+> One final change from zoxide is the introduction of the `history.refind` setting in the [config](#configuration).
 > When no match is found, or when the top result is the current directory, this setting causes the the interactive interface to be started.
 
 The line-editor widget functions push your selected paths onto your command line. By default, `shift+left` binds to recursive directory search, `shift+right` binds to recursive file search. There is also a full-text search widget bound to `shift+down`: this one does not modify your command-line, but is useful rather because it leaves it *intact*.
 
 To disable any function/widget, just set its bind to the empty string.
 
-#####
+##### 
+
 > [!NOTE]
 >
 > These are also fzf's default keybinds (and function similarily), so it's recommended to disable those when using f:st.
-> 
+>
 > Also, before adding them to your shell startup, you can also run the output directly to try them out. On POSIX shells, this is just `eval "$(fs :tool shell --myshell)"`.
-
-[^9]: There is one final case: if the last argument is `./`: z interactively navigates the best match. This is also provided directly by `x` (configurable via `--nav-name`).
 
 #### Additional
 
@@ -370,9 +364,7 @@ Including the `--aliases` flag will add a few simple alias definitions into the 
 - `o`: [open](#app)
 - `zf`: recent files history
 
-For speed and safety, it is recommended pass your actual shell through to `--shell`[^10].
-
-[^10]: Another optimization you can make is to cache the generated command: my [zcomet fork](#https://github.com/Squirreljetpack/zcomet) supports this.
+For speed and safety, it is recommended pass your actual shell through to `--shell`[^shell-cache].
 
 ### Lessfilter
 
@@ -392,15 +384,17 @@ The lessfilter tool dispatches to 9 presets:
 
 Each preset is configured by a rules table in the [config file](https://github.com/Squirreljetpack/fist/blob/main/assets/config/lessfilter.toml). Each rule is a pair (Actions, Patterns), and for a given file, the rule whose patterns score the highest is selected -- its actions are invoked on the target file.
 
-The patterns can be prefixed with a score modifier which dictates how the score is modified by a successful match of the pattern - if this is omitted, the default score modifier for the pattern is used.
+The score modifiers and their prefix syntax are:
 
-The score modifiers are:
+- `>n|pattern`: `Max(n)` — take the max of the current score with `n`.
+  - The minimal syntax `n|` (such as `1|cat:...`) is also supported.
+- `<n|pattern`: `Min(n)` — take the min of the current score with `n`.
+- `+n|pattern`: `Add(n)` — add `n` (or 1) to the current score.
+- `-n|pattern`: `Sub(n)` — subtract `n` (or 1) from the current score.
+- `^|pattern` : `Req` — require the condition; sets the score to 0 if the test fails.
+  - `^pattern` is also supported.
 
-- `Add/Sub (n)`: Add/Sub (n) to the current score.
-- `Max/Min (n)`: Take the max/min of the current score with (n) for the new score.
-- `Req`: Set the score to 0 if the test fails.
-
-The patterns and their default scores are:
+The patterns and their default scores (used when no score prefix is specified) are:
 
 - `glob`: match the full path — `Max(50)`
 - `child`: match a child name (or a sibling name for a file) — `Max(50)`
@@ -412,10 +406,6 @@ The patterns and their default scores are:
 - `have`: require an executable to exist — `Req`
 - `filetype`: require a matching filesystem type — `Req`
 - `git`: require a path inside a Git work tree — `Req`
-
-`Req` makes the whole rule score zero when its test fails. `Max(0)` is useful
-as a universal test alongside a stronger condition, but does not select a rule
-by itself.
 
 Though the syntax has many parts, configuration should be fairly straightforward. F:ist comes with a sane set of defaults with wide coverage for a variety of filetypes, and declaring overrides is as simple as declaring the desired action together with the conditions which it requires. For example:
 
@@ -487,9 +477,27 @@ fs exposes several of the more generally useful functionalities it uses internal
 
 - as for the rest, run `fs :tool` to see a full listing.
 
+[^jump-nav]: There is one final case: if the last argument is `./`: z interactively navigates the best match. This is also provided directly by `x` (configurable via `--nav-name`).
+
+[^shell-cache]: Another optimization you can make is to cache the generated command: my [zcomet fork](#https://github.com/Squirreljetpack/zcomet) supports this.
+
+[^zoxide]: f:ist uses an improved implementation by default I adopted after seeing [this project](https://github.com/jghub/ze/tree/master), although the simple [zoxide](https://github.com/ajeetdsouza/zoxide) implementation can be enabled by disabling lambda:
+
+    **Event clock**: zoxide score decay is coupled to wall-clock time. The problem is that after any extended period of inactivity, all scores decay toward zero, and the first directories visited on return immediately dominate the ranking regardless of prior history. f:ist replaces wall-clock time with an event clock: each cd action advances the clock by one tick. The clock stands still during inactive periods and no score decay occurs during such periods.
+
+    **Scoring**: Items are sorted by score. In zoxide, the score is computed as count * recency bucket. f:ist replaces this with a monoexponential decay kernel. The decay rate is controlled by `lambda` (default `8e-3`, equating to a half-life of about 87 actions).
+
+    **Unified database**: f:ist maintains a single SQLite database tracking files, directories, and applications together.
+
+    **Pruning**: Pruning happens automatically and lazily once db exceeds a certain size. For more information, see `fs :tool bump --help`.
+
+    **Interactive fallback**: When no match is found, or when the top result is the current directory, f:ist can be configured to start an interactive search interface instead of failing.
+
 # Configuration
 
-Configuration is presently only documented in the source files: [Main Config](./src/config/mod.rs), [Panes](./src/config/panes.rs), [Styling](./src/config/styles.rs), [Miscellaneous UI](./src/config/ui.rs), [Lessfilter](./src/lessfilter/config.rs), [Lessfilter](./src/lessfilter/config.rs), [Matchmaker Config](./src/run/mm_config.rs)[^12].
+Configuration is presently only documented in the source files: [Main Config](./src/config/mod.rs), [Panes](./src/config/panes.rs), [Styling](./src/config/styles.rs), [Miscellaneous UI](./src/config/ui.rs), [Lessfilter](./src/lessfilter/config.rs), [Lessfilter](./src/lessfilter/config.rs), [Matchmaker Config](./src/run/mm_config.rs)[^mm-config].
+
+[^mm-config]: For more information on this one, you can refer to the matchmaker documentation [here](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/src/config.rs).
 
 # Additional
 
@@ -507,7 +515,7 @@ Conversely, fist integrates into [CommandSpace](https://github.com/Squirreljetpa
 
 ### Notes
 
-- The `New` action creates a directory if the target ends with a path seperator[^11].
+- The `New` action creates a directory if the target ends with a path seperator[^path-sep].
 - The command that spawns programs can be delegated to a process manager. For example, using [pueue](https://github.com/Nukesor/pueue):
 
 ```toml
@@ -516,8 +524,6 @@ Conversely, fist integrates into [CommandSpace](https://github.com/Squirreljetpa
 [misc]
 spawn_with = ["pueue", "add", "-g", "apps", "--"]
 ```
-
-[^11]: `/` on unix and `\` on windows
 
 ### Full uninstallation
 
@@ -539,18 +545,4 @@ spawn_with = ["pueue", "add", "-g", "apps", "--"]
    rm -rf ~/.config/fist ~/.local/state/fist ~/.cache/fist
    ```
 
----
-
-[^12]: For more information on this one, you can refer to the matchmaker documentation [here](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/src/config.rs).
-
-[^13]: f:ist uses an improved implementation by default, although the simple [zoxide](https://github.com/ajeetdsouza/zoxide) implementation can be enabled by disabling lambda:
-
-    **Event clock**: zoxide score decay is coupled to wall-clock time. The problem is that after any extended period of inactivity, all scores decay toward zero, and the first directories visited on return immediately dominate the ranking regardless of prior history ([see](https://github.com/jghub/ze/tree/master)). f:ist replaces wall-clock time with an event clock: each cd action advances the clock by one tick. The clock stands still during inactive periods and no score decay occurs during such periods.
-
-    **Scoring**: Items are sorted by score. In zoxide, the score is computed as count * recency bucket. f:ist replaces this with a monoexponential decay kernel. The decay rate is controlled by `lambda` (default `8e-3`, equating to a half-life of about 87 actions).
-
-    **Unified database**: f:ist maintains a single SQLite database tracking files, directories, and applications together.
-
-    **Pruning**: Pruning happens automatically and lazily once db exceeds a certain size. For more information, see `fs :tool bump --help`.
-
-    **Interactive fallback**: When no match is found, or when the top result is the current directory, f:ist can be configured to start an interactive search interface instead of failing.
+[^path-sep]: `/` on unix and `\` on windows

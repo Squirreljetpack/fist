@@ -103,11 +103,7 @@ pub struct FileData<'a> {
 
 impl<'a> FileData<'a> {
     #[allow(clippy::collapsible_if)]
-    pub fn new(
-        path: AbsPath,
-        settings: &LessfilterSettings,
-        categories: &'a Categories,
-    ) -> Self {
+    pub fn new(path: AbsPath, settings: &LessfilterSettings, categories: &'a Categories) -> Self {
         // 1. Permissions (Read, Write, Execute)
         let permissions = permissions(&path);
         let ft = FileType::get(&path);
@@ -153,11 +149,7 @@ impl<'a> FileData<'a> {
 impl Test<Path> for FileRule {
     type Context<'a> = FileData<'a>;
 
-    fn passes(
-        &self,
-        item: &Path,
-        data: &FileData,
-    ) -> bool {
+    fn passes(&self, item: &Path, data: &FileData) -> bool {
         let ok = match &self.kind {
             FileRuleKind::Glob { matcher, .. } => matcher.is_match(&data.path),
 
@@ -380,10 +372,7 @@ impl FromStr for FileRule {
 }
 
 impl std::fmt::Display for FileRule {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let invert = if self.invert { "!" } else { "" };
         match &self.kind {
             FileRuleKind::Glob { pattern, .. } => write!(f, "{invert}glob:{pattern}"),
@@ -401,10 +390,7 @@ impl std::fmt::Display for FileRule {
 }
 
 impl std::fmt::Display for OverloadedFileType {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Ft(ft) => write!(f, "{ft}"),
             Self::Text => write!(f, "text"),
@@ -417,10 +403,7 @@ impl std::fmt::Display for OverloadedFileType {
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 impl Serialize for FileRule {
-    fn serialize<S>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -451,10 +434,7 @@ mod tests {
     }
 
     /// FileData for `path` with default settings and no custom categories.
-    fn file_data<'a>(
-        path: &Path,
-        categories: &'a Categories,
-    ) -> FileData<'a> {
+    fn file_data<'a>(path: &Path, categories: &'a Categories) -> FileData<'a> {
         FileData::new(
             AbsPath::new(path.to_path_buf()),
             &LessfilterSettings::default(),

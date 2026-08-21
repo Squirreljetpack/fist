@@ -7,10 +7,7 @@ use crate::{
     cli::paths::{__cwd, __home},
 };
 
-pub fn format_path(
-    template: &str,
-    path: &AbsPath,
-) -> String {
+pub fn format_path(template: &str, path: &AbsPath) -> String {
     let mut out = String::with_capacity(template.len());
     let mut chars = template.chars().peekable();
 
@@ -88,11 +85,7 @@ pub fn format_path(
     out
 }
 
-pub fn slice_path(
-    path: &Path,
-    start: i32,
-    end: i32,
-) -> PathBuf {
+pub fn slice_path(path: &Path, start: i32, end: i32) -> PathBuf {
     let comps: Vec<_> = path.components().collect();
     let len = comps.len() as i32;
 
@@ -115,10 +108,7 @@ pub fn slice_path(
         })
 }
 
-fn split_on_first_delim<const N: usize>(
-    s: &str,
-    delims: [char; N],
-) -> Option<(&str, char, &str)> {
+fn split_on_first_delim<const N: usize>(s: &str, delims: [char; N]) -> Option<(&str, char, &str)> {
     let mut first: Option<(usize, char)> = None;
 
     for d in delims {
@@ -134,10 +124,7 @@ fn split_on_first_delim<const N: usize>(
 
 // ---------------------------------------------------------------------------------------------------------
 
-pub fn format_prompt(
-    template: &str,
-    cwd: &Path,
-) -> String {
+pub fn format_prompt(template: &str, cwd: &Path) -> String {
     let mut out = String::with_capacity(template.len());
     let mut chars = template.chars().peekable();
     // collapse home
@@ -199,11 +186,7 @@ pub fn format_prompt(
     out
 }
 
-fn split_path_ends(
-    path: &Path,
-    start_count: usize,
-    end_count: usize,
-) -> (String, String) {
+fn split_path_ends(path: &Path, start_count: usize, end_count: usize) -> (String, String) {
     let comps: Vec<_> = path.components().collect();
 
     let len = comps.len();

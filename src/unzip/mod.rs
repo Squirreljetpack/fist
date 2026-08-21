@@ -50,19 +50,9 @@ struct EntryMeta {
 /// A format backend: detection, cheap listing, and full extraction.
 trait ArchiveBackend: Send + Sync {
     fn id(&self) -> &'static str;
-    fn detect(
-        &self,
-        path: &Path,
-    ) -> bool;
-    fn list(
-        &self,
-        source: &Path,
-    ) -> Result<Vec<EntryMeta>, String>;
-    fn extract_all(
-        &self,
-        source: &Path,
-        dest: &Path,
-    ) -> Result<(), String>;
+    fn detect(&self, path: &Path) -> bool;
+    fn list(&self, source: &Path) -> Result<Vec<EntryMeta>, String>;
+    fn extract_all(&self, source: &Path, dest: &Path) -> Result<(), String>;
 }
 
 /// zip, tar family, ar, and rar via the `decompress` crate.
@@ -73,17 +63,11 @@ impl ArchiveBackend for DecompressBackend {
         "decompress"
     }
 
-    fn detect(
-        &self,
-        path: &Path,
-    ) -> bool {
+    fn detect(&self, path: &Path) -> bool {
         detect::is_decompress_archive(path)
     }
 
-    fn list(
-        &self,
-        source: &Path,
-    ) -> Result<Vec<EntryMeta>, String> {
+    fn list(&self, source: &Path) -> Result<Vec<EntryMeta>, String> {
         // content detection so archives matched by sniffing (unknown
         // extension) list and extract through the same decompressor
         let opts = decompress::ExtractOptsBuilder::default()
@@ -104,11 +88,7 @@ impl ArchiveBackend for DecompressBackend {
             .collect())
     }
 
-    fn extract_all(
-        &self,
-        source: &Path,
-        dest: &Path,
-    ) -> Result<(), String> {
+    fn extract_all(&self, source: &Path, dest: &Path) -> Result<(), String> {
         // the filter sees the joined destination path: keep everything
         // that stays inside the skeleton
         let captured = dest.to_path_buf();
@@ -134,19 +114,13 @@ impl ArchiveBackend for SevenZBackend {
         "sevenz"
     }
 
-    fn detect(
-        &self,
-        path: &Path,
-    ) -> bool {
+    fn detect(&self, path: &Path) -> bool {
         path.extension()
             .and_then(|e| e.to_str())
             .is_some_and(|e| e.eq_ignore_ascii_case("7z"))
     }
 
-    fn list(
-        &self,
-        source: &Path,
-    ) -> Result<Vec<EntryMeta>, String> {
+    fn list(&self, source: &Path) -> Result<Vec<EntryMeta>, String> {
         let archive = sevenz_rust2::Archive::open(source).map_err(|e| e.to_string())?;
         Ok(archive
             .files
@@ -158,11 +132,7 @@ impl ArchiveBackend for SevenZBackend {
             .collect())
     }
 
-    fn extract_all(
-        &self,
-        source: &Path,
-        dest: &Path,
-    ) -> Result<(), String> {
+    fn extract_all(&self, source: &Path, dest: &Path) -> Result<(), String> {
         sevenz_rust2::decompress_file(source, dest).map_err(|e| e.to_string())
     }
 }
@@ -502,10 +472,7 @@ fn skeleton_timestamp(name: &str) -> Option<u64> {
 /// compared, at second granularity, against the archive's mtime. A name
 /// without a parseable suffix is not a skeleton and counts as stale, so
 /// re-entry allocates a fresh workdir.
-fn skeleton_is_fresh(
-    skeleton: &Path,
-    source: &Path,
-) -> bool {
+fn skeleton_is_fresh(skeleton: &Path, source: &Path) -> bool {
     let Some(ts) = skeleton
         .file_name()
         .and_then(|n| n.to_str())
@@ -551,10 +518,7 @@ fn remove_stale_skeletons(source: &Path) {
 
 /// Creates the directories implied by one archive entry: the entry itself
 /// when it is an explicit directory, else its parent chain.
-fn skeleton_dir(
-    root: &Path,
-    entry: &EntryMeta,
-) {
+fn skeleton_dir(root: &Path, entry: &EntryMeta) {
     let path = entry.path.as_path();
     // defensive: listings should already be sanitized, but archive
     // metadata is never trusted to stay inside the skeleton
@@ -624,7 +588,11 @@ pub fn toast_entering(path: &Path) {
         .entries
         .lock()
         .ok()
-        .and_then(|entries| entries.get(&source).map(|e| matches!(e.state, EntryState::Complete)))
+        .and_then(|entries| {
+            entries
+                .get(&source)
+                .map(|e| matches!(e.state, EntryState::Complete))
+        })
         .unwrap_or(false);
 
     if is_complete {
@@ -658,10 +626,7 @@ fn toast_extracted(source: &Path) {
     );
 }
 
-fn toast_extract_error(
-    job: &Job,
-    msg: &str,
-) {
+fn toast_extract_error(job: &Job, msg: &str) {
     let name = job
         .source
         .file_name()

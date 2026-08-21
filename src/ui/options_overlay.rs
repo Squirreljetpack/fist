@@ -279,7 +279,7 @@ impl OptionsOverlay {
                 (bold_indices("Dirs", [0], self.item_style()), Some(vis.dirs))
             }
         };
-        let mut ret = vec![
+        let ret = vec![
             (hidden_label, Some(vis.hidden || vis.hidden_only)),
             (
                 bold_indices("Ignore", [0], self.item_style()),
@@ -359,7 +359,7 @@ impl OptionsOverlay {
 
     // make_widgets now just prepends checkboxes and handles cursor styling
     fn make_widgets(&self) -> Vec<Paragraph<'static>> {
-        let mut make_pane = |pane_idx: usize, items: &[(Vec<Span<'static>>, Option<bool>)]| {
+        let make_pane = |pane_idx: usize, items: &[(Vec<Span<'static>>, Option<bool>)]| {
             let max_width = items
                 .iter()
                 .map(|(spans, checked)| {
@@ -775,7 +775,7 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
             .map(|_| Constraint::Length(PANE_WIDTH))
             .collect();
 
-        let mut inner_area = self.border().as_block().inner(area);
+        let inner_area = self.border().as_block().inner(area);
 
         let chunks = Layout::default()
             .direction(Direction::Horizontal)

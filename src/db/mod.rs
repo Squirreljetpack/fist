@@ -18,11 +18,7 @@ pub type Epoch = i64;
 impl Pool {
     /// Spawn a background task that records a directory or file visit.
     /// `folder`: `true` for dirs table, `false` for files.
-    pub fn bump_path(
-        self,
-        folder: bool,
-        path: AbsPath,
-    ) {
+    pub fn bump_path(&'static self, folder: bool, path: AbsPath) {
         TASKS::spawn("db bump path", async move {
             let table = if folder {
                 DbTable::dirs
@@ -44,12 +40,7 @@ impl Pool {
     }
 
     /// Spawn a background task that sets an alias for a path, creating the entry if needed.
-    pub fn set_path_alias(
-        self,
-        path: AbsPath,
-        alias: String,
-        table: DbTable,
-    ) {
+    pub fn set_path_alias(&'static self, path: AbsPath, alias: String, table: DbTable) {
         TASKS::spawn("db set alias", async move {
             match self.get_conn(table).await {
                 Ok(mut conn) => {
@@ -120,11 +111,7 @@ impl Connection {
     ///
     /// Delegates to [`Connection::bump_entry`] which branches on `use_atime`.
     /// `count` is clamped to `≥ -(entry.count)` so the count never goes negative.
-    pub async fn bump_path(
-        &mut self,
-        path: AbsPath,
-        count: i32,
-    ) -> Result<(), DbError> {
+    pub async fn bump_path(&mut self, path: AbsPath, count: i32) -> Result<(), DbError> {
         // name doesn't really do anything
         let name = path.basename();
 
@@ -188,10 +175,7 @@ impl Connection {
     }
 
     // remove all entries whose canonical path is contained in targets
-    pub async fn remove_paths(
-        &mut self,
-        targets: &[AbsPath],
-    ) -> Result<usize, DbError> {
+    pub async fn remove_paths(&mut self, targets: &[AbsPath]) -> Result<usize, DbError> {
         let mut removed = 0;
 
         let entries: Vec<Entry> = self.get_entries_range(0, 0, SortOrder::mtime).await?;
@@ -220,11 +204,7 @@ impl Connection {
 // ----------------------------------------------------------------
 
 impl Connection {
-    pub async fn add_stash_entry(
-        &mut self,
-        name: &str,
-        path: &AbsPath,
-    ) -> Result<(), DbError> {
+    pub async fn add_stash_entry(&mut self, name: &str, path: &AbsPath) -> Result<(), DbError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -240,10 +220,7 @@ impl Connection {
 
     /// All entries of the named stash, ordered by add time (the injection
     /// order); the pane applies its sort nucleo-side.
-    pub async fn get_stash_entries(
-        &mut self,
-        name: &str,
-    ) -> Result<Vec<StashEntry>, DbError> {
+    pub async fn get_stash_entries(&mut self, name: &str) -> Result<Vec<StashEntry>, DbError> {
         let sql = "SELECT * FROM stashes WHERE name = ? ORDER BY add_time DESC".to_string();
         sqlx::query_as::<_, StashEntry>(sqlx::AssertSqlSafe(sql))
             .bind(name)
@@ -284,11 +261,7 @@ impl Connection {
     }
 
     /// Whether the named stash already contains an entry for `path`.
-    pub async fn stash_has_entry(
-        &mut self,
-        name: &str,
-        path: &AbsPath,
-    ) -> Result<bool, DbError> {
+    pub async fn stash_has_entry(&mut self, name: &str, path: &AbsPath) -> Result<bool, DbError> {
         let row: Option<(i64,)> =
             sqlx::query_as("SELECT 1 FROM stashes WHERE name = ? AND stash = ? LIMIT 1")
                 .bind(name)

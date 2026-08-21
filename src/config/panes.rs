@@ -307,10 +307,7 @@ pub struct AppPaneSettings {
 // -------------------------------------------------------------------
 
 impl PanesConfig {
-    pub fn prompt(
-        &self,
-        pane: &FsPane,
-    ) -> Option<String> {
+    pub fn prompt(&self, pane: &FsPane) -> Option<String> {
         match pane {
             FsPane::Custom { .. } => self.custom.prompt.clone(),
             FsPane::Find { .. } => self.find.prompt.clone(),
@@ -322,10 +319,7 @@ impl PanesConfig {
         }
     }
 
-    pub fn locks_prompt(
-        &self,
-        pane: &FsPane,
-    ) -> Option<bool> {
+    pub fn locks_prompt(&self, pane: &FsPane) -> Option<bool> {
         match pane {
             FsPane::Custom { .. } => self.custom.lock_prompt,
             FsPane::Find { .. } => self.find.lock_prompt,
@@ -337,10 +331,7 @@ impl PanesConfig {
         }
     }
 
-    pub fn show_preview(
-        &self,
-        pane: &FsPane,
-    ) -> Option<ShowCondition> {
+    pub fn show_preview(&self, pane: &FsPane) -> Option<ShowCondition> {
         match pane {
             FsPane::Custom { .. } => self.custom.show_preview,
             FsPane::Find { .. } => self.find.show_preview,
@@ -352,10 +343,7 @@ impl PanesConfig {
         }
     }
 
-    pub fn default_visibility(
-        &self,
-        pane: &FsPane,
-    ) -> Option<PartialVisibility> {
+    pub fn default_visibility(&self, pane: &FsPane) -> Option<PartialVisibility> {
         match pane {
             // todo: lowpri: maybe we aggregate more than just apps later, and add visibility
             FsPane::Custom { .. }
@@ -369,10 +357,7 @@ impl PanesConfig {
         }
     }
 
-    pub fn default_sort(
-        &self,
-        pane: &FsPane,
-    ) -> Option<SortOrder> {
+    pub fn default_sort(&self, pane: &FsPane) -> Option<SortOrder> {
         match pane {
             // todo: lowpri: maybe we aggregate more than just apps later, and add visibility
             FsPane::Nav { .. } => self.nav.default_sort,
@@ -381,10 +366,7 @@ impl PanesConfig {
         }
     }
 
-    pub fn preview_layout_index(
-        &self,
-        pane: &FsPane,
-    ) -> u8 {
+    pub fn preview_layout_index(&self, pane: &FsPane) -> u8 {
         match pane {
             FsPane::Custom { .. } => self.custom.preview_layout_index,
             FsPane::Find { .. } => self.find.preview_layout_index,
@@ -398,10 +380,7 @@ impl PanesConfig {
 
     /// Settings for the stash pane `name`. Stashes without an entry fall
     /// back to the default setting.
-    pub fn stash_setting(
-        &self,
-        name: &str,
-    ) -> &StashPaneSetting {
+    pub fn stash_setting(&self, name: &str) -> &StashPaneSetting {
         self.stashes.get(name).unwrap_or(&StashPaneSetting::DEFAULT)
     }
 }

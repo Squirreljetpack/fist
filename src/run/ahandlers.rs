@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use cba::{_trace, bring::split::split_whitespace_preserve_single_quotes};
 use fist_types::{
     filters::{SortOrder, Visibility},
@@ -11,12 +13,13 @@ use matchmaker::{
 };
 use ratatui::text::Line;
 
+use crate::run::state::GLOBAL::db;
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
     run::{
         FsAction, FsPane,
-        queue::{QueueSelector, QUEUE, SelectorResult},
+        queue::{QUEUE, QueueSelector, SelectorResult},
         selection,
         state::{
             FILTERS, GLOBAL, HideMetadata, InPrompt, STACK, STORE, TOAST, ToastStyle, sort,
@@ -26,10 +29,7 @@ use crate::{
     utils::formatter::format_prompt,
 };
 
-pub fn paste_handler(
-    content: String,
-    state: &MMState<'_,>,
-) -> String {
+pub fn paste_handler(content: String, state: &MMState<'_>) -> String {
     if let Some(c) = STACK::nav_cwd()
         && !(GLOBAL::cfg().interface.always_paste
             // paste-inside-the-prompt: while the prompt mode is on (raw
@@ -57,11 +57,10 @@ pub fn paste_handler(
 ///   configured default prompt when there is no cwd);
 /// - otherwise: "d: " / "f: " when visibility is dirs-only / files-only,
 ///   else the pane's configured prompt.
-pub fn refresh_prompt(state: &mut MMState<'_,>) {
+pub fn refresh_prompt(state: &mut MMState<'_>) {
     if state.picker_ui.results.cursor_disabled() {
         if let Some(cwd) = STACK::cwd() {
-            let content =
-                format_prompt(&GLOBAL::cfg().interface.cwd_prompt.clone(), &cwd);
+            let content = format_prompt(&GLOBAL::cfg().interface.cwd_prompt.clone(), &cwd);
             state
                 .picker_ui
                 .query
@@ -95,10 +94,7 @@ pub fn refresh_prompt(state: &mut MMState<'_,>) {
 /// (the only way into the prompt is the cwd lock, [`enter_prompt`]) —
 /// leaving is never gated. The cwd lock implies the prompt mode and
 /// additionally makes actions apply to the cwd.
-pub fn lock_prompt(
-    state: &mut MMState<'_,>,
-    enter: bool,
-) {
+pub fn lock_prompt(state: &mut MMState<'_>, enter: bool) {
     if enter && !GLOBAL::cfg().interface.prompt_locking {
         return;
     }
@@ -133,7 +129,7 @@ pub fn lock_prompt(
 /// Reimplements lock_prompt's entry branch rather than deferring to it,
 /// because lock_prompt gates entry on `interface.prompt_locking` and this
 /// is the ungated entry.
-pub fn enter_prompt(state: &mut MMState<'_,>) -> bool {
+pub fn enter_prompt(state: &mut MMState<'_>) -> bool {
     if STACK::cwd().is_none() {
         return false;
     }
@@ -151,15 +147,12 @@ pub fn enter_prompt(state: &mut MMState<'_,>) -> bool {
     true
 }
 
-pub fn enter_dir_pane(
-    state: &mut MMState<'_,>,
-    path: AbsPath,
-) {
+pub fn enter_dir_pane(state: &mut MMState<'_>, path: AbsPath) {
     // save input
     let (content, index) = state.get_content_and_index();
     STACK::save_input(content, index);
     // record
-    GLOBAL::db().bump_path(true, path.clone());
+    db().bump_path(true, path.clone());
 
     // apply specific settings
     // cancel the query when leaving a pane that wants it — the input was
@@ -211,7 +204,7 @@ pub fn enter_dir_pane(
 }
 
 pub fn fs_reload(
-    state: &mut MMState<'_,>,
+    state: &mut MMState<'_>,
     is_new: bool,
     // whether the reload re-reads a different directory than
     // the pane currently shows. is_new || dir_changed gates the selection refill and dir-size clear.
@@ -224,41 +217,41 @@ pub fn fs_reload(
         STACK::with_current_mut(|pane| {
             let c = GLOBAL::cfg();
             // apply on non-initial new pane: update visibility
-                if let Some(mut dv) = STORE::get::<Visibility>() {
-                    let pv = c.panes.default_visibility(pane).unwrap_or_default();
+            if let Some(mut dv) = STORE::get::<Visibility>() {
+                let pv = c.panes.default_visibility(pane).unwrap_or_default();
 
-                    // behaves as if initial (fd) cmd was specified without visibility modifiers
-                    if let Some(v) = pane.vis_mut() {
-                        dv.apply(pv);
-                        *v = dv;
-                        STORE::take::<Visibility>();
-                    }
-                } else if let Some(pv) = c.panes.default_visibility(pane)
-                    && let Some(v) = pane.vis_mut()
-                {
-                    v.apply(pv);
+                // behaves as if initial (fd) cmd was specified without visibility modifiers
+                if let Some(v) = pane.vis_mut() {
+                    dv.apply(pv);
+                    *v = dv;
+                    STORE::take::<Visibility>();
                 }
-                let new_sort = c.panes.default_sort(pane);
-                match pane {
-                    FsPane::Custom { sort, vis, .. }
-                    | FsPane::Find { sort, vis, .. }
-                    | FsPane::Search { sort, vis, .. }
-                    | FsPane::Nav { sort, vis, .. } => {
-                        if c.panes.settings.apply_default_sort
-                            && let Some(new_sort) = new_sort
-                        {
-                            *sort = new_sort;
-                        }
+            } else if let Some(pv) = c.panes.default_visibility(pane)
+                && let Some(v) = pane.vis_mut()
+            {
+                v.apply(pv);
+            }
+            let new_sort = c.panes.default_sort(pane);
+            match pane {
+                FsPane::Custom { sort, vis, .. }
+                | FsPane::Find { sort, vis, .. }
+                | FsPane::Search { sort, vis, .. }
+                | FsPane::Nav { sort, vis, .. } => {
+                    if c.panes.settings.apply_default_sort
+                        && let Some(new_sort) = new_sort
+                    {
+                        *sort = new_sort;
+                    }
 
-                        FILTERS::set(*vis);
-                    }
-                    FsPane::Files { .. }
-                    | FsPane::Folders { .. }
-                    | FsPane::Apps { .. }
-                    | FsPane::Stash { .. } => {
-                        // logically we should add configurable default but i don't think anything besides frecency is desirable [for the default]
-                    }
+                    FILTERS::set(*vis);
                 }
+                FsPane::Files { .. }
+                | FsPane::Folders { .. }
+                | FsPane::Apps { .. }
+                | FsPane::Stash { .. } => {
+                    // logically we should add configurable default but i don't think anything besides frecency is desirable [for the default]
+                }
+            }
         });
     }
 
@@ -266,8 +259,7 @@ pub fn fs_reload(
     // before the worker restart wipes the current listing. Refill only if the
     // reload re-reads the same directory.
     {
-        let refill =
-            GLOBAL::cfg().fs.refill_selections_after_reload && !is_new && !dir_changed;
+        let refill = GLOBAL::cfg().fs.refill_selections_after_reload && !is_new && !dir_changed;
         if refill && !state.picker_ui.selector.is_empty() {
             let hashes: Vec<u64> = state
                 .picker_ui
@@ -294,10 +286,16 @@ pub fn fs_reload(
 
     // apply the pane's sort
     sort::set_sort_from_pane(state);
-    if sort::get_sort().order == SortOrder::size // don't clear dirsize cache for auto-reloads (todo: lowpri: configurable)
-    && (is_new || dir_changed)
+    if sort::get_sort().order == SortOrder::size
+        && (is_new || dir_changed)
     {
-        sort::clear_dir_sizes();
+        let preserve = GLOBAL::cfg().interface.preserve_size_cache
+            && STACK::cwd()
+                .as_ref()
+                .is_some_and(|p| sort::dir_size().get_path(p.inner()).is_some());
+        if !preserve {
+            sort::clear_dir_sizes();
+        }
     }
     state.worker_restart();
 
@@ -353,57 +351,57 @@ pub fn fs_reload(
 /// - Read the current pane's lock_prompt and default prompt values to appropriately invoke [`lock_prompt`].
 /// 2. Reset transient state settings without any configuration knob
 /// 3. Set input from pane, clear selections
-pub fn fs_post_reload_new(state: &mut MMState<'_,>) {
+pub fn fs_post_reload_new(state: &mut MMState<'_>) {
     // apply pane-specific config overrides
     STACK::with_current(|pane| {
         let c = GLOBAL::cfg();
-            if let Some(p) = c.panes.prompt(pane) {
-                state.picker_ui.query.config.prompt = p
-            };
+        if let Some(p) = c.panes.prompt(pane) {
+            state.picker_ui.query.config.prompt = p
+        };
 
-            if let Some(p) = state.preview_ui {
-                p.set_layout(c.panes.preview_layout_index(pane));
-            };
+        if let Some(p) = state.preview_ui {
+            p.set_layout(c.panes.preview_layout_index(pane));
+        };
 
-            if let Some(condition) = c.panes.show_preview(pane) {
-                let area = state.ui_size();
-                if let Some(p) = state.preview_ui.as_mut() {
-                    p.config.show = condition;
-                    p.reevaluate_show_condition(area, true);
-                }
+        if let Some(condition) = c.panes.show_preview(pane) {
+            let area = state.ui_size();
+            if let Some(p) = state.preview_ui.as_mut() {
+                p.config.show = condition;
+                p.reevaluate_show_condition(area, true);
             }
+        }
 
-            if let Some(enter) = c.panes.locks_prompt(pane) {
-                // this hides the preview if needed
-                lock_prompt(state, enter);
-            } else {
-                refresh_prompt(state);
-            }
+        if let Some(enter) = c.panes.locks_prompt(pane) {
+            // this hides the preview if needed
+            lock_prompt(state, enter);
+        } else {
+            refresh_prompt(state);
+        }
 
-            #[cfg(feature = "mm_overrides")]
-            {
-                use matchmaker_partial::Apply;
-                let partial = c.mm.get(pane);
+        #[cfg(feature = "mm_overrides")]
+        {
+            use matchmaker_partial::Apply;
+            let partial = c.mm.get(pane);
 
-                state.ui.config.apply(partial.ui.clone());
-                state.picker_ui.input.config.apply(partial.input.clone());
-                state
-                    .picker_ui
-                    .results
-                    .config
-                    .apply(partial.results.clone());
-                state
-                    .picker_ui
-                    .results
-                    .status_config
-                    .apply(partial.status.clone());
-                state
-                    .preview_ui
-                    .as_mut()
-                    .unwrap()
-                    .config
-                    .apply(partial.preview.clone());
-            }
+            state.ui.config.apply(partial.ui.clone());
+            state.picker_ui.input.config.apply(partial.input.clone());
+            state
+                .picker_ui
+                .results
+                .config
+                .apply(partial.results.clone());
+            state
+                .picker_ui
+                .results
+                .status_config
+                .apply(partial.status.clone());
+            state
+                .preview_ui
+                .as_mut()
+                .unwrap()
+                .config
+                .apply(partial.preview.clone());
+        }
     });
 
     // Reset transient state settings without any configuration knob
@@ -435,7 +433,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_,>) {
     fs_post_reload(state);
 }
 
-pub fn fs_post_reload(state: &mut MMState<'_,>) {
+pub fn fs_post_reload(state: &mut MMState<'_>) {
     STACK::with_current(|pane| {
         match pane {
             // we set styles in reload, not on push, because of undo/redo

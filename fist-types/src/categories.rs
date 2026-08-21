@@ -1,4 +1,4 @@
-use cba::bath::{split_ext, PathExt};
+use cba::bath::{PathExt, split_ext};
 use std::path::Path;
 
 pub use super::categories_phf::*;
@@ -133,8 +133,8 @@ impl FileCategory {
     // TODO: flesh out
     #[cfg(feature = "file-format")]
     pub fn from_fileformat(format: file_format::FileFormat) -> Self {
-        use file_format::Kind;
         use FileCategory::*;
+        use file_format::Kind;
 
         match format.kind() {
             Kind::Archive | Kind::Compressed => Compressed,

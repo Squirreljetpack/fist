@@ -91,21 +91,14 @@ pub enum RetryStrat {
 }
 
 impl HistoryConfig {
-    pub fn with_keywords(
-        mut self,
-        keywords: Vec<String>,
-    ) -> Self {
+    pub fn with_keywords(mut self, keywords: Vec<String>) -> Self {
         self.keywords = keywords;
         self
     }
 
     /// Filter an entry.
     /// Returns `true` to keep, `false` to exclude.
-    pub fn filter(
-        &self,
-        entry: &Entry,
-        table: DbTable,
-    ) -> bool {
+    pub fn filter(&self, entry: &Entry, table: DbTable) -> bool {
         let path = &entry.path;
 
         if !self.filter_by_base_dir(path) {
@@ -126,21 +119,14 @@ impl HistoryConfig {
         true
     }
 
-    fn filter_by_base_dir(
-        &self,
-        path: &Path,
-    ) -> bool {
+    fn filter_by_base_dir(&self, path: &Path) -> bool {
         match &self.base_dir {
             Some(base) => path.starts_with(base),
             None => true,
         }
     }
 
-    fn filter_by_exists(
-        &self,
-        path: &Path,
-        table: DbTable,
-    ) -> bool {
+    fn filter_by_exists(&self, path: &Path, table: DbTable) -> bool {
         if self.show_missing {
             return true;
         }
@@ -164,10 +150,7 @@ impl HistoryConfig {
     /// zoxide algorithm with some adjustments:
     /// A key is matched by a path if it's letters maps to a component's letters in the same order (without needing to be consecutive).
     /// Keys containing path seperators imply consecutive matches in the path component
-    fn filter_by_keywords(
-        &self,
-        path: &Path,
-    ) -> bool {
+    fn filter_by_keywords(&self, path: &Path) -> bool {
         if self.keywords.is_empty() {
             return true;
         }
@@ -247,12 +230,7 @@ impl HistoryConfig {
     }
 }
 
-fn decay(
-    score: f64,
-    now: Epoch,
-    atime: Epoch,
-    lambda: f64,
-) -> f64 {
+fn decay(score: f64, now: Epoch, atime: Epoch, lambda: f64) -> f64 {
     let delta = now - atime;
     score * (-lambda * delta as f64).exp()
 }
@@ -263,11 +241,7 @@ const FLOAT_TO_I32: f64 = 5000.0; // scalar to avoid losing precision
 ///
 /// atime (lambda=None): `count × bucketed_age_multiplier`.
 /// EMS (lambda=Some(λ)): `stored_score × exp(-λ × Δticks)`, truncated to i32.
-pub fn score(
-    now: Epoch,
-    e: &Entry,
-    lambda: Option<f64>,
-) -> i32 {
+pub fn score(now: Epoch, e: &Entry, lambda: Option<f64>) -> i32 {
     if let Some(lambda) = lambda {
         (FLOAT_TO_I32 * decay(e.score, now, e.atime, lambda)) as i32
     } else {
@@ -289,10 +263,7 @@ pub fn score(
 }
 
 /// s2 maps monotonically and injectively into s1
-fn is_monotonic_substring(
-    s1: &str,
-    s2: &str,
-) -> bool {
+fn is_monotonic_substring(s1: &str, s2: &str) -> bool {
     let mut prev_index = 0;
     let s1_chars: Vec<char> = s1.chars().collect();
 
@@ -430,10 +401,7 @@ impl Connection {
 
     /// Sweep all entries and remove missing entries with score below threshold.
     /// This is a full sweep that checks filesystem existence for every entry.
-    pub async fn prune_missing(
-        &mut self,
-        score_threshold: i32,
-    ) -> Result<u64, DbError> {
+    pub async fn prune_missing(&mut self, score_threshold: i32) -> Result<u64, DbError> {
         use crate::db::zoxide;
         use chrono::Utc;
 

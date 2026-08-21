@@ -37,6 +37,34 @@ detect_arch() {
     esac
 }
 
+detect_libc() {
+    # Check for glibc first
+    if getconf GNU_LIBC_VERSION >/dev/null 2>&1; then
+        echo "gnu"
+        return
+    fi
+    if ldd --version 2>&1 | grep -qi -e 'glibc' -e 'gnu libc'; then
+        echo "gnu"
+        return
+    fi
+    # Check for musl
+    if ldd --version 2>&1 | grep -qi 'musl'; then
+        echo "musl"
+        return
+    fi
+    _test_bin=$(command -v ls 2>/dev/null || command -v sh 2>/dev/null || true)
+    if [ -n "$_test_bin" ] && ldd "$_test_bin" 2>&1 | grep -qi 'musl'; then
+        echo "musl"
+        return
+    fi
+    if ls /lib/ld-musl* /lib64/ld-musl* >/dev/null 2>&1; then
+        echo "musl"
+        return
+    fi
+    # Default to gnu when possible
+    echo "gnu"
+}
+
 get_install_dir() {
     # 1. Cargo priority
     case ":$PATH:" in
@@ -73,7 +101,12 @@ main() {
     BINARY_NAME="$BINARY_BASE_NAME"
     [ "$OS" = "windows" ] && BINARY_NAME="${BINARY_BASE_NAME}.exe"
 
-    info "Detected OS: $OS ($ARCH)"
+    if [ "$OS" = "linux" ]; then
+        LIBC=$(detect_libc)
+        info "Detected OS: $OS ($ARCH, $LIBC)"
+    else
+        info "Detected OS: $OS ($ARCH)"
+    fi
     INSTALL_DIR=$(get_install_dir)
     VERSION=$(get_latest_release)
 
@@ -92,11 +125,13 @@ main() {
             ASSET_NAME="fist-x86_64-apple-darwin.tar.xz"
         fi
     else
-        # Linux: default to musl for x86_64 for portability, gnu for aarch64
+        # Linux: prefer gnu when possible, fallback to musl if detected
         if [ "$ARCH" = "aarch64" ]; then
             ASSET_NAME="fist-aarch64-unknown-linux-gnu.tar.xz"
-        else
+        elif [ "$LIBC" = "musl" ]; then
             ASSET_NAME="fist-x86_64-unknown-linux-musl.tar.xz"
+        else
+            ASSET_NAME="fist-x86_64-unknown-linux-gnu.tar.xz"
         fi
     fi
 

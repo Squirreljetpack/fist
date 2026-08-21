@@ -149,7 +149,10 @@ pub fn generate_shell(
     let mut s = filter_by_tag(include_str!("../assets/shell/shell.zsh"), &tag);
     if *aliases {
         s.push_str("\n\n");
-        s.push_str(&filter_by_tag(include_str!("../assets/shell/aliases.shrc"), &tag));
+        s.push_str(&filter_by_tag(
+            include_str!("../assets/shell/aliases.shrc"),
+            &tag,
+        ));
     }
 
     let dir_bind = dir_widget_bind
@@ -186,10 +189,7 @@ pub fn generate_shell(
         //
         .replace("$${NU_KEYBINDINGS_BLOCK}", &nu_keybindings)
         //
-        .replace(
-            "$${FILEW_CMD}",
-            file_open_cmd.as_ref().unwrap_or(open_cmd),
-        )
+        .replace("$${FILEW_CMD}", file_open_cmd.as_ref().unwrap_or(open_cmd))
         .replace("$${RGW_CMD}", rg_open_cmd.as_ref().unwrap_or(open_cmd))
         //
         .replace("$${DIRW_ARGS}", dir_widget_args)
@@ -205,10 +205,7 @@ pub fn print_shell(cmd: &ShellCommand, path: &str) {
     prints!(s)
 }
 
-pub fn filter_by_tag(
-    content: &str,
-    tag: &str,
-) -> String {
+pub fn filter_by_tag(content: &str, tag: &str) -> String {
     let mut hide = false;
     let mut out = Vec::new();
     let matches = |after: &str| {
@@ -262,9 +259,9 @@ pub fn filter_by_tag(
 
 #[cfg(test)]
 mod tests {
-    use std::{io::Write, process::Command};
-    use clap::Parser;
     use super::*;
+    use clap::Parser;
+    use std::{io::Write, process::Command};
 
     #[test]
     fn toggle_blocks_and_keep_no_hash() {
@@ -360,11 +357,26 @@ visible again";
 
     #[test]
     fn test_parse_nushell_key() {
-        assert_eq!(parse_nushell_key("shift+left"), Some(("shift".to_string(), "left".to_string())));
-        assert_eq!(parse_nushell_key("control+shift+down"), Some(("[control shift]".to_string(), "down".to_string())));
-        assert_eq!(parse_nushell_key("control+alt+shift+k"), Some(("[control alt shift]".to_string(), "k".to_string())));
-        assert_eq!(parse_nushell_key("alt+enter"), Some(("alt".to_string(), "enter".to_string())));
-        assert_eq!(parse_nushell_key("f1"), Some(("none".to_string(), "f1".to_string())));
+        assert_eq!(
+            parse_nushell_key("shift+left"),
+            Some(("shift".to_string(), "left".to_string()))
+        );
+        assert_eq!(
+            parse_nushell_key("control+shift+down"),
+            Some(("[control shift]".to_string(), "down".to_string()))
+        );
+        assert_eq!(
+            parse_nushell_key("control+alt+shift+k"),
+            Some(("[control alt shift]".to_string(), "k".to_string()))
+        );
+        assert_eq!(
+            parse_nushell_key("alt+enter"),
+            Some(("alt".to_string(), "enter".to_string()))
+        );
+        assert_eq!(
+            parse_nushell_key("f1"),
+            Some(("none".to_string(), "f1".to_string()))
+        );
         assert_eq!(parse_nushell_key(""), None);
         assert_eq!(parse_nushell_key("   "), None);
     }

@@ -20,16 +20,13 @@ use std::{
 };
 
 use crate::config::pager_cfg;
-use cba::broc::{has, TTY_HANDLE};
+use cba::broc::{TTY_HANDLE, has};
 use log::error;
-use minus::{hooks::Hook, LineNumbers, Pager};
+use minus::{LineNumbers, Pager, hooks::Hook};
 
 /// Poll a child's exit status for up to `timeout`, then kill it; returns whether
 /// it exited successfully.
-fn wait_with_timeout(
-    mut child: Child,
-    timeout: Duration,
-) -> bool {
+fn wait_with_timeout(mut child: Child, timeout: Duration) -> bool {
     let start = Instant::now();
     loop {
         match child.try_wait() {
@@ -54,10 +51,7 @@ fn wait_with_timeout(
 /// completed: the command child's exit status when one was spawned, else the
 /// bat child's. `false` when that child was killed (early quit or timeout) or
 /// exited non-zero; `true` when there is no child to wait on.
-fn child_status(
-    cmd_child: &Mutex<Option<Child>>,
-    bat_child: &Mutex<Option<Child>>,
-) -> bool {
+fn child_status(cmd_child: &Mutex<Option<Child>>, bat_child: &Mutex<Option<Child>>) -> bool {
     let cmd = cmd_child.lock().unwrap().take();
     if let Some(child) = cmd {
         return wait_with_timeout(child, Duration::from_secs(5));
@@ -170,10 +164,7 @@ fn open_source(path: &Path) -> io::Result<Box<dyn Read + Send>> {
 ///
 /// Returns whether the child exited successfully before the pipe closed
 /// (`false` on empty output, early quit, or a killed child); drives the DB bump.
-pub fn page_child(
-    mut child: Child,
-    bat: Option<Vec<String>>,
-) -> io::Result<bool> {
+pub fn page_child(mut child: Child, bat: Option<Vec<String>>) -> io::Result<bool> {
     let stdout = child
         .stdout
         .take()
@@ -198,10 +189,7 @@ pub fn page_reader<R: Read + Send + 'static>(
 /// path goes to bat directly (no first-line gate — the file is known to exist).
 /// Returns whether the file rendered; `Err` when it cannot be opened and
 /// `Ok(false)` when bat fails to render it.
-pub fn render_text(
-    path: &Path,
-    bat: Option<Vec<String>>,
-) -> io::Result<bool> {
+pub fn render_text(path: &Path, bat: Option<Vec<String>>) -> io::Result<bool> {
     page_inner(Err(path.to_path_buf()), None, false, bat)
 }
 

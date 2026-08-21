@@ -44,3 +44,7 @@ Two sides converge on `pager_cfg().bat_opts` (`pager.toml`) as the base:
 `bat = None` everywhere means raw passthrough with no highlighting; `Some`
 pipes the stream through the `bat` binary when it is on `PATH`, spawning it
 with the given args.
+
+### Global DB
+
+DB is a OnceLock: this is fine as long as tests don't depend on it. In particular, `db/crud.rs` creates its own Pool.

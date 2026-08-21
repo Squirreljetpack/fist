@@ -9,9 +9,9 @@ members = [
 [workspace.package]
 version = "0.0.4"
 edition = "2024"
+homepage = "https://github.com/Squirreljetpack/fist"
 license-file = "LICENSE"
 repository = "https://github.com/Squirreljetpack/fist"
-homepage = "https://github.com/Squirreljetpack/fist"
 
 [workspace.dependencies]
 cli_boilerplate_automation = { version = "0.*", features = ["bring", "serde"] }
@@ -31,9 +31,9 @@ thiserror = "2.0.18"
 name = "fist"
 version.workspace = true
 edition.workspace = true
+homepage.workspace = true
 license-file.workspace = true
 repository.workspace = true
-homepage.workspace = true
 description = "Fist: Interactive Search Tool"
 
 [dependencies]
@@ -163,11 +163,8 @@ file-format = ["dep:file-format"]
 file-format-reader = ["file-format", "file-format/reader"]
 infer = ["dep:infer"]
 
-
-
 # The profile that 'dist' will build with
 [profile.dist]
 inherits = "release"
 codegen-units = 1
 lto = "fat"
-

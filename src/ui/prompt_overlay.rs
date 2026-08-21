@@ -49,10 +49,7 @@ impl PromptOverlay {
     }
 
     /// Computes an adaptable area based on viewport size and content width.
-    pub fn auto_area(
-        &self,
-        ui_area: &Rect,
-    ) -> Rect {
+    pub fn auto_area(&self, ui_area: &Rect) -> Rect {
         let ui_w = ui_area.width;
         let content_w =
             self.input.inner.input().width() as u16 + self.input.config.border.width() + 2;
@@ -96,11 +93,7 @@ impl Overlay<FsAction, PathItem, ()> for PromptOverlay {
         self.input.inner.clear();
     }
 
-    fn handle_input(
-        &mut self,
-        c: char,
-        _state: &mut MMState<'_, PathItem, ()>,
-    ) -> OverlayEffect {
+    fn handle_input(&mut self, c: char, _state: &mut MMState<'_, PathItem, ()>) -> OverlayEffect {
         if c == '\n' {
             return OverlayEffect::Disable;
         }
@@ -108,18 +101,11 @@ impl Overlay<FsAction, PathItem, ()> for PromptOverlay {
         OverlayEffect::None
     }
 
-    fn area(
-        &mut self,
-        ui_area: &Rect,
-        _layout: &OverlayLayoutSettings,
-    ) {
+    fn area(&mut self, ui_area: &Rect, _layout: &OverlayLayoutSettings) {
         self.viewport = *ui_area;
     }
 
-    fn draw(
-        &mut self,
-        frame: &mut matchmaker::ui::Frame<'_>,
-    ) {
+    fn draw(&mut self, frame: &mut matchmaker::ui::Frame<'_>) {
         let area = self.auto_area(&self.viewport);
         frame.render_widget(Clear, area);
 
@@ -150,10 +136,7 @@ impl Overlay<FsAction, PathItem, ()> for PromptOverlay {
 }
 
 impl PromptOverlay {
-    pub fn handle_action_(
-        &mut self,
-        action: &Action<FsAction>,
-    ) -> Option<bool> {
+    pub fn handle_action_(&mut self, action: &Action<FsAction>) -> Option<bool> {
         self.input.handle_action(action)
     }
 }

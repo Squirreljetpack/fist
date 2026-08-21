@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::run::item::short_display;
-use crate::run::state::{ToastStyle, GLOBAL, TASKS, TOAST};
+use crate::run::state::{GLOBAL, TASKS, TOAST, ToastStyle};
 use crate::utils::osc52;
 
 /// Holds the local arboard handle (if active) and configuration options.
@@ -21,11 +21,7 @@ pub struct FsClipboard {
 
 pub static CLIPBOARD: Mutex<Option<FsClipboard>> = Mutex::new(None);
 
-pub fn init(
-    cb_sleep: u64,
-    osc52: bool,
-    copy_trailing_newline: bool,
-) {
+pub fn init(cb_sleep: u64, osc52: bool, copy_trailing_newline: bool) {
     let err_prefix = "Failed to initialize clipboard";
     if let Ok(mut cb) = CLIPBOARD.lock().ok().elog(err_prefix) {
         let arboard = if osc52 {
@@ -64,11 +60,7 @@ fn text_summary(text: &str) -> Span<'static> {
 
 /// Report a completed OSC52 write: success toast (optionally) plus a redraw,
 /// or the existing error-toast path on failure.
-fn report_osc52(
-    result: std::io::Result<()>,
-    spans: Vec<Span<'static>>,
-    toast: bool,
-) {
+fn report_osc52(result: std::io::Result<()>, spans: Vec<Span<'static>>, toast: bool) {
     match result {
         Ok(()) => {
             if toast {
@@ -84,10 +76,7 @@ fn report_osc52(
     }
 }
 
-pub fn apply_newline_policy(
-    text: &mut String,
-    copy_trailing_newline: bool,
-) {
+pub fn apply_newline_policy(text: &mut String, copy_trailing_newline: bool) {
     if !copy_trailing_newline && text.ends_with('\n') {
         text.pop();
 
@@ -125,10 +114,7 @@ pub fn copy_from_pager(text: String) {
     }
 }
 
-pub fn copy_texts(
-    texts: Vec<String>,
-    toast: bool,
-) {
+pub fn copy_texts(texts: Vec<String>, toast: bool) {
     if texts.is_empty() {
         return;
     }
@@ -169,10 +155,7 @@ pub fn copy_texts(
     });
 }
 
-pub fn copy_paths_as_text(
-    paths: Vec<PathBuf>,
-    toast: bool,
-) {
+pub fn copy_paths_as_text(paths: Vec<PathBuf>, toast: bool) {
     if paths.is_empty() {
         return;
     }
@@ -213,10 +196,7 @@ pub fn copy_paths_as_text(
     });
 }
 
-pub fn copy_files(
-    paths: Vec<PathBuf>,
-    toast: bool,
-) {
+pub fn copy_files(paths: Vec<PathBuf>, toast: bool) {
     if paths.is_empty() {
         return;
     }
@@ -289,10 +269,7 @@ pub fn copy_files(
 /// Copy one complete text payload (command output) through the initialized
 /// backend. Owns the whole lock boundary: lock `CLIPBOARD`, write, unlock,
 /// then toast/redraw.
-pub fn copy_text(
-    mut text: String,
-    toast: bool,
-) {
+pub fn copy_text(mut text: String, toast: bool) {
     TASKS::spawn_blocking("clipboard copy text", move || {
         let mut guard = CLIPBOARD.lock().unwrap();
         let copy_trailing_newline = guard.as_ref().is_some_and(|fcb| fcb.copy_trailing_newline);

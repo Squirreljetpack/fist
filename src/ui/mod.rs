@@ -1,4 +1,4 @@
-#![allow(unused_variables, unused_mut, unreachable_code)]
+#![allow(unused_variables)]
 pub mod components;
 pub mod confirm_overlay;
 pub mod input;

@@ -18,11 +18,7 @@ use cba::{bath::PathExt, ebog};
 use clap::Parser;
 use fist_size::DirSizeCache;
 
-use crate::{
-    cli::paths::current_exe,
-    display::human_size,
-    errors::CliError,
-};
+use crate::{cli::paths::current_exe, display::human_size, errors::CliError};
 
 #[derive(Parser, Debug)]
 #[command(about = "Compute directory sizes concurrently and print them")]
@@ -76,9 +72,7 @@ fn validate_percent(s: &str) -> Result<f64, String> {
 }
 
 /// Entry point for `fs :tool ds`.
-pub fn handle(
-    mut args: Vec<OsString>,
-) -> Result<(), CliError> {
+pub fn handle(mut args: Vec<OsString>) -> Result<(), CliError> {
     let path = current_exe().basename();
     args.insert(0, format!("{path} :tool diskspace").into());
 
@@ -331,10 +325,7 @@ fn build_node(
 /// Prints each root and its descendants, with a blank line between
 /// distinct trees. `decimal` selects the unit system for the size
 /// column (true = KB/MB/GB, false = KiB/MiB/GiB).
-fn print_tree(
-    roots: &[TreeNode],
-    decimal: bool,
-) {
+fn print_tree(roots: &[TreeNode], decimal: bool) {
     for (i, root) in roots.iter().enumerate() {
         if i > 0 {
             println!();
@@ -348,11 +339,7 @@ fn print_tree(
 /// assumed to have already been printed by the caller; `prefix` is the
 /// indent + vertical-bar continuation that comes before each child's
 /// line (empty for the children of a root).
-fn print_subtree(
-    node: &TreeNode,
-    prefix: &str,
-    decimal: bool,
-) {
+fn print_subtree(node: &TreeNode, prefix: &str, decimal: bool) {
     for (i, child) in node.children.iter().enumerate() {
         let is_last = i == node.children.len() - 1;
         let connector = if is_last { "└── " } else { "├── " };
@@ -429,7 +416,13 @@ fn build_skeleton(
 
         // Realize the input's own subtree exactly as single-input tree
         // mode would, then hang it beneath the input's skeleton leaf.
-        let realized = build_tree(std::slice::from_ref(input), cache, max_depth, show_files, min_percent);
+        let realized = build_tree(
+            std::slice::from_ref(input),
+            cache,
+            max_depth,
+            show_files,
+            min_percent,
+        );
         let realized_children = realized
             .first()
             .map(|root| tree_to_skeleton(&root.children))
@@ -491,7 +484,10 @@ fn common_ancestor(abs_paths: &[PathBuf]) -> PathBuf {
 
     let mut ancestor = PathBuf::new();
     for (i, comp) in comp_lists[0].iter().enumerate() {
-        if comp_lists[1..].iter().any(|comps| comps.get(i) != Some(comp)) {
+        if comp_lists[1..]
+            .iter()
+            .any(|comps| comps.get(i) != Some(comp))
+        {
             break;
         }
         ancestor.push(comp);
@@ -532,10 +528,7 @@ fn insert_chain(
 /// nodes. An input whose path descends from another input realizes its
 /// subtree onto a node the outer input's realization already produced;
 /// merging keeps such overlapping branches from duplicating.
-fn merge_children(
-    children: &mut Vec<SkeletonNode>,
-    additions: Vec<SkeletonNode>,
-) {
+fn merge_children(children: &mut Vec<SkeletonNode>, additions: Vec<SkeletonNode>) {
     for addition in additions {
         if let Some(existing) = children.iter_mut().find(|c| c.name == addition.name) {
             existing.size = existing.size.or(addition.size);
@@ -561,19 +554,12 @@ fn sort_skeleton(node: &mut SkeletonNode) {
 }
 
 fn subtree_max(node: &SkeletonNode) -> u64 {
-    node.size.unwrap_or(0).max(
-        node.children
-            .iter()
-            .map(subtree_max)
-            .max()
-            .unwrap_or(0),
-    )
+    node.size
+        .unwrap_or(0)
+        .max(node.children.iter().map(subtree_max).max().unwrap_or(0))
 }
 
-fn print_skeleton(
-    root: &SkeletonNode,
-    decimal: bool,
-) {
+fn print_skeleton(root: &SkeletonNode, decimal: bool) {
     match root.size {
         Some(size) => println!("{} ({})", root.name, human_size(size, decimal)),
         None => println!("{}", root.name),
@@ -581,11 +567,7 @@ fn print_skeleton(
     print_skeleton_children(root, "", decimal);
 }
 
-fn print_skeleton_children(
-    node: &SkeletonNode,
-    prefix: &str,
-    decimal: bool,
-) {
+fn print_skeleton_children(node: &SkeletonNode, prefix: &str, decimal: bool) {
     for (i, child) in node.children.iter().enumerate() {
         let is_last = i == node.children.len() - 1;
         let connector = if is_last { "└── " } else { "├── " };
@@ -776,7 +758,10 @@ mod tests {
         assert_eq!(skeleton.children[1].children[0].size, Some(30));
         // b is realized too: its file.txt is a leaf beneath it.
         assert_eq!(skeleton.children[1].children[0].children.len(), 1);
-        assert_eq!(skeleton.children[1].children[0].children[0].name, "file.txt");
+        assert_eq!(
+            skeleton.children[1].children[0].children[0].name,
+            "file.txt"
+        );
         assert_eq!(skeleton.children[1].children[0].children[0].size, Some(30));
     }
 

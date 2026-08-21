@@ -3,9 +3,8 @@
 
 use std::path::PathBuf;
 
-use cba::{
-    bait::ResultExt, bath::PathExt, bring::split::join_with_single_quotes, unwrap,
-};
+use cba::{bait::ResultExt, bath::PathExt, bring::split::join_with_single_quotes, unwrap};
+use fist_types::filters::SortOrder;
 use matchmaker::{
     acs,
     action::{Action, Actions},
@@ -14,6 +13,7 @@ use matchmaker::{
 };
 use ratatui::text::{Line, Text};
 
+use crate::run::state::GLOBAL::db;
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
@@ -33,9 +33,9 @@ use crate::{
         },
         register::{ExecutionMode, resolve_target},
         state::{
-            AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL,
-            HideMetadata, InPrompt, MENU_ACTIONS, MenuPrompt, STACK, STORE, TASKS, TOAST,
-            ToastFlags, ToastStyle, context::ActionContext, lessfilter_cfg, sort,
+            AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, HideMetadata,
+            InPrompt, MENU_ACTIONS, MenuPrompt, STACK, STORE, TASKS, TOAST, ToastFlags, ToastStyle,
+            context::ActionContext, lessfilter_cfg, sort,
         },
     },
     spawn::open_wrapped,
@@ -179,6 +179,8 @@ pub enum FsAction {
     Reload,
     /// Apply the current pane sort to the worker (also lands pending fill values).
     ReSort,
+    /// Leaner re-sort when background size computation completes (preserves HideMetadata).
+    ResortSizes,
     /// Sync visibility pane ← global, then reload (db/rg/vis change) or fill+resort (sort change).
     Refilter,
     AcceptPrompt,
@@ -209,10 +211,7 @@ impl FsAction {
         Self::SetHeader(p.into())
     }
 
-    pub fn new_lessfilter(
-        preset: Preset,
-        paging: bool,
-    ) -> Self {
+    pub fn new_lessfilter(preset: Preset, paging: bool) -> Self {
         Self::Lessfilter {
             preset,
             paging,
@@ -239,10 +238,7 @@ impl FsAction {
 // i.e. "current" saved inputs in chained actions, or consecutive nav actions
 
 // todo: get rid of aliaser for effects
-pub fn fsaction_aliaser(
-    a: Action<FsAction>,
-    state: &mut MMState<'_>,
-) -> Actions<FsAction> {
+pub fn fsaction_aliaser(a: Action<FsAction>, state: &mut MMState<'_>) -> Actions<FsAction> {
     // prompt-mode state: the raw InPrompt marker (the query bar is active).
     // With prompt_locking on, the direct pathways (LockPrompt action, pane
     // lock_prompt config, --lock-prompt) set it; with locking off they are
@@ -267,6 +263,15 @@ pub fn fsaction_aliaser(
                 sort::set_sort_from_pane(state);
                 state.worker_resort();
                 state.picker_ui.results.set_dirty();
+                acs![]
+            }
+            FsAction::ResortSizes => {
+                if sort::get_sort().order == SortOrder::size
+                    && STACK::with_current(FsPane::sort_order) == SortOrder::size
+                {
+                    state.worker_resort();
+                    state.picker_ui.results.set_dirty();
+                }
                 acs![]
             }
             FsAction::Refilter => {
@@ -353,29 +358,13 @@ pub fn fsaction_aliaser(
                     acs![Action::Custom(fa)]
                 }
             }
-            FsAction::Delete(no_confirm) => {
-                // while the prompt mode is on, edit-actions edit the query;
-                // prompt_locking_allow_delete_actions gates the Delete ->
-                // DeleteWord conversion (the lock holds when it's off)
-                if !GLOBAL::cfg().interface.prompt_locking_allow_delete_actions
-                    && STORE::contains::<InPrompt>()
-                    && !no_confirm
-                {
-                    acs![Action::DeleteWord]
-                } else if STACK::in_app() {
-                    acs![]
-                } else {
-                    acs![Action::Custom(fa)]
-                }
-            }
+            FsAction::Delete(_) => acs![Action::Custom(fa)],
             FsAction::Trash(no_confirm) => {
-                if !GLOBAL::cfg().interface.prompt_locking_allow_delete_actions
+                if !GLOBAL::cfg().interface.prompt_locking_allow_trash_action
                     && in_prompt
                     && !no_confirm
                 {
                     acs![Action::DeleteWord]
-                } else if STACK::in_app() {
-                    acs![]
                 } else {
                     acs![Action::Custom(fa)]
                 }
@@ -407,9 +396,17 @@ pub fn fsaction_aliaser(
                 }
                 acs![Action::Overlay(4)]
             }
-            // todo: support post-creation actions
             FsAction::LessfilterPreview(preset, header) => {
-                acs![Action::Preview(preset.to_command_string(header))]
+                let target_cmd = preset.to_command_string(header);
+                let main_cmd = Preset::Preview.to_command_string(When::Auto);
+
+                if !state.preview_visible() {
+                    acs![Action::Preview(target_cmd)]
+                } else if target_cmd != main_cmd && state.preview_payload() == &target_cmd {
+                    acs![Action::Preview(main_cmd)]
+                } else {
+                    acs![Action::Preview(target_cmd)]
+                }
             }
             // FsAction::Category => {
             //     acs![Action::Overlay(3)]
@@ -436,15 +433,14 @@ pub fn fsaction_aliaser(
                 } else if (digit - 1) as u32 == state.picker_ui.results.index()
                 // not in prompt + on pos => accept
                 {
-                    let accept: Action<FsAction> =
-                        if GLOBAL::cfg().interface.autojump_advance {
-                            FsAction::Advance.into()
-                        } else {
-                            if GLOBAL::cfg().interface.alt_accept && !STACK::in_app() {
-                                STORE::set(AcceptFlavor);
-                            }
-                            Action::Accept
-                        };
+                    let accept: Action<FsAction> = if GLOBAL::cfg().interface.autojump_advance {
+                        FsAction::Advance.into()
+                    } else {
+                        if GLOBAL::cfg().interface.alt_accept && !STACK::in_app() {
+                            STORE::set(AcceptFlavor);
+                        }
+                        Action::Accept
+                    };
                     acs![Action::Pos((digit - 1) as i32), accept]
                 } else {
                     acs![Action::Pos((digit - 1) as i32),]
@@ -524,8 +520,8 @@ pub fn fsaction_aliaser(
                 } else {
                     // alt_accept swaps the two flavors (XOR); apps always open
                     let is_print = matches!(a, Action::Print(_));
-                    let print_flavor = (GLOBAL::cfg().interface.alt_accept ^ is_print)
-                        && !STACK::in_app();
+                    let print_flavor =
+                        (GLOBAL::cfg().interface.alt_accept ^ is_print) && !STACK::in_app();
                     if print_flavor {
                         STORE::set(AcceptFlavor);
                     }
@@ -556,11 +552,7 @@ pub fn fsaction_aliaser(
     }
 }
 
-pub fn fsaction_handler(
-    a: FsAction,
-    state: &mut MMState<'_>,
-    context: &mut ActionContext,
-) {
+pub fn fsaction_handler(a: FsAction, state: &mut MMState<'_>, context: &mut ActionContext) {
     let print_handle = &context.print_handle;
 
     match a {
@@ -779,8 +771,7 @@ pub fn fsaction_handler(
                 .parent()
                 .and_then(|p| p.parent())
                 .is_some_and(|p| p == unzip::root());
-            if !GLOBAL::cfg().interface.allow_enter_unzip_directory && in_archive_workdir
-            {
+            if !GLOBAL::cfg().interface.allow_enter_unzip_directory && in_archive_workdir {
                 let Some(encoded) = current.parent().and_then(|p| p.file_name()) else {
                     TOAST::notice(
                         ToastStyle::Error,
@@ -820,7 +811,7 @@ pub fn fsaction_handler(
             } else if item.path.exists() {
                 // record
                 if item.path.is_file() {
-                    GLOBAL::db().bump_path(false, item.path.clone());
+                    db().bump_path(false, item.path.clone());
                 }
 
                 // enter archives through a temp extraction skeleton
@@ -948,10 +939,12 @@ pub fn fsaction_handler(
         }
 
         FsAction::Trash(no_confirm) => {
-            // in a stash pane, Trash removes from the stash, not the actual path
-            let stash_name = STACK::with_current(|p| match p {
-                FsPane::Stash { stash_name, .. } => Some(stash_name.clone()),
-                _ => None,
+            let (stash_name, no_yes_default) = STACK::with_current(|p| match p {
+                FsPane::Stash { stash_name, .. } => (Some(stash_name.clone()), true),
+                FsPane::Apps { .. } | FsPane::Files { .. } | FsPane::Folders { .. } => {
+                    (None, true)
+                }
+                _ => (None, false),
             });
 
             let mut items = vec![];
@@ -990,7 +983,9 @@ pub fn fsaction_handler(
                     content: None,
                     content_above: false,
                     title_in_border: false,
-                    cursor: 0, // Default to Yes
+                    // on db history panes (apps/files/folders) trashing also
+                    // removes the real path; never default to Yes there
+                    cursor: if no_yes_default { 1 } else { 0 },
                     scroll: 0,
                 });
                 GLOBAL::send_action(FsAction::Confirm);
@@ -1435,17 +1430,15 @@ pub fn fsaction_handler(
                     let s = p.display().to_string();
                     print_handle.push(s);
 
-                    GLOBAL::db().bump_path(true, p);
+                    db().bump_path(true, p);
 
                     state.picker_ui.selector.clear();
                     state.should_quit = true;
                 } else {
                     // accepting on nav pane prompt opens the displayed directory
                     let path = p.inner().into();
-                    let pool = GLOBAL::db();
-
                     TASKS::spawn("open", async move {
-                        let conn = unwrap!(pool.get_conn(crate::db::DbTable::dirs).await.ok());
+                        let conn = unwrap!(db().get_conn(crate::db::DbTable::dirs).await.ok());
                         open_wrapped(conn, None, &[path], true).await._elog();
                     });
 
@@ -1527,11 +1520,7 @@ pub fn fsaction_handler(
 /// Insert `paths` into the named stash, applying the stash's configured
 /// [`InsertionStrategy`] to paths already present. Reloads after completion
 /// if reload = true.
-fn db_stash(
-    name: String,
-    paths: Vec<AbsPath>,
-    reload: bool,
-) {
+fn db_stash(name: String, paths: Vec<AbsPath>, reload: bool) {
     let c = GLOBAL::cfg();
     let setting = c.panes.stashes.get(&name);
     let (insert, kind) = (
@@ -1563,11 +1552,10 @@ fn db_stash(
             GLOBAL::send_action(FsAction::Reload);
         }
     } else {
-        let pool = GLOBAL::db();
         TASKS::spawn("db stash", async move {
             // prunes/filters missing paths while populating, so inserts
             // go straight to the db
-            if let Some(mut conn) = pool.get_conn(crate::db::DbTable::stashes).await._elog() {
+            if let Some(mut conn) = db().get_conn(crate::db::DbTable::stashes).await._elog() {
                 for path in paths {
                     match insert {
                         InsertionStrategy::Duplicate => {
@@ -1603,10 +1591,7 @@ fn db_stash(
 
 /// Remove `paths` from the named stash, then reload once the removals
 /// complete. Used by Trash/Delete inside a stash pane.
-fn db_stash_remove(
-    name: String,
-    paths: Vec<PathBuf>,
-) {
+fn db_stash_remove(name: String, paths: Vec<PathBuf>) {
     let c = GLOBAL::cfg();
     let kind = c
         .panes
@@ -1624,10 +1609,9 @@ fn db_stash_remove(
         );
         GLOBAL::send_action(FsAction::Reload);
     } else {
-        let pool = GLOBAL::db();
         TASKS::spawn("db stash remove", async move {
             let paths: Vec<AbsPath> = paths.iter().map(AbsPath::new_unchecked).collect();
-            match pool.get_conn(crate::db::DbTable::stashes).await {
+            match db().get_conn(crate::db::DbTable::stashes).await {
                 Ok(mut conn) => match conn.remove_stash_entries(&name, &paths).await {
                     Ok(n) => {
                         TOAST::notice(
@@ -1651,14 +1635,10 @@ fn db_stash_remove(
 
 /// Remove `paths` from the db table backing a history pane (files/dirs/apps),
 /// then reload once the removals complete. Used by Delete inside a history pane.
-fn db_remove_history_entries(
-    table: DbTable,
-    paths: Vec<PathBuf>,
-) {
-    let pool = GLOBAL::db();
+fn db_remove_history_entries(table: DbTable, paths: Vec<PathBuf>) {
     TASKS::spawn("db remove history", async move {
         let paths: Vec<AbsPath> = paths.iter().map(AbsPath::new_unchecked).collect();
-        match pool.get_conn(table).await {
+        match db().get_conn(table).await {
             Ok(mut conn) => match conn.remove_entries(&paths).await {
                 Ok(n) => {
                     TOAST::notice(
@@ -1773,7 +1753,7 @@ macro_rules! enum_from_str_display {
                                         write!(f, "ClearQueue({selector})")
                                     }
                                 }
-                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | Refilter | AcceptPrompt | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionSilent(_) | MenuActionExecPaged(_) => Ok(()), // internal
+                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | ResortSizes | Refilter | AcceptPrompt | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionSilent(_) | MenuActionExecPaged(_) => Ok(()), // internal
                                 Lessfilter { preset, paging, header: _, special, } => {
                                     if *special == 1 {
                                         write!(f, "Help")
@@ -2097,3 +2077,27 @@ mod queue_action_parse_tests {
         assert!("symlink".parse::<FsAction>().is_err());
     }
 }
+
+#[cfg(test)]
+mod lfpreview_tests {
+    use super::*;
+
+    #[test]
+    fn lfpreview_parse_and_display() {
+        let action: FsAction = "LFPreview(Info)".parse().unwrap();
+        assert_eq!(action, FsAction::LessfilterPreview(Preset::Info, When::Auto));
+        assert_eq!(action.to_string(), "LFPreview(info)");
+
+        let action: FsAction = "LFPreview(Preview)".parse().unwrap();
+        assert_eq!(action, FsAction::LessfilterPreview(Preset::Preview, When::Auto));
+        assert_eq!(action.to_string(), "LFPreview(preview)");
+
+        let action: FsAction = "LessfilterPreview(Display)".parse().unwrap();
+        assert_eq!(action, FsAction::LessfilterPreview(Preset::Display, When::Auto));
+        assert_eq!(action.to_string(), "LFPreview(display)");
+
+        assert!("LFPreview".parse::<FsAction>().is_err());
+        assert!("LFPreview(invalid_preset)".parse::<FsAction>().is_err());
+    }
+}
+

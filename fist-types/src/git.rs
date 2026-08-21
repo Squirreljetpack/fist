@@ -1,15 +1,7 @@
 use std::{ffi::OsStr, path::PathBuf};
 
 pub const VCS_DIRS: &[&str] = &[
-    ".git",
-    ".jj",
-    ".sl",
-    ".hg",
-    ".svn",
-    ".bzr",
-    "_darcs",
-    ".pijul",
-    "CVS",
+    ".git", ".jj", ".sl", ".hg", ".svn", ".bzr", "_darcs", ".pijul", "CVS",
 ];
 
 pub fn is_vcs_dir(name: impl AsRef<OsStr>) -> bool {

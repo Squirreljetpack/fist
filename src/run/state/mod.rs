@@ -16,8 +16,7 @@ pub use toast::{TOAST, ToastContent, ToastFlags, ToastStyle};
 pub mod ui;
 pub use temp::*;
 
-pub mod global;
-pub use global::GLOBAL;
+pub mod GLOBAL;
 pub mod tasks;
 pub use tasks::{TASKS, TaskId};
 

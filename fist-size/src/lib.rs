@@ -36,10 +36,7 @@ impl PathTrie {
         self.root.active_descendants == 0 && !self.root.active
     }
 
-    fn insert(
-        &mut self,
-        path: &Path,
-    ) -> Option<PathBuf> {
+    fn insert(&mut self, path: &Path) -> Option<PathBuf> {
         let comps: Vec<OsString> = path
             .components()
             .map(|c| c.as_os_str().to_os_string())
@@ -54,10 +51,7 @@ impl PathTrie {
         }
     }
 
-    fn insert_recursive(
-        node: &mut PathTrieNode,
-        comps: &[OsString],
-    ) -> (bool, bool) {
+    fn insert_recursive(node: &mut PathTrieNode, comps: &[OsString]) -> (bool, bool) {
         if node.active || node.deferred {
             return (false, true);
         }
@@ -94,10 +88,7 @@ impl PathTrie {
         }
     }
 
-    fn remove(
-        &mut self,
-        path: &Path,
-    ) -> Option<PathBuf> {
+    fn remove(&mut self, path: &Path) -> Option<PathBuf> {
         let comps: Vec<OsString> = path
             .components()
             .map(|c| c.as_os_str().to_os_string())
@@ -170,11 +161,14 @@ struct TaskState {
     active: PathTrie,
 }
 
+pub type CompletionCallback = Arc<dyn Fn() + Send + Sync>;
+
 struct TaskManager {
     state: Mutex<TaskState>,
     cvar: Condvar,
     sender: Sender<QueueMessage>,
     cancel_token: AtomicBool,
+    on_complete: Mutex<Option<CompletionCallback>>,
 }
 
 impl TaskManager {
@@ -184,14 +178,11 @@ impl TaskManager {
             cvar: Condvar::new(),
             sender,
             cancel_token: AtomicBool::new(false),
+            on_complete: Mutex::new(None),
         }
     }
 
-    fn add(
-        &self,
-        path: PathBuf,
-        worker_sizes: &Arc<DashMap<PathBuf, u64>>,
-    ) {
+    fn add(&self, path: PathBuf, worker_sizes: &Arc<DashMap<PathBuf, u64>>) {
         let mut state = self.state.lock().unwrap();
 
         if self.cancel_token.load(Ordering::Relaxed) {
@@ -226,14 +217,28 @@ struct TaskGuard {
 
 impl Drop for TaskGuard {
     fn drop(&mut self) {
-        let mut state = self.manager.state.lock().unwrap();
+        let callback = {
+            let mut state = self.manager.state.lock().unwrap();
 
-        if let Some(queued_path) = state.active.remove(&self.path) {
-            let _ = self.manager.sender.send(QueueMessage::Process(queued_path));
-        }
+            if let Some(queued_path) = state.active.remove(&self.path) {
+                let _ = self.manager.sender.send(QueueMessage::Process(queued_path));
+            }
 
-        if state.active.is_empty() {
-            self.manager.cvar.notify_all();
+            let is_empty = state.active.is_empty();
+            if is_empty {
+                self.manager.cvar.notify_all();
+            }
+
+            let is_cancelled = self.manager.cancel_token.load(Ordering::Relaxed);
+            if is_empty && !is_cancelled {
+                self.manager.on_complete.lock().unwrap().clone()
+            } else {
+                None
+            }
+        };
+
+        if let Some(cb) = callback {
+            cb();
         }
     }
 }
@@ -299,10 +304,7 @@ impl DirSizeCache {
         }
     }
 
-    pub fn add<P: AsRef<Path>>(
-        &self,
-        path: P,
-    ) {
+    pub fn add<P: AsRef<Path>>(&self, path: P) {
         let path_ref = path.as_ref();
 
         if let Ok(m) = std::fs::symlink_metadata(path_ref)
@@ -315,10 +317,7 @@ impl DirSizeCache {
         self.manager.add(path_ref.to_path_buf(), &self.sizes);
     }
 
-    pub fn get_path<P: AsRef<Path>>(
-        &self,
-        path: P,
-    ) -> Option<u64> {
+    pub fn get_path<P: AsRef<Path>>(&self, path: P) -> Option<u64> {
         self.sizes.get(path.as_ref()).map(|v| *v)
     }
 
@@ -326,6 +325,10 @@ impl DirSizeCache {
         self.sizes
             .iter()
             .map(|entry| (entry.key().clone(), *entry.value()))
+    }
+
+    pub fn set_on_complete(&self, callback: impl Fn() + Send + Sync + 'static) {
+        *self.manager.on_complete.lock().unwrap() = Some(Arc::new(callback));
     }
 
     pub fn wait(&self) {
@@ -340,11 +343,7 @@ impl DirSizeCache {
         self.sizes.clear();
     }
 
-    fn compute_size(
-        path: &Path,
-        sizes: &DashMap<PathBuf, u64>,
-        cancel_token: &AtomicBool,
-    ) -> u64 {
+    fn compute_size(path: &Path, sizes: &DashMap<PathBuf, u64>, cancel_token: &AtomicBool) -> u64 {
         if cancel_token.load(Ordering::Relaxed) {
             return 0;
         }
@@ -561,5 +560,46 @@ mod tests {
         assert_eq!(by_path.get(&explicit_file).copied(), Some(10));
         let not_stored = temp_dir.path().join("dir_a").join("file2.txt");
         assert_eq!(by_path.get(&not_stored), None);
+    }
+
+    #[test]
+    fn test_on_complete_callback() {
+        use std::sync::atomic::AtomicUsize;
+
+        let temp_dir = setup_test_dir();
+        let cache = DirSizeCache::new();
+        let called = Arc::new(AtomicUsize::new(0));
+
+        let called_clone = called.clone();
+        cache.set_on_complete(move || {
+            called_clone.fetch_add(1, Ordering::SeqCst);
+        });
+
+        cache.add(temp_dir.path());
+        cache.wait();
+
+        assert_eq!(called.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_on_complete_not_called_on_clear() {
+        use std::sync::atomic::AtomicUsize;
+
+        let temp_dir = setup_test_dir();
+        let cache = DirSizeCache::new();
+        let called = Arc::new(AtomicUsize::new(0));
+
+        let called_clone = called.clone();
+        cache.set_on_complete(move || {
+            called_clone.fetch_add(1, Ordering::SeqCst);
+        });
+
+        // Repeated adds and immediate clear
+        for _ in 0..20 {
+            cache.add(temp_dir.path().join("dir_a"));
+        }
+        cache.clear();
+
+        assert_eq!(called.load(Ordering::SeqCst), 0);
     }
 }

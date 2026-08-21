@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use std::{borrow::Cow, ffi::OsString, sync::Arc};
 
 use cba::{_trace, bog::BogOkExt, prints};
@@ -11,6 +13,7 @@ use matchmaker::{
     preview::AppendOnly,
 };
 
+use crate::run::state::GLOBAL::db;
 use crate::{
     aliases::MMState,
     cli::CliOpts,
@@ -107,7 +110,7 @@ fn make_mm(
                     state.map_selected_to_vec(|_, it| it.clone())
                 };
             for item in &items {
-                GLOBAL::db().bump_path(item.path.is_dir(), item.path.clone());
+                db().bump_path(item.path.is_dir(), item.path.clone());
                 emit_print(&hook_handle, item, hook_template.as_deref(), &hook_sep);
             }
             return vec![];
@@ -225,11 +228,10 @@ pub async fn start(
         ..
     } = render.ui;
 
-    // init MM
-    // the clipboard backend is fixed for the process: read the OSC52 choice
-    // before `tui` is moved into make_mm
     let osc52 = tui.osc52;
     let copy_trailing_newline = tui.copy_trailing_newline;
+
+    // init MM
     let (mut mm, injector) = make_mm(
         render,
         tui,
@@ -340,7 +342,7 @@ pub async fn start(
         match ret {
             Ok(lines) if !lines.is_empty() => {
                 let prog = &lines[0];
-                let mut conn = GLOBAL::db().get_conn(DbTable::apps).await?;
+                let mut conn = db().get_conn(DbTable::apps).await?;
                 let cmd = conn.get_cmd(&prog.path).await?;
 
                 let prog = Program::from_scanned_path(prog.path.clone(), cmd);
@@ -361,7 +363,7 @@ pub async fn start(
                     .iter()
                     .map(|p| OsString::from(p.path.inner()))
                     .collect();
-                let conn = GLOBAL::db().get_conn(DbTable::apps).await?;
+                let conn = db().get_conn(DbTable::apps).await?;
                 let prog = output.opener.as_ref().and_then(Program::from_os_string);
                 if prog.is_some() {
                     crate::spawn::init_spawn_with(Vec::new()); // if opener is set explicitly, ignore spawn_with

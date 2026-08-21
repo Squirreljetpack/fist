@@ -36,11 +36,7 @@ pub fn bold_indices(
 
     spans
 }
-pub fn bold_segments<'a, I, J>(
-    segments: I,
-    indices: J,
-    normal_style: Style,
-) -> Vec<Span<'a>>
+pub fn bold_segments<'a, I, J>(segments: I, indices: J, normal_style: Style) -> Vec<Span<'a>>
 where
     I: IntoIterator<Item = &'a str>,
     J: IntoIterator<Item = usize>,
@@ -198,11 +194,7 @@ pub fn parse_rg_line(
     }
 }
 
-pub fn extract_rg_line_no_path(
-    line: &Line,
-    out: &mut String,
-    no_column: bool,
-) -> bool {
+pub fn extract_rg_line_no_path(line: &Line, out: &mut String, no_column: bool) -> bool {
     #[derive(Clone, Copy)]
     enum State {
         FirstDigits,
@@ -341,7 +333,8 @@ mod tests {
     fn test_extract_rg_line_no_path_multiline() {
         let raw_ctx = "\x1b[0m\x1b[32m27\x1b[0m-\x1b[0mlet queue = QUEUE;";
         let raw_line1 = "\x1b[0m\x1b[32m28\x1b[0m:\x1b[0m20\x1b[0m:previewer::make_previewer,";
-        let raw_line2 = "\x1b[0m\x1b[32m253\x1b[0m:\x1b[0m21\x1b[0m:let previewer = make_previewer(";
+        let raw_line2 =
+            "\x1b[0m\x1b[32m253\x1b[0m:\x1b[0m21\x1b[0m:let previewer = make_previewer(";
         let tc = raw_ctx.as_bytes().into_text().unwrap();
         let t1 = raw_line1.as_bytes().into_text().unwrap();
         let t2 = raw_line2.as_bytes().into_text().unwrap();
@@ -359,6 +352,3 @@ mod tests {
         assert_eq!(loc, Some((28, 20)));
     }
 }
-
-
-

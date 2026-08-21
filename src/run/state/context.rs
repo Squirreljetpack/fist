@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use matchmaker::preview::AppendOnly;
 pub struct ActionContext {
     // pub execute_handler_should_process_cwd: bool,

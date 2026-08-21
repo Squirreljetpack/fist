@@ -9,10 +9,7 @@ use cba::bath::PathExt;
 use tokio::fs;
 
 // Returns Err(dest) if the given ends with slash
-pub fn auto_dest(
-    dest: impl AsRef<OsStr>,
-    cwd: &Path,
-) -> Result<AbsPath, AbsPath> {
+pub fn auto_dest(dest: impl AsRef<OsStr>, cwd: &Path) -> Result<AbsPath, AbsPath> {
     let dest = dest.as_ref();
 
     if dest.to_string_lossy().ends_with(MAIN_SEPARATOR) {
@@ -42,10 +39,7 @@ pub async fn create_all(files: &[Result<AbsPath, AbsPath>]) -> Result<(), io::Er
     Ok(())
 }
 
-pub async fn rename(
-    src: &AbsPath,
-    dst: &AbsPath,
-) -> Result<(), io::Error> {
+pub async fn rename(src: &AbsPath, dst: &AbsPath) -> Result<(), io::Error> {
     if let Some(parent) = dst.as_path().parent() {
         fs::create_dir_all(parent).await?;
     }

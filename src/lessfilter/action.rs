@@ -7,8 +7,8 @@ use serde::{Deserialize, Deserializer};
 
 use crate::arr;
 use crate::cli::paths::{current_exe, show_error_path};
-use crate::lessfilter::helpers::{application_icon_path, image_viewer, infer_editor, infer_visual};
 use crate::lessfilter::Preset;
+use crate::lessfilter::helpers::{application_icon_path, image_viewer, infer_editor, infer_visual};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, serde::Serialize)]
 #[serde(untagged)]
@@ -94,7 +94,7 @@ impl Action {
 
         match preset {
             Preset::Default => return Default::default(), // do nothing, should be unreachable
-            Preset::Open | Preset::Alternate => {
+            Preset::Open | Preset::Alternate | Preset::Alternate2 => {
                 // standard actions in these 2 presets are just open
                 if matches!(
                     self,
@@ -274,11 +274,7 @@ impl Action {
     }
 
     /// submit to [matchmaker::preview::previewer::Previewer]
-    pub fn to_script(
-        &self,
-        target: &Path,
-        preset: Preset,
-    ) -> String {
+    pub fn to_script(&self, target: &Path, preset: Preset) -> String {
         if let Some(p) = target.to_str() {
             match self {
                 Action::Custom(s) => s.replace("'$target'", &format!("'{}'", p)),

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use cba::define_collection_wrapper;
 
+use crate::run::state::GLOBAL::db;
 use crate::{
     abspath::AbsPath,
     menu::{MenuActions, MenuEvaluationContext, MenuStrategy},
@@ -152,10 +153,7 @@ impl MenuItem {
     /// Execute the item on `path`.
     /// Returns a [`MenuPrompt`] to open the input bar, or whether to keep the
     /// menu open.
-    pub fn action(
-        &self,
-        path: AbsPath,
-    ) -> Result<MenuPrompt, bool> {
+    pub fn action(&self, path: AbsPath) -> Result<MenuPrompt, bool> {
         match self {
             MenuItem::New => Ok(MenuPrompt::new(PromptKind::New)),
             MenuItem::Rename => Ok(rename_prompt_for(&path)),
@@ -200,9 +198,8 @@ impl MenuItem {
             MenuItem::Open => {
                 TOAST::push(ToastStyle::Normal, "Opened: ", [short_display(&path)]);
                 let path_clone = path;
-                let pool = GLOBAL::db();
                 tokio::spawn(async move {
-                    let conn = pool.get_conn(crate::db::DbTable::dirs).await?;
+                    let conn = db().get_conn(crate::db::DbTable::dirs).await?;
                     open_wrapped(conn, None, &[path_clone.inner().into()], true).await?;
                     anyhow::Ok(())
                 });
@@ -247,7 +244,9 @@ impl MenuEntry {
             MenuItem::Custom { .. } => {
                 Style::default().add_modifier(Modifier::ITALIC | Modifier::BOLD)
             }
-            _ => Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            _ => Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
         };
 
         match label
@@ -274,20 +273,14 @@ impl MenuEntry {
 }
 
 impl ColumnIndexable for MenuEntry {
-    fn get_str(
-        &self,
-        i: usize,
-    ) -> std::borrow::Cow<'_, str> {
+    fn get_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
         match i {
             0 => self.label().into(),
             _ => String::new().into(),
         }
     }
 
-    fn get_text(
-        &self,
-        i: usize,
-    ) -> Text<'_> {
+    fn get_text(&self, i: usize) -> Text<'_> {
         match i {
             0 => Text::from(self.hotkey_label()),
             _ => Text::default(),
@@ -337,11 +330,7 @@ pub struct MenuOverlay {
 }
 
 impl MenuOverlay {
-    pub fn new(
-        config: MenuConfig,
-        prompt_config: PromptConfig,
-        actions: MenuActions,
-    ) -> Self {
+    pub fn new(config: MenuConfig, prompt_config: PromptConfig, actions: MenuActions) -> Self {
         // The query bar is not configurable: a default QueryUI with no prompt.
         let query = QueryUI::new(QueryConfig {
             prompt: String::new(),
@@ -390,11 +379,7 @@ impl MenuOverlay {
         self.worker = Some(worker);
     }
 
-    fn set_prompt(
-        &mut self,
-        prompt: MenuPrompt,
-        state: &mut MMState<'_, PathItem, ()>,
-    ) {
+    fn set_prompt(&mut self, prompt: MenuPrompt, state: &mut MMState<'_, PathItem, ()>) {
         self.prompt_kind = Some(prompt.kind);
         if !prompt.title.is_empty() {
             self.prompt.input.config.border.title = prompt.title;
@@ -410,10 +395,7 @@ impl MenuOverlay {
         }
     }
 
-    pub fn accept(
-        &mut self,
-        state: &mut MMState<'_, PathItem, ()>,
-    ) -> OverlayEffect {
+    pub fn accept(&mut self, state: &mut MMState<'_, PathItem, ()>) -> OverlayEffect {
         let Some(worker) = self.worker.as_ref() else {
             return OverlayEffect::Disable;
         };
@@ -425,11 +407,7 @@ impl MenuOverlay {
 
     /// Run `item` on the current target, opening a prompt when the item
     /// returns one.
-    fn execute(
-        &mut self,
-        item: MenuItem,
-        state: &mut MMState<'_, PathItem, ()>,
-    ) -> OverlayEffect {
+    fn execute(&mut self, item: MenuItem, state: &mut MMState<'_, PathItem, ()>) -> OverlayEffect {
         let custom_key = match &item {
             MenuItem::Custom { action, .. } => Some(action.clone()),
             _ => None,
@@ -478,10 +456,7 @@ impl MenuOverlay {
     /// Rebuild the item list: the builtin items plus every custom action
     /// whose conditions pass against the picker state at open. [`FileData`]
     /// is computed once per file and reused across all condition evaluations.
-    fn build_items(
-        &mut self,
-        state: &mut MMState<'_, PathItem, ()>,
-    ) {
+    fn build_items(&mut self, state: &mut MMState<'_, PathItem, ()>) {
         let lcfg = lessfilter_cfg();
         let mut ctx = MenuEvaluationContext::new(state, lcfg);
 
@@ -526,11 +501,7 @@ impl MenuOverlay {
 
     /// Run a custom action on the target items (the current selection, or
     /// the target item when nothing is selected).
-    fn run_custom(
-        &mut self,
-        key: &str,
-        state: &mut MMState<'_, PathItem, ()>,
-    ) -> OverlayEffect {
+    fn run_custom(&mut self, key: &str, state: &mut MMState<'_, PathItem, ()>) -> OverlayEffect {
         let Some(action) = self.actions.get(key) else {
             log::error!("Menu action not found: {key}");
             return OverlayEffect::None;
@@ -576,11 +547,7 @@ impl MenuOverlay {
 }
 
 impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
-    fn on_enable(
-        &mut self,
-        _area: &Rect,
-        state: &mut MMState<'_, PathItem, ()>,
-    ) {
+    fn on_enable(&mut self, _area: &Rect, state: &mut MMState<'_, PathItem, ()>) {
         // animate the menu: force the ticker to run while it is open
         GLOBAL::send_bind(BindDirective::OverrideTickrate(Some(OVERLAY_TICK_RATE)));
 
@@ -607,11 +574,7 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
         self.worker = None;
     }
 
-    fn handle_input(
-        &mut self,
-        c: char,
-        state: &mut MMState<'_, PathItem, ()>,
-    ) -> OverlayEffect {
+    fn handle_input(&mut self, c: char, state: &mut MMState<'_, PathItem, ()>) -> OverlayEffect {
         if let Some(p) = self.prompt_kind {
             if let OverlayEffect::Disable = self.prompt.handle_input(c, state) {
                 self.on_prompt_accept(p, state)
@@ -694,11 +657,7 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
         OverlayEffect::None
     }
 
-    fn area(
-        &mut self,
-        ui_area: &Rect,
-        layout: &OverlayLayoutSettings,
-    ) {
+    fn area(&mut self, ui_area: &Rect, layout: &OverlayLayoutSettings) {
         self.prompt.area(ui_area, layout);
 
         let max_item_width = self
@@ -763,10 +722,7 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
         }
     }
 
-    fn draw(
-        &mut self,
-        frame: &mut Frame,
-    ) {
+    fn draw(&mut self, frame: &mut Frame) {
         if self.prompt_kind.is_some() {
             self.prompt.draw(frame);
             return;

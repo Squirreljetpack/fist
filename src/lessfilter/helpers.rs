@@ -39,9 +39,7 @@ pub fn env_bat_opts() -> Option<Vec<String>> {
     }
 
     let mut args = match env_val("PG_FLAGS") {
-        Some(flags) => {
-            cba::bring::split::split_on_delimiter_with_doubled_escape(&flags, ',')
-        }
+        Some(flags) => cba::bring::split::split_on_delimiter_with_doubled_escape(&flags, ','),
         None => pager_cfg().bat_opts.clone()?,
     };
     if let Some(lang) = env_val("PG_LANG") {
@@ -52,8 +50,7 @@ pub fn env_bat_opts() -> Option<Vec<String>> {
         args.push("--file-name".into());
         args.push(name);
     }
-    if let Some(line) =
-        env_val("HIGHLIGHT_LINE").filter(|s| s.chars().all(|c| c.is_ascii_digit()))
+    if let Some(line) = env_val("HIGHLIGHT_LINE").filter(|s| s.chars().all(|c| c.is_ascii_digit()))
     {
         args.push("--highlight-line".into());
         args.push(line);
@@ -70,10 +67,7 @@ pub fn show_header(path: &Path) {
 }
 
 // todo: in-house file -bL
-pub fn show_simple_metadata(
-    path: &Path,
-    first: bool,
-) -> bool {
+pub fn show_simple_metadata(path: &Path, first: bool) -> bool {
     if path.is_file() {
         if has("file") {
             let mut cmd = Command::new("file");
@@ -210,10 +204,7 @@ fn infer_chafa_format() -> &'static str {
     })
 }
 
-pub fn image_viewer(
-    path: &Path,
-    max_w: Option<u8>,
-) -> Vec<OsString> {
+pub fn image_viewer(path: &Path, max_w: Option<u8>) -> Vec<OsString> {
     let mut args = vec_![: "chafa", "-f", infer_chafa_format()];
 
     if let Some(w) = max_w {

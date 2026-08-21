@@ -6,8 +6,8 @@ mod tests {
     use crate::{
         abspath::AbsPath,
         lessfilter::{
-            file_rule::{FileRule, FileRuleKind},
             Categories, LessfilterSettings,
+            file_rule::{FileRule, FileRuleKind},
         },
     };
 
@@ -76,14 +76,16 @@ mod tests {
         ));
 
         // 3. Unknown field in flat table is rejected (deny_unknown_fields)
-        assert!(toml::from_str::<MenuActions>(
-            "\
+        assert!(
+            toml::from_str::<MenuActions>(
+                "\
             [a3]\n\
             condition = { invalid_key = true, condition = \"*\" }\n\
             command = \"print('x')\"\n\
             "
-        )
-        .is_err());
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -195,14 +197,16 @@ mod tests {
         ));
 
         // the old `count` spelling is rejected (deny_unknown_fields)
-        assert!(toml::from_str::<MenuActions>(
-            "\
+        assert!(
+            toml::from_str::<MenuActions>(
+                "\
             [my-action]\n\
             condition = { count = 0, condition = \"*\" }\n\
             command = \"print('x')\"\n\
         ",
-        )
-        .is_err());
+            )
+            .is_err()
+        );
     }
 
     #[test]
