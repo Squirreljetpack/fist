@@ -15,7 +15,7 @@ mod execute;
 mod inject;
 
 pub use execute::{check_compiles, execute};
-pub use inject::{call_transform, compile_script, LuaFn};
+pub use inject::{LuaFn, call_transform, compile_script};
 
 use std::path::Path;
 
@@ -23,10 +23,7 @@ use std::path::Path;
 /// `@path` resolves against `base` when given (menu actions use the actions
 /// folder); the base-less form keeps cwd-relative resolution (`--transform`
 /// panes, lessfilter presets). `~/` is expanded to the home directory.
-pub fn load_script(
-    s: &str,
-    base: Option<&Path>,
-) -> Option<String> {
+pub fn load_script(s: &str, base: Option<&Path>) -> Option<String> {
     match s.strip_prefix('@') {
         Some(mut p) => {
             let expanded;

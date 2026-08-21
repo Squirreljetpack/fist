@@ -70,10 +70,7 @@ impl ConfirmPrompt {
         self.cursor
     }
 
-    pub fn set_cursor(
-        &mut self,
-        cursor: usize,
-    ) {
+    pub fn set_cursor(&mut self, cursor: usize) {
         self.cursor = cursor;
     }
 }
@@ -132,11 +129,7 @@ impl ConfirmOverlay {
 }
 
 impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
-    fn on_enable(
-        &mut self,
-        _area: &Rect,
-        _state: &mut MMState<'_, PathItem, ()>,
-    ) {
+    fn on_enable(&mut self, _area: &Rect, _state: &mut MMState<'_, PathItem, ()>) {
         if let Some(prompt) = STORE::take::<ConfirmPrompt>() {
             self.prompt = prompt;
         } else {
@@ -144,11 +137,7 @@ impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
         }
     }
 
-    fn handle_input(
-        &mut self,
-        c: char,
-        _state: &mut MMState<'_, PathItem, ()>,
-    ) -> OverlayEffect {
+    fn handle_input(&mut self, c: char, _state: &mut MMState<'_, PathItem, ()>) -> OverlayEffect {
         for (i, (name, trigger_idx)) in self.prompt.options.iter().enumerate() {
             if let Some(trigger_char) = name.chars().nth(*trigger_idx) {
                 if trigger_char.eq_ignore_ascii_case(&c) {
@@ -198,11 +187,7 @@ impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
         OverlayEffect::None
     }
 
-    fn area(
-        &mut self,
-        ui_area: &Rect,
-        layout: &OverlayLayoutSettings,
-    ) {
+    fn area(&mut self, ui_area: &Rect, layout: &OverlayLayoutSettings) {
         let has_title = !self.prompt.title_in_border;
         let has_content = self.prompt.content.is_some();
         let title_h = has_title as u16;
@@ -255,10 +240,7 @@ impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
         self.area = utils::default_area([width.into(), height], layout, ui_area);
     }
 
-    fn draw(
-        &mut self,
-        frame: &mut matchmaker::ui::Frame,
-    ) {
+    fn draw(&mut self, frame: &mut matchmaker::ui::Frame) {
         let area = self.area;
         // 1. Initial Setup & Clearing
         frame.render_widget(Clear, area);
@@ -426,10 +408,7 @@ impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
 
 // -------------- BOILERPLATE -----------------
 impl Debug for ConfirmPrompt {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ConfirmPrompt")
             .field("prompt", &self.prompt)
             .field("options", &self.options)

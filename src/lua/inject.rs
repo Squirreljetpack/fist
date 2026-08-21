@@ -59,10 +59,7 @@ pub fn call_transform(
 
 /// Load (2.2 `@file` syntax) and compile a script; bad scripts are dropped
 /// with an error log. `@file` paths resolve cwd-relative (`None` base).
-pub fn compile_script(
-    name: &str,
-    script: Option<String>,
-) -> Option<LuaFn> {
+pub fn compile_script(name: &str, script: Option<String>) -> Option<LuaFn> {
     script
         .and_then(|s| super::load_script(&s, None))
         .and_then(|s| match compile_lua(&s) {

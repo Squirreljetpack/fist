@@ -2,11 +2,9 @@
 percentage = 50
 min = 10
 max = 25
-# copy via OSC52 escape sequences (text/path data only, not image bytes);
-# set to false on terminals without OSC52 support to use the system clipboard
-# osc52 = true
-# keep one trailing newline when copying command output (CopyCommand/CopyCommandAsync)
-# copy_trailing_newline = false
+# when system clipboard cannot be (i.e. over ssh), this falls back to osc52.
+# set to true to never use the system clipboard.
+osc52 = false
 
 [ui]
 mouse_events = true
@@ -172,22 +170,3 @@ reset_cursor_on_query_change = true
 "ctrl-7" = "AutoJump(7)"
 "ctrl-8" = "AutoJump(8)"
 "ctrl-9" = "AutoJump(9)"
-
-### Custom menu actions
-# NOTE: [actions] lives in config.toml — the example below documents the
-# schema. Conditions: the action is visible iff at least one condition is
-# satisfied (an empty list = always visible; a single condition object is
-# accepted without the array wrapper). Strategies:
-#   "Execute" / "ExecuteSilent" — run the lua command (waited / not waited;
-#   "silent" is accepted as an alias);
-#   "ExecPaged" — run the lua command and page its stdout;
-#   "Queue" — enqueue all target items as one queue item;
-#   { QueueBatch = n } — enqueue queue items of at most n paths each.
-# `close = true`/`false` overrides the strategy default (Queue/QueueBatch keep the
-# menu open; Execute/ExecuteSilent/ExecPaged close it).
-# [actions]
-# stash-log-files = {
-#   condition = [{ repeat = { selected = 1, condition = "ext:log", strict = true } }],
-#   command = "print('queued')",
-#   strategy = "Queue",
-# }

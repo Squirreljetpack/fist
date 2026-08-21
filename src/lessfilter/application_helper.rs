@@ -16,6 +16,26 @@ pub fn application_icon_path(path: &Path) -> Option<PathBuf> {
     }
 }
 
+#[allow(dead_code)]
+fn application_icon_cache_path(path: &Path) -> PathBuf {
+    let app_path = path.to_string_lossy();
+    let sanitized: String = app_path
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+
+    tmp_dir()
+        .__ebog()
+        .join("application-icons")
+        .join(format!("{sanitized}.png"))
+}
+
 #[cfg(target_os = "macos")]
 fn macos_application_icon_path(path: &Path) -> Option<PathBuf> {
     use std::process::{Command, Stdio};
@@ -66,26 +86,6 @@ fn macos_application_icon_path(path: &Path) -> Option<PathBuf> {
         .ok()?;
 
     (status.success() && cache_path.is_file()).then_some(cache_path)
-}
-
-#[allow(unused)]
-fn application_icon_cache_path(path: &Path) -> PathBuf {
-    let app_path = path.to_string_lossy();
-    let sanitized: String = app_path
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect();
-
-    tmp_dir()
-        .__ebog()
-        .join("application-icons")
-        .join(format!("{sanitized}.png"))
 }
 
 #[cfg(target_os = "linux")]

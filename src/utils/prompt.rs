@@ -10,11 +10,7 @@ pub const READ_TIMEOUT: Duration = const { Duration::from_secs(60) }; // a bit w
 /// Returns `None` on timeout, otherwise `Some(true)` if index 0 is chosen.
 /// Prompts via stdin with a timeout. Default is the capitalized option.
 /// Returns `None` on timeout, otherwise `Some(usize)` of the selected index.
-pub async fn confirm_prompt(
-    msg: &str,
-    dt: Duration,
-    opts: Vec<&'static str>,
-) -> Option<usize> {
+pub async fn confirm_prompt(msg: &str, dt: Duration, opts: Vec<&'static str>) -> Option<usize> {
     let def = opts
         .iter()
         .position(|o| o.starts_with(char::is_uppercase))
@@ -44,13 +40,9 @@ pub async fn confirm_prompt(
     }
 }
 
-#[allow(unused)]
 /// Prompts via stdin synchronously. Default is the capitalized option.
 /// Returns the `usize` index of the selected option.
-pub fn confirm_prompt_sync(
-    msg: &str,
-    opts: Vec<&'static str>,
-) -> usize {
+pub fn confirm_prompt_sync(msg: &str, opts: Vec<&'static str>) -> usize {
     let def = opts
         .iter()
         .position(|o| o.starts_with(char::is_uppercase))

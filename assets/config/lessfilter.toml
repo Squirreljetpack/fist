@@ -7,32 +7,42 @@
 # ----------
 #   Syntax
 # ----------
-# Add: +{value}|{rule},
-# Sub: -{value}|{rule},
-# Max: >{value}|{rule}, {value}|{rule},
-# Min: <{value}|{rule},
-# Req: ^|{rule},
-# Default Score: {rule},
+# Add:           +{value}|{rule}  or  +{rule} (Add(1))
+# Sub:           -{value}|{rule}  or  -{rule} (Sub(1))
+# Max:           >{value}|{rule}, {value}|{rule}  or  >{rule} (Max(1))
+# Min:           <{value}|{rule}  or  <{rule} (Min(1))
+# Req:           ^|{rule}  or  ^{rule}
+# Invert:        !{rule}  (e.g. !have:sqlite3, 1|!cat:document)
+# Escape:        \{rule}  (treats modifier characters literally)
+# Default Score: {rule}   (uses rule's default score)
 
 # ------------------
 #   Default scores
 # ------------------
-# glob: Max(100),
-# child: Max(50),
-# cat: Max(20),
-# mime: Max(20),
-# ext: Max(10)
+# application: Max(60)
+# glob:        Max(50)
+# child:       Max(50)
+# ext:         Max(30)
+# mime:        Max(20)
+# cat:         Max(20)
+# *:           Max(0)
+# have:        Req
+# filetype:    Req
+# git:         Req
 
 # ------------------
 #   File Rules
 # ------------------
-# glob: test the full path against a glob pattern.
-# child: whether the name of any child of the path matches this glob. When the path is a file, this is matched against siblings.
-# ext: i.e. txt, rs, html, png
-# mime: i.e. text/plain, image/*
-# cat: test whether the file belongs to a built-in FileCategory (when this is the name of one), or if the file's mime belongs is contained in the [categories] table of this file under this key
-# have: check whether this program exists.
-# filetype: file, directory, symlink, blockdevice, chardevice, executable, empty, socket, pipe, text
+# glob:{pat}        test the full path against a glob pattern.
+# child:{pat}       whether the name of any child matches this glob (for a file, matches siblings).
+# ext:{ext}, .{ext} file extension (e.g. .txt, .rs, .html, .png)
+# mime:{m}, {m}     MIME type (e.g. text/plain, image/*, application/vnd.sqlite3)
+# cat:{cat}         file category (built-in category, or defined in [categories])
+# have:{cmd}        check whether this program exists in PATH.
+# filetype:{type}   file, directory, symlink, blockdevice, chardevice, executable, empty, socket, pipe, text
+# git               path is inside a Git work tree.
+# application, app  platform application bundle, launcher, or executable.
+# *                 match any path.
 
 # ------------------------------------------------------------ #
 
@@ -48,6 +58,7 @@ default = [
     [["Metadata"], ["1|*/*"]],
 ]
 
+# f:st's preview
 preview = [
     [["Application"], ["application"]],
     [["sqlite"], ["application/vnd.sqlite3", "have:sqlite3"]],

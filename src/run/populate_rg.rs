@@ -233,8 +233,6 @@ impl MultilineRgParser {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -269,7 +267,8 @@ mod tests {
     #[test]
     fn test_process_rg_line_with_context() {
         let cwd = PathBuf::from("/test");
-        let raw_ctx_before = "\x1b[0m\x1b[35mfoo.rs\x1b[0m\0\x1b[0m\x1b[32m41\x1b[0m-\x1b[0m// comment";
+        let raw_ctx_before =
+            "\x1b[0m\x1b[35mfoo.rs\x1b[0m\0\x1b[0m\x1b[32m41\x1b[0m-\x1b[0m// comment";
         let raw_match = "\x1b[0m\x1b[35mfoo.rs\x1b[0m\0\x1b[0m\x1b[32m42\x1b[0m:\x1b[0m10\x1b[0m:pub fn test() {";
         let raw_ctx_after = "\x1b[0m\x1b[35mfoo.rs\x1b[0m\0\x1b[0m\x1b[32m43\x1b[0m-\x1b[0m}";
 
@@ -451,12 +450,14 @@ mod tests {
             // File 1: filepath contains embedded newlines across 3 lines
             "\x1b[0m\x1b[35mdeep/nested\x1b[0m".to_string(),
             "\x1b[0m\x1b[35mfolder/my\x1b[0m".to_string(),
-            "\x1b[0m\x1b[35mfile.rs\x1b[0m\0\x1b[0m\x1b[32m10\x1b[0m:\x1b[0m5\x1b[0m:first line".to_string(),
+            "\x1b[0m\x1b[35mfile.rs\x1b[0m\0\x1b[0m\x1b[32m10\x1b[0m:\x1b[0m5\x1b[0m:first line"
+                .to_string(),
             "\x1b[0m\x1b[32m11\x1b[0m:\x1b[0m5\x1b[0m:second line".to_string(),
             "".to_string(),
             // File 2: filepath contains embedded newline across 2 lines, ended by EOF
             "\x1b[0m\x1b[35manother/sub\x1b[0m".to_string(),
-            "\x1b[0m\x1b[35mpath.rs\x1b[0m\0\x1b[0m\x1b[32m99\x1b[0m:\x1b[0m1\x1b[0m:final match".to_string(),
+            "\x1b[0m\x1b[35mpath.rs\x1b[0m\0\x1b[0m\x1b[32m99\x1b[0m:\x1b[0m1\x1b[0m:final match"
+                .to_string(),
         ];
 
         for line in lines {
@@ -493,6 +494,3 @@ mod tests {
         assert!(tail2.contains("final match"));
     }
 }
-
-
-
