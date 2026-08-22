@@ -6,7 +6,7 @@ use cba::vec_;
 use serde::{Deserialize, Deserializer};
 
 use crate::arr;
-use crate::cli::paths::{current_exe, show_error_path};
+use crate::cli::paths::current_exe;
 use crate::lessfilter::Preset;
 use crate::lessfilter::helpers::{application_icon_path, image_viewer, infer_editor, infer_visual};
 
@@ -65,6 +65,8 @@ pub enum CommandStrategy {
     Header,
     /// Show metadata for [PathBuf] in-process.
     Metadata(PathBuf),
+    /// Show an error message and wait for keypress in-process.
+    ShowError(String),
     /// Spawn the given program with args.
     Prog(OsString, Vec<OsString>),
     /// No program to spawn (empty command line).
@@ -90,7 +92,7 @@ impl Action {
         path: &Path,
         preset: Preset,
     ) -> (ArrayVec<CommandStrategy, 5>, [bool; 3]) {
-        use CommandStrategy::{Header, Metadata, Pager, Prog};
+        use CommandStrategy::{Header, Metadata, Pager, Prog, ShowError};
 
         match preset {
             Preset::Default => return Default::default(), // do nothing, should be unreachable
@@ -255,10 +257,10 @@ impl Action {
                         [true, false, true],
                     )
                 }
-                Preset::Edit => {
-                    let error_cmd = vec_![: show_error_path(), "No handler configured."];
-                    (arr![error_cmd.into()], [true, false, false])
-                }
+                Preset::Edit => (
+                    arr![ShowError("No handler configured.".to_string())],
+                    [false, false, false],
+                ),
                 _ => (arr![Metadata(path.into())], [true, false, true]),
             },
 

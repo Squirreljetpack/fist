@@ -138,6 +138,10 @@ pub fn handle(
                             matches!(pager::render_text(path, env_bat_opts()), Ok(true))
                         })
                     }
+                    CommandStrategy::ShowError(ref msg) => {
+                        crate::utils::prompt::show_error(&[msg.as_str()]);
+                        true
+                    }
                     // an empty command line renders nothing; not a failure
                     CommandStrategy::None => true,
 
@@ -245,6 +249,9 @@ fn run_diagnose(preset: Preset, paths: Vec<PathBuf>, mut cfg: LessfilterConfig) 
                                 }
                                 CommandStrategy::Pager(p) => {
                                     format!("<pager {}>", p.display())
+                                }
+                                CommandStrategy::ShowError(msg) => {
+                                    format!("<showerror \"{msg}\">")
                                 }
                                 CommandStrategy::None => "<none>".to_string(),
 
