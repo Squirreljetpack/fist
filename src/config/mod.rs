@@ -1,10 +1,6 @@
 use cba::{
-    _ibog,
-    bait::ResultExt,
-    bath::{PathExt, RenamePolicy},
-    bo::write_str,
-    bog::BogOkExt,
-    bs::{create_dir, set_executable},
+    bath::RenamePolicy,
+    bs::create_dir,
     vec_,
 };
 use std::{collections::HashMap, path::PathBuf};
@@ -14,7 +10,7 @@ use crate::{
     lessfilter::Preset,
 };
 use crate::{
-    cli::{clap_helpers::ClapStyleOverride, paths::liza_path},
+    cli::clap_helpers::ClapStyleOverride,
     db::zoxide::HistoryConfig,
     watcher::WatcherConfig,
 };
@@ -371,33 +367,6 @@ impl Config {
             log::debug!("checking: {dir:?}");
             if !create_dir(dir) {
                 std::process::exit(1)
-            }
-        }
-    }
-
-    // initialize helper files
-    pub fn check_scripts(&self, force: bool) {
-        let files = [
-            (liza_path(), include_str!("../../assets/scripts/liza")),
-            (
-                show_error_path(),
-                include_str!("../../assets/scripts/fist_show_error"),
-            ),
-        ];
-
-        for (path, script) in files {
-            if (force || !path.exists())
-                && write_str(path, script)._ebog().is_some()
-                && set_executable(path)
-                    .prefix(format!("Failed set executability of {path:?}"))
-                    ._ebog()
-                    .is_some()
-            {
-                if !force
-                // less noise for debug
-                {
-                    _ibog!("{} saved to: {}", path.basename(), path.to_string_lossy());
-                }
             }
         }
     }

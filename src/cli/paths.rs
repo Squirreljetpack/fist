@@ -160,7 +160,3 @@ expr_as_path_fn!(actions_path, config_dir().join("actions.dev.toml"));
 expr_as_path_fn!(actions_path, config_dir().join("actions.toml"));
 
 expr_as_path_fn!(actions_dir, config_dir().join("actions"));
-
-// ---------- previewer scripts -----------
-expr_as_path_fn!(liza_path, cache_dir().join("liza"));
-expr_as_path_fn!(show_error_path, cache_dir().join("fist_show_error"));
