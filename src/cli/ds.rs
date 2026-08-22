@@ -326,36 +326,13 @@ fn build_node(
 /// distinct trees. `decimal` selects the unit system for the size
 /// column (true = KB/MB/GB, false = KiB/MiB/GiB).
 fn print_tree(roots: &[TreeNode], decimal: bool) {
-    for (i, root) in roots.iter().enumerate() {
-        if i > 0 {
-            println!();
-        }
-        println!("{} ({})", root.name, human_size(root.size, decimal));
-        print_subtree(root, "", decimal);
-    }
-}
-
-/// Prints `node`'s children and their descendants. The node itself is
-/// assumed to have already been printed by the caller; `prefix` is the
-/// indent + vertical-bar continuation that comes before each child's
-/// line (empty for the children of a root).
-fn print_subtree(node: &TreeNode, prefix: &str, decimal: bool) {
-    for (i, child) in node.children.iter().enumerate() {
-        let is_last = i == node.children.len() - 1;
-        let connector = if is_last { "└── " } else { "├── " };
-        // When this child is the last one, the verticals above its own
-        // descendants stop - we replace `│` with a space.
-        let extension = if is_last { "    " } else { "│   " };
-
-        println!(
-            "{}{}{} ({})",
-            prefix,
-            connector,
-            child.name,
-            human_size(child.size, decimal)
-        );
-        print_subtree(child, &format!("{prefix}{extension}"), decimal);
-    }
+    let mut stdout = std::io::stdout().lock();
+    let _ = crate::utils::tree::render_tree_with(
+        roots,
+        |n| &n.children,
+        |n| format!("{} ({})", n.name, human_size(n.size, decimal)),
+        &mut stdout,
+    );
 }
 
 /// A node in the multi-input skeleton tree. Inputs and realized nodes
@@ -560,26 +537,16 @@ fn subtree_max(node: &SkeletonNode) -> u64 {
 }
 
 fn print_skeleton(root: &SkeletonNode, decimal: bool) {
-    match root.size {
-        Some(size) => println!("{} ({})", root.name, human_size(size, decimal)),
-        None => println!("{}", root.name),
-    }
-    print_skeleton_children(root, "", decimal);
-}
-
-fn print_skeleton_children(node: &SkeletonNode, prefix: &str, decimal: bool) {
-    for (i, child) in node.children.iter().enumerate() {
-        let is_last = i == node.children.len() - 1;
-        let connector = if is_last { "└── " } else { "├── " };
-        let extension = if is_last { "    " } else { "│   " };
-
-        let label = match child.size {
-            Some(size) => format!("{} ({})", child.name, human_size(size, decimal)),
-            None => child.name.clone(),
-        };
-        println!("{prefix}{connector}{label}");
-        print_skeleton_children(child, &format!("{prefix}{extension}"), decimal);
-    }
+    let mut stdout = std::io::stdout().lock();
+    let _ = crate::utils::tree::render_tree_with(
+        std::slice::from_ref(root),
+        |n| &n.children,
+        |n| match n.size {
+            Some(size) => format!("{} ({})", n.name, human_size(size, decimal)),
+            None => n.name.clone(),
+        },
+        &mut stdout,
+    );
 }
 
 #[cfg(test)]

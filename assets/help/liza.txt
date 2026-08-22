@@ -1,0 +1,34 @@
+liza: eza wrapper & directory viewer
+
+Filters:
+  :a         all (include hidden files, group directories first)
+  :i         --git-ignore
+  :[0-9T]    tree depth (e.g. :1, :2, :3, :T)
+
+Columns:
+  :m         mtime
+  :b         octal + mtime
+  :t         time
+  :s         size
+  :l         cleaner ls -al
+  :x         extensive
+
+Trees:
+  ::nav      pretty tree view
+  ::dirs     all directories
+  ::git      git directory tree
+
+Other views:
+  ::flatten  flatten directory contents
+  ::recent   recent files
+
+Styles:
+  :u         pretty
+  -1         one line
+  :V         print command
+  :h         headers
+
+Additional Notes:
+  Ordinary arguments starting with '-' are passed through to eza.
+  Arguments with values should prefer '=' syntax (e.g. -L=4 over -L 4).
+  Positional paths can be supplied directly or following '--'.

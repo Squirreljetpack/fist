@@ -8,6 +8,7 @@ pub mod serde;
 pub mod string;
 pub mod text;
 pub mod trash;
+pub mod tree;
 mod types;
 
 #[macro_export]

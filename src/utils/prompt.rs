@@ -68,3 +68,17 @@ pub fn confirm_prompt_sync(msg: &str, opts: Vec<&'static str>) -> usize {
         }
     }
 }
+
+/// Clears the terminal screen and displays error messages, waiting for Enter before continuing.
+pub fn show_error<S: AsRef<str>>(messages: &[S]) {
+    eprint!("\x1B[H\x1B[J");
+    for msg in messages {
+        eprintln!("{}", msg.as_ref());
+    }
+    eprintln!();
+    eprint!("(Press Enter to continue) ");
+    let _ = std::io::stderr().flush();
+    let mut input = String::new();
+    let _ = std::io::stdin().read_line(&mut input);
+}
+
