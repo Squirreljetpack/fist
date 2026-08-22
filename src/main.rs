@@ -200,8 +200,6 @@ fn dump_config(opts: &fist::cli::CliOpts, cfg: &Config) {
         init_config!(&lessfilter_cfg_path, "../assets/config/lessfilter.toml");
         init_config!(&pager_cfg_path(), "../assets/config/pager.toml");
         init_config!(&actions_path(), "../assets/config/actions.toml");
-
-        cfg.check_scripts(true);
     } else {
         // if piped: dump the current cfg
         let contents = toml::to_string_pretty(&cfg).expect("failed to serialize to TOML");
@@ -228,8 +226,4 @@ fn dump_config(opts: &fist::cli::CliOpts, cfg: &Config) {
 
 fn check(cfg: &Config) {
     cfg.check_dirs_or_exit();
-    #[cfg(debug_assertions)]
-    cfg.check_scripts(true);
-    #[cfg(not(debug_assertions))]
-    cfg.check_scripts(false);
 }

@@ -29,7 +29,7 @@ use super::{
     mm_::mm_get,
     paths::{
         __cwd, __home, actions_dir, actions_path, config_path, current_exe, lessfilter_cfg_path,
-        liza_path, mm_cfg_path,
+        mm_cfg_path,
     },
 };
 use crate::{
@@ -668,7 +668,7 @@ async fn handle_tools(
             };
             exit(code)
         }
-        SubTool::Liza { args } => Command::new(liza_path()).args(args)._exec(),
+        SubTool::Liza { args } => crate::cli::liza::handle(args),
         SubTool::Shell { mut args } => {
             // note: this seems to already be the short path of the exe, not that im complaining
             let path = std::env::current_exe().prefix(executable_err_prefix)?;
@@ -1032,6 +1032,11 @@ async fn handle_tools(
             } else if !quiet {
                 ibog!("Trashed {} items.", paths.len());
             }
+            Ok(())
+        }
+        SubTool::ShowError { args } => {
+            let msgs: Vec<String> = args.iter().map(|a| a.to_string_lossy().into_owned()).collect();
+            crate::utils::prompt::show_error(&msgs);
             Ok(())
         }
     }
