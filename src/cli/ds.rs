@@ -325,7 +325,10 @@ fn build_node(
 /// Prints each root and its descendants, with a blank line between
 /// distinct trees. `decimal` selects the unit system for the size
 /// column (true = KB/MB/GB, false = KiB/MiB/GiB).
-fn print_tree(roots: &[TreeNode], decimal: bool) {
+fn print_tree(
+    roots: &[TreeNode],
+    decimal: bool,
+) {
     let mut stdout = std::io::stdout().lock();
     let _ = crate::utils::tree::render_tree_with(
         roots,
@@ -505,7 +508,10 @@ fn insert_chain(
 /// nodes. An input whose path descends from another input realizes its
 /// subtree onto a node the outer input's realization already produced;
 /// merging keeps such overlapping branches from duplicating.
-fn merge_children(children: &mut Vec<SkeletonNode>, additions: Vec<SkeletonNode>) {
+fn merge_children(
+    children: &mut Vec<SkeletonNode>,
+    additions: Vec<SkeletonNode>,
+) {
     for addition in additions {
         if let Some(existing) = children.iter_mut().find(|c| c.name == addition.name) {
             existing.size = existing.size.or(addition.size);
@@ -536,7 +542,10 @@ fn subtree_max(node: &SkeletonNode) -> u64 {
         .max(node.children.iter().map(subtree_max).max().unwrap_or(0))
 }
 
-fn print_skeleton(root: &SkeletonNode, decimal: bool) {
+fn print_skeleton(
+    root: &SkeletonNode,
+    decimal: bool,
+) {
     let mut stdout = std::io::stdout().lock();
     let _ = crate::utils::tree::render_tree_with(
         std::slice::from_ref(root),

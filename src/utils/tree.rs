@@ -23,13 +23,19 @@ impl<T> TreeNode<T> {
         }
     }
 
-    pub fn with_children(value: T, children: Vec<TreeNode<T>>) -> Self {
+    pub fn with_children(
+        value: T,
+        children: Vec<TreeNode<T>>,
+    ) -> Self {
         Self { value, children }
     }
 }
 
 impl<T: Display> Display for TreeNode<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "{}", self.value)
     }
 }
@@ -45,7 +51,12 @@ pub fn render_tree<T: TreeItem>(
     roots: &[T],
     writer: &mut impl Write,
 ) -> io::Result<()> {
-    render_tree_with(roots, |node| node.children(), |node| node.to_string(), writer)
+    render_tree_with(
+        roots,
+        |node| node.children(),
+        |node| node.to_string(),
+        writer,
+    )
 }
 
 /// Render a tree hierarchy using custom child-accessor and format closures.

@@ -7,19 +7,23 @@
 //! are the sole owners of live queue data.
 
 mod execute;
+mod pump;
 mod status;
 pub use status::*;
+
+pub use pump::{register_task, scheduler, shutdown, task_log};
 
 use std::{ffi::OsString, path::PathBuf, sync::Mutex};
 
 use cba::bath::{PathExt, auto_dest_for_src};
+use matchmaker::nucleo::Span;
 
 use crate::{
     abspath::AbsPath,
     cli::paths::__home,
     run::{
         FsPane,
-        state::{GLOBAL, MENU_ACTIONS, STACK, TASKS, TOAST},
+        state::{GLOBAL, MENU_ACTIONS, STACK, TASKS, TOAST, ToastStyle},
     },
 };
 
@@ -108,15 +112,21 @@ pub struct QueueItem {
     pub src: Vec<AbsPath>,
     pub status: QueueItemStatus,
     pub dst: OsString,
+    /// The in-flight engine task for builtin transfers, set on dispatch.
+    pub task_id: Option<u64>,
 }
 
 impl QueueItem {
-    pub fn new(kind: QueueKind, src: AbsPath) -> Self {
+    pub fn new(
+        kind: QueueKind,
+        src: AbsPath,
+    ) -> Self {
         Self {
             kind,
             status: QueueItemStatus::new(&src),
             src: vec![src],
             dst: Default::default(),
+            task_id: None,
         }
     }
 
@@ -153,7 +163,10 @@ impl QueueState {
     }
 
     /// The underlying shared indices visible under the given kind filter.
-    pub fn visible_indices(&self, kind: Option<&str>) -> Vec<usize> {
+    pub fn visible_indices(
+        &self,
+        kind: Option<&str>,
+    ) -> Vec<usize> {
         self.shared
             .iter()
             .enumerate()
@@ -163,14 +176,22 @@ impl QueueState {
     }
 
     /// The screen position of a queue item row under the given kind filter.
-    pub fn visible_position_of(&self, kind: Option<&str>, row: usize) -> Option<usize> {
+    pub fn visible_position_of(
+        &self,
+        kind: Option<&str>,
+        row: usize,
+    ) -> Option<usize> {
         self.visible_indices(kind)
             .into_iter()
             .position(|idx| idx == row)
     }
 
     /// Cycle the kind filter (+1 / -1) through `[None, distinct kinds...]` with wrapping.
-    pub fn next_kind(&self, current: Option<&str>, delta: i32) -> Option<String> {
+    pub fn next_kind(
+        &self,
+        current: Option<&str>,
+        delta: i32,
+    ) -> Option<String> {
         let mut kinds: Vec<&str> = Vec::new();
         for item in &self.shared {
             if !kinds.contains(&item.kind.as_str()) {
@@ -225,7 +246,10 @@ impl QUEUE {
     /// add one row per path, replacing a pending row with the same source
     /// and kind (moved to the tail); custom menu kinds add one multi-path
     /// row.
-    pub fn enqueue(kind: QueueKind, paths: Vec<AbsPath>) {
+    pub fn enqueue(
+        kind: QueueKind,
+        paths: Vec<AbsPath>,
+    ) {
         debug_assert!(
             is_valid_queue_kind(&kind),
             "enqueue kinds must parse as an ordinary queue kind, got {kind:?}"
@@ -252,6 +276,7 @@ impl QUEUE {
                 status: QueueItemStatus::new(&paths[0]),
                 src: paths,
                 dst: Default::default(),
+                task_id: None,
             });
         }
     }
@@ -269,7 +294,10 @@ impl QUEUE {
     }
 
     /// `(src, dst)` for the entry at `index`; app entries have no dst.
-    pub fn view_get(view: QueueView, index: usize) -> Option<(Vec<AbsPath>, OsString)> {
+    pub fn view_get(
+        view: QueueView,
+        index: usize,
+    ) -> Option<(Vec<AbsPath>, OsString)> {
         match view {
             QueueView::Shared => QUEUE_STATE
                 .lock()
@@ -320,7 +348,11 @@ impl QUEUE {
         }
     }
 
-    pub fn view_swap(view: QueueView, i: usize, j: usize) {
+    pub fn view_swap(
+        view: QueueView,
+        i: usize,
+        j: usize,
+    ) {
         match view {
             QueueView::Shared => QUEUE_STATE.lock().unwrap().shared.swap(i, j),
             QueueView::Apps => STACK::with_current_mut(|pane| {
@@ -334,7 +366,10 @@ impl QUEUE {
         }
     }
 
-    pub fn view_remove(view: QueueView, index: usize) {
+    pub fn view_remove(
+        view: QueueView,
+        index: usize,
+    ) {
         match view {
             QueueView::Shared => {
                 let mut state = QUEUE_STATE.lock().unwrap();
@@ -352,12 +387,54 @@ impl QUEUE {
         }
     }
 
+    /// Handle a delete request on the row at `index`. App rows are plain
+    /// paths and always removed. An ongoing shared row is canceled instead:
+    /// engine-backed transfers stop through their task's cancellation token
+    /// (the pump watcher then finalizes the row), while kinds without an
+    /// in-flight engine task (lua menu actions) cannot be canceled and only
+    /// report failure as a toast. Rows that already stopped are removed.
+    pub fn cancel_or_remove(
+        view: QueueView,
+        index: usize,
+    ) {
+        let snapshot = {
+            let state = QUEUE_STATE.lock().unwrap();
+            state.shared.get(index).map(|item| {
+                (
+                    item.status.state.load(),
+                    item.kind.clone(),
+                    item.display(),
+                    item.task_id,
+                )
+            })
+        };
+        match (view, snapshot) {
+            (QueueView::Apps, _) => Self::view_remove(view, index),
+            (QueueView::Shared, None) => {}
+            (QueueView::Shared, Some((QueueItemState::Started, _, _, Some(id)))) => {
+                scheduler().cancel(id);
+            }
+            (QueueView::Shared, Some((QueueItemState::Started, kind, display, None))) => {
+                log::warn!("cannot cancel running {kind} task: {display}");
+                TOAST::push(
+                    ToastStyle::Error,
+                    "Failed to cancel: ",
+                    [Span::raw(format!("{kind}: {display}"))],
+                );
+            }
+            (QueueView::Shared, Some(_)) => Self::view_remove(QueueView::Shared, index),
+        }
+    }
+
     // ------------ execute -----------------
 
     /// Whether a pending row cannot execute because its destination is
     /// missing given the effective navigation directory. Builtin kinds infer
     /// an empty destination from it; custom `requires_dest` kinds do not.
-    fn dest_missing(item: &QueueItem, nav_cwd: Option<&AbsPath>) -> bool {
+    fn dest_missing(
+        item: &QueueItem,
+        nav_cwd: Option<&AbsPath>,
+    ) -> bool {
         if !item.dst.is_empty() {
             return false;
         }
@@ -377,7 +454,10 @@ impl QUEUE {
     /// an exact kind and `First`/`Last` report
     /// [`SelectorResult::MissingDestination`] when their selected work
     /// cannot execute.
-    pub fn select(selector: &QueueSelector, nav_cwd: Option<&AbsPath>) -> SelectorResult {
+    pub fn select(
+        selector: &QueueSelector,
+        nav_cwd: Option<&AbsPath>,
+    ) -> SelectorResult {
         let state = QUEUE_STATE.lock().unwrap();
         let pending: Vec<usize> = state
             .shared
@@ -451,8 +531,12 @@ impl QUEUE {
 
     /// Execute the shared items at `indices` against the effective
     /// navigation directory. Rows that are already started are skipped; no
-    /// pending filtering happens here — callers select the rows.
-    pub fn dispatch(indices: Vec<usize>, nav_cwd: Option<AbsPath>) {
+    /// pending filtering happens here — callers select the rows. Each row
+    /// runs in its own background task, described as `kind: {src}`.
+    pub fn dispatch(
+        indices: Vec<usize>,
+        nav_cwd: Option<AbsPath>,
+    ) {
         let queue: Vec<QueueItem> = {
             let state = QUEUE_STATE.lock().unwrap();
             indices
@@ -469,13 +553,24 @@ impl QUEUE {
 
         let rename_policy = GLOBAL::cfg().fs.rename_policy.clone();
 
-        TASKS::spawn_blocking("queue dispatch", move || {
-            for mut item in queue {
+        for item in queue {
+            let desc = format!("{}: {}", item.kind, item.display());
+            let nav = nav_cwd.clone();
+            let policy = rename_policy.clone();
+            // config lives in main-thread TLS: resolve engine params here,
+            // before the row's task runs on a worker thread
+            let job_kind = match item.kind.as_str() {
+                "copy" => Some(fist_copy::JobKind::Copy(GLOBAL::cfg().queue.copy.clone())),
+                "move" => Some(fist_copy::JobKind::Move(GLOBAL::cfg().queue.r#move.clone())),
+                _ => None,
+            };
+            TASKS::spawn_blocking(desc, move || {
                 // single-path items resolve their destination here against
                 // the effective navigation directory; multi-path items pass
                 // their stored destination to `QueueItem::execute` verbatim
+                let mut item = item;
                 if item.src.len() == 1 {
-                    let base_dest: OsString = match (item.dst.is_empty(), nav_cwd.as_ref()) {
+                    let base_dest: OsString = match (item.dst.is_empty(), nav.as_ref()) {
                         (true, Some(base)) => {
                             let mut d: OsString = base.as_os_str().to_owned();
                             d.push(std::path::MAIN_SEPARATOR_STR);
@@ -484,17 +579,20 @@ impl QUEUE {
                         (false, Some(base)) => item.dst.abs(base).into(),
                         _ => item.dst.clone(),
                     };
-                    item.dst = auto_dest_for_src(&item.src[0], &base_dest, &rename_policy).into();
+                    item.dst = auto_dest_for_src(&item.src[0], &base_dest, &policy).into();
                 }
-                item.execute(nav_cwd.as_ref());
-            }
-        });
+                item.execute(nav.as_ref(), job_kind);
+            });
+        }
     }
 
     // ------------- clear --------------
 
     /// Whether `kind` is covered by `selector`.
-    fn kind_matches(selector: &QueueSelector, kind: &str) -> bool {
+    fn kind_matches(
+        selector: &QueueSelector,
+        kind: &str,
+    ) -> bool {
         match selector {
             QueueSelector::All => true,
             QueueSelector::Builtins => DEST_KINDS.contains(&kind),
@@ -540,7 +638,10 @@ impl QUEUE {
 }
 
 impl PartialEq for QueueItem {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         self.src == other.src && self.kind == other.kind
     }
 }

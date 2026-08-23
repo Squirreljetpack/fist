@@ -109,13 +109,19 @@ impl MenuPrompt {
         }
     }
 
-    pub fn title(mut self, value: impl Into<String>) -> Self {
+    pub fn title(
+        mut self,
+        value: impl Into<String>,
+    ) -> Self {
         self.title = value.into();
         self
     }
 
     /// Set initial input value and move cursor to the end of it
-    pub fn initial(mut self, value: impl Into<String>) -> Self {
+    pub fn initial(
+        mut self,
+        value: impl Into<String>,
+    ) -> Self {
         let s = value.into();
         self.cursor = s.len();
         self.initial = s;
@@ -123,7 +129,10 @@ impl MenuPrompt {
     }
 
     /// Set cursor position (grapheme index)
-    pub fn cursor(mut self, pos: usize) -> Self {
+    pub fn cursor(
+        mut self,
+        pos: usize,
+    ) -> Self {
         self.cursor = pos;
         self
     }

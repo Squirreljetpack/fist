@@ -84,7 +84,10 @@ impl AsRef<OsStr> for AbsPath {
 }
 
 impl fmt::Display for AbsPath {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         self.0.display().fmt(f)
     }
 }

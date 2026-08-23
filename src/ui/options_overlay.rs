@@ -1,20 +1,20 @@
 use crate::{
     run::{
+        FsPane,
         action::FsAction,
         item::PathItem,
         state::{FILTERS, GLOBAL, STACK},
-        FsPane,
     },
     utils::{serde::border_result, text::bold_indices},
 };
 
 use cba::bum::UsizeExt;
-use fist_types::{filters::*, When};
+use fist_types::{When, filters::*};
 use matchmaker::{
     action::Action,
     config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting},
     render::MMState,
-    ui::{utils, Overlay, OverlayEffect},
+    ui::{Overlay, OverlayEffect, utils},
 };
 
 use ratatui::{

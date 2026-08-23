@@ -18,7 +18,10 @@ pub struct FileEntry {
 }
 
 impl FileEntry {
-    pub fn new(name: impl Into<String>, is_dir: bool) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        is_dir: bool,
+    ) -> Self {
         Self {
             name: name.into(),
             is_dir,
@@ -40,7 +43,10 @@ impl FileEntry {
 }
 
 impl Display for FileEntry {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>,
+    ) -> fmt::Result {
         let mut metas = Vec::new();
         if let Some(m) = &self.metadata {
             if let Some(p) = &m.permissions {
@@ -103,9 +109,6 @@ mod tests {
             extra: Some("dir".into()),
         };
         let entry = FileEntry::with_metadata("my_dir", true, meta);
-        assert_eq!(
-            entry.to_string(),
-            "(0755 | 12.0M | 12:00 | dir) my_dir"
-        );
+        assert_eq!(entry.to_string(), "(0755 | 12.0M | 12:00 | dir) my_dir");
     }
 }
