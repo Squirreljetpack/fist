@@ -43,7 +43,10 @@ impl InputWidget {
         Self { inner, config }
     }
 
-    pub fn set_value(&mut self, value: String) {
+    pub fn set_value(
+        &mut self,
+        value: String,
+    ) {
         self.inner.set(value, u16::MAX);
     }
 
@@ -51,11 +54,17 @@ impl InputWidget {
         self.inner.input()
     }
 
-    pub fn handle_input(&mut self, c: char) {
+    pub fn handle_input(
+        &mut self,
+        c: char,
+    ) {
         self.inner.push_char(c);
     }
 
-    pub fn handle_action(&mut self, action: &Action<FsAction>) -> Option<bool> {
+    pub fn handle_action(
+        &mut self,
+        action: &Action<FsAction>,
+    ) -> Option<bool> {
         match action {
             Action::ForwardChar => self.inner.forward_char(),
             Action::BackwardChar => self.inner.backward_char(),
@@ -76,12 +85,18 @@ impl InputWidget {
         None
     }
 
-    pub fn update_width(&mut self, ui_width: u16) {
+    pub fn update_width(
+        &mut self,
+        ui_width: u16,
+    ) {
         self.inner.update_width(ui_width)
     }
 
     // call scroll_to_cursor first
-    pub fn make_input(&self, style: Style) -> Span<'_> {
+    pub fn make_input(
+        &self,
+        style: Style,
+    ) -> Span<'_> {
         Span::styled(self.inner.render(), style)
     }
 

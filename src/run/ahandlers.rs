@@ -29,7 +29,10 @@ use crate::{
     utils::formatter::format_prompt,
 };
 
-pub fn paste_handler(content: String, state: &MMState<'_>) -> String {
+pub fn paste_handler(
+    content: String,
+    state: &MMState<'_>,
+) -> String {
     if let Some(c) = STACK::nav_cwd()
         && !(GLOBAL::cfg().interface.always_paste
             // paste-inside-the-prompt: while the prompt mode is on (raw
@@ -94,7 +97,10 @@ pub fn refresh_prompt(state: &mut MMState<'_>) {
 /// (the only way into the prompt is the cwd lock, [`enter_prompt`]) —
 /// leaving is never gated. The cwd lock implies the prompt mode and
 /// additionally makes actions apply to the cwd.
-pub fn lock_prompt(state: &mut MMState<'_>, enter: bool) {
+pub fn lock_prompt(
+    state: &mut MMState<'_>,
+    enter: bool,
+) {
     if enter && !GLOBAL::cfg().interface.prompt_locking {
         return;
     }
@@ -147,7 +153,10 @@ pub fn enter_prompt(state: &mut MMState<'_>) -> bool {
     true
 }
 
-pub fn enter_dir_pane(state: &mut MMState<'_>, path: AbsPath) {
+pub fn enter_dir_pane(
+    state: &mut MMState<'_>,
+    path: AbsPath,
+) {
     // save input
     let (content, index) = state.get_content_and_index();
     STACK::save_input(content, index);
@@ -286,9 +295,7 @@ pub fn fs_reload(
 
     // apply the pane's sort
     sort::set_sort_from_pane(state);
-    if sort::get_sort().order == SortOrder::size
-        && (is_new || dir_changed)
-    {
+    if sort::get_sort().order == SortOrder::size && (is_new || dir_changed) {
         let preserve = GLOBAL::cfg().interface.preserve_size_cache
             && STACK::cwd()
                 .as_ref()

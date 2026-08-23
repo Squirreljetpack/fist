@@ -1,18 +1,17 @@
 use ignore::WalkBuilder;
 use std::{
     ffi::OsString,
-    fs,
     io::IsTerminal,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
+use super::super::config::{LizaConfig, ViewMode};
 use crate::{
     errors::CliError,
     pager::page_child,
     utils::tree::{TreeNode, render_tree},
 };
-use super::super::config::{LizaConfig, ViewMode};
 
 pub fn is_eza_available() -> bool {
     Command::new("eza")
@@ -321,7 +320,10 @@ pub fn build_path_tree(paths: &[String]) -> Vec<TreeNode<String>> {
 
     for path_str in paths {
         let path = Path::new(path_str);
-        let components: Vec<_> = path.components().map(|c| c.as_os_str().to_string_lossy().to_string()).collect();
+        let components: Vec<_> = path
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().to_string())
+            .collect();
         if components.is_empty() {
             continue;
         }
@@ -332,7 +334,10 @@ pub fn build_path_tree(paths: &[String]) -> Vec<TreeNode<String>> {
     root_children
 }
 
-fn insert_components(nodes: &mut Vec<TreeNode<String>>, components: &[String]) {
+fn insert_components(
+    nodes: &mut Vec<TreeNode<String>>,
+    components: &[String],
+) {
     if components.is_empty() {
         return;
     }
@@ -425,7 +430,10 @@ mod tests {
             .iter()
             .map(|p| p.strip_prefix(root).unwrap().to_string_lossy().to_string())
             .collect();
-        assert_eq!(names_d1_all, vec![".hidden".to_string(), "c".to_string(), "a".to_string()]);
+        assert_eq!(
+            names_d1_all,
+            vec![".hidden".to_string(), "c".to_string(), "a".to_string()]
+        );
 
         config.all = false;
 
@@ -435,7 +443,10 @@ mod tests {
             .iter()
             .map(|p| p.strip_prefix(root).unwrap().to_string_lossy().to_string())
             .collect();
-        assert_eq!(names_d2, vec!["c".to_string(), "a/x".to_string(), "a/y".to_string()]);
+        assert_eq!(
+            names_d2,
+            vec!["c".to_string(), "a/x".to_string(), "a/y".to_string()]
+        );
 
         // 4. Flatten depth 3 from root -> files first (c, a/x, a/y/z), intermediate dirs skipped
         let flattened_d3 = flatten_directory_targets(&[root.to_path_buf()], 3, &config);
@@ -443,7 +454,10 @@ mod tests {
             .iter()
             .map(|p| p.strip_prefix(root).unwrap().to_string_lossy().to_string())
             .collect();
-        assert_eq!(names_d3, vec!["c".to_string(), "a/x".to_string(), "a/y/z".to_string()]);
+        assert_eq!(
+            names_d3,
+            vec!["c".to_string(), "a/x".to_string(), "a/y/z".to_string()]
+        );
     }
 
     #[test]
@@ -470,4 +484,3 @@ mod tests {
         assert!(!names.contains(&"ignored.txt".to_string()));
     }
 }
-

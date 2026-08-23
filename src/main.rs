@@ -122,7 +122,11 @@ async fn main() {
     }
 }
 
-fn init_logger(verbosity: u8, log_path: PathBuf, append: bool) {
+fn init_logger(
+    verbosity: u8,
+    log_path: PathBuf,
+    append: bool,
+) {
     // init bogger
     bog::init_bogger(true, true);
     bog::init_filter(verbosity);
@@ -180,7 +184,10 @@ fn init_logger(verbosity: u8, log_path: PathBuf, append: bool) {
     builder.init();
 }
 
-fn dump_config(opts: &fist::cli::CliOpts, cfg: &Config) {
+fn dump_config(
+    opts: &fist::cli::CliOpts,
+    cfg: &Config,
+) {
     let lessfilter_cfg_path = lessfilter_cfg_path();
     // if stdout: dump the default cfg (with comments)
     // + (if not yet existing), dump the default run cfg

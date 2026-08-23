@@ -20,7 +20,11 @@ fn load_config(config_path: &str) -> LessfilterConfig {
 
 /// The action of the best-matching rule of `preset` for `path`, evaluated
 /// with the config's own settings and categories.
-fn best_action<'a>(cfg: &'a LessfilterConfig, preset: Preset, path: &Path) -> Option<&'a Action> {
+fn best_action<'a>(
+    cfg: &'a LessfilterConfig,
+    preset: Preset,
+    path: &Path,
+) -> Option<&'a Action> {
     let data = FileData::new(
         AbsPath::new(path.to_path_buf()),
         &cfg.settings,

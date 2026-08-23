@@ -28,7 +28,10 @@ pub struct MatchmakerOverrides {
 
 #[cfg(feature = "mm_overrides")]
 impl MatchmakerOverrides {
-    pub fn get(&self, pane: &FsPane) -> &PartialRenderConfig {
+    pub fn get(
+        &self,
+        pane: &FsPane,
+    ) -> &PartialRenderConfig {
         match pane {
             FsPane::Custom { .. } => &self.custom,
             FsPane::Find { .. } => &self.find,

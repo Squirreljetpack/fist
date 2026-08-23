@@ -2,16 +2,16 @@
 //!
 //! Extends [`QueueItem`] with [`QueueItem::execute`], which runs one item to
 //! completion: builtin transfers (`copy`, `move`, `symlink`, `none`) or a Lua
-//! script for custom kinds. Also provides [`QUEUE::check_validity`], which
-//! marks pending items whose source paths no longer exist as
-//! [`QueueItemState::PendingErr`].
+//! script for custom kinds. Copy/move are submitted to the global
+//! [`fist_copy`] scheduler; the pump finalizes their rows asynchronously.
+//! Also provides [`QUEUE::check_validity`], which marks pending items whose
+//! source paths no longer exist as [`QueueItemState::PendingErr`].
 
 use super::*;
 
-use std::{fs::create_dir_all, sync::atomic::Ordering};
+use std::{fs::create_dir_all, path::PathBuf, sync::atomic::Ordering};
 
 use cba::bs::symlink;
-use fs_extra::{dir, file};
 
 use crate::{
     cli::paths::actions_dir,
@@ -36,10 +36,18 @@ impl QueueItem {
     ///   the call starts and marked complete afterwards so the display is
     ///   sensible even when the script never calls `set_progress`.
     ///
+    /// `job_kind` carries the resolved transfer parameters for builtin
+    /// `copy`/`move` rows; config lives in main-thread TLS, so callers
+    /// running this item off-thread must resolve it before spawning.
+    ///
     /// A custom kind with no mapping fails the item with an error toast. The
     /// action history records one entry per executed item that completed
     /// successfully.
-    pub fn execute(self, nav_cwd: Option<&AbsPath>) {
+    pub fn execute(
+        self,
+        nav_cwd: Option<&AbsPath>,
+        job_kind: Option<fist_copy::JobKind>,
+    ) {
         log::debug!("Transferring: {self:?}");
 
         let Self {
@@ -47,11 +55,10 @@ impl QueueItem {
             src,
             status,
             dst,
+            ..
         } = &self;
 
         status.state.store(QueueItemState::Started);
-
-        let is_move = kind == "move";
 
         let mut any_success = false;
 
@@ -74,70 +81,39 @@ impl QueueItem {
                 any_success = true;
             }
             "copy" | "move" => {
+                let Some(job_kind) = job_kind else {
+                    log::error!("copy/move row dispatched without resolved engine params");
+                    status.state.store(QueueItemState::CompleteErr);
+                    return;
+                };
+
                 for path in src {
-                    let QueueItemStatus {
-                        state,
-                        progress,
-                        size,
-                    } = status;
+                    if let Some(parent) = std::path::Path::new(dst).parent() {
+                        let _ = create_dir_all(parent);
+                    }
 
-                    let result = if path.is_dir() {
-                        let mut options = dir::CopyOptions::new().copy_inside(true);
-                        options.overwrite = true;
-
-                        let progress_handler = move |p: dir::TransitProcess| {
-                            let fraction = if p.total_bytes > 0 {
-                                size.store(p.total_bytes, Ordering::Relaxed);
-                                p.copied_bytes * 255 / p.total_bytes
-                            } else {
-                                0
-                            };
-                            progress.clone().store(fraction as u8, Ordering::Relaxed);
-                            fs_extra::dir::TransitProcessResult::ContinueOrAbort
-                        };
-
-                        if is_move {
-                            dir::move_dir_with_progress(path, dst, &options, progress_handler)
-                        } else {
-                            dir::copy_with_progress(path, dst, &options, progress_handler)
-                        }
-                    } else {
-                        let options = file::CopyOptions::new().overwrite(true);
-
-                        let progress_handler = move |p: file::TransitProcess| {
-                            let fraction = if p.total_bytes > 0 {
-                                size.store(p.total_bytes, Ordering::Relaxed);
-                                p.copied_bytes * 255 / p.total_bytes
-                            } else {
-                                0
-                            };
-                            progress.clone().store(fraction as u8, Ordering::Relaxed);
-                        };
-
-                        if let Some(parent) = std::path::Path::new(dst).parent() {
-                            let _ = create_dir_all(parent);
-                        }
-
-                        if is_move {
-                            file::move_file_with_progress(path, dst, &options, progress_handler)
-                        } else {
-                            file::copy_with_progress(path, dst, &options, progress_handler)
-                        }
+                    let request = fist_copy::JobRequest {
+                        kind: job_kind.clone(),
+                        source: path.to_path_buf(),
+                        dest: PathBuf::from(dst),
                     };
-
-                    if let Err(e) = result {
-                        log::error!("Transfer error for {self:?}: {e}");
-                        state.store(QueueItemState::CompleteErr);
-                        let display = short_display(path);
-                        TOAST::push(ToastStyle::Error, "Failed: ", [display]);
-                        TOAST::notice(ToastStyle::Error, e.to_string());
-                    } else {
-                        state.store(QueueItemState::CompleteOk);
-                        let display = short_display(path);
-                        TOAST::push(ToastStyle::Success, "Complete: ", [display]);
-                        any_success = true;
+                    match super::scheduler().submit(request) {
+                        Ok(handle) => {
+                            let mut tracked = self.clone();
+                            tracked.task_id = Some(handle.id);
+                            super::register_task(handle, &tracked);
+                        }
+                        Err(e) => {
+                            log::error!("Transfer submit failed for {self:?}: {e}");
+                            status.state.store(QueueItemState::CompleteErr);
+                            let display = short_display(path);
+                            TOAST::push(ToastStyle::Error, "Failed: ", [display]);
+                            TOAST::notice(ToastStyle::Error, e.to_string());
+                        }
                     }
                 }
+                // completion (toasts + action history) is handled by the pump
+                return;
             }
             // any other kind is a menu action key
             script => {
@@ -215,15 +191,29 @@ mod tests {
         let dst_dir = dir.path().join("dst_parent");
         std::fs::create_dir(&dst_dir).unwrap();
 
-        // 1. Copy directory
+        // 1. Copy directory (async via fist-copy engine: poll for completion)
         let dst_folder = dst_dir.join("src_folder");
         let item = QueueItem {
             kind: "copy".into(),
             src: vec![AbsPath::new_unchecked(&src_dir)],
             dst: dst_folder.as_os_str().to_owned(),
             status: QueueItemStatus::new(&src_dir),
+            task_id: None,
         };
-        item.execute(Some(&AbsPath::new_unchecked(&dst_dir)));
+        let watch = item.status.clone();
+        item.execute(
+            Some(&AbsPath::new_unchecked(&dst_dir)),
+            Some(fist_copy::JobKind::Copy(fist_copy::CopyParams::default())),
+        );
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while !watch.state.is_complete() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "copy task did not finish in time"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert_eq!(watch.state.load(), QueueItemState::CompleteOk);
         assert!(dst_folder.exists(), "dst_folder should exist after copy");
         assert!(
             dst_folder.join("file.txt").exists(),
@@ -237,8 +227,9 @@ mod tests {
             src: vec![AbsPath::new_unchecked(&src_dir)],
             dst: symlink_folder.as_os_str().to_owned(),
             status: QueueItemStatus::new(&src_dir),
+            task_id: None,
         };
-        sym_item.execute(Some(&AbsPath::new_unchecked(&dst_dir)));
+        sym_item.execute(Some(&AbsPath::new_unchecked(&dst_dir)), None);
         let read_link = std::fs::read_link(&symlink_folder);
         println!("symlink target result: {:?}", read_link);
         assert!(symlink_folder.exists(), "symlink_folder should exist");
@@ -246,5 +237,49 @@ mod tests {
             symlink_folder.join("file.txt").exists(),
             "symlink target should resolve correctly"
         );
+    }
+
+    /// Exercises the production dispatch path: engine params must be resolved
+    /// on the dispatching thread, because the row's task runs on a worker
+    /// thread where config TLS is unset. A regression leaves the row Started
+    /// and the deadline assertion fires.
+    #[tokio::test]
+    async fn dispatched_copy_resolves_engine_params_off_thread() {
+        GLOBAL::init_test_senders();
+        let dir = tempdir().unwrap();
+        let src_dir = dir.path().join("disp_src");
+        std::fs::create_dir(&src_dir).unwrap();
+        std::fs::write(src_dir.join("file.txt"), "hello").unwrap();
+        let dst_dir = dir.path().join("disp_dst_parent");
+        std::fs::create_dir(&dst_dir).unwrap();
+
+        {
+            let mut state = QUEUE_STATE.lock().unwrap();
+            state.shared.push(QueueItem {
+                kind: "copy".into(),
+                src: vec![AbsPath::new_unchecked(&src_dir)],
+                dst: Default::default(),
+                status: QueueItemStatus::new(&src_dir),
+                task_id: None,
+            });
+        }
+        QUEUE::dispatch(vec![0], Some(AbsPath::new_unchecked(&dst_dir)));
+
+        let watch = { QUEUE_STATE.lock().unwrap().shared[0].status.clone() };
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while !watch.state.is_complete() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "dispatched copy did not finish in time"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert_eq!(watch.state.load(), QueueItemState::CompleteOk);
+        assert!(
+            dst_dir.join("disp_src").join("file.txt").exists(),
+            "dispatched copy should land under the nav directory"
+        );
+
+        QUEUE_STATE.lock().unwrap().shared.clear();
     }
 }
