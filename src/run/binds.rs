@@ -62,6 +62,8 @@ fn config_as_code() -> BindMap<FsAction> {
         key!(tab) => [Action::ToggleSelection, Action::Down(1)],
         key!(alt-enter) => Action::Print("".into()),
         key!(alt-r) => Action::Reload("".to_string()),
+        key!(alt-shift-a) => Action::Pos(0),
+        key!(alt-shift-e) => Action::Pos(-1),
 
         // Panes
         // ----------------------------------
@@ -71,17 +73,16 @@ fn config_as_code() -> BindMap<FsAction> {
         key!(ctrl-r) => FsAction::Search,
         key!(ctrl-g) => FsAction::History,
         key!(ctrl-z) => FsAction::Undo,
-        // key!(alt-a), key!(alt-shift-a) => FsAction::App,
         key!(alt-z), key!(ctrl-shift-'z') => FsAction::Redo,
 
         // Display
         // ----------------------------------
-        key!(ctrl-u) => FsAction::ShowQueue,
-        key!(ctrl-shift-u), key!(alt-shift-u) => FsAction::ClearQueue(QueueSelector::All, false),
-        key!(alt-u) => Action::ClearQuery,
-        key!(ctrl-e) => FsAction::ShowMenu,
+        key!(alt-u) => FsAction::ShowQueue,
+        key!(alt-shift-u) => FsAction::ClearQueue(QueueSelector::All, false),
+        key!(ctrl-u) => Action::ClearQuery,
+        key!(ctrl-e), key!(alt-e) => FsAction::ShowMenu,
         // -- options --
-        key!(ctrl-p) => FsAction::ShowOptions,
+        key!(ctrl-p), key!(alt-p) => FsAction::ShowOptions,
         key!(ctrl-d) => FsAction::FsToggle,
         key!(ctrl-s) => FsAction::ToggleHidden,
 

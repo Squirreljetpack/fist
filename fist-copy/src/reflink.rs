@@ -1,4 +1,4 @@
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io;
 use std::path::Path;
 
@@ -49,7 +49,7 @@ fn linux_clone(
     src: &Path,
     dst: &Path,
 ) -> io::Result<()> {
-    use std::os::unix::io::AsRawFd;
+    use std::{fs::OpenOptions, os::unix::io::AsRawFd};
     let s = File::open(src)?;
     let d = OpenOptions::new().write(true).create_new(true).open(dst)?;
     let rc = unsafe { libc::ioctl(d.as_raw_fd(), libc::FICLONE, s.as_raw_fd()) };

@@ -45,6 +45,7 @@ mod tests {
         let (render_tx, render_rx) =
             tokio::sync::mpsc::unbounded_channel::<matchmaker::message::RenderCommand<FsAction>>();
         let (watcher_tx, watcher_rx) = tokio::sync::mpsc::unbounded_channel();
+        let _ = (&bind_rx, &render_rx, &watcher_rx);
 
         let pool = Pool {
             pool: sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap(),

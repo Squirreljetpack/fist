@@ -2,7 +2,8 @@ use std::{collections::HashMap, path::PathBuf};
 
 use crate::run::FsPane;
 use fist_types::filters::*;
-use matchmaker::config::ShowCondition;
+use matchmaker::config::{ShowCondition, StyleSetting};
+use ratatui::style::Color;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -70,6 +71,8 @@ impl Default for PanesConfig {
 pub struct PaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
+    /// Style of the input prompt
+    pub prompt_style: Option<StyleSetting>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
@@ -94,6 +97,8 @@ pub struct PaneSettings {
 pub struct FdPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
+    /// Style of the input prompt
+    pub prompt_style: Option<StyleSetting>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
@@ -117,6 +122,7 @@ impl Default for FdPaneSettings {
     fn default() -> Self {
         Self {
             prompt: None,
+            prompt_style: None,
             show_preview: None,
             lock_prompt: None,
             preview_layout_index: 0,
@@ -133,6 +139,8 @@ impl Default for FdPaneSettings {
 pub struct RgPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
+    /// Style of the input prompt
+    pub prompt_style: Option<StyleSetting>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
@@ -186,6 +194,8 @@ pub struct RgPaneSettings {
 pub struct NavPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
+    /// Style of the input prompt
+    pub prompt_style: Option<StyleSetting>,
     /// Whether to enter the prompt when switching to this pane
     pub lock_prompt: Option<bool>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
@@ -204,6 +214,7 @@ impl Default for NavPaneSettings {
     fn default() -> Self {
         Self {
             prompt: None,
+            prompt_style: None,
             lock_prompt: None,
             show_preview: Some(ShowCondition::Free(50)),
             preview_layout_index: 0,
@@ -219,6 +230,8 @@ impl Default for NavPaneSettings {
 pub struct HistoryPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
+    /// Style of the input prompt
+    pub prompt_style: Option<StyleSetting>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     pub lock_prompt: Option<bool>,
@@ -241,7 +254,66 @@ pub enum InsertionStrategy {
 }
 
 /// Per-stash pane settings, keyed by stash name (the unnamed stash is "").
-pub type StashPaneSettings = HashMap<String, StashPaneSetting>;
+/// The name "default" (case-insensitive) is reserved.
+pub struct StashPaneSettings(HashMap<String, StashPaneSetting>);
+
+impl std::ops::Deref for StashPaneSettings {
+    type Target = HashMap<String, StashPaneSetting>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Clone for StashPaneSettings {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl PartialEq for StashPaneSettings {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl std::fmt::Debug for StashPaneSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for StashPaneSettings {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let map = HashMap::<String, StashPaneSetting>::deserialize(deserializer)?;
+        if let Some(key) = map
+            .keys()
+            .find(|k| k.eq_ignore_ascii_case("default"))
+        {
+            return Err(serde::de::Error::custom(format!(
+                "stash name {key:?} is reserved"
+            )));
+        }
+        Ok(Self(map))
+    }
+}
+
+impl Default for StashPaneSettings {
+    fn default() -> Self {
+        Self(HashMap::new())
+    }
+}
+
+impl serde::Serialize for StashPaneSettings {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
 
 /// How a stash pane treats its entries.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -264,6 +336,8 @@ pub enum StashPaneKind {
 pub struct StashPaneSetting {
     /// Input prompt
     pub prompt: Option<String>,
+    /// Style of the input prompt
+    pub prompt_style: Option<StyleSetting>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
@@ -279,9 +353,13 @@ pub struct StashPaneSetting {
 
 impl StashPaneSetting {
     /// Fallback applied to stash panes without a configured entry: kind
-    /// Transient, insert Replace.
+    /// Transient, insert Replace, white prompt.
     pub const DEFAULT: Self = Self {
         prompt: None,
+        prompt_style: Some(StyleSetting {
+            fg: Some(Color::White),
+            ..StyleSetting::DEFAULT
+        }),
         show_preview: None,
         lock_prompt: None,
         preview_layout_index: 0,
@@ -295,6 +373,8 @@ impl StashPaneSetting {
 pub struct AppPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
+    /// Style of the input prompt
+    pub prompt_style: Option<StyleSetting>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     pub lock_prompt: Option<bool>,
@@ -318,7 +398,27 @@ impl PanesConfig {
             FsPane::Apps { .. } => self.app.prompt.clone(),
             FsPane::Nav { .. } => self.nav.prompt.clone(),
             FsPane::Search { .. } => self.search.prompt.clone(),
-            FsPane::Stash { stash_name, .. } => self.stash_setting(stash_name).prompt.clone(),
+            FsPane::Stash { stash_name, .. } => Some(
+                self.stash_setting(stash_name)
+                    .prompt
+                    .clone()
+                    .unwrap_or_else(|| format!("{stash_name}> ")),
+            ),
+        }
+    }
+
+    pub fn prompt_style(
+        &self,
+        pane: &FsPane,
+    ) -> Option<StyleSetting> {
+        match pane {
+            FsPane::Custom { .. } => self.custom.prompt_style.clone(),
+            FsPane::Find { .. } => self.find.prompt_style.clone(),
+            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.prompt_style.clone(),
+            FsPane::Apps { .. } => self.app.prompt_style.clone(),
+            FsPane::Nav { .. } => self.nav.prompt_style.clone(),
+            FsPane::Search { .. } => self.search.prompt_style.clone(),
+            FsPane::Stash { stash_name, .. } => self.stash_setting(stash_name).prompt_style.clone(),
         }
     }
 

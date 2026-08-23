@@ -74,12 +74,11 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 "alt-`" = "Jump"
 
 ### Display
-"ctrl-u" = "ShowQueue"
-"ctrl-shift-u" = "ClearQueue"
+"alt-u" = "ShowQueue"
 "alt-shift-u" = "ClearQueue"
-"ctrl-e" = "ShowMenu"
-"alt-u" = "ClearQuery"
-"ctrl-p" = "ShowOptions"
+"alt-e" = "ShowMenu"
+"ctrl-u" = "ClearQuery"
+"alt-p" = "ShowOptions"
 "ctrl-d" = "FsToggle"
 "ctrl-s" = "ToggleHidden" # if this freezes your terminal, check that you have set stty -ixon
 
