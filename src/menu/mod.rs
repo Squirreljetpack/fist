@@ -33,8 +33,8 @@ impl Default for MenuActions {
 /// Menu action keys reserved for the builtin queue kinds and the queue
 /// selectors; defining an action under one of these (case-insensitively) or
 /// under the empty key is a config error.
-pub const RESERVED_KEYS: [&str; 8] = [
-    "copy", "move", "symlink", "none", "all", "builtins", "first", "last",
+pub const RESERVED_KEYS: [&str; 10] = [
+    "copy", "move", "symlink", "none", "all", "builtins", "first", "last", "default", ""
 ];
 
 impl<'de> Deserialize<'de> for MenuActions {
@@ -45,7 +45,7 @@ impl<'de> Deserialize<'de> for MenuActions {
         let map = IndexMap::<String, MenuAction>::deserialize(deserializer)?;
         if let Some(key) = map
             .keys()
-            .find(|k| k.is_empty() || RESERVED_KEYS.iter().any(|r| k.eq_ignore_ascii_case(r)))
+            .find(|k| RESERVED_KEYS.iter().any(|r| k.eq_ignore_ascii_case(r)))
         {
             return Err(serde::de::Error::custom(format!(
                 "menu action key {key:?} is reserved"

@@ -1,6 +1,6 @@
 # Menu Actions
 
-Menu actions are user-defined commands shown in the menu overlay (`ctrl-e`).
+Menu actions are user-defined commands shown in the menu overlay (`ctrl-e`/`alt-e`).
 They are declared as TOML tables keyed by name; the insertion order is the
 menu display order.
 
@@ -40,7 +40,7 @@ builtin queue kinds `copy`, `move`, `symlink`, `none`, the selectors `all`,
 | `QueueBatch`    | —     | no          | Enqueue the targets in chunks of at most *n* paths.     |
 
 `Queue`/`QueueBatch` create queue rows of the action's key; the row's
-destination is editable in the queue overlay (`ctrl-u`).
+destination is editable in the queue overlay (`alt-u`).
 
 ## The Lua Environment & Global Contract
 

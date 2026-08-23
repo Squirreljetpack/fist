@@ -68,7 +68,7 @@ pub fn sync_handler(
     {
         let items = state.picker_ui.worker.nucleo.items();
         let indices = selection::rehydrate(&hashes, items.iter());
-        state.picker_ui.selector.clear();
+        state.picker_ui.clear_selections();
         state.picker_ui.selector.extend(indices);
     }
 }

@@ -163,19 +163,6 @@ impl STACK {
         })
     }
 
-    /// Whether changing the current pane's sort requires repopulating it.
-    pub fn reloads_by_sorting() -> bool {
-        Self::with_current(|pane| {
-            matches!(
-                pane,
-                FsPane::Files { .. }
-                    | FsPane::Folders { .. }
-                    | FsPane::Apps { .. }
-                    | FsPane::Search { .. }
-            )
-        })
-    }
-
     /// Returns whether it pushed (pane type is different)
     pub fn set_or_push(pane: FsPane) -> bool {
         let different_type = Self::with_current(|current| current != &pane);

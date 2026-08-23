@@ -74,6 +74,8 @@ reset_cursor_on_query_change = true
 "tab" = ["ToggleSelection", "Down"]
 "ctrl-a" = "CycleSelections"
 "ctrl-shift-a" = "ClearSelections"
+"alt-shift-a" = "Pos(0)" # cursor to query start
+"alt-shift-e" = "Pos(-1)" # cursor to query end
 "alt-enter" = "Print"
 "alt-r" = "Reload"
 
@@ -104,11 +106,12 @@ reset_cursor_on_query_change = true
 "alt-`" = "Jump"
 
 ### Display
-"ctrl-u" = "ShowQueue"
-"ctrl-shift-u" = "ClearQueue"
+"alt-u" = "ShowQueue"
 "alt-shift-u" = "ClearQueue"
+"alt-e" = "ShowMenu"
 "ctrl-e" = "ShowMenu"
-"alt-u" = "ClearQuery"
+"ctrl-u" = "ClearQuery"
+"alt-p" = "ShowOptions"
 "ctrl-p" = "ShowOptions"
 "ctrl-d" = "FsToggle"
 "ctrl-s" = "ToggleHidden" # if this freezes your terminal, check that you have set stty -ixon
@@ -129,10 +132,12 @@ reset_cursor_on_query_change = true
 "shift-cmd-backspace" = "Delete"
 
 ### Stash
-"alt-s" = "PushStash"
-"alt-shift-s" = "OpenStash"
-"alt-b" = "PushStash(bookmark)"
-"alt-shift-b" = "OpenStash(bookmark)"
+# "alt-s" = "PushStash"
+# "alt-shift-s" = "OpenStash"
+# "alt-b" = "PushStash(bookmark)"
+# "alt-shift-b" = "OpenStash(bookmark)"
+"alt-s" = "Stash"
+"alt-b" = "Stash(bookmark)"
 
 ### Preview / Execute
 ### (DEFAULTS) ####
