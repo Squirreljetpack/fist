@@ -36,7 +36,11 @@ pub fn bold_indices(
 
     spans
 }
-pub fn bold_segments<'a, I, J>(segments: I, indices: J, normal_style: Style) -> Vec<Span<'a>>
+pub fn bold_segments<'a, I, J>(
+    segments: I,
+    indices: J,
+    normal_style: Style,
+) -> Vec<Span<'a>>
 where
     I: IntoIterator<Item = &'a str>,
     J: IntoIterator<Item = usize>,
@@ -194,7 +198,11 @@ pub fn parse_rg_line(
     }
 }
 
-pub fn extract_rg_line_no_path(line: &Line, out: &mut String, no_column: bool) -> bool {
+pub fn extract_rg_line_no_path(
+    line: &Line,
+    out: &mut String,
+    no_column: bool,
+) -> bool {
     #[derive(Clone, Copy)]
     enum State {
         FirstDigits,

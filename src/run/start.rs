@@ -325,6 +325,7 @@ pub async fn start(
     print_handle.map_to_vec(|s| prints!(s));
 
     TASKS::shutdown(500, 10, 3000).await;
+    crate::run::queue::shutdown(std::time::Duration::from_secs(3));
     unzip::shutdown();
     // In the app pane, the picked program opens the pane's pending files
     // (fs :open, the OpenWith menu action); elsewhere the picked lines are

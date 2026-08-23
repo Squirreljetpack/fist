@@ -244,7 +244,10 @@ impl TOAST {
     }
 
     /// Remove an item from a list toast by prefix, and remove the toast entry if the list becomes empty.
-    pub fn pop(prefix: &str, item: &Span<'static>) {
+    pub fn pop(
+        prefix: &str,
+        item: &Span<'static>,
+    ) {
         let mut state = TOAST.lock().unwrap();
         state.retain_mut(|line| {
             if line.prefix.content == prefix {
@@ -325,7 +328,12 @@ impl TOAST {
     /// ```text
     /// Renamed: old_path.txt → new_path.txt
     /// ```
-    pub fn pair(style: ToastStyle, prefix: &'static str, from: Span<'static>, to: Span<'static>) {
+    pub fn pair(
+        style: ToastStyle,
+        prefix: &'static str,
+        from: Span<'static>,
+        to: Span<'static>,
+    ) {
         let mut state = TOAST.lock().unwrap();
         let prefix_span = Span::styled(prefix, style);
         state.push(ToastLine {
@@ -345,7 +353,10 @@ impl TOAST {
     /// Warning: Disk space is low
     /// Error: Permission denied
     /// ```
-    pub fn notice(style: ToastStyle, msg: impl Into<std::borrow::Cow<'static, str>>) {
+    pub fn notice(
+        style: ToastStyle,
+        msg: impl Into<std::borrow::Cow<'static, str>>,
+    ) {
         let mut state = TOAST.lock().unwrap();
         let prefix_span = Span::styled(format!("{style}: "), style);
         state.push(ToastLine {
@@ -363,7 +374,10 @@ impl TOAST {
     /// When `replace` is `true`, all other transient lines (carrying no
     /// [`ToastFlags`]) are evicted first so only the latest status message is
     /// displayed.
-    pub fn msg(line: impl Into<Line<'static>>, replace: bool) {
+    pub fn msg(
+        line: impl Into<Line<'static>>,
+        replace: bool,
+    ) {
         let mut state = TOAST.lock().unwrap();
 
         if replace {

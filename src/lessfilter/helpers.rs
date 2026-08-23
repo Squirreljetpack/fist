@@ -67,7 +67,10 @@ pub fn show_header(path: &Path) {
 }
 
 // todo: in-house file -bL
-pub fn show_simple_metadata(path: &Path, first: bool) -> bool {
+pub fn show_simple_metadata(
+    path: &Path,
+    first: bool,
+) -> bool {
     if path.is_file() {
         if has("file") {
             let mut cmd = Command::new("file");
@@ -204,7 +207,10 @@ fn infer_chafa_format() -> &'static str {
     })
 }
 
-pub fn image_viewer(path: &Path, max_w: Option<u8>) -> Vec<OsString> {
+pub fn image_viewer(
+    path: &Path,
+    max_w: Option<u8>,
+) -> Vec<OsString> {
     let mut args = vec_![: "chafa", "-f", infer_chafa_format()];
 
     if let Some(w) = max_w {

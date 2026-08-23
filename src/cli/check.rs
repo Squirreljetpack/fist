@@ -40,10 +40,16 @@ impl CheckResult {
             actions: MenuActions::default(),
         }
     }
-    fn error(&mut self, msg: impl Into<String>) {
+    fn error(
+        &mut self,
+        msg: impl Into<String>,
+    ) {
         self.errors.push(msg.into());
     }
-    fn warn(&mut self, msg: impl Into<String>) {
+    fn warn(
+        &mut self,
+        msg: impl Into<String>,
+    ) {
         self.warnings.push(msg.into());
     }
 }
@@ -255,7 +261,10 @@ mod tests {
     use super::*;
     use std::fs;
 
-    fn write(path: &Path, content: &str) {
+    fn write(
+        path: &Path,
+        content: &str,
+    ) {
         if let Some(p) = path.parent() {
             fs::create_dir_all(p).unwrap();
         }
@@ -264,7 +273,7 @@ mod tests {
 
     /// A temp config tree with a clean actions file.
     fn setup(
-        actions: &str,
+        actions: &str
     ) -> (
         tempfile::TempDir,
         std::path::PathBuf,

@@ -1,5 +1,5 @@
 use clap::CommandFactory;
-use clap_complete::{generate_to, Shell};
+use clap_complete::{Shell, generate_to};
 use std::env;
 
 mod cli {
@@ -25,6 +25,10 @@ include!("build/completions_mock.rs");
 include!("src/cli/clap.rs");
 
 fn main() {
+    println!("cargo::rerun-if-changed=build.rs");
+    println!("cargo::rerun-if-changed=build/completions_mock.rs");
+    println!("cargo::rerun-if-changed=src");
+
     let out_dir = {
         let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
         let out_dir = manifest_dir.join("assets").join("completions");

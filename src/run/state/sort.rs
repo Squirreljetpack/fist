@@ -18,9 +18,9 @@ use crate::{
     abspath::AbsPath,
     aliases::MMState,
     run::{
-        item::PathItem,
-        state::{HideMetadata, GLOBAL, STACK, STORE, TASKS},
         FsAction, FsPane,
+        item::PathItem,
+        state::{GLOBAL, HideMetadata, STACK, STORE, TASKS},
     },
 };
 

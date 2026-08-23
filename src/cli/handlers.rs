@@ -62,7 +62,10 @@ use fist_types::{
     filters::PartialVisibility,
 };
 
-pub async fn handle_subcommand(cli: Cli, cfg: Config) -> Result<(), CliError> {
+pub async fn handle_subcommand(
+    cli: Cli,
+    cfg: Config,
+) -> Result<(), CliError> {
     log::debug!("{:?}", cli.subcommand);
 
     match cli.subcommand {
@@ -77,7 +80,11 @@ pub async fn handle_subcommand(cli: Cli, cfg: Config) -> Result<(), CliError> {
     }
 }
 
-async fn handle_open(cli: CliOpts, cmd: OpenCmd, mut cfg: Config) -> Result<(), CliError> {
+async fn handle_open(
+    cli: CliOpts,
+    cmd: OpenCmd,
+    mut cfg: Config,
+) -> Result<(), CliError> {
     let pool = Pool::new_from_cfg(&cfg).await?;
 
     // fs :o or fs :o --with= files
@@ -102,7 +109,11 @@ async fn handle_open(cli: CliOpts, cmd: OpenCmd, mut cfg: Config) -> Result<(), 
 }
 
 // todo: partitioned info
-async fn handle_info(cli: CliOpts, cmd: InfoCmd, cfg: Config) -> Result<(), CliError> {
+async fn handle_info(
+    cli: CliOpts,
+    cmd: InfoCmd,
+    cfg: Config,
+) -> Result<(), CliError> {
     let limit = cmd.limit.unwrap_or(if cmd.minimal { 0 } else { 50 });
     let pool = Pool::new_from_cfg(&cfg).await?;
 
@@ -142,7 +153,11 @@ async fn handle_info(cli: CliOpts, cmd: InfoCmd, cfg: Config) -> Result<(), CliE
 }
 
 // Need:
-async fn handle_files(cli: CliOpts, cmd: FilesCmd, cfg: Config) -> Result<(), CliError> {
+async fn handle_files(
+    cli: CliOpts,
+    cmd: FilesCmd,
+    cfg: Config,
+) -> Result<(), CliError> {
     let pane = FsPane::Files {
         sort: SortOrder::none,
         input: (cmd.query, 0),
@@ -154,7 +169,11 @@ async fn handle_files(cli: CliOpts, cmd: FilesCmd, cfg: Config) -> Result<(), Cl
     start(pane, cfg, mm_cfg, pool, cli).await
 }
 
-async fn handle_rg(cli: CliOpts, mut cmd: SearchCommand, mut cfg: Config) -> Result<(), CliError> {
+async fn handle_rg(
+    cli: CliOpts,
+    mut cmd: SearchCommand,
+    mut cfg: Config,
+) -> Result<(), CliError> {
     let vis = cmd
         .vis
         .into_resolved(cfg.global.panes.search.default_visibility);
@@ -236,7 +255,11 @@ async fn handle_rg(cli: CliOpts, mut cmd: SearchCommand, mut cfg: Config) -> Res
     start(pane, cfg, mm_cfg, pool, cli).await
 }
 
-async fn handle_dirs(cli: CliOpts, mut cmd: DirsCmd, mut cfg: Config) -> Result<(), CliError> {
+async fn handle_dirs(
+    cli: CliOpts,
+    mut cmd: DirsCmd,
+    mut cfg: Config,
+) -> Result<(), CliError> {
     let pool = Pool::new_from_cfg(&cfg).await?;
     if cmd.cd && cmd.list.is_some() {
         return Err(CliError::ConflictingFlags("cd", "list"));
@@ -553,7 +576,11 @@ async fn handle_default(
     start(pane, cfg, mm_cfg, pool, cli).await
 }
 
-async fn handle_custom(cli: CliOpts, cmd: CustomCommand, mut cfg: Config) -> Result<(), CliError> {
+async fn handle_custom(
+    cli: CliOpts,
+    cmd: CustomCommand,
+    mut cfg: Config,
+) -> Result<(), CliError> {
     let cmd_ = (!cmd.cmd.is_empty()).then(|| (cmd.cmd[0].clone(), cmd.cmd[1..].to_vec()));
     if cmd_.is_none() && atty::is(atty::Stream::Stdin) {
         ebog!(":custom expects a command or piped stdin");
@@ -1035,14 +1062,21 @@ async fn handle_tools(
             Ok(())
         }
         SubTool::ShowError { args } => {
-            let msgs: Vec<String> = args.iter().map(|a| a.to_string_lossy().into_owned()).collect();
+            let msgs: Vec<String> = args
+                .iter()
+                .map(|a| a.to_string_lossy().into_owned())
+                .collect();
             crate::utils::prompt::show_error(&msgs);
             Ok(())
         }
     }
 }
 
-pub fn print(path: &std::path::Path, template: &Option<String>, output_sep: &str) {
+pub fn print(
+    path: &std::path::Path,
+    template: &Option<String>,
+    output_sep: &str,
+) {
     let mut display = if let Some(template) = &template {
         format_path(template, &AbsPath::new(path))
     } else {

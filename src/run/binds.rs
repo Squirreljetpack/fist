@@ -1,13 +1,13 @@
 use matchmaker::{
     action::Action,
     bindmap,
-    binds::{key, BindMap, BindMapExt},
+    binds::{BindMap, BindMapExt, key},
 };
 
 use crate::lessfilter::Preset;
 use fist_types::When;
 
-use super::{queue::QueueSelector, FsAction};
+use super::{FsAction, queue::QueueSelector};
 
 pub fn default_binds() -> BindMap<FsAction> {
     let mut fs = bindmap!(

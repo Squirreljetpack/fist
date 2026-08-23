@@ -12,7 +12,10 @@ use std::{
 
 /// Build the OSC 52 copy sequence for `text`; wrap it in a tmux passthrough
 /// when `tmux` is true.
-pub fn sequence(text: &str, tmux: bool) -> String {
+pub fn sequence(
+    text: &str,
+    tmux: bool,
+) -> String {
     use base64::Engine as _;
     let encoded = base64::engine::general_purpose::STANDARD.encode(text);
     if tmux {

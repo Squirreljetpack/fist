@@ -41,43 +41,67 @@ impl Gauge {
         Self::default()
     }
 
-    pub fn ratio(mut self, ratio: f64) -> Self {
+    pub fn ratio(
+        mut self,
+        ratio: f64,
+    ) -> Self {
         self.ratio = ratio.clamp(0.0, 1.0);
         self
     }
 
-    pub fn percent(mut self, percent: f64) -> Self {
+    pub fn percent(
+        mut self,
+        percent: f64,
+    ) -> Self {
         self.ratio = (percent / 100.0).clamp(0.0, 1.0);
         self
     }
 
-    pub fn label<S: Into<String>>(mut self, label: S) -> Self {
+    pub fn label<S: Into<String>>(
+        mut self,
+        label: S,
+    ) -> Self {
         self.label = Some(label.into());
         self
     }
 
-    pub fn filled_style(mut self, style: Style) -> Self {
+    pub fn filled_style(
+        mut self,
+        style: Style,
+    ) -> Self {
         self.filled_style = style;
         self
     }
 
-    pub fn unfilled_style(mut self, style: Style) -> Self {
+    pub fn unfilled_style(
+        mut self,
+        style: Style,
+    ) -> Self {
         self.unfilled_style = style;
         self
     }
 
-    pub fn unfilled_text_style(mut self, style: Style) -> Self {
+    pub fn unfilled_text_style(
+        mut self,
+        style: Style,
+    ) -> Self {
         self.unfilled_text_style = style;
         self
     }
 
-    pub fn unfilled_char(mut self, c: char) -> Self {
+    pub fn unfilled_char(
+        mut self,
+        c: char,
+    ) -> Self {
         self.unfilled_char = c;
         self
     }
 
     /// Render the gauge as a [`Line`] of width `width`.
-    pub fn render_line(&self, width: usize) -> Line<'static> {
+    pub fn render_line(
+        &self,
+        width: usize,
+    ) -> Line<'static> {
         if width == 0 {
             return Line::from("");
         }
@@ -128,13 +152,21 @@ impl Gauge {
 }
 
 impl Widget for Gauge {
-    fn render(self, area: Rect, buf: &mut Buffer) {
+    fn render(
+        self,
+        area: Rect,
+        buf: &mut Buffer,
+    ) {
         (&self).render(area, buf);
     }
 }
 
 impl Widget for &Gauge {
-    fn render(self, area: Rect, buf: &mut Buffer) {
+    fn render(
+        self,
+        area: Rect,
+        buf: &mut Buffer,
+    ) {
         if area.height == 0 || area.width == 0 {
             return;
         }

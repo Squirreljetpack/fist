@@ -90,7 +90,10 @@ pub type WatcherSender = mpsc::UnboundedSender<WatcherMessage>;
 
 impl FsWatcher {
     /// Creates a new Watcher.
-    pub fn new(config: WatcherConfig, render_tx: RenderSender<FsAction>) -> (Self, WatcherSender) {
+    pub fn new(
+        config: WatcherConfig,
+        render_tx: RenderSender<FsAction>,
+    ) -> (Self, WatcherSender) {
         let (path_tx, path_rx) = mpsc::unbounded_channel();
         let watcher_struct = Self {
             path_rx,
@@ -283,7 +286,10 @@ pub mod serde_duration_ms {
     use serde::{Deserialize, Deserializer, Serializer};
     use std::time::Duration;
 
-    pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(
+        duration: &Duration,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
