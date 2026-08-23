@@ -1,3 +1,16 @@
+## [0.0.5] - 2026-08-23
+
+### 🚀 Features
+
+- Shell init support for shells besides zsh
+- Improve queue progress bar visuals
+- Vendor scripts into rust code
+- Copy/move worker v1
+
+### 🐛 Bug Fixes
+
+- Various
+
 ## [0.0.4] - 2026-08-19
 
 ### 🚀 Features
