@@ -10,7 +10,10 @@ pub(crate) const MAX_PLACEHOLDERS: usize = 200;
 
 // try not to use these externally
 impl Connection {
-    pub fn switch_table(&mut self, table: DbTable) {
+    pub fn switch_table(
+        &mut self,
+        table: DbTable,
+    ) {
         self.table = table;
     }
 
@@ -21,7 +24,10 @@ impl Connection {
     ///
     /// Note: When inserting an entry with `atime == 0` in EMS mode, this method
     /// automatically initializes the atime to `COALESCE(MAX(atime), 0) + 1`.
-    pub async fn set_entry(&mut self, entry: &Entry) -> Result<(), DbError> {
+    pub async fn set_entry(
+        &mut self,
+        entry: &Entry,
+    ) -> Result<(), DbError> {
         trace!("Setting {entry:?}");
 
         if entry.atime == 0 && self.lambda.is_some() {
@@ -69,7 +75,10 @@ impl Connection {
         Ok(())
     }
 
-    pub async fn create_many(&mut self, entries: &[Entry]) -> Result<u64, DbError> {
+    pub async fn create_many(
+        &mut self,
+        entries: &[Entry],
+    ) -> Result<u64, DbError> {
         let mut tx = self.conn.begin().await?;
         let mut total_rows = 0;
 
@@ -104,7 +113,10 @@ impl Connection {
         Ok(())
     }
 
-    pub async fn remove_entries(&mut self, paths: &[AbsPath]) -> Result<u64, DbError> {
+    pub async fn remove_entries(
+        &mut self,
+        paths: &[AbsPath],
+    ) -> Result<u64, DbError> {
         if paths.is_empty() {
             return Ok(0);
         }
@@ -130,7 +142,10 @@ impl Connection {
         Ok(total_removed)
     }
 
-    pub async fn get_entry(&mut self, path: &AbsPath) -> Result<Option<Entry>, DbError> {
+    pub async fn get_entry(
+        &mut self,
+        path: &AbsPath,
+    ) -> Result<Option<Entry>, DbError> {
         let sql = format!("SELECT * FROM {} WHERE path = ?", self.table);
         let entry = sqlx::query_as::<_, Entry>(sqlx::AssertSqlSafe(sql))
             .bind(path)
@@ -139,7 +154,11 @@ impl Connection {
         Ok(entry)
     }
 
-    pub async fn set_alias(&mut self, path: &AbsPath, new_alias: &str) -> Result<(), DbError> {
+    pub async fn set_alias(
+        &mut self,
+        path: &AbsPath,
+        new_alias: &str,
+    ) -> Result<(), DbError> {
         let sql = format!("UPDATE {} SET alias = ? WHERE path = ?", self.table);
         sqlx::query(sqlx::AssertSqlSafe(sql))
             .bind(new_alias)
@@ -149,7 +168,11 @@ impl Connection {
         Ok(())
     }
 
-    pub async fn set_cmd(&mut self, path: &AbsPath, cmd: &OsStringWrapper) -> Result<(), DbError> {
+    pub async fn set_cmd(
+        &mut self,
+        path: &AbsPath,
+        cmd: &OsStringWrapper,
+    ) -> Result<(), DbError> {
         let sql = format!("UPDATE {} SET cmd = ? WHERE path = ?", self.table);
         sqlx::query(sqlx::AssertSqlSafe(sql))
             .bind(cmd)
@@ -160,7 +183,10 @@ impl Connection {
     }
 
     /// cmd string for the app at `path` (apps table), if any.
-    pub async fn get_cmd(&mut self, path: &AbsPath) -> Result<Option<String>, DbError> {
+    pub async fn get_cmd(
+        &mut self,
+        path: &AbsPath,
+    ) -> Result<Option<String>, DbError> {
         let sql = format!("SELECT cmd FROM {} WHERE path = ?", self.table);
         let cmd: Option<OsStringWrapper> = sqlx::query_scalar(sqlx::AssertSqlSafe(sql))
             .bind(path)
@@ -171,7 +197,11 @@ impl Connection {
             .map(|c| c.to_string_lossy().into_owned()))
     }
 
-    pub async fn bump_entry(&mut self, entry: &Entry, count: i32) -> Result<(), DbError> {
+    pub async fn bump_entry(
+        &mut self,
+        entry: &Entry,
+        count: i32,
+    ) -> Result<(), DbError> {
         trace!("Bumping {}", entry.path.display());
 
         if let Some(lambda) = self.lambda {
@@ -240,7 +270,10 @@ impl Connection {
         Ok(())
     }
 
-    pub async fn delete_entry(&mut self, path: &AbsPath) -> Result<(), DbError> {
+    pub async fn delete_entry(
+        &mut self,
+        path: &AbsPath,
+    ) -> Result<(), DbError> {
         let sql = format!("DELETE FROM {} WHERE path = ?", self.table);
         sqlx::query(sqlx::AssertSqlSafe(sql))
             .bind(path)
@@ -426,7 +459,10 @@ mod tests {
     }
 
     /// Helper: create an entry with a given atime (tick) for EMS testing.
-    fn entry_at(path: &str, atime: Epoch) -> Entry {
+    fn entry_at(
+        path: &str,
+        atime: Epoch,
+    ) -> Entry {
         Entry {
             name: path.rsplit('/').next().unwrap_or(path).to_string(),
             path: AbsPath::new(path),

@@ -19,7 +19,10 @@ pub struct Myme {
 }
 
 impl Myme {
-    pub fn from_path(path: &Path, infer_mode: InferMode) -> Myme {
+    pub fn from_path(
+        path: &Path,
+        infer_mode: InferMode,
+    ) -> Myme {
         // not sure if its faster to do this pre-check
         if path.is_dir() {
             return Myme {

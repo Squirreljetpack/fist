@@ -231,7 +231,10 @@ pub fn last_query_starts_with_dot(paths: &[OsString]) -> bool {
 /// strings are expanded to the extensions known for them (`image/*` expands
 /// to every image extension). Unknown groups and mimes without known
 /// extensions are logged and skipped.
-pub fn resolve_group_types(types: &[FileTypeArg], lcfg: &LessfilterConfig) -> Vec<FileTypeArg> {
+pub fn resolve_group_types(
+    types: &[FileTypeArg],
+    lcfg: &LessfilterConfig,
+) -> Vec<FileTypeArg> {
     let mut resolved = Vec::with_capacity(types.len());
     let mut seen_exts = BTreeSet::new();
 

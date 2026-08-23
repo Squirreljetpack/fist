@@ -58,7 +58,10 @@ impl TASKS {
     /// Register a child process for tracking.
     /// If id < 32, any existing processes for this ID will be killed and moved to ZOMBIES.
     /// If id >= 32, the child is appended to the existing list for that ID.
-    pub fn register_child(id: TaskId, child: std::process::Child) {
+    pub fn register_child(
+        id: TaskId,
+        child: std::process::Child,
+    ) {
         let mut jobs = JOBS.lock().unwrap();
         let id_u8 = id as u8;
 
@@ -123,8 +126,10 @@ impl TASKS {
 
     /// Spawn a background future tracked under the given description. The
     /// description is shown by [`TASKS::shutdown`] while it waits.
-    pub fn spawn<F>(desc: impl Into<String>, fut: F)
-    where
+    pub fn spawn<F>(
+        desc: impl Into<String>,
+        fut: F,
+    ) where
         F: std::future::Future<Output = ()> + Send + 'static,
     {
         let desc = desc.into();
@@ -139,8 +144,10 @@ impl TASKS {
 
     /// Spawn a blocking background task tracked under the given description.
     /// The description is shown by [`TASKS::shutdown`] while it waits.
-    pub fn spawn_blocking<F>(desc: impl Into<String>, f: F)
-    where
+    pub fn spawn_blocking<F>(
+        desc: impl Into<String>,
+        f: F,
+    ) where
         F: FnOnce() + Send + 'static,
     {
         let desc = desc.into();
@@ -153,7 +160,11 @@ impl TASKS {
         });
     }
 
-    pub async fn shutdown(initial_warn_ms: u64, warn_secs: u64, max_secs: u64) {
+    pub async fn shutdown(
+        initial_warn_ms: u64,
+        warn_secs: u64,
+        max_secs: u64,
+    ) {
         use tokio::time::{self, Duration};
 
         Self::kill_children(..);

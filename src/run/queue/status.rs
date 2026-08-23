@@ -88,7 +88,10 @@ impl AtomicQueueItemState {
     }
 
     #[inline]
-    pub fn store(&self, value: QueueItemState) {
+    pub fn store(
+        &self,
+        value: QueueItemState,
+    ) {
         self.state.store(value as u8, Ordering::Release);
     }
 

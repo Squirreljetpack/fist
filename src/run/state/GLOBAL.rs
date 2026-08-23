@@ -88,6 +88,11 @@ pub fn cfg() -> &'static GlobalConfig {
 /// expect-based senders.
 #[cfg(test)]
 pub fn init_test_senders() {
+    CONFIG.with(|c| {
+        if c.get().is_none() {
+            let _ = c.set(GlobalConfig::default());
+        }
+    });
     let (bind_tx, _bind_rx) = tokio::sync::mpsc::unbounded_channel();
     let (render_tx, _render_rx) =
         tokio::sync::mpsc::unbounded_channel::<matchmaker::message::RenderCommand<FsAction>>();

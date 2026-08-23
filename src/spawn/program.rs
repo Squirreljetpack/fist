@@ -46,7 +46,10 @@ impl Program {
         }
     }
 
-    pub fn new_cmd(prog: &str, args: impl IntoIterator<Item = OsString>) -> Self {
+    pub fn new_cmd(
+        prog: &str,
+        args: impl IntoIterator<Item = OsString>,
+    ) -> Self {
         Self::Cmd(PathBuf::from(prog), args.into_iter().collect())
     }
 
@@ -58,7 +61,10 @@ impl Program {
     }
 
     /// see [`crate::find::apps::collect_apps`]
-    pub fn from_scanned_path(path: AbsPath, cmd: Option<String>) -> Self {
+    pub fn from_scanned_path(
+        path: AbsPath,
+        cmd: Option<String>,
+    ) -> Self {
         Self::File(path, cmd)
     }
 

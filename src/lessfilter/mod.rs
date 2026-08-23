@@ -190,7 +190,11 @@ pub fn handle(
 /// `--diagnose`: for each path, print the detected file data, the winning
 /// rule with its score, and the commands that would run — without executing
 /// anything.
-fn run_diagnose(preset: Preset, paths: Vec<PathBuf>, mut cfg: LessfilterConfig) -> i32 {
+fn run_diagnose(
+    preset: Preset,
+    paths: Vec<PathBuf>,
+    mut cfg: LessfilterConfig,
+) -> i32 {
     use cba::prints;
 
     let mut default = cfg.rules.get(Preset::Default).clone();
@@ -334,7 +338,10 @@ impl Default for RulesConfig {
 
 impl RulesConfig {
     /// Getter by Preset enum
-    pub fn get(&self, preset: Preset) -> &RulePreset {
+    pub fn get(
+        &self,
+        preset: Preset,
+    ) -> &RulePreset {
         match preset {
             Preset::Preview => &self.preview,
             Preset::Display => &self.display,
@@ -349,7 +356,10 @@ impl RulesConfig {
     }
 
     /// Mutable getter
-    pub fn get_mut(&mut self, preset: Preset) -> &mut RulePreset {
+    pub fn get_mut(
+        &mut self,
+        preset: Preset,
+    ) -> &mut RulePreset {
         match preset {
             Preset::Preview => &mut self.preview,
             Preset::Display => &mut self.display,

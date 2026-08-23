@@ -119,13 +119,20 @@ impl TableSelection {
 
     /// Cycle the shared kind filter with wrapping; changing it clears the
     /// row selections and cancels any row editing.
-    pub fn cycle_filter(&mut self, delta: i32) {
+    pub fn cycle_filter(
+        &mut self,
+        delta: i32,
+    ) {
         let state = QUEUE_STATE.lock().unwrap();
         self.cycle_filter_from(delta, &state);
     }
 
     /// Cycle the shared kind filter with wrapping against a given [`QueueState`].
-    pub fn cycle_filter_from(&mut self, delta: i32, state: &QueueState) {
+    pub fn cycle_filter_from(
+        &mut self,
+        delta: i32,
+        state: &QueueState,
+    ) {
         self.kind_filter = state.next_kind(self.kind_filter.as_deref(), delta);
         self.selected.clear();
         self.editing = None;
@@ -178,7 +185,10 @@ impl TableSelection {
         }
     }
 
-    pub fn handle_input(&mut self, c: char) -> OverlayEffect {
+    pub fn handle_input(
+        &mut self,
+        c: char,
+    ) -> OverlayEffect {
         if let Some((_, _, input)) = &mut self.editing {
             input.handle_input(c);
             self.dirty = true;
@@ -187,7 +197,10 @@ impl TableSelection {
         OverlayEffect::None
     }
 
-    pub fn handle_action(&mut self, action: &Action<FsAction>) -> OverlayEffect {
+    pub fn handle_action(
+        &mut self,
+        action: &Action<FsAction>,
+    ) -> OverlayEffect {
         let len = QUEUE::view_len(self.view);
         if len == 0 {
             return OverlayEffect::Disable;
@@ -313,7 +326,7 @@ impl TableSelection {
                 if let Some(i) = self.state.selected()
                     && i < vlen
                 {
-                    QUEUE::view_remove(self.view, visible[i]);
+                    QUEUE::cancel_or_remove(self.view, visible[i]);
                 }
             }
             Action::Accept => {
@@ -494,7 +507,11 @@ impl QueueOverlay {
         self.area.width.saturating_sub(self.border().width())
     }
 
-    fn update_widths(&mut self, items: &[QueueItem], available_ui_w: u16) {
+    fn update_widths(
+        &mut self,
+        items: &[QueueItem],
+        available_ui_w: u16,
+    ) {
         log::trace!("available: {available_ui_w}");
         if self.state.editing.is_some() {
             log::error!("Unexpected editing");
@@ -576,7 +593,11 @@ impl QueueOverlay {
 }
 
 impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
-    fn on_enable(&mut self, _area: &Rect, _state: &mut MMState<'_, PathItem, ()>) {
+    fn on_enable(
+        &mut self,
+        _area: &Rect,
+        _state: &mut MMState<'_, PathItem, ()>,
+    ) {
         // keep the queue view live: force the ticker to run while it is open
         GLOBAL::send_bind(BindDirective::OverrideTickrate(Some(OVERLAY_TICK_RATE)));
         // the kind filter is transient: it always starts at `All`
@@ -591,7 +612,11 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
         QUEUE::clear_completed_shared();
     }
 
-    fn handle_input(&mut self, c: char, _state: &mut MMState<'_, PathItem, ()>) -> OverlayEffect {
+    fn handle_input(
+        &mut self,
+        c: char,
+        _state: &mut MMState<'_, PathItem, ()>,
+    ) -> OverlayEffect {
         if self.state.editing.is_some() {
             return self.state.handle_input(c);
         }
@@ -601,7 +626,11 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
         }
     }
 
-    fn area(&mut self, ui_area: &Rect, layout: &OverlayLayoutSettings) {
+    fn area(
+        &mut self,
+        ui_area: &Rect,
+        layout: &OverlayLayoutSettings,
+    ) {
         let state = QUEUE_STATE.lock().unwrap();
         self.state.available_w = ui_area
             .width
@@ -621,7 +650,10 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
         self.state.handle_action(action)
     }
 
-    fn draw(&mut self, frame: &mut matchmaker::ui::Frame<'_>) {
+    fn draw(
+        &mut self,
+        frame: &mut matchmaker::ui::Frame<'_>,
+    ) {
         let state = QUEUE_STATE.lock().unwrap();
 
         if state.shared.is_empty() {
@@ -748,7 +780,11 @@ impl AppOverlay {
         self.config.border.as_ref().unwrap()
     }
 
-    fn update_widths(&mut self, items: &[AbsPath], available_ui_w: u16) {
+    fn update_widths(
+        &mut self,
+        items: &[AbsPath],
+        available_ui_w: u16,
+    ) {
         if self.state.editing.is_some() {
             return;
         }
@@ -783,13 +819,21 @@ fn app_pending() -> Vec<AbsPath> {
 }
 
 impl Overlay<FsAction, PathItem, ()> for AppOverlay {
-    fn on_enable(&mut self, _area: &Rect, _state: &mut MMState<'_, PathItem, ()>) {
+    fn on_enable(
+        &mut self,
+        _area: &Rect,
+        _state: &mut MMState<'_, PathItem, ()>,
+    ) {
         self.state.state.select(Some(0));
     }
 
     fn on_disable(&mut self) {}
 
-    fn handle_input(&mut self, c: char, _state: &mut MMState<'_, PathItem, ()>) -> OverlayEffect {
+    fn handle_input(
+        &mut self,
+        c: char,
+        _state: &mut MMState<'_, PathItem, ()>,
+    ) -> OverlayEffect {
         if self.state.editing.is_some() {
             return self.state.handle_input(c);
         }
@@ -799,7 +843,11 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
         }
     }
 
-    fn area(&mut self, ui_area: &Rect, layout: &OverlayLayoutSettings) {
+    fn area(
+        &mut self,
+        ui_area: &Rect,
+        layout: &OverlayLayoutSettings,
+    ) {
         let pending = app_pending();
         self.state.available_w = ui_area
             .width
@@ -819,7 +867,10 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
         self.state.handle_action(action)
     }
 
-    fn draw(&mut self, frame: &mut matchmaker::ui::Frame<'_>) {
+    fn draw(
+        &mut self,
+        frame: &mut matchmaker::ui::Frame<'_>,
+    ) {
         let items = app_pending();
 
         if self.state.reiinit {
@@ -964,7 +1015,11 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
 }
 
 impl QueueItemStatus {
-    pub fn render(&self, width: usize, cfg: &QueueConfig) -> Line<'static> {
+    pub fn render(
+        &self,
+        width: usize,
+        cfg: &QueueConfig,
+    ) -> Line<'static> {
         let size = self.size.load(Ordering::Relaxed);
         let progress = self.progress.load(Ordering::Relaxed);
         let state = self.state.load();

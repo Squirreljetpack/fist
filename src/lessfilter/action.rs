@@ -276,7 +276,11 @@ impl Action {
     }
 
     /// submit to [matchmaker::preview::previewer::Previewer]
-    pub fn to_script(&self, target: &Path, preset: Preset) -> String {
+    pub fn to_script(
+        &self,
+        target: &Path,
+        preset: Preset,
+    ) -> String {
         if let Some(p) = target.to_str() {
             match self {
                 Action::Custom(s) => s.replace("'$target'", &format!("'{}'", p)),

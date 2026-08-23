@@ -1,0 +1,23 @@
+[package]
+name = "fist-copy"
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license-file.workspace = true
+repository.workspace = true
+description = "Background copy/move engine for fist: worker pool, reflink, cancellation, progress"
+
+[dependencies]
+crossbeam-channel = "0.5"
+log = "0.4"
+serde = { workspace = true, features = ["derive"] }
+walkdir = "2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3.25.0"
+
+[lints.clippy]
+uninlined_format_args = "allow"

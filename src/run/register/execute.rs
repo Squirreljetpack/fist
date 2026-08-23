@@ -63,7 +63,10 @@ impl ExecutionMode {
 /// The lua command for a menu-action payload: discriminant 7/9 payloads are
 /// the action key (looked up in the registered menu actions), a discriminant 8
 /// payload is the command itself.
-pub(super) fn menu_lua_command(mode: ExecutionMode, payload: &str) -> Option<String> {
+pub(super) fn menu_lua_command(
+    mode: ExecutionMode,
+    payload: &str,
+) -> Option<String> {
     match mode {
         ExecutionMode::MenuAction | ExecutionMode::LuaCommandPaged => MENU_ACTIONS
             .get()
@@ -78,7 +81,11 @@ pub(super) fn menu_lua_command(mode: ExecutionMode, payload: &str) -> Option<Str
 /// is passed as the third argument when present. `set_progress` has no target
 /// here and is a silent no-op. The command runs in the process cwd — scripts
 /// are responsible for `cd`.
-pub(super) fn run_menu_lua(command: &str, paths: &[AbsPath], nav_cwd: Option<&AbsPath>) {
+pub(super) fn run_menu_lua(
+    command: &str,
+    paths: &[AbsPath],
+    nav_cwd: Option<&AbsPath>,
+) {
     let Some(source) = load_script(command, Some(actions_dir())) else {
         log::error!("Failed to load menu action lua command: {command}");
         return;
@@ -92,7 +99,11 @@ pub(super) fn run_menu_lua(command: &str, paths: &[AbsPath], nav_cwd: Option<&Ab
 /// `io.popen`, prints, …) is piped into the pager while the script runs. The
 /// command runs in the process cwd — scripts are responsible for `cd`.
 /// `set_progress` has no target here and is a silent no-op.
-pub(super) fn run_menu_lua_paged(command: &str, paths: &[AbsPath], nav_cwd: Option<&AbsPath>) {
+pub(super) fn run_menu_lua_paged(
+    command: &str,
+    paths: &[AbsPath],
+    nav_cwd: Option<&AbsPath>,
+) {
     let Some(source) = load_script(command, Some(actions_dir())) else {
         log::error!("Failed to load menu action lua command: {command}");
         return;
@@ -276,7 +287,10 @@ pub(super) fn wait_exec(
 /// otherwise the current item. Honors [`ExecuteHandlerShouldProcessParent`]
 /// and returns `None` instead of panicking when there is no target or parent.
 /// If `no_take` is true, the [`ExecuteHandlerShouldProcessParent`] flag is not consumed.
-pub fn resolve_target(state: &MMState<'_>, no_take: bool) -> Option<AbsPath> {
+pub fn resolve_target(
+    state: &MMState<'_>,
+    no_take: bool,
+) -> Option<AbsPath> {
     if state.picker_ui.results.cursor_disabled() {
         STACK::cwd()
     } else {
@@ -297,7 +311,10 @@ pub fn resolve_target(state: &MMState<'_>, no_take: bool) -> Option<AbsPath> {
 /// Collect the filesystem environment for execution commands: the formatted
 /// preview command plus rg highlight/scroll positions when in an rg pane.
 /// Capture before spawning any task.
-pub(super) fn collect_exec_env(state: &MMState<'_>, path: &AbsPath) -> EnvVars {
+pub(super) fn collect_exec_env(
+    state: &MMState<'_>,
+    path: &AbsPath,
+) -> EnvVars {
     let mut vars = state.make_env_vars();
 
     if STACK::in_rg() {

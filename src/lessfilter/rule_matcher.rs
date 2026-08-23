@@ -37,12 +37,19 @@ pub enum Score {
 impl Score {
     /// Format this score modifier together with the rule part it applies to,
     /// e.g. `>40|mime:image/*`.
-    pub fn format<T: std::fmt::Display>(&self, r: &T) -> String {
+    pub fn format<T: std::fmt::Display>(
+        &self,
+        r: &T,
+    ) -> String {
         format_rule_part(self, r)
     }
 
     // todo: lowpri: should we have invert field on score or filerule
-    fn modify(&self, score: u8, success: bool) -> u8 {
+    fn modify(
+        &self,
+        score: u8,
+        success: bool,
+    ) -> u8 {
         if success {
             match *self {
                 Score::Add(v) => score.saturating_add(v),
@@ -65,7 +72,11 @@ pub trait Test<I: ?Sized> {
     type Context<'a>;
 
     /// Test if an item passes. If so, it's score will be accumulated into the containing [`Rule`].
-    fn passes<'a>(&self, item: &I, data: &Self::Context<'a>) -> bool;
+    fn passes<'a>(
+        &self,
+        item: &I,
+        data: &Self::Context<'a>,
+    ) -> bool;
 }
 
 impl<T, A> RuleMatcher<T, A> {
@@ -73,7 +84,11 @@ impl<T, A> RuleMatcher<T, A> {
         Self { rules: Vec::new() }
     }
 
-    pub fn add(&mut self, id: A, rule: Rule<T>) {
+    pub fn add(
+        &mut self,
+        id: A,
+        rule: Rule<T>,
+    ) {
         self.rules.push((rule, id));
     }
 
@@ -83,7 +98,11 @@ impl<T, A> RuleMatcher<T, A> {
     /// - first one wins in tie
     /// - 0 score does not count
     /// - Early exit on 255
-    pub fn get_best_match<'a, I: ?Sized>(&self, item: &I, context: T::Context<'a>) -> Option<&A>
+    pub fn get_best_match<'a, I: ?Sized>(
+        &self,
+        item: &I,
+        context: T::Context<'a>,
+    ) -> Option<&A>
     where
         T: Test<I>,
     {
@@ -211,7 +230,10 @@ impl<T, A> RuleMatcher<T, A> {
     //     initial.rules.append(&mut self.rules);
     //     std::mem::swap(initial, self);
     // }
-    pub fn append(&mut self, initial: &mut Self) {
+    pub fn append(
+        &mut self,
+        initial: &mut Self,
+    ) {
         self.rules.append(&mut initial.rules);
     }
 
@@ -301,7 +323,10 @@ fn parse_rule_part<T: FromStr + DefaultScore>(s: &str) -> Result<(Score, T), <T 
     Ok((r.default_score(), r))
 }
 
-fn format_rule_part<T: std::fmt::Display>(score: &Score, r: &T) -> String {
+fn format_rule_part<T: std::fmt::Display>(
+    score: &Score,
+    r: &T,
+) -> String {
     match score {
         Score::Add(v) => format!("+{}|{}", v, r),
         Score::Sub(v) => format!("-{}|{}", v, r),
@@ -319,7 +344,10 @@ where
     A: Serialize,
     T: std::fmt::Display,
 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -420,7 +448,11 @@ mod tests {
         matcher
     }
 
-    fn file_in(dir: &tempfile::TempDir, name: &str, content: &[u8]) -> std::path::PathBuf {
+    fn file_in(
+        dir: &tempfile::TempDir,
+        name: &str,
+        content: &[u8],
+    ) -> std::path::PathBuf {
         let path = dir.path().join(name);
         File::create(&path).unwrap().write_all(content).unwrap();
         path

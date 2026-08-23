@@ -54,7 +54,11 @@ pub async fn open_wrapped(
     Ok(())
 }
 
-pub async fn bump_after_open(mut conn: Connection, prog: Option<Program>, files: &[OsString]) {
+pub async fn bump_after_open(
+    mut conn: Connection,
+    prog: Option<Program>,
+    files: &[OsString],
+) {
     if let Some(prog) = prog {
         let path = prog.path();
         conn.switch_table(DbTable::apps);
@@ -75,7 +79,10 @@ use cba::broc::{CommandExt, format_sh_command};
 use std::process::Command;
 
 /// Open some files, optionally with a [`Program`]
-pub fn open(prog: Option<&Program>, files: &[OsString]) -> Option<Command> {
+pub fn open(
+    prog: Option<&Program>,
+    files: &[OsString],
+) -> Option<Command> {
     // Build the command words to spawn
     let words: Vec<OsString> = if let Some(prog) = prog {
         let mut cmd = prog.to_cmd()._ebog()?;

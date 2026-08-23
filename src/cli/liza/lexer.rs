@@ -124,7 +124,10 @@ pub fn parse_liza_args(args: &[OsString]) -> LizaConfig {
     config
 }
 
-fn apply_column_exclusions(config: &mut LizaConfig, columns: &[&'static str]) {
+fn apply_column_exclusions(
+    config: &mut LizaConfig,
+    columns: &[&'static str],
+) {
     if columns.is_empty() {
         return;
     }

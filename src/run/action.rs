@@ -211,7 +211,10 @@ impl FsAction {
         Self::SetHeader(p.into())
     }
 
-    pub fn new_lessfilter(preset: Preset, paging: bool) -> Self {
+    pub fn new_lessfilter(
+        preset: Preset,
+        paging: bool,
+    ) -> Self {
         Self::Lessfilter {
             preset,
             paging,
@@ -238,7 +241,10 @@ impl FsAction {
 // i.e. "current" saved inputs in chained actions, or consecutive nav actions
 
 // todo: get rid of aliaser for effects
-pub fn fsaction_aliaser(a: Action<FsAction>, state: &mut MMState<'_>) -> Actions<FsAction> {
+pub fn fsaction_aliaser(
+    a: Action<FsAction>,
+    state: &mut MMState<'_>,
+) -> Actions<FsAction> {
     // prompt-mode state: the raw InPrompt marker (the query bar is active).
     // With prompt_locking on, the direct pathways (LockPrompt action, pane
     // lock_prompt config, --lock-prompt) set it; with locking off they are
@@ -552,7 +558,11 @@ pub fn fsaction_aliaser(a: Action<FsAction>, state: &mut MMState<'_>) -> Actions
     }
 }
 
-pub fn fsaction_handler(a: FsAction, state: &mut MMState<'_>, context: &mut ActionContext) {
+pub fn fsaction_handler(
+    a: FsAction,
+    state: &mut MMState<'_>,
+    context: &mut ActionContext,
+) {
     let print_handle = &context.print_handle;
 
     match a {
@@ -1520,7 +1530,11 @@ pub fn fsaction_handler(a: FsAction, state: &mut MMState<'_>, context: &mut Acti
 /// Insert `paths` into the named stash, applying the stash's configured
 /// [`InsertionStrategy`] to paths already present. Reloads after completion
 /// if reload = true.
-fn db_stash(name: String, paths: Vec<AbsPath>, reload: bool) {
+fn db_stash(
+    name: String,
+    paths: Vec<AbsPath>,
+    reload: bool,
+) {
     let c = GLOBAL::cfg();
     let setting = c.panes.stashes.get(&name);
     let (insert, kind) = (
@@ -1591,7 +1605,10 @@ fn db_stash(name: String, paths: Vec<AbsPath>, reload: bool) {
 
 /// Remove `paths` from the named stash, then reload once the removals
 /// complete. Used by Trash/Delete inside a stash pane.
-fn db_stash_remove(name: String, paths: Vec<PathBuf>) {
+fn db_stash_remove(
+    name: String,
+    paths: Vec<PathBuf>,
+) {
     let c = GLOBAL::cfg();
     let kind = c
         .panes
@@ -1635,7 +1652,10 @@ fn db_stash_remove(name: String, paths: Vec<PathBuf>) {
 
 /// Remove `paths` from the db table backing a history pane (files/dirs/apps),
 /// then reload once the removals complete. Used by Delete inside a history pane.
-fn db_remove_history_entries(table: DbTable, paths: Vec<PathBuf>) {
+fn db_remove_history_entries(
+    table: DbTable,
+    paths: Vec<PathBuf>,
+) {
     TASKS::spawn("db remove history", async move {
         let paths: Vec<AbsPath> = paths.iter().map(AbsPath::new_unchecked).collect();
         match db().get_conn(table).await {
@@ -2085,19 +2105,27 @@ mod lfpreview_tests {
     #[test]
     fn lfpreview_parse_and_display() {
         let action: FsAction = "LFPreview(Info)".parse().unwrap();
-        assert_eq!(action, FsAction::LessfilterPreview(Preset::Info, When::Auto));
+        assert_eq!(
+            action,
+            FsAction::LessfilterPreview(Preset::Info, When::Auto)
+        );
         assert_eq!(action.to_string(), "LFPreview(info)");
 
         let action: FsAction = "LFPreview(Preview)".parse().unwrap();
-        assert_eq!(action, FsAction::LessfilterPreview(Preset::Preview, When::Auto));
+        assert_eq!(
+            action,
+            FsAction::LessfilterPreview(Preset::Preview, When::Auto)
+        );
         assert_eq!(action.to_string(), "LFPreview(preview)");
 
         let action: FsAction = "LessfilterPreview(Display)".parse().unwrap();
-        assert_eq!(action, FsAction::LessfilterPreview(Preset::Display, When::Auto));
+        assert_eq!(
+            action,
+            FsAction::LessfilterPreview(Preset::Display, When::Auto)
+        );
         assert_eq!(action.to_string(), "LFPreview(display)");
 
         assert!("LFPreview".parse::<FsAction>().is_err());
         assert!("LFPreview(invalid_preset)".parse::<FsAction>().is_err());
     }
 }
-

@@ -16,7 +16,12 @@ use super::{
 };
 use crate::cli::liza::config::{LizaConfig, ViewMode};
 
-pub fn build_file_entry(name: String, path: &Path, is_dir: bool, config: &LizaConfig) -> FileEntry {
+pub fn build_file_entry(
+    name: String,
+    path: &Path,
+    is_dir: bool,
+    config: &LizaConfig,
+) -> FileEntry {
     if !needs_metadata(config) {
         return FileEntry::new(name, is_dir);
     }
@@ -37,7 +42,10 @@ fn needs_metadata(config: &LizaConfig) -> bool {
         || config.view_mode == Some(ViewMode::Dirs)
 }
 
-fn format_symbolic_permissions(mode: u32, is_dir: bool) -> String {
+fn format_symbolic_permissions(
+    mode: u32,
+    is_dir: bool,
+) -> String {
     let d = if is_dir { 'd' } else { '-' };
     let r1 = if mode & 0o400 != 0 { 'r' } else { '-' };
     let w1 = if mode & 0o200 != 0 { 'w' } else { '-' };
@@ -107,7 +115,10 @@ fn extract_metadata(
     file_meta
 }
 
-pub fn collect_dir_entries(dir: &Path, config: &LizaConfig) -> Vec<DirEntry> {
+pub fn collect_dir_entries(
+    dir: &Path,
+    config: &LizaConfig,
+) -> Vec<DirEntry> {
     let mut builder = WalkBuilder::new(dir);
     builder
         .max_depth(Some(1))
@@ -134,7 +145,10 @@ pub fn collect_dir_entries(dir: &Path, config: &LizaConfig) -> Vec<DirEntry> {
     entries
 }
 
-fn sort_entries(entries: &mut [DirEntry], config: &LizaConfig) {
+fn sort_entries(
+    entries: &mut [DirEntry],
+    config: &LizaConfig,
+) {
     if config.view_mode == Some(ViewMode::Recent) {
         entries.sort_by(|a, b| {
             let time_a = a
@@ -193,13 +207,8 @@ pub fn build_tree_node(
         for child in child_entries {
             let child_path = child.path();
             let child_name = child.file_name().to_string_lossy().to_string();
-            let child_node = build_tree_node(
-                child_path,
-                child_name,
-                current_depth + 1,
-                max_depth,
-                config,
-            );
+            let child_node =
+                build_tree_node(child_path, child_name, current_depth + 1, max_depth, config);
             node.children.push(child_node);
         }
     }
@@ -264,7 +273,10 @@ mod tests {
         config.git_ignore = true;
 
         let entries = collect_dir_entries(temp.path(), &config);
-        let names: Vec<String> = entries.iter().map(|e| e.file_name().to_string_lossy().to_string()).collect();
+        let names: Vec<String> = entries
+            .iter()
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect();
         assert!(names.contains(&"visible.txt".to_string()));
         assert!(!names.contains(&"ignored.txt".to_string()));
     }
@@ -283,8 +295,8 @@ mod tests {
         assert!(entry.metadata.is_some());
         let meta = entry.metadata.as_ref().unwrap();
         assert!(meta.permissions.is_some()); // octal permissions
-        assert!(meta.size.is_some());        // file size
-        assert!(meta.mtime.is_some());       // mtime from :b
+        assert!(meta.size.is_some()); // file size
+        assert!(meta.mtime.is_some()); // mtime from :b
     }
 
     #[test]

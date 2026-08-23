@@ -200,12 +200,18 @@ pub fn generate_shell(
         .replace("$${BINARY_PATH}", path)
 }
 
-pub fn print_shell(cmd: &ShellCommand, path: &str) {
+pub fn print_shell(
+    cmd: &ShellCommand,
+    path: &str,
+) {
     let s = generate_shell(cmd, path);
     prints!(s)
 }
 
-pub fn filter_by_tag(content: &str, tag: &str) -> String {
+pub fn filter_by_tag(
+    content: &str,
+    tag: &str,
+) -> String {
     let mut hide = false;
     let mut out = Vec::new();
     let matches = |after: &str| {
@@ -294,7 +300,10 @@ visible again";
         assert_eq!(filter_by_tag(input, ""), no_tag);
     }
 
-    fn check_syntax(bin: &str, script: &str) {
+    fn check_syntax(
+        bin: &str,
+        script: &str,
+    ) {
         if !cba::broc::has(bin) {
             return;
         }

@@ -36,7 +36,10 @@ impl PathTrie {
         self.root.active_descendants == 0 && !self.root.active
     }
 
-    fn insert(&mut self, path: &Path) -> Option<PathBuf> {
+    fn insert(
+        &mut self,
+        path: &Path,
+    ) -> Option<PathBuf> {
         let comps: Vec<OsString> = path
             .components()
             .map(|c| c.as_os_str().to_os_string())
@@ -51,7 +54,10 @@ impl PathTrie {
         }
     }
 
-    fn insert_recursive(node: &mut PathTrieNode, comps: &[OsString]) -> (bool, bool) {
+    fn insert_recursive(
+        node: &mut PathTrieNode,
+        comps: &[OsString],
+    ) -> (bool, bool) {
         if node.active || node.deferred {
             return (false, true);
         }
@@ -88,7 +94,10 @@ impl PathTrie {
         }
     }
 
-    fn remove(&mut self, path: &Path) -> Option<PathBuf> {
+    fn remove(
+        &mut self,
+        path: &Path,
+    ) -> Option<PathBuf> {
         let comps: Vec<OsString> = path
             .components()
             .map(|c| c.as_os_str().to_os_string())
@@ -182,7 +191,11 @@ impl TaskManager {
         }
     }
 
-    fn add(&self, path: PathBuf, worker_sizes: &Arc<DashMap<PathBuf, u64>>) {
+    fn add(
+        &self,
+        path: PathBuf,
+        worker_sizes: &Arc<DashMap<PathBuf, u64>>,
+    ) {
         let mut state = self.state.lock().unwrap();
 
         if self.cancel_token.load(Ordering::Relaxed) {
@@ -304,7 +317,10 @@ impl DirSizeCache {
         }
     }
 
-    pub fn add<P: AsRef<Path>>(&self, path: P) {
+    pub fn add<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) {
         let path_ref = path.as_ref();
 
         if let Ok(m) = std::fs::symlink_metadata(path_ref)
@@ -317,7 +333,10 @@ impl DirSizeCache {
         self.manager.add(path_ref.to_path_buf(), &self.sizes);
     }
 
-    pub fn get_path<P: AsRef<Path>>(&self, path: P) -> Option<u64> {
+    pub fn get_path<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Option<u64> {
         self.sizes.get(path.as_ref()).map(|v| *v)
     }
 
@@ -327,7 +346,10 @@ impl DirSizeCache {
             .map(|entry| (entry.key().clone(), *entry.value()))
     }
 
-    pub fn set_on_complete(&self, callback: impl Fn() + Send + Sync + 'static) {
+    pub fn set_on_complete(
+        &self,
+        callback: impl Fn() + Send + Sync + 'static,
+    ) {
         *self.manager.on_complete.lock().unwrap() = Some(Arc::new(callback));
     }
 
@@ -343,7 +365,11 @@ impl DirSizeCache {
         self.sizes.clear();
     }
 
-    fn compute_size(path: &Path, sizes: &DashMap<PathBuf, u64>, cancel_token: &AtomicBool) -> u64 {
+    fn compute_size(
+        path: &Path,
+        sizes: &DashMap<PathBuf, u64>,
+        cancel_token: &AtomicBool,
+    ) -> u64 {
         if cancel_token.load(Ordering::Relaxed) {
             return 0;
         }

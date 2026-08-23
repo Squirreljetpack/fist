@@ -36,7 +36,12 @@ fn output_parts(output: &OutputOpts) -> (Option<String>, String) {
 
 /// Sort + print a collected `Vec` — the only place the SortOrder arms for
 /// listing exist. `none` preserves populate order.
-fn print_sorted(mut files: Vec<PathBuf>, sort: SortOrder, template: &Option<String>, sep: &str) {
+fn print_sorted(
+    mut files: Vec<PathBuf>,
+    sort: SortOrder,
+    template: &Option<String>,
+    sep: &str,
+) {
     match sort {
         SortOrder::none => {}
         SortOrder::name => {
@@ -52,7 +57,12 @@ fn print_sorted(mut files: Vec<PathBuf>, sort: SortOrder, template: &Option<Stri
 }
 
 /// Nav pane listing (`fs --list` with no fd args): `list_dir` + sort + print.
-pub fn nav_list(cwd: &std::path::Path, vis: Visibility, sort: SortOrder, output: &OutputOpts) {
+pub fn nav_list(
+    cwd: &std::path::Path,
+    vis: Visibility,
+    sort: SortOrder,
+    output: &OutputOpts,
+) {
     let (template, sep) = output_parts(output);
     // cwd is abs so results can be added as unchecked
     let files: Vec<PathBuf> = list_dir(cwd, vis, 1).collect();

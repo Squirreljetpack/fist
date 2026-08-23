@@ -7,11 +7,8 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{
-    errors::CliError,
-    pager::page_reader,
-};
 use super::super::config::{LizaConfig, ViewMode};
+use crate::{errors::CliError, pager::page_reader};
 use tree::render_tree;
 use walker::{build_file_entry, build_tree_node, collect_dir_entries};
 
@@ -63,7 +60,11 @@ fn format_header(config: &LizaConfig) -> Option<String> {
     }
 
     let mut headers = Vec::new();
-    if config.show_octal || !config.no_permissions || config.show_clean_long || config.show_extensive {
+    if config.show_octal
+        || !config.no_permissions
+        || config.show_clean_long
+        || config.show_extensive
+    {
         headers.push("Permissions");
     }
     if !config.no_filesize
@@ -193,7 +194,8 @@ fn render_flat_output(
             let entries = collect_dir_entries(path, config);
             for entry in entries {
                 let name = entry.file_name().to_string_lossy().to_string();
-                let file_entry = build_file_entry(name, &entry.path(), entry.path().is_dir(), config);
+                let file_entry =
+                    build_file_entry(name, &entry.path(), entry.path().is_dir(), config);
                 writeln!(writer, "{file_entry}")?;
             }
         } else {

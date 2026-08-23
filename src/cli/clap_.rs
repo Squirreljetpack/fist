@@ -58,7 +58,12 @@ pub enum SubTool {
     /// Validate configuration and scripts; exits non-zero on errors.
     Check,
     /// Display an error message and wait for keypress.
-    #[command(name = "showerror", alias = "show_error", alias = "show-error", alias = "se")]
+    #[command(
+        name = "showerror",
+        alias = "show_error",
+        alias = "show-error",
+        alias = "se"
+    )]
     #[strum(serialize = "showerror")]
     ShowError {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]

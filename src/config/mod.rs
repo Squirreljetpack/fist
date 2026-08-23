@@ -1,18 +1,12 @@
-use cba::{
-    bath::RenamePolicy,
-    bs::create_dir,
-    vec_,
-};
+use cba::{bath::RenamePolicy, bs::create_dir, vec_};
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
-    cli::{CliOpts, paths::*},
-    lessfilter::Preset,
+    cli::clap_helpers::ClapStyleOverride, db::zoxide::HistoryConfig, watcher::WatcherConfig,
 };
 use crate::{
-    cli::clap_helpers::ClapStyleOverride,
-    db::zoxide::HistoryConfig,
-    watcher::WatcherConfig,
+    cli::{CliOpts, paths::*},
+    lessfilter::Preset,
 };
 use fist_types::When;
 
@@ -88,9 +82,20 @@ pub struct GlobalConfig {
     /// Configure various pane related settings.
     pub panes: PanesConfig,
 
+    /// Configure background copy/move queue behavior.
+    pub queue: QueueConfig,
+
     /// Matchmaker styling overrides (per-pane).
     /// [Warning!]: Unstable and untested.
     pub mm: MatchmakerOverrides,
+}
+
+/// Settings for background transfer queue (copy/move).
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct QueueConfig {
+    pub copy: fist_copy::CopyParams,
+    pub r#move: fist_copy::MoveParams,
 }
 
 /// Settings for archive extraction skeletons.
@@ -290,7 +295,10 @@ impl Default for FsConfig {
 // -------------- IMPL --------------------------
 
 impl Config {
-    pub fn override_from(&mut self, cli: &CliOpts) {
+    pub fn override_from(
+        &mut self,
+        cli: &CliOpts,
+    ) {
         let style = &mut self.styles.path;
         match cli.style {
             ClapStyleOverride::Auto => {

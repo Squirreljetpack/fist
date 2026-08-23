@@ -9,8 +9,8 @@ use matchmaker::SSS;
 use crate::{
     abspath::AbsPath,
     run::{
-        state::{InitialNoRelative, FILTERS, GLOBAL, STORE},
         FsInjector, FsPane,
+        state::{FILTERS, GLOBAL, InitialNoRelative, STORE},
     },
     watcher::WatcherMessage,
 };

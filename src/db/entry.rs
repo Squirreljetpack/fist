@@ -25,7 +25,10 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn new(name: impl Into<String>, path: AbsPath) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        path: AbsPath,
+    ) -> Self {
         Self {
             name: name.into(),
             path,
@@ -37,7 +40,10 @@ impl Entry {
         }
     }
 
-    pub fn cmd(mut self, cmd: OsString) -> Self {
+    pub fn cmd(
+        mut self,
+        cmd: OsString,
+    ) -> Self {
         self.cmd = cmd.into();
         self
     }

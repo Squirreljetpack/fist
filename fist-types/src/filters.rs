@@ -36,7 +36,10 @@ impl SortOrder {
     /// Display label for prompts/overlays.
     /// In db panes (files/folders/apps), `none` means frecency and the
     /// other variants map to their SQL orderings.
-    pub fn label(&self, db: bool) -> &'static str {
+    pub fn label(
+        &self,
+        db: bool,
+    ) -> &'static str {
         if db {
             match self {
                 SortOrder::name => "name",
@@ -90,7 +93,11 @@ impl Visibility {
         files: false,
     };
 
-    pub fn enable_hidden_if_empty_otherwise(mut self, cwd: &Path, modify_if: bool) -> Self {
+    pub fn enable_hidden_if_empty_otherwise(
+        mut self,
+        cwd: &Path,
+        modify_if: bool,
+    ) -> Self {
         if !self.hidden && modify_if {
             // automatic flag set for directories with only hidden files
             let only_hidden = std::fs::read_dir(cwd)
@@ -115,7 +122,10 @@ impl Visibility {
     }
 
     // note: does rust know to get all these metadata checks in one go?
-    pub fn post_nav_filter(&self, path: &Path) -> bool {
+    pub fn post_nav_filter(
+        &self,
+        path: &Path,
+    ) -> bool {
         let mut push = true;
 
         if self.hidden_only {
@@ -141,7 +151,10 @@ impl Visibility {
     }
 
     /// applies the full visibility filter (notes: checks exists(), ignore not implemented)
-    pub fn filter(&self, path: &Path) -> bool {
+    pub fn filter(
+        &self,
+        path: &Path,
+    ) -> bool {
         let mut push = true;
         if !self.all {
             push &= path.exists()
@@ -173,7 +186,10 @@ impl Visibility {
         push
     }
 
-    pub fn post_fd_filter(&self, path: &Path) -> bool {
+    pub fn post_fd_filter(
+        &self,
+        path: &Path,
+    ) -> bool {
         let mut push = true;
 
         if self.hidden_only {
@@ -197,7 +213,10 @@ impl Visibility {
     pub fn all(&self) -> bool {
         self.all
     }
-    pub fn set_all(&mut self, all: bool) {
+    pub fn set_all(
+        &mut self,
+        all: bool,
+    ) {
         if all {
             *self = Visibility {
                 all: true,
@@ -304,7 +323,10 @@ impl PartialVisibility {
     pub fn is_default(&self) -> bool {
         *self == Self::default()
     }
-    pub fn into_resolved(mut self, cfg: Option<Self>) -> Visibility {
+    pub fn into_resolved(
+        mut self,
+        cfg: Option<Self>,
+    ) -> Visibility {
         let mut vis = Visibility::default();
 
         if self.is_default() {
@@ -333,7 +355,10 @@ impl PartialVisibility {
 }
 
 impl Visibility {
-    pub fn apply(&mut self, patch: PartialVisibility) {
+    pub fn apply(
+        &mut self,
+        patch: PartialVisibility,
+    ) {
         if let Some(v) = patch.hidden {
             self.hidden = v;
         }

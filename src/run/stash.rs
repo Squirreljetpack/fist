@@ -36,7 +36,10 @@ pub fn mem_get(name: &str) -> Vec<StashEntry> {
 }
 
 /// Whether the named transient stash already contains `path`.
-pub fn mem_has(name: &str, path: &AbsPath) -> bool {
+pub fn mem_has(
+    name: &str,
+    path: &AbsPath,
+) -> bool {
     MEM_STASHES
         .lock()
         .unwrap()
@@ -46,7 +49,10 @@ pub fn mem_has(name: &str, path: &AbsPath) -> bool {
 
 /// Add `path` as a fresh entry at the front of the named transient stash
 /// (newest add time first).
-pub fn mem_add(name: &str, path: &AbsPath) {
+pub fn mem_add(
+    name: &str,
+    path: &AbsPath,
+) {
     MEM_STASHES
         .lock()
         .unwrap()
@@ -65,7 +71,10 @@ pub fn mem_add(name: &str, path: &AbsPath) {
 
 /// Remove the entries of the named transient stash whose path is
 /// contained in `paths`; returns the number removed.
-pub fn mem_remove(name: &str, paths: &[AbsPath]) -> usize {
+pub fn mem_remove(
+    name: &str,
+    paths: &[AbsPath],
+) -> usize {
     let mut mem = MEM_STASHES.lock().unwrap();
     let Some(entries) = mem.get_mut(name) else {
         return 0;
@@ -77,7 +86,11 @@ pub fn mem_remove(name: &str, paths: &[AbsPath]) -> usize {
 
 /// Set the tail (alias analogue of the apps pane) of the named transient
 /// stash entry whose path matches. Returns whether an entry was updated.
-pub fn mem_set_tail(name: &str, path: &AbsPath, tail: &str) -> bool {
+pub fn mem_set_tail(
+    name: &str,
+    path: &AbsPath,
+    tail: &str,
+) -> bool {
     let mut mem = MEM_STASHES.lock().unwrap();
     match mem.get_mut(name) {
         Some(entries) => match entries.iter_mut().find(|e| e.stash == *path) {

@@ -51,7 +51,10 @@ impl Pool {
     /// Seed the database with default system directories.
     ///
     /// `initial_count` is the visit count assigned to each seeded directory.
-    pub async fn seed_default_dirs(&self, initial_count: i32) -> Result<(), DbError> {
+    pub async fn seed_default_dirs(
+        &self,
+        initial_count: i32,
+    ) -> Result<(), DbError> {
         let default_dirs = crate::utils::path::default_directories();
         if default_dirs.is_empty() {
             return Ok(());
@@ -136,7 +139,10 @@ impl Pool {
         Ok(())
     }
 
-    pub async fn get_conn(&self, table: DbTable) -> Result<Connection, DbError> {
+    pub async fn get_conn(
+        &self,
+        table: DbTable,
+    ) -> Result<Connection, DbError> {
         let conn = self.pool.acquire().await?;
         let ret = Connection {
             conn,

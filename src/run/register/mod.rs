@@ -34,7 +34,10 @@ use crate::{
 //  Apply recovery methods which depend on all entries being present.
 /// Rehydrates the selections that [`crate::run::ahandlers::fs_reload`] snapshotted as path hashes once the
 /// fresh listing has landed.
-pub fn sync_handler(state: &mut MMState<'_>, _: &Event) {
+pub fn sync_handler(
+    state: &mut MMState<'_>,
+    _: &Event,
+) {
     // reload saved state
     if let Some(seek) = STORE::take()
         && let Some(i) = state
@@ -70,7 +73,10 @@ pub fn sync_handler(state: &mut MMState<'_>, _: &Event) {
     }
 }
 
-pub fn query_handler(_state: &mut MMState<'_>, _: &Event) {
+pub fn query_handler(
+    _state: &mut MMState<'_>,
+    _: &Event,
+) {
     // rg query change is handled by rebinds
 }
 
@@ -419,6 +425,9 @@ pub fn emit_print(
     }
 }
 
-pub fn path_formatter(item: &PathItem, template: &str) -> String {
+pub fn path_formatter(
+    item: &PathItem,
+    template: &str,
+) -> String {
     format_path(template, &item.path)
 }
