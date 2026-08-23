@@ -414,6 +414,18 @@ impl FsPane {
         ]
     }
 
+    /// Whether changing this pane's sort requires repopulating it.
+    #[inline]
+    pub fn is_externally_sorted(&self) -> bool {
+        matches!(
+            self,
+            FsPane::Files { .. }
+                | FsPane::Folders { .. }
+                | FsPane::Apps { .. }
+                | FsPane::Search { .. }
+        )
+    }
+
     /// Whether populate has finished injecting items — used by the selection
     /// refill to wait out async populates. db panes populate in one batch and
     /// don't track completion.

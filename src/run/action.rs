@@ -1,6 +1,7 @@
 //! note: Action handler.
 //! State is managed externally: see [`super::global`] and [`super::thread_local`]
 
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 use cba::{bait::ResultExt, bath::PathExt, bring::split::join_with_single_quotes, unwrap};
@@ -33,8 +34,8 @@ use crate::{
         },
         register::{ExecutionMode, resolve_target},
         state::{
-            AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, HideMetadata,
-            InPrompt, MENU_ACTIONS, MenuPrompt, STACK, STORE, TASKS, TOAST, ToastFlags, ToastStyle,
+            AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, InPrompt,
+            MENU_ACTIONS, MenuPrompt, STACK, STORE, TASKS, TOAST, ToastFlags, ToastStyle,
             context::ActionContext, lessfilter_cfg, sort,
         },
     },
@@ -93,8 +94,11 @@ pub enum FsAction {
 
     /// Switch to the named stash pane. Empty name = the unnamed stash.
     OpenStash(String),
-    /// Add the selection (or cwd) to the named stash.
+    /// Add the active items to the named stash.
     PushStash(String),
+    /// Add selections (or cwd) to the named stash; when there is nothing
+    /// to add, switch to its pane instead.
+    Stash(String),
     /// Execute the queued operations selected by a queue-kind selector.
     ExecuteQueue(QueueSelector),
 
@@ -123,9 +127,6 @@ pub enum FsAction {
     SetAlias(String),
     /// Rename a file or directory.
     Rename,
-
-    /// Save the file to the backup directory. (todo)
-    Backup,
     /// Delete the file using system trash.
     Trash(bool),
     /// Permanently delete the file.
@@ -265,8 +266,7 @@ pub fn fsaction_aliaser(
             // conflates mtime/atime, the other sort modes don't depend on the Atomic metadata field.
             FsAction::ReSort => {
                 // sort explicitly set: unhide the metadata column
-                STORE::take::<HideMetadata>();
-                sort::set_sort_from_pane(state);
+                sort::set_sort_from_pane(state, false.into());
                 state.worker_resort();
                 state.picker_ui.results.set_dirty();
                 acs![]
@@ -298,7 +298,7 @@ pub fn fsaction_aliaser(
                     // db/rg panes
                     // order via SQL/rg, so a reload is required; everything
                     // else fills metadata and dispatches ReSort.
-                    if STACK::reloads_by_sorting() {
+                    if STACK::with_current(FsPane::is_externally_sorted) {
                         fs_reload(state, false, false);
                     } else {
                         sort::fill_then_resort(state);
@@ -944,16 +944,57 @@ pub fn fsaction_handler(
             TOAST::msg(line, false);
         }
 
-        FsAction::Backup => {
-            // todo: impl using custom stash + some kind of db-based kv store
+        // Add the selection to the named stash; with nothing selected,
+        // switch to its pane instead.
+        FsAction::Stash(name) => {
+            let mut toast_vec = vec![];
+            let items = if !state.selections().is_empty() {
+                state.map_selections_to_vec(|_, s| {
+                    toast_vec.push(short_display(&s.path));
+                    s.path.clone()
+                })
+            } else if state.picker_ui.results.cursor_disabled() {
+                STACK::cwd()
+                    .into_iter()
+                    .inspect(|p| toast_vec.push(short_display(p)))
+                    .collect::<Vec<_>>()
+            } else {
+                let (content, index) = state.get_content_and_index();
+                STACK::save_input(content, index);
+                // already on this stash pane: go back instead of re-entering
+                let on_this_stash = STACK::with_current(
+                    |p| matches!(p, FsPane::Stash { stash_name, .. } if stash_name == &name),
+                );
+                if on_this_stash {
+                    if STACK::stack_prev() {
+                        fs_reload(state, true, true);
+                    }
+                } else {
+                    STACK::set_or_push(FsPane::new_stash(name));
+                    fs_reload(state, true, false);
+                }
+                return;
+            };
+
+            let reload = STACK::with_current(
+                |p| matches!(p, FsPane::Stash { stash_name, .. } if stash_name == &name),
+            );
+            db_stash(name.clone(), items, reload);
+
+            let prefix = if name.is_empty() {
+                Cow::Borrowed("Stashed: ")
+            } else {
+                Cow::Owned(format!("Stashed to {name}: "))
+            };
+            TOAST::push(ToastStyle::Normal, prefix, toast_vec);
+            state.picker_ui.clear_selections();
+            state.picker_ui.results.set_dirty();
         }
 
         FsAction::Trash(no_confirm) => {
             let (stash_name, no_yes_default) = STACK::with_current(|p| match p {
                 FsPane::Stash { stash_name, .. } => (Some(stash_name.clone()), true),
-                FsPane::Apps { .. } | FsPane::Files { .. } | FsPane::Folders { .. } => {
-                    (None, true)
-                }
+                FsPane::Apps { .. } | FsPane::Files { .. } | FsPane::Folders { .. } => (None, true),
                 _ => (None, false),
             });
 
@@ -1442,7 +1483,7 @@ pub fn fsaction_handler(
 
                     db().bump_path(true, p);
 
-                    state.picker_ui.selector.clear();
+                    state.picker_ui.clear_selections();
                     state.should_quit = true;
                 } else {
                     // accepting on nav pane prompt opens the displayed directory
@@ -1679,7 +1720,6 @@ fn db_remove_history_entries(
     });
 }
 
-// ------------- BOILERPLATE ---------------
 enum_from_str_display! {
     FsAction;
 
@@ -1688,15 +1728,14 @@ enum_from_str_display! {
     Undo, Redo,
     ShowOptions, ShowQueue,
     ShowMenu, FsToggle, ToggleHidden,
-    Move, Copy, CopyPath, New, NewDir, Rename,
-    Backup;
+    Move, Copy, CopyPath, New, NewDir, Rename;
 
     tuples:
     AutoJump, SetAlias, Enqueue,
     ExecPaged = ExecutePaged, ExecTTY = ExecuteTTY, ExecDetached = ExecuteDetached, ExecSilent = ExecuteSilent, CopyCommand, CopyCommandAsync;
 
     defaults:
-    (Delete, false), (Trash, false), (OpenStash, String::new()), (PushStash = Stash, String::new())
+    (Delete, false), (Trash, false),     (OpenStash, String::new()), (PushStash, String::new()), (Stash, String::new())
     ;
     options:
     LockPrompt;
@@ -2001,10 +2040,12 @@ mod queue_action_parse_tests {
         assert_eq!(push, FsAction::PushStash("mine".into()));
 
         let stash: FsAction = "Stash".parse().unwrap();
-        assert_eq!(stash, FsAction::PushStash(String::new()));
+        assert_eq!(stash, FsAction::Stash(String::new()));
+        assert_eq!(stash.to_string(), "Stash");
 
-        let stash_bm: FsAction = "Stash(bookmark)".parse().unwrap();
-        assert_eq!(stash_bm, FsAction::PushStash("bookmark".into()));
+        let push_or_open: FsAction = "Stash(mine)".parse().unwrap();
+        assert_eq!(push_or_open, FsAction::Stash("mine".into()));
+        assert_eq!(push_or_open.to_string(), "Stash(mine)");
     }
 
     #[test]

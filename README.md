@@ -116,9 +116,9 @@ cargo install fist
 
 - `ctrl-x`/`ctrl-c`/`ctrl-v`: Move, Copy, Paste.
 - `delete/shift-delete`: Trash/Delete.
-- `ctrl-e`: Open menu.
-- `ctrl-u`: Open queue.
-- `ctrl-p` : Open options.
+- `alt-e`: Open menu.
+- `alt-u`: Open queue.
+- `alt-p` : Open options.
 - `ctrl-s`/`alt-h`: Toggle hidden.
 - `ctrl-d`: Toggle contextual visibility.
 
@@ -150,11 +150,11 @@ Once inside, you can navigate and re-enter from other panes by pressing the `lef
 
 #### Prompt locking
 
-F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. However, it has its downsides: as the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions by necessity have to be rebound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in query-reliant panes like [`Find`](#Find) or [`Search`](#Search), the pane enters a `locked` state for these: this is visible by the appearance of a blue border around your prompt. When the prompt is locked, the `Parent` and `BackwardChar` actions switch roles, and likewise for `Advance` and `ForwardChar`. The `Accept` action is also intercepted, focusing you on the pane directory, or accepting it if already focused. On macos, the default `cmd+delete` is also restricted to `DeleteWord` instead of the conventional `Trash` action.
+F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. However, it has its downsides: as the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions by necessity have to be rebound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in query-reliant panes like [`Find`](#Find) or [`Search`](#Search), the pane enters a `locked` state for these: indicated by a blue border around your prompt. When the prompt is locked, the `Parent` and `BackwardChar` actions switch roles, and likewise for `Advance` and `ForwardChar`. The `Accept` action is also intercepted, and On macos, the default `cmd+delete` is also restricted to `DeleteWord` instead of `Trash`.
 
 The locked state can also be entered by *entering the prompt* -- pressing up at the first result, (or down at the last with `results.cycle`). Note that `in_prompt` ⇒ `locked_prompt`: in this state, the prompt displays your current directory, and all actions apply to that instead. To exit the prompt, just press up or down again. To exit *the locked state*, there is also the default bind `alt-space`[^prompt-lock] -- but this is usually unnecessary as you can just press `shift-left`/`right` to recover the `Parent`/`Advance` actions.
 
-Unfortunately, this is by far the least straightforward feature of F:st. Hopefully, it will make more sense when you start to use it. If it doesn't, you can always set `interface.prompt_locking` to false to make your arrow keys always do "the same thing". In fact, rather more is true: every aspect of the above described behavior can be adjusted to your preference through configuration. This is one of the guiding heuristics of the project: it seeks to provide the best out-of-the-box experience through opiniated defaults, but full power should always remain with the user: beneath the polished surface, everything is customizable or extensible.
+Unfortunately, this is easily the least straightforward feature of F:st. Hopefully, it will make more sense when you start to use it. If it doesn't, you can always set `interface.prompt_locking` to false to make your arrow keys always do "the same thing". In fact, rather more is true: every aspect of the above described behavior can be adjusted to your preference through configuration. This is one of the guiding heuristics of the project: it seeks to provide the best out-of-the-box experience through opiniated defaults, but full power should always remain with the user: underneath the surface, everything is customizable or extensible.
 
 ### Find
 
@@ -228,15 +228,19 @@ f:ist records the **files, directories and applications** that you've visited in
 
 The *Files* and *Folders* panes are most useful when integrated into the ambient context where you usually access files. For example, the [shell](#shell-integration), or a [command launcher](#dependencies).
 
-### Named stashes
+### Stashes
 
 `PushStash(name)` adds the selection (or the current directory while the cursor is disabled) to a named stash, and `OpenStash(name)` switches to its pane. Stash panes are transient or database-backed collections of paths, useful for scratch space or bookmarking[^stashes].
 
+By default, `alt-s` and `alt-b` are bound to "smart" stash actions for the *default* (transient) and *bookmark* (persistent) stashes:
+
+- if items are selected, they are pushed
+- if you are already in the stash, it backs you out
+- otherwise, it opens the pane for that stash
+
 > [!NOTE]
 >
-> Combined with contextual [Menu actions](#menu) and the (default) transient pane (`alt-s`/`alt-shift-s`), they are f:st's answer to all cross-directory workflows, such as comparing files and folders, archiving, or bulk-renaming.
->
-> Note that simple actions like Copy and Paste don't require a stash, simply [jump](#history) to your source files to queue them up, jump (or [undo](#additional-notes) if you came from there) to your destination, and [paste](#queue).
+> Combined with contextual [Menu actions](#menu), they are f:st's answer to all cross-directory workflows, such as comparing files and folders, archiving, or bulk-renaming: just push everything to the stash and run your action on there.
 
 ### App
 
@@ -255,7 +259,7 @@ It can be used to select a launch method for a given set of files (provided thro
 
 ### Options
 
-Every pane has a **Options overlay** (`ctrl-p`), with settings for [filtering](https://squirreljetpack.github.io/fist-docs/visibility), [sorting](https://squirreljetpack.github.io/fist-docs/sorting), and other pane-specific controls for the displayed results.
+Every pane has a **Options overlay** (`alt-p`), with settings for [filtering](https://squirreljetpack.github.io/fist-docs/visibility), [sorting](https://squirreljetpack.github.io/fist-docs/sorting), and other pane-specific controls for the displayed results.
 
 <img src=".README.assets/filters-overlay.png" alt="Options overlay" style="height:360px;" />
 
@@ -283,7 +287,7 @@ For more information on any of the panes, run `fs [pane] --help` with the approp
 
 ### Menu
 
-The **Menu** (`ctrl-e`) houses all the actions available in the current context.
+The **Menu** (`alt-e`) houses all the actions available in the current context.
 
 Custom actions can be added in `actions.toml` and from files in `actions/`. They consist of 3 parts:
 
@@ -305,7 +309,7 @@ For example, the default `mm.toml` binds `Ctrl-Esc` to `Execute($SHELL)`: the in
 
 <img src=".README.assets/queue-overlay.png" alt="Queue overlay" style="height:400px;" />
 
-The **Queue** overlay (`ctrl-u`) lists the pending file operations. Rows show their kind, source, destination, and progress, and can be edited, rearranged, removed and executed from the overlay. `Undo`/`Redo` cycles between filters to narrows the overlay to a single queue kind.
+The **Queue** overlay (`alt-u`) lists the pending file operations. Rows show their kind, source, destination, and progress, and can be edited, rearranged, removed and executed from the overlay. `Undo`/`Redo` cycles between filters to narrows the overlay to a single queue kind.
 
 `Move` and `Copy` enqueue items under the `move` and `copy` kinds. `Paste` (`ctrl-v`) executes every queued `copy`, `move` and `symlink` item without enterring the overlay, transferring files into the active directory[^paste-safety]. `ExecuteQueue(selector)`, `Enqueue(kind)` and `ClearQueue(selector)` are also available for binding[^selectors].
 

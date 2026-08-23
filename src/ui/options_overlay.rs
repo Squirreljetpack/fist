@@ -3,7 +3,7 @@ use crate::{
         FsPane,
         action::FsAction,
         item::PathItem,
-        state::{FILTERS, GLOBAL, STACK},
+        state::{FILTERS, GLOBAL, STACK, sort},
     },
     utils::{serde::border_result, text::bold_indices},
 };
@@ -478,14 +478,49 @@ impl OptionsOverlay {
             // sort pane: the pane is the source of truth for sort
             1 => {
                 let orders = self.sort_orders();
+                let sql_db = STACK::with_current(|p| {
+                    matches!(
+                        p,
+                        FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
+                    )
+                });
+                let shows_metadata = !STACK::with_current(FsPane::is_externally_sorted);
                 refilter = STACK::with_current_mut(|p| {
                     if let Some(&new_sort_order) = orders.get(y) {
-                        if new_sort_order != *p.sort_mut() {
-                            *p.sort_mut() = new_sort_order;
-                            true
+                        let current = *p.sort_mut();
+                        let target = if sql_db {
+                            if current == new_sort_order {
+                                SortOrder::mtime
+                            } else {
+                                new_sort_order
+                            }
+                        } else if new_sort_order == SortOrder::mtime {
+                            if matches!(current, SortOrder::atime | SortOrder::mtime)
+                                && sort::take_hide_metadata(p)
+                            {
+                                return true;
+                            }
+                            match current {
+                                SortOrder::mtime => SortOrder::atime,
+                                SortOrder::atime => SortOrder::none,
+                                _ => SortOrder::mtime,
+                            }
+                        } else if current == new_sort_order {
+                            if sort::take_hide_metadata(p) {
+                                return true;
+                            }
+                            SortOrder::none
                         } else {
-                            false
-                        }
+                            new_sort_order
+                        };
+                        let target = if p.sort_options().contains(&target) {
+                            target
+                        } else {
+                            SortOrder::none
+                        };
+                        let changed = target != *p.sort_mut();
+                        *p.sort_mut() = target;
+                        changed
                     } else {
                         false
                     }
@@ -583,20 +618,41 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
                 });
             }
 
-            // time-sort cycle key (the highlighted 't'): any other sort ->
-            // mtime, mtime -> atime, atime -> none, none -> mtime. Every
-            // pane supports the full cycle.
+            // time-sort cycle key (the highlighted 't'):
+            // For SQL db panes (Files/Folders/Apps), 't' toggles atime:
+            // non-atime -> atime, atime -> mtime (unset / insertion order).
+            // For other panes: any other sort -> mtime, mtime -> atime, atime -> none.
+            // If HideMetadata is set on an active mtime/atime sort, first press unhides metadata.
             't' if self.pane_lens[1] > 0 => {
-                // the cycle only moves between orders the pane supports,
-                // so the fallback to none is defensive
+                let sql_db = STACK::with_current(|p| {
+                    matches!(
+                        p,
+                        FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
+                    )
+                });
+                let shows_metadata = !STACK::with_current(FsPane::is_externally_sorted);
                 refilter = STACK::with_current_mut(|p| {
-                    let next = match p.sort_order() {
-                        SortOrder::mtime => SortOrder::atime,
-                        SortOrder::atime => SortOrder::none,
-                        _ => SortOrder::mtime,
+                    let current = p.sort_order();
+                    let target = if sql_db {
+                        if current == SortOrder::atime {
+                            SortOrder::mtime
+                        } else {
+                            SortOrder::atime
+                        }
+                    } else {
+                        if matches!(current, SortOrder::atime | SortOrder::mtime)
+                            && sort::take_hide_metadata(p)
+                        {
+                            return true;
+                        }
+                        match current {
+                            SortOrder::mtime => SortOrder::atime,
+                            SortOrder::atime => SortOrder::none,
+                            _ => SortOrder::mtime,
+                        }
                     };
-                    let target = if p.sort_options().contains(&next) {
-                        next
+                    let target = if p.sort_options().contains(&target) {
+                        target
                     } else {
                         SortOrder::none
                     };
@@ -637,15 +693,18 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
                     }
                 });
                 refilter = STACK::with_current_mut(|p| {
+                    let on_target = p.sort_order() == target;
+                    let unhide = on_target && sort::take_hide_metadata(p);
+                    if unhide {
+                        return true;
+                    }
                     let sort = p.sort_mut();
-                    let new_sort = if *sort == target {
-                        // SQL db panes: the 'other' state is insertion
-                        // order (mtime), shown with no row checked
-                        if sql_db {
-                            SortOrder::mtime
-                        } else {
-                            SortOrder::none
-                        }
+                    // SQL db panes: the 'other' state is insertion
+                    // order (mtime), shown with no row checked
+                    let new_sort = if on_target && sql_db {
+                        SortOrder::mtime
+                    } else if on_target {
+                        SortOrder::none
                     } else {
                         target
                     };
@@ -793,6 +852,8 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::abspath::AbsPath;
+    use crate::run::state::{HideMetadata, STORE};
 
     #[test]
     fn test_options_overlay_cursor_clamping() {
@@ -810,5 +871,109 @@ mod tests {
         overlay.handle_action_nav(&Action::ForwardChar);
         assert_eq!(overlay.cursor[0], 1);
         assert_eq!(overlay.cursor[1], 2);
+    }
+
+    #[test]
+    fn test_options_overlay_sql_db_sort_toggling() {
+        STACK::init(FsPane::Files {
+            sort: SortOrder::none,
+            input: (String::new(), 0),
+        });
+
+        let mut overlay = OptionsOverlay::default();
+        let orders = overlay.sort_orders();
+        assert_eq!(
+            orders,
+            vec![
+                SortOrder::name,
+                SortOrder::atime,
+                SortOrder::size,
+                SortOrder::none
+            ]
+        );
+
+        overlay.pane_lens = [0, orders.len(), 0];
+        // Position on 'atime' row (index 1)
+        overlay.cursor = [1, 1];
+
+        // Enter on 'atime' sets sort to atime
+        overlay.handle_action_nav(&Action::Accept);
+        assert_eq!(STACK::with_current(FsPane::sort_order), SortOrder::atime);
+
+        // Enter again on 'atime' unsets sort to mtime (insertion order)
+        overlay.handle_action_nav(&Action::Accept);
+        assert_eq!(STACK::with_current(FsPane::sort_order), SortOrder::mtime);
+
+        // Enter again sets back to atime
+        overlay.handle_action_nav(&Action::Accept);
+        assert_eq!(STACK::with_current(FsPane::sort_order), SortOrder::atime);
+    }
+
+    #[test]
+    fn test_options_overlay_stash_sort_cycling() {
+        STACK::init(FsPane::new_stash("test-stash".into()));
+
+        let mut overlay = OptionsOverlay::default();
+        let orders = overlay.sort_orders();
+        assert_eq!(
+            orders,
+            vec![
+                SortOrder::name,
+                SortOrder::mtime,
+                SortOrder::size,
+                SortOrder::none
+            ]
+        );
+
+        overlay.pane_lens = [0, orders.len(), 0];
+        // Position on 'mtime' row (index 1)
+        overlay.cursor = [1, 1];
+
+        // Stash starts on SortOrder::none. Enter on mtime sets sort to mtime
+        assert_eq!(STACK::with_current(FsPane::sort_order), SortOrder::none);
+        overlay.handle_action_nav(&Action::Accept);
+        assert_eq!(STACK::with_current(FsPane::sort_order), SortOrder::mtime);
+
+        // Enter again on mtime row cycles to atime
+        overlay.handle_action_nav(&Action::Accept);
+        assert_eq!(STACK::with_current(FsPane::sort_order), SortOrder::atime);
+
+        // Enter again on atime row cycles to none
+        overlay.handle_action_nav(&Action::Accept);
+        assert_eq!(STACK::with_current(FsPane::sort_order), SortOrder::none);
+    }
+
+    #[test]
+    fn test_options_overlay_nav_hidemetadata_unhide_before_cycle() {
+        STACK::init(FsPane::new_nav(
+            AbsPath::new("/tmp"),
+            Visibility::DEFAULT,
+            SortOrder::mtime,
+        ));
+        STORE::set(HideMetadata);
+
+        let mut overlay = OptionsOverlay::default();
+        let orders = overlay.sort_orders();
+        overlay.pane_lens = [0, orders.len(), 0];
+        // Position on 'mtime' row (index 1)
+        overlay.cursor = [1, 1];
+
+        // 1st press of Enter on mtime when HideMetadata is active unhides metadata and stays on mtime
+        assert!(STORE::contains::<HideMetadata>());
+        overlay.handle_action_nav(&Action::Accept);
+        assert!(!STORE::contains::<HideMetadata>());
+        assert_eq!(STACK::with_current(FsPane::sort_order), SortOrder::mtime);
+
+        // 2nd press of Enter on mtime cycles to atime
+        overlay.handle_action_nav(&Action::Accept);
+        assert_eq!(STACK::with_current(FsPane::sort_order), SortOrder::atime);
+
+        // 3rd press of Enter on atime cycles to none
+        overlay.handle_action_nav(&Action::Accept);
+        assert_eq!(STACK::with_current(FsPane::sort_order), SortOrder::none);
+
+        // 4th press of Enter on none cycles to mtime
+        overlay.handle_action_nav(&Action::Accept);
+        assert_eq!(STACK::with_current(FsPane::sort_order), SortOrder::mtime);
     }
 }

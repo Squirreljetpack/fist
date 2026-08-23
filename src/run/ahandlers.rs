@@ -1,5 +1,6 @@
 #![allow(unused_variables)]
 
+use crate::run::state::GLOBAL::cfg;
 use cba::{_trace, bring::split::split_whitespace_preserve_single_quotes};
 use fist_types::{
     filters::{SortOrder, Visibility},
@@ -22,7 +23,7 @@ use crate::{
         queue::{QUEUE, QueueSelector, SelectorResult},
         selection,
         state::{
-            FILTERS, GLOBAL, HideMetadata, InPrompt, STACK, STORE, TOAST, ToastStyle, sort,
+            FILTERS, GLOBAL, InPrompt, STACK, STORE, TOAST, ToastStyle, sort,
             ui::{global_ui, prompt_main_style},
         },
     },
@@ -84,7 +85,31 @@ pub fn refresh_prompt(state: &mut MMState<'_>) {
                 .query
                 .set_prompt_line(Line::styled("f: ", prompt_main_style()));
         } else {
-            state.picker_ui.query.set_prompt(None); // restore stored prompt
+            // the pane's configured prompt applied via temporary setters;
+            // panes without a configured prompt restore the config default
+            let (custom_prompt, custom_style) = STACK::with_current(|pane| {
+                (
+                    cfg().panes.prompt(pane),
+                    cfg()
+                        .panes
+                        .prompt_style(pane)
+                        .map(ratatui::style::Style::from),
+                )
+            });
+
+            match (custom_prompt, custom_style) {
+                (None, None) => state.picker_ui.query.set_prompt(None),
+                (p, s) => {
+                    let prompt = p.unwrap_or_else(|| state.picker_ui.query.config.prompt.clone());
+                    let style =
+                        s.unwrap_or_else(|| state.picker_ui.query.config.prompt_style.into());
+
+                    state
+                        .picker_ui
+                        .query
+                        .set_prompt_line(Line::styled(prompt, style));
+                }
+            }
         }
     }
 }
@@ -171,7 +196,7 @@ pub fn enter_dir_pane(
     }
 
     // always clear selections
-    state.picker_ui.selector.clear();
+    state.picker_ui.clear_selections();
     TOAST::clear_msgs();
 
     // start pane
@@ -281,20 +306,10 @@ pub fn fs_reload(
         } else {
             STORE::take::<selection::PendingSelections>();
         }
-        state.picker_ui.selector.clear();
+        state.picker_ui.clear_selections();
     }
 
-    // a new pane whose sort matches its configured default override (startup
-    // pane, pane switch with apply_default_sort, undo/redo) hides the metadata
-    // column until the user explicitly re-sorts (ReSort takes it); set before
-    // the sort push so the threshold decision in `set_global_sort_only_from_pane`
-    // reads the marker
-    if is_new && STACK::with_current(FsPane::on_default_sort) {
-        STORE::set(HideMetadata);
-    }
-
-    // apply the pane's sort
-    sort::set_sort_from_pane(state);
+    sort::set_sort_from_pane(state, is_new.then_some(true));
     if sort::get_sort().order == SortOrder::size && (is_new || dir_changed) {
         let preserve = GLOBAL::cfg().interface.preserve_size_cache
             && STACK::cwd()
@@ -362,10 +377,6 @@ pub fn fs_post_reload_new(state: &mut MMState<'_>) {
     // apply pane-specific config overrides
     STACK::with_current(|pane| {
         let c = GLOBAL::cfg();
-        if let Some(p) = c.panes.prompt(pane) {
-            state.picker_ui.query.config.prompt = p
-        };
-
         if let Some(p) = state.preview_ui {
             p.set_layout(c.panes.preview_layout_index(pane));
         };
@@ -430,7 +441,7 @@ pub fn fs_post_reload_new(state: &mut MMState<'_>) {
         .picker_ui
         .query
         .set(STACK::with_current(FsPane::get_input), u16::MAX);
-    state.picker_ui.selector.clear();
+    state.picker_ui.clear_selections();
     TOAST::clear_msgs();
 
     if STACK::in_app() {

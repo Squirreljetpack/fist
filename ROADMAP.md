@@ -12,3 +12,5 @@ Custom crate for proper copy/move handling: reference yazi for touchpoints
 smarter determination for when to clear the dirsizecache: not too often so that entering + return doesn't need to recompute say ~, and also not too aggresive so that invalidation occurs at a sensible time
 
 - maybe size resort makes sense to reset cursor to 0 as well
+
+take hidemetadata before cycling?

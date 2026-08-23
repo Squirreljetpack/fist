@@ -514,7 +514,6 @@ mod tests {
 
         // Artificially advance the tick by inserting a dummy entry and bumping many times
         for i in 0..100 {
-            let dummy_path = AbsPath::new(format!("/dummy_{i}"));
             db.set_entry(&entry_at(&format!("/dummy_{i}"), (2 + i) as Epoch))
                 .await
                 .unwrap();

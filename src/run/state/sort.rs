@@ -64,13 +64,25 @@ pub fn order_is_none() -> bool {
 }
 
 /// Updates the global `SORT_MODE` lock and returns the new `SortMode`.
-fn set_global_sort_only_from_pane() -> SortMode {
+pub fn set_global_sort_from_pane(set_meta: Option<bool>) -> SortMode {
+    if let Some(set) = set_meta {
+        STACK::with_current(|p| {
+            if set && p.on_default_sort() {
+                STORE::set(HideMetadata);
+            } else {
+                take_hide_metadata(p);
+            }
+        });
+    }
+
     // db/rg panes order by insertion order (SQL/rg already ordered)
-    let order = if STACK::reloads_by_sorting() {
-        SortOrder::none
-    } else {
-        STACK::with_current(FsPane::sort_order)
-    };
+    let order = STACK::with_current(|p| {
+        if p.is_externally_sorted() {
+            SortOrder::none
+        } else {
+            p.sort_order()
+        }
+    });
     let threshold = match order {
         SortOrder::none => STACK::with_current(FsPane::stability_threshold),
         // hard sort while a fresh default sort is hiding the metadata column
@@ -90,9 +102,21 @@ fn set_global_sort_only_from_pane() -> SortMode {
     mode
 }
 
+/// Unhide the metadata column: the explicit re-sort / sort-cycle flows.
+/// No-op on panes that never show metadata (rg and SQL db panes, which
+/// reload by sorting).
+pub fn take_hide_metadata(pane: &FsPane) -> bool {
+    !pane.is_externally_sorted() && STORE::take::<HideMetadata>().is_some()
+}
+
 /// Pushes the current pane's sort into global and updates Nucleo.
-pub fn set_sort_from_pane(state: &mut MMState<'_>) {
-    let SortMode { order, threshold } = set_global_sort_only_from_pane();
+/// If set_meta = false: attempts to remove HideMetadata
+/// If set_meta = true: hides the metadata for the default sort (i.e. new pane)
+pub fn set_sort_from_pane(
+    state: &mut MMState<'_>,
+    set_meta: Option<bool>,
+) {
+    let SortMode { order, threshold } = set_global_sort_from_pane(set_meta);
 
     state.picker_ui.worker.nucleo.sort_with(sort_fn_for(order));
     state.picker_ui.worker.nucleo.set_stability(threshold);
@@ -190,7 +214,7 @@ pub fn store_sort_value(
 /// Fill flow for a mid-pane sort change (no reload): snapshot the existing
 /// items, compute the new sort values off-thread, then dispatch `ReSort`.
 pub fn fill_then_resort(state: &MMState<'_>) {
-    let SortMode { order, threshold } = set_global_sort_only_from_pane();
+    let SortMode { order, threshold } = set_global_sort_from_pane(None);
 
     match order {
         // no fill needed: name compares paths, none unsorts
