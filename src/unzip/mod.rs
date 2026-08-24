@@ -57,17 +57,16 @@ pub fn root() -> PathBuf {
 
 /// Arms the best-effort exit hook once, on first use: nothing needs
 /// cleaning before the first skeleton exists.
+#[cfg(unix)]
 fn arm_exit_hook() {
     static ARMED: OnceLock<()> = OnceLock::new();
-    #[cfg(unix)]
     ARMED.get_or_init(|| unsafe {
         libc::atexit(cleanup_on_exit);
     });
-    #[cfg(not(unix))]
-    {
-        _ = ARMED.get();
-    }
 }
+
+#[cfg(not(unix))]
+fn arm_exit_hook() {}
 
 /// Removes the whole skeleton root. Registered with `atexit` so hard exits
 /// also clean up; best effort, as extraction tasks may still be running.

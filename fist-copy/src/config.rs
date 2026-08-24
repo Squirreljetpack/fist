@@ -20,8 +20,10 @@ pub enum ConflictStrategy {
 /// handled per-entry by [`ConflictStrategy`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum MergeStrategy {
-    /// The existing target is replaced wholesale (removed, then copied
-    /// fresh).
+    /// The existing target is replaced wholesale: removed *before* the
+    /// transfer starts, so an aborted transfer leaves nothing behind.
+    /// Destructive by design; a recoverable soft-overwrite (rename aside,
+    /// delete on success) is a possible future refinement.
     Overwrite,
     /// The existing target is kept; entries are resolved per-entry by
     /// [`ConflictStrategy`] inside it.

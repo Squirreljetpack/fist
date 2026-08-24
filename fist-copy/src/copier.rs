@@ -24,10 +24,10 @@ pub(crate) fn execute(
     let res = match &work.item {
         WorkItem::File(f) => copy_one(job, f, scratch),
         WorkItem::Link(l) => recreate_link(job, l),
-        WorkItem::Extract(e) => crate::extract::runner::run(job, e),
+        WorkItem::Extract(e) => crate::extract::runner::run(job, e).map(|_| ItemOutcome::Done),
     };
     match res {
-        Ok(()) => ItemOutcome::Done,
+        Ok(outcome) => outcome,
         Err(WorkError::Canceled) => ItemOutcome::Skipped,
         Err(WorkError::Io(e)) => {
             job.log.error(format!("{}: {e}", describe(work)));
@@ -49,16 +49,37 @@ fn describe(work: &QueuedWork) -> String {
     }
 }
 
-/// Apply the job's [`ConflictStrategy`] against an existing destination,
-/// returning the path to write (`None` = skip this entry).
+/// The destination decision for one entry.
+enum Resolve {
+    /// Write to this path (already claimed free or declared replaceable).
+    Write(PathBuf),
+    /// Entry skipped by policy; the caller reports it.
+    Skip,
+}
+
+/// Apply the job's [`ConflictStrategy`] against an existing destination.
+/// Pure decision-making: progress accounting happens in the callers that
+/// turn [`Resolve`] into an [`ItemOutcome`].
 fn resolve_dest(
     job: &Arc<JobCtx>,
     dst: &Path,
-) -> Result<Option<PathBuf>, WorkError> {
+) -> Result<Resolve, WorkError> {
+    let free = || Ok(Resolve::Write(dst.to_path_buf()));
     match job.conflict {
         ConflictStrategy::Overwrite => {
+            // replacing a directory is not representable at entry level;
+            // fail honestly instead of tripping over EISDIR later
+            if fs::metadata(dst).map(|m| m.is_dir()).unwrap_or(false) {
+                return Err(WorkError::Io(std::io::Error::new(
+                    std::io::ErrorKind::IsADirectory,
+                    format!(
+                        "cannot overwrite: destination is a directory: {}",
+                        dst.display()
+                    ),
+                )));
+            }
             let _ = fs::remove_file(dst);
-            Ok(Some(dst.to_path_buf()))
+            free()
         }
         ConflictStrategy::Fail => {
             if dest_exists(dst) {
@@ -70,7 +91,7 @@ fn resolve_dest(
                     ),
                 )))
             } else {
-                Ok(Some(dst.to_path_buf()))
+                free()
             }
         }
         ConflictStrategy::Skip => {
@@ -79,14 +100,13 @@ fn resolve_dest(
                     "skipping existing destination (conflict strategy: skip): {}",
                     dst.display()
                 ));
-                job.prog.skip_file();
-                Ok(None)
+                Ok(Resolve::Skip)
             } else {
-                Ok(Some(dst.to_path_buf()))
+                free()
             }
         }
         ConflictStrategy::RenameSuffix => match free_sibling_of(dst) {
-            Some(path) => Ok(Some(path)),
+            Some(path) => Ok(Resolve::Write(path)),
             None => Err(WorkError::Io(std::io::Error::new(
                 std::io::ErrorKind::AlreadyExists,
                 format!("no free suffixed name for destination: {}", dst.display()),
@@ -101,7 +121,7 @@ fn resolve_dest(
                 job.token.cancel();
                 Err(WorkError::Canceled)
             } else {
-                Ok(Some(dst.to_path_buf()))
+                free()
             }
         }
     }
@@ -142,12 +162,16 @@ fn copy_one(
     job: &Arc<JobCtx>,
     f: &FileJob,
     scratch: &mut [u8],
-) -> Result<(), WorkError> {
+) -> Result<ItemOutcome, WorkError> {
     if job.token.is_cancelled() {
         return Err(WorkError::Canceled);
     }
-    let Some(dst) = resolve_dest(job, &f.dst)? else {
-        return Ok(());
+    let dst = match resolve_dest(job, &f.dst)? {
+        Resolve::Write(dst) => dst,
+        Resolve::Skip => {
+            job.prog.skip_file();
+            return Ok(ItemOutcome::Skipped);
+        }
     };
 
     if job.reflink_mode == ReflinkMode::Auto && reflink::same_device(&f.src, parent_of(&dst)) {
@@ -158,7 +182,7 @@ fn copy_one(
                 if job.delete_source {
                     delete_source_path(job, &f.src);
                 }
-                return Ok(());
+                return Ok(ItemOutcome::Done);
             }
             Err(e) => {
                 job.log.info(format!(
@@ -202,25 +226,29 @@ fn copy_one(
     if job.delete_source {
         delete_source_path(job, &f.src);
     }
-    Ok(())
+    Ok(ItemOutcome::Done)
 }
 
 fn recreate_link(
     job: &Arc<JobCtx>,
     l: &LinkJob,
-) -> Result<(), WorkError> {
+) -> Result<ItemOutcome, WorkError> {
     if job.token.is_cancelled() {
         return Err(WorkError::Canceled);
     }
-    let Some(dst) = resolve_dest(job, &l.dst)? else {
-        return Ok(());
+    let dst = match resolve_dest(job, &l.dst)? {
+        Resolve::Write(dst) => dst,
+        Resolve::Skip => {
+            job.prog.skip_file();
+            return Ok(ItemOutcome::Skipped);
+        }
     };
     create_symlink(&l.target, &dst)?;
     job.prog.add_copied(0);
     if job.delete_source {
         delete_source_path(job, &l.src);
     }
-    Ok(())
+    Ok(ItemOutcome::Done)
 }
 
 fn create_symlink(

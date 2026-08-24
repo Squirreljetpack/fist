@@ -28,9 +28,10 @@ use crate::{
 
 /// Runs one row. `item.data` is task input, verbatim from enqueue time:
 /// the destination (or destination hint) for transfers, the script
-/// destination for custom kinds. `nav` is the effective navigation
-/// directory; transfers need it to resolve their destination and are
-/// skipped — left pending — when it is absent.
+/// destination for custom kinds. Transfer rows carry exactly one source;
+/// they resolve their destination from `data` + `nav`, and are a silent
+/// no-op (row stays pending) when both are missing — [`QUEUE::dispatch`]
+/// filters those before counting.
 ///
 /// By value so ownership can move into spawned closures; the row in
 /// `QUEUE_STATE` shares its status atomics, so every update here is
@@ -41,7 +42,7 @@ pub fn perform(
 ) {
     log::debug!("Transferring: {item:?}");
 
-    status_started(&item);
+    item.status.state.store(QueueItemState::Started);
 
     match item.kind.as_str() {
         // extraction rows never go through dispatch: [`QUEUE::start_extract`]
@@ -51,7 +52,6 @@ pub fn perform(
             item.status.state.store(QueueItemState::CompleteErr);
         }
         "symlink" => {
-            debug_assert_eq!(item.src.len(), 1, "symlink rows carry exactly one source");
             let Some(dest) = transfer_dest(&item, nav.as_ref()) else {
                 return;
             };
@@ -75,7 +75,6 @@ pub fn perform(
         // builtin transfers: submission is cheap, so this stays inline on
         // the dispatching thread (config is main-thread TLS)
         "copy" | "move" => {
-            debug_assert_eq!(item.src.len(), 1, "transfer rows carry exactly one source");
             let Some(dest) = transfer_dest(&item, nav.as_ref()) else {
                 return;
             };
@@ -122,7 +121,8 @@ pub fn perform(
                 }
             };
             item.status.progress.store(0, Ordering::Relaxed);
-            TASKS::spawn_blocking("queue script", move || {
+            let desc = format!("{}: {}", item.kind, item.display());
+            TASKS::spawn_blocking(desc, move || {
                 let result = load_script(&command, Some(actions_dir()))
                     .ok_or_else(|| anyhow::anyhow!("failed to load script"))
                     .and_then(|s| {
@@ -165,10 +165,6 @@ fn transfer_dest(
         &item.src[0],
         base.as_os_str(),
     ))
-}
-
-fn status_started(item: &QueueItem) {
-    item.status.state.store(QueueItemState::Started);
 }
 
 /// Blocking tail shared by kinds that finish on their own terms (symlink,

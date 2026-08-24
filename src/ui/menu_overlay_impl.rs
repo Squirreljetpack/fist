@@ -3,7 +3,7 @@ use crate::{
     abspath::AbsPath,
     config::StashPaneKind,
     db::DbTable,
-    fs::{auto_dest, create_all, rename},
+    fs::rename,
     run::{
         FsAction,
         item::{PathItem, short_display},
@@ -102,22 +102,36 @@ impl MenuOverlay {
             PromptKind::New => {
                 let current_item_parent = self.target_parent(state);
                 let input = self.prompt.input.value();
-                let input_path = Path::new(&input);
-                let dest = auto_dest(input_path, &current_item_parent); // replaced if input is absolute
-                let dest_slice = [dest];
+                let dest = crate::utils::path::auto_dest(Path::new(&input), &current_item_parent); // replaced if input is absolute
 
                 TASKS::spawn("create", async move {
-                    match create_all(&dest_slice).await {
-                        Ok(_) => {
-                            let dest_path = match &dest_slice[0] {
-                                Ok(p) | Err(p) => p,
-                            };
+                    // parents first, then an exclusive claim: an existing
+                    // name is reported as skipped instead of truncated or
+                    // silently merged
+                    let target = match &dest {
+                        Ok(file) => file.as_path(),
+                        Err(dir) => dir.as_path(),
+                    };
+                    if let Some(parent) = target.parent() {
+                        if let Err(e) = std::fs::create_dir_all(parent) {
+                            log::error!("Failed to create parent {parent:?}: {e}");
+                        }
+                    }
+                    let claimed = match &dest {
+                        Ok(file) => cba_claim::reserve_file(file, None),
+                        Err(dir) => cba_claim::reserve_dir(dir, None),
+                    };
+                    let dest_path = match &dest {
+                        Ok(p) | Err(p) => p,
+                    };
+                    match claimed {
+                        Ok(reserved) => {
+                            drop(reserved);
                             TOAST::push(ToastStyle::Success, "New: ", [short_display(dest_path)]);
                         }
-                        Err(_) => {
-                            let dest_path = match &dest_slice[0] {
-                                Ok(p) | Err(p) => p,
-                            };
+                        Err(cba_claim::ClaimError::Taken(_)) => TOAST::push_skipped(),
+                        Err(e) => {
+                            log::error!("Failed to create {dest_path:?}: {e:?}");
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Failed to create: ",
@@ -223,6 +237,7 @@ impl MenuOverlay {
                     };
                     match rename(&old_path, &dest).await {
                         Ok(_) => {
+                            drop(reserved);
                             let new_display = dest.to_string_lossy().to_string().into();
                             TOAST::pair(
                                 ToastStyle::Success,
@@ -257,6 +272,10 @@ impl MenuOverlay {
                                 old_path.to_string_lossy(),
                                 dest.to_string_lossy()
                             );
+                            // the reservation created an empty placeholder at
+                            // dest; without the rename it is an orphan
+                            drop(reserved);
+                            let _ = std::fs::remove_file(&dest);
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Failed to rename: ",

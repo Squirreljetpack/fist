@@ -588,3 +588,57 @@ fn conflict_rename_suffix_handles_extensionless_and_nested_dirs() {
         b"NEW"
     );
 }
+
+#[test]
+fn skip_conflict_counts_skipped_not_ok() {
+    let src = tmp("fc-skip2-src");
+    let dst = tmp("fc-skip2-dst");
+    write_file(&src.path().join("f"), b"NEW");
+    write_file(&dst.path().join("f"), b"OLD");
+
+    let sch = sched(1);
+    let h = sch
+        .submit(JobRequest {
+            kind: JobKind::Copy(params_with(ConflictStrategy::Skip)),
+            source: src.path().join("f"),
+            dest: dst.path().join("f"),
+        })
+        .expect("submit");
+    assert_eq!(
+        await_terminal(&h, Duration::from_secs(10)),
+        TaskState::CompleteOk
+    );
+    let snap = h.snapshot();
+    assert_eq!(snap.files_skipped, 1, "skip must count as skipped");
+    assert_eq!(snap.files_ok, 0, "skip must not count as ok");
+    assert_eq!(fs::read(dst.path().join("f")).unwrap(), b"OLD");
+}
+
+#[test]
+fn overwrite_onto_existing_dir_fails_honestly() {
+    let src = tmp("fc-ovdir-src");
+    let dst = tmp("fc-ovdir-dst");
+    write_file(&src.path().join("f"), b"NEW");
+    std::fs::create_dir(dst.path().join("targetdir")).unwrap();
+
+    let sch = sched(1);
+    let h = sch
+        .submit(JobRequest {
+            kind: JobKind::Copy(params_with(ConflictStrategy::Overwrite)),
+            source: src.path().join("f"),
+            dest: dst.path().join("targetdir"),
+        })
+        .expect("submit");
+    assert_eq!(
+        await_terminal(&h, Duration::from_secs(10)),
+        TaskState::CompleteErr
+    );
+    // the target directory survived the failed overwrite attempt
+    assert!(dst.path().join("targetdir").is_dir());
+    // and the log names the real reason instead of a downstream EISDIR
+    let logs = h.log_lines().join("\n");
+    assert!(
+        logs.contains("destination is a directory"),
+        "log should explain the failure: {logs}"
+    );
+}

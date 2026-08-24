@@ -251,7 +251,18 @@ impl Scheduler {
             walk_done: AtomicBool::new(false),
         });
 
-        if is_move && delete_source && fast_rename(&job) {
+        // same-filesystem rename fast path: POSIX rename silently replaces,
+        // so beyond a free destination it may only run when replacement is
+        // explicitly allowed at every level the source touches: per-entry
+        // (ConflictStrategy) always, and directory-level (MergeStrategy)
+        // only when actually moving a directory
+        let dest_free = fs::symlink_metadata(&job.dest).is_err();
+        let src_is_dir = fs::metadata(&job.source)
+            .map(|m| m.is_dir())
+            .unwrap_or(false);
+        let replaces = job.conflict == ConflictStrategy::Overwrite
+            && (!src_is_dir || job.merge == crate::config::MergeStrategy::Overwrite);
+        if is_move && delete_source && (dest_free || replaces) && fast_rename(&job) {
             self.inner
                 .jobs
                 .lock()

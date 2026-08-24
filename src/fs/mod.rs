@@ -1,28 +1,7 @@
-use std::{
-    ffi::OsStr,
-    io,
-    path::{MAIN_SEPARATOR, Path},
-};
+use std::io;
 
 use crate::abspath::AbsPath;
-use cba::bath::PathExt;
 use tokio::fs;
-
-// Returns Err(dest) if the given ends with slash
-pub fn auto_dest(
-    dest: impl AsRef<OsStr>,
-    cwd: &Path,
-) -> Result<AbsPath, AbsPath> {
-    let dest = dest.as_ref();
-
-    if dest.to_string_lossy().ends_with(MAIN_SEPARATOR) {
-        let ret = AbsPath::new_unchecked(Path::new(dest).abs(cwd));
-        Err(ret)
-    } else {
-        let ret = AbsPath::new_unchecked(Path::new(dest).abs(cwd));
-        Ok(ret)
-    }
-}
 
 // fails fast
 pub async fn create_all(files: &[Result<AbsPath, AbsPath>]) -> Result<(), io::Error> {

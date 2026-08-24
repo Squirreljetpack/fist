@@ -571,12 +571,21 @@ impl QUEUE {
         indices: Vec<usize>,
         nav_cwd: Option<AbsPath>,
     ) {
+        // transfers need a destination hint or a navigation pane to resolve
+        // into; filtering here keeps the "Starting N items" count honest
+        // (filtered rows stay pending for a later dispatch)
+        let runnable = |item: &QueueItem| {
+            !matches!(item.kind.as_str(), "copy" | "move" | "symlink")
+                || !item.data.is_empty()
+                || nav_cwd.is_some()
+        };
         let queue: Vec<QueueItem> = {
             let state = QUEUE_STATE.lock().unwrap();
             indices
                 .iter()
                 .filter_map(|&i| state.shared.get(i).cloned())
                 .filter(|item| !item.status.state.is_started())
+                .filter(runnable)
                 .collect()
         };
         if queue.is_empty() {
@@ -586,12 +595,10 @@ impl QUEUE {
         TOAST::msg(format!("Starting {} items.", queue.len()), true);
 
         for item in queue {
-            let desc = format!("{}: {}", item.kind, item.display());
             let nav = nav_cwd.clone();
             // transfers run inline here (config is main-thread TLS);
             // blocking kinds spawn their own workers inside `perform`
             crate::run::queue::execute::perform(item, nav);
-            let _ = desc;
         }
     }
 

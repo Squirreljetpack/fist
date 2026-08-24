@@ -10,7 +10,6 @@
 //! how many ticks observe them.
 
 use std::collections::HashMap;
-use std::panic::AssertUnwindSafe;
 use std::sync::OnceLock;
 use std::thread;
 use std::time::Duration;
@@ -26,10 +25,6 @@ use crate::run::{
 pub static COPY_SCHED: OnceLock<Scheduler> = OnceLock::new();
 
 static WATCHER: OnceLock<()> = OnceLock::new();
-
-/// Set by [`shutdown`]: the watcher finishes its tick and exits instead of
-/// sleeping on.
-static WATCHER_EXIT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 const TICK: Duration = Duration::from_millis(100);
 
@@ -48,8 +43,7 @@ pub fn ensure_watcher() {
                 let mut seen = HashMap::new();
                 loop {
                     thread::sleep(TICK);
-                    // a panicked tick must not kill all future finalizations
-                    let _ = std::panic::catch_unwind(AssertUnwindSafe(|| tick(&mut seen)));
+                    tick(&mut seen);
                 }
             })
             .expect("spawn copy watcher");
@@ -63,7 +57,6 @@ pub fn task_log(task_id: u64) -> Option<Vec<String>> {
 
 /// Shut down the global scheduler if it was ever created.
 pub fn shutdown(drain_timeout: Duration) {
-    WATCHER_EXIT.store(true, std::sync::atomic::Ordering::Release);
     if let Some(sched) = COPY_SCHED.get() {
         sched.shutdown(drain_timeout);
     }
@@ -122,7 +115,9 @@ fn discover(
     if fresh.is_empty() {
         return;
     }
-    let state = QUEUE_STATE.lock().unwrap();
+    let state = QUEUE_STATE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     for id in fresh {
         if let Some(item) = state
             .shared
@@ -177,7 +172,10 @@ fn finalize(
         return;
     }
     announce(item);
-    QUEUE_ACTION_HISTORY.lock().unwrap().push(item.clone());
+    QUEUE_ACTION_HISTORY
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .push(item.clone());
     if item.kind == "extract" {
         if target == QueueItemState::CompleteErr {
             // mark the skeleton so re-entry reports failure instead of
