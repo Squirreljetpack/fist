@@ -532,7 +532,7 @@ impl QueueOverlay {
 
         let mut dst_w = self.headers[2].len() as u16;
         for item in items {
-            dst_w = dst_w.max(item.dst.to_string_lossy().width() as u16);
+            dst_w = dst_w.max(item.data.to_string_lossy().width() as u16);
         }
 
         let mut size_w = 10;
@@ -718,7 +718,7 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
                 let dst_cell = if is_editing && editing_info.unwrap().1 == 2 {
                     Cell::from("")
                 } else {
-                    Cell::from(item.dst.to_string_lossy().into_owned().pad(0, 1))
+                    Cell::from(item.data.to_string_lossy().into_owned().pad(0, 1))
                 };
                 let size = Cell::from(item.status.render(self.widths[3] as usize, &self.config));
 

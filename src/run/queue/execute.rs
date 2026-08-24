@@ -1,15 +1,19 @@
 //! Execution logic for queued items.
 //!
-//! Extends [`QueueItem`] with [`QueueItem::execute`], which runs one item to
-//! completion: builtin transfers (`copy`, `move`, `symlink`, `none`) or a Lua
-//! script for custom kinds. Copy/move are submitted to the global
-//! [`fist_copy`] scheduler; the pump finalizes their rows asynchronously.
-//! Also provides [`QUEUE::check_validity`], which marks pending items whose
-//! source paths no longer exist as [`QueueItemState::PendingErr`].
+//! [`perform`] runs one row: builtin transfers (`copy`, `move`) are
+//! submitted to the global [`fist_copy`] scheduler inline — cheap, and it
+//! keeps them on the dispatching thread where config lives — while
+//! blocking work (Lua scripts, symlinks) is spawned. Transfers require a
+//! navigation directory to resolve their destination; without one they are
+//! left pending for a later dispatch. Engine-backed rows are finalized
+//! asynchronously by the pump. Also provides [`QUEUE::check_validity`],
+//! which marks pending items whose source paths no longer exist as
+//! [`QueueItemState::PendingErr`].
 
 use super::*;
 
-use std::{fs::create_dir_all, path::PathBuf, sync::atomic::Ordering};
+use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 
 use cba::bs::symlink;
 
@@ -18,148 +22,169 @@ use crate::{
     lua::{execute, load_script},
     run::{
         item::short_display,
-        state::{MENU_ACTIONS, TOAST, ToastStyle},
+        state::{GLOBAL, MENU_ACTIONS, TOAST, ToastStyle},
     },
 };
 
-impl QueueItem {
-    /// Execute this item according to its kind:
-    /// - `"copy"` / `"move"` / `"symlink"` run the builtin transfer logic on
-    ///   each source path, using the destination as-is (single-path items
-    ///   are pre-resolved by the caller);
-    /// - `"none"` is a no-op;
-    /// - any other kind is a menu action key: the mapped command runs once
-    ///   with the full path list, the destination, and the navigation
-    ///   directory when it exists (`(paths, dst)` or
-    ///   `(paths, dst, nav_cwd)`), and `set_progress` writes the item's
-    ///   progress for the duration of the call. The progress is reset when
-    ///   the call starts and marked complete afterwards so the display is
-    ///   sensible even when the script never calls `set_progress`.
-    ///
-    /// `job_kind` carries the resolved transfer parameters for builtin
-    /// `copy`/`move` rows; config lives in main-thread TLS, so callers
-    /// running this item off-thread must resolve it before spawning.
-    ///
-    /// A custom kind with no mapping fails the item with an error toast. The
-    /// action history records one entry per executed item that completed
-    /// successfully.
-    pub fn execute(
-        self,
-        nav_cwd: Option<&AbsPath>,
-        job_kind: Option<fist_copy::JobKind>,
-    ) {
-        log::debug!("Transferring: {self:?}");
+/// Runs one row. `item.data` is task input, verbatim from enqueue time:
+/// the destination (or destination hint) for transfers, the script
+/// destination for custom kinds. `nav` is the effective navigation
+/// directory; transfers need it to resolve their destination and are
+/// skipped — left pending — when it is absent.
+///
+/// By value so ownership can move into spawned closures; the row in
+/// `QUEUE_STATE` shares its status atomics, so every update here is
+/// visible to the UI.
+pub fn perform(
+    item: QueueItem,
+    nav: Option<AbsPath>,
+) {
+    log::debug!("Transferring: {item:?}");
 
-        let Self {
-            kind,
-            src,
-            status,
-            dst,
-            ..
-        } = &self;
+    status_started(&item);
 
-        status.state.store(QueueItemState::Started);
-
-        let mut any_success = false;
-
-        match kind.as_str() {
-            "symlink" => {
-                for path in src {
-                    match symlink(path, dst, true) {
-                        Ok(()) => {
-                            status.state.store(QueueItemState::CompleteOk);
-                            any_success = true;
-                        }
-                        Err(_) => status.state.store(QueueItemState::CompleteErr),
-                    }
-                }
-            }
-            "none" => {
-                // the kind is reserved; queue rows may still be enqueued
-                // under it as an explicit no-op
-                status.state.store(QueueItemState::CompleteOk);
-                any_success = true;
-            }
-            "copy" | "move" => {
-                let Some(job_kind) = job_kind else {
-                    log::error!("copy/move row dispatched without resolved engine params");
-                    status.state.store(QueueItemState::CompleteErr);
-                    return;
-                };
-
-                for path in src {
-                    if let Some(parent) = std::path::Path::new(dst).parent() {
-                        let _ = create_dir_all(parent);
-                    }
-
-                    let request = fist_copy::JobRequest {
-                        kind: job_kind.clone(),
-                        source: path.to_path_buf(),
-                        dest: PathBuf::from(dst),
-                    };
-                    match super::scheduler().submit(request) {
-                        Ok(handle) => {
-                            // the status atomics are shared with the stored
-                            // row, so the watcher discovers this task by id
-                            status.set_task_id(handle.id);
-                            super::ensure_watcher();
-                        }
-                        Err(e) => {
-                            log::error!("Transfer submit failed for {self:?}: {e}");
-                            status.state.store(QueueItemState::CompleteErr);
-                            let display = short_display(path);
-                            TOAST::push(ToastStyle::Error, "Failed: ", [display]);
-                            TOAST::notice(ToastStyle::Error, e.to_string());
-                        }
-                    }
-                }
-                // completion (toasts + action history) is handled by the pump
+    match item.kind.as_str() {
+        // extraction rows never go through dispatch: [`QUEUE::start_extract`]
+        // submits them directly
+        "extract" => {
+            log::error!("extract row reached perform; this is a bug: {item:?}");
+            item.status.state.store(QueueItemState::CompleteErr);
+        }
+        "symlink" => {
+            debug_assert_eq!(item.src.len(), 1, "symlink rows carry exactly one source");
+            let Some(dest) = transfer_dest(&item, nav.as_ref()) else {
                 return;
-            }
-            // any other kind is a menu action key
-            script => {
-                let command = match MENU_ACTIONS.get().and_then(|m| m.get(script)) {
-                    Some(action) => action.command.clone(),
-                    None => {
-                        log::error!("No menu action for queue kind {script:?}: {self:?}");
-                        status.state.store(QueueItemState::CompleteErr);
-                        TOAST::notice(
-                            ToastStyle::Error,
-                            format!("No menu action for kind {script}"),
-                        );
-                        return;
-                    }
+            };
+            let source = item.src.first().cloned();
+            TASKS::spawn_blocking("queue symlink", move || {
+                let result = match source {
+                    Some(path) => symlink(&path, &dest, true)
+                        .map(|_| ())
+                        .map_err(|e| e.to_string()),
+                    None => Err("symlink row has no source".into()),
                 };
-                status.progress.store(0, Ordering::Relaxed);
+                finish_inline(item, result);
+            });
+        }
+        "none" => {
+            // the kind is reserved; queue rows may still be enqueued
+            // under it as an explicit no-op
+            item.status.state.store(QueueItemState::CompleteOk);
+            QUEUE_ACTION_HISTORY.lock().unwrap().push(item);
+        }
+        // builtin transfers: submission is cheap, so this stays inline on
+        // the dispatching thread (config is main-thread TLS)
+        "copy" | "move" => {
+            debug_assert_eq!(item.src.len(), 1, "transfer rows carry exactly one source");
+            let Some(dest) = transfer_dest(&item, nav.as_ref()) else {
+                return;
+            };
+            let params = if item.kind == "copy" {
+                fist_copy::JobKind::Copy(GLOBAL::cfg().queue.copy.clone())
+            } else {
+                fist_copy::JobKind::Move(GLOBAL::cfg().queue.r#move.clone())
+            };
+
+            let request = fist_copy::JobRequest {
+                kind: params,
+                source: item.src[0].to_path_buf(),
+                dest,
+            };
+            match super::scheduler().submit(request) {
+                Ok(handle) => {
+                    // the status atomics are shared with the stored row,
+                    // so the watcher discovers this task by id
+                    item.status.set_task_id(handle.id);
+                    super::ensure_watcher();
+                }
+                Err(e) => {
+                    log::error!("Transfer submit failed for {item:?}: {e}");
+                    item.status.state.store(QueueItemState::CompleteErr);
+                    let display = short_display(item.src.first().expect("single source checked"));
+                    TOAST::push(ToastStyle::Error, "Failed: ", [display]);
+                    TOAST::notice(ToastStyle::Error, e.to_string());
+                }
+            }
+            // completion (toasts + action history) is handled by the pump
+        }
+        // any other kind is a menu action key
+        script => {
+            let command = match MENU_ACTIONS.get().and_then(|m| m.get(script)) {
+                Some(action) => action.command.clone(),
+                None => {
+                    log::error!("No menu action for queue kind {script:?}: {item:?}");
+                    item.status.state.store(QueueItemState::CompleteErr);
+                    TOAST::notice(
+                        ToastStyle::Error,
+                        format!("No menu action for kind {script}"),
+                    );
+                    return;
+                }
+            };
+            item.status.progress.store(0, Ordering::Relaxed);
+            TASKS::spawn_blocking("queue script", move || {
                 let result = load_script(&command, Some(actions_dir()))
                     .ok_or_else(|| anyhow::anyhow!("failed to load script"))
                     .and_then(|s| {
                         execute(
                             &s,
-                            src,
-                            &dst.to_string_lossy(),
-                            nav_cwd,
-                            Some(&status.progress),
+                            &item.src,
+                            &item.data.to_string_lossy(),
+                            nav.as_ref(),
+                            Some(&item.status.progress),
                         )
+                        .map(|_| ())
                         .map_err(anyhow::Error::msg)
                     });
-                // status.progress.store(255, Ordering::Relaxed);
-
-                match result {
-                    Ok(_) => {
-                        status.state.store(QueueItemState::CompleteOk);
-                        any_success = true;
-                    }
-                    Err(e) => {
-                        log::error!("Queue script error for {self:?}: {e}");
-                        status.state.store(QueueItemState::CompleteErr);
-                    }
-                }
-            }
+                finish_inline(item, result.map_err(|e| e.to_string()));
+            });
         }
+    }
+}
 
-        if any_success {
-            QUEUE_ACTION_HISTORY.lock().unwrap().push(self.clone());
+// todo: this makes sense but maybe has too many cases to be intuitive, at least needs documentation
+/// Resolves a transfer's concrete destination. An explicit `data` is used
+/// as-is (absolute) or resolved against `nav`; empty `data` means "into
+/// `nav`" and requires it — without one the row stays pending. The source
+/// file name is appended when the result names a directory.
+fn transfer_dest(
+    item: &QueueItem,
+    nav: Option<&AbsPath>,
+) -> Option<PathBuf> {
+    let base: PathBuf = match (item.data.is_empty(), nav) {
+        (true, Some(nav)) => {
+            let mut d = nav.as_os_str().to_owned();
+            d.push(std::path::MAIN_SEPARATOR_STR);
+            d.into()
+        }
+        (_, Some(nav)) => item.data.abs(nav),
+        (false, None) => item.data.clone().into(),
+        (true, None) => return None,
+    };
+    Some(crate::utils::path::desired_path(
+        &item.src[0],
+        base.as_os_str(),
+    ))
+}
+
+fn status_started(item: &QueueItem) {
+    item.status.state.store(QueueItemState::Started);
+}
+
+/// Blocking tail shared by kinds that finish on their own terms (symlink,
+/// scripts): resolves terminal state and records history.
+fn finish_inline(
+    item: QueueItem,
+    result: Result<(), String>,
+) {
+    match result {
+        Ok(()) => {
+            item.status.state.store(QueueItemState::CompleteOk);
+            QUEUE_ACTION_HISTORY.lock().unwrap().push(item);
+        }
+        Err(e) => {
+            log::error!("Queue task error for {item:?}: {e}");
+            item.status.state.store(QueueItemState::CompleteErr);
         }
     }
 }
@@ -186,8 +211,22 @@ mod tests {
     /// so they are serialized explicitly.
     static SERIAL: Mutex<()> = Mutex::new(());
 
-    #[test]
-    fn test_execute_copy_and_symlink() {
+    fn wait_terminal(
+        watch: &QueueItemStatus,
+        secs: u64,
+    ) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
+        while !watch.state.is_complete() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "queue task did not finish in time"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_perform_copy_and_symlink() {
         let _guard = SERIAL.lock().unwrap();
         GLOBAL::init_test_senders();
         let dir = tempdir().unwrap();
@@ -203,25 +242,15 @@ mod tests {
         let item = QueueItem {
             kind: "copy".into(),
             src: vec![AbsPath::new_unchecked(&src_dir)],
-            dst: dst_folder.as_os_str().to_owned(),
+            data: dst_folder.as_os_str().to_owned(),
             status: QueueItemStatus::new(&src_dir),
         };
         // the unified watcher resolves tasks through rows in the shared
         // queue, mirroring the production dispatch path
         QUEUE_STATE.lock().unwrap().shared.push(item.clone());
         let watch = item.status.clone();
-        item.execute(
-            Some(&AbsPath::new_unchecked(&dst_dir)),
-            Some(fist_copy::JobKind::Copy(fist_copy::CopyParams::default())),
-        );
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
-        while !watch.state.is_complete() {
-            assert!(
-                std::time::Instant::now() < deadline,
-                "copy task did not finish in time"
-            );
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+        perform(item, Some(AbsPath::new_unchecked(&dst_dir)));
+        wait_terminal(&watch, 30);
         assert_eq!(watch.state.load(), QueueItemState::CompleteOk);
         assert!(dst_folder.exists(), "dst_folder should exist after copy");
         assert!(
@@ -229,22 +258,23 @@ mod tests {
             "file.txt should exist inside copied dst_folder"
         );
 
-        // 2. Symlink directory
-        let symlink_folder = dst_dir.join("symlink_folder");
+        // 2. Symlink
+        let symlink_target = dst_dir.join("symlink_folder");
         let sym_item = QueueItem {
             kind: "symlink".into(),
             src: vec![AbsPath::new_unchecked(&src_dir)],
-            dst: symlink_folder.as_os_str().to_owned(),
+            data: symlink_target.as_os_str().to_owned(),
             status: QueueItemStatus::new(&src_dir),
         };
-        sym_item.execute(Some(&AbsPath::new_unchecked(&dst_dir)), None);
-        let read_link = std::fs::read_link(&symlink_folder);
-        println!("symlink target result: {:?}", read_link);
-        assert!(symlink_folder.exists(), "symlink_folder should exist");
-        assert!(
-            symlink_folder.join("file.txt").exists(),
-            "symlink target should resolve correctly"
-        );
+        QUEUE_STATE.lock().unwrap().shared.push(sym_item.clone());
+        let watch = sym_item.status.clone();
+        perform(sym_item, Some(AbsPath::new_unchecked(&dst_dir)));
+        wait_terminal(&watch, 30);
+        assert_eq!(watch.state.load(), QueueItemState::CompleteOk);
+        assert!(symlink_target.exists(), "symlink_folder should exist");
+
+        // remove only our rows: sibling tests own theirs
+        QUEUE_STATE.lock().unwrap().shared.clear();
     }
 
     /// Extraction rows are created started, run on the engine, and
@@ -282,30 +312,18 @@ mod tests {
         let status = QUEUE::start_extract(AbsPath::new_unchecked(archive.clone()), dest.clone())
             .expect("engine submission");
 
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
-        while !status.state.is_complete() {
-            assert!(
-                std::time::Instant::now() < deadline,
-                "extraction row did not finish in time"
-            );
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+        wait_terminal(&status, 30);
         assert_eq!(status.state.load(), QueueItemState::CompleteOk);
         assert!(dest.join("hello.txt").exists());
         assert!(dest.join("nested/data.txt").exists());
-
-        // NOTE: no shared-queue row assertions here — sibling tests clear
-        // the global QUEUE_STATE concurrently; reaching CompleteOk already
-        // proves the row was registered with a live task (the pump watcher
-        // only finalizes rows it tracks)
     }
 
-    /// Exercises the production dispatch path: engine params must be resolved
-    /// on the dispatching thread, because the row's task runs on a worker
-    /// thread where config TLS is unset. A regression leaves the row Started
-    /// and the deadline assertion fires.
+    /// Exercises the production dispatch path end to end: a pending row in
+    /// the shared queue is executed via [`QUEUE::dispatch`] and finalized
+    /// by the watcher.
     #[tokio::test]
-    async fn dispatched_copy_resolves_engine_params_off_thread() {
+    async fn dispatched_copy_runs_to_completion() {
+        let _guard = SERIAL.lock().unwrap();
         GLOBAL::init_test_senders();
         let dir = tempdir().unwrap();
         let src_dir = dir.path().join("disp_src");
@@ -319,7 +337,7 @@ mod tests {
             state.shared.push(QueueItem {
                 kind: "copy".into(),
                 src: vec![AbsPath::new_unchecked(&src_dir)],
-                dst: Default::default(),
+                data: Default::default(),
                 status: QueueItemStatus::new(&src_dir),
             });
             state.shared.len() - 1
@@ -339,14 +357,7 @@ mod tests {
             }
             std::thread::sleep(std::time::Duration::from_millis(5));
         };
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
-        while !watch.state.is_complete() {
-            assert!(
-                std::time::Instant::now() < deadline,
-                "dispatched copy did not finish in time"
-            );
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
+        wait_terminal(&watch, 30);
         assert_eq!(watch.state.load(), QueueItemState::CompleteOk);
         assert!(
             dst_dir.join("disp_src").join("file.txt").exists(),

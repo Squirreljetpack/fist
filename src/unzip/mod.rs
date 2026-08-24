@@ -24,7 +24,7 @@ use crate::{
     abspath::AbsPath,
     cli::paths::__unzip,
     run::{
-        queue::{EXTRACT_KIND, QUEUE, QUEUE_STATE, scheduler},
+        queue::{QUEUE, QUEUE_STATE, scheduler},
         state::{GLOBAL, TASKS},
     },
     watcher::WatcherMessage,
@@ -197,7 +197,7 @@ fn running_row(source: &Path) -> Option<crate::run::queue::QueueItem> {
         .shared
         .iter()
         .find(|i| {
-            i.kind == EXTRACT_KIND
+            i.kind == "extract"
                 && i.status.state.is_started()
                 && i.src
                     .first()
@@ -207,7 +207,7 @@ fn running_row(source: &Path) -> Option<crate::run::queue::QueueItem> {
 }
 /// The workdir of a started extraction of `source`.
 fn running_workdir(source: &Path) -> Option<PathBuf> {
-    running_row(source).map(|i| PathBuf::from(i.dst.as_os_str()))
+    running_row(source).map(|i| PathBuf::from(i.data.as_os_str()))
 }
 
 /// Tell the watcher to keep reloading `temp` through event storms (the

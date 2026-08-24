@@ -15,7 +15,7 @@ pub use pump::{ensure_watcher, scheduler, shutdown, task_log};
 
 use std::{ffi::OsString, path::PathBuf, sync::Mutex};
 
-use cba::bath::{PathExt, auto_dest_for_src};
+use cba::bath::PathExt;
 use matchmaker::nucleo::Span;
 
 use crate::{
@@ -23,7 +23,7 @@ use crate::{
     cli::paths::__home,
     run::{
         FsPane,
-        state::{GLOBAL, MENU_ACTIONS, STACK, TASKS, TOAST, ToastStyle},
+        state::{MENU_ACTIONS, STACK, TASKS, TOAST, ToastStyle},
     },
 };
 
@@ -36,12 +36,6 @@ pub const BUILTIN_KINDS: [&str; 4] = ["copy", "move", "symlink", "none"];
 
 /// The builtin queue kinds that require a destination to execute.
 pub const DEST_KINDS: [&str; 3] = ["copy", "move", "symlink"];
-
-/// The engine-backed extraction row kind. Created only by
-/// [`QUEUE::start_extract`] when an archive is entered — never through the
-/// user-facing [`QUEUE::enqueue`] path — and executed against the archive's
-/// pre-allocated skeleton workdir.
-pub const EXTRACT_KIND: &str = "extract";
 
 /// Selector over queued operations used by `ExecuteQueue`/`ClearQueue`.
 /// Parsing is ASCII case-insensitive for the reserved spellings; any other
@@ -117,7 +111,9 @@ pub struct QueueItem {
     pub kind: QueueKind,
     pub src: Vec<AbsPath>,
     pub status: QueueItemStatus,
-    pub dst: OsString,
+    /// Task input: destination hint for transfers, script destination for
+    /// custom kinds. Never mutated after enqueue.
+    pub data: OsString,
 }
 
 impl QueueItem {
@@ -129,7 +125,7 @@ impl QueueItem {
             kind,
             status: QueueItemStatus::new(&src),
             src: vec![src],
-            dst: Default::default(),
+            data: Default::default(),
         }
     }
 
@@ -270,8 +266,8 @@ impl QUEUE {
             }
         };
 
-        let mut item = QueueItem::new(EXTRACT_KIND.into(), source);
-        item.dst = dest.into_os_string();
+        let mut item = QueueItem::new("extract".into(), source);
+        item.data = dest.into_os_string();
         item.status.set_task_id(handle.id);
         item.status.state.store(QueueItemState::Started);
 
@@ -314,7 +310,7 @@ impl QUEUE {
                 kind,
                 status: QueueItemStatus::new(&paths[0]),
                 src: paths,
-                dst: Default::default(),
+                data: Default::default(),
             });
         }
     }
@@ -342,7 +338,7 @@ impl QUEUE {
                 .unwrap()
                 .shared
                 .get(index)
-                .map(|item| (item.src.clone(), item.dst.clone())),
+                .map(|item| (item.src.clone(), item.data.clone())),
             QueueView::Apps => STACK::with_current(|p| match p {
                 FsPane::Apps { pending, .. } => pending
                     .get(index)
@@ -368,7 +364,7 @@ impl QUEUE {
                         item.src = vec![p];
                     }
                     if let Some(d) = dst {
-                        item.dst = d;
+                        item.data = d;
                     }
                 }
             }
@@ -473,7 +469,7 @@ impl QUEUE {
         item: &QueueItem,
         nav_cwd: Option<&AbsPath>,
     ) -> bool {
-        if !item.dst.is_empty() {
+        if !item.data.is_empty() {
             return false;
         }
         match item.kind.as_str() {
@@ -589,38 +585,13 @@ impl QUEUE {
 
         TOAST::msg(format!("Starting {} items.", queue.len()), true);
 
-        let rename_policy = GLOBAL::cfg().fs.rename_policy.clone();
-
         for item in queue {
             let desc = format!("{}: {}", item.kind, item.display());
             let nav = nav_cwd.clone();
-            let policy = rename_policy.clone();
-            // config lives in main-thread TLS: resolve engine params here,
-            // before the row's task runs on a worker thread
-            let job_kind = match item.kind.as_str() {
-                "copy" => Some(fist_copy::JobKind::Copy(GLOBAL::cfg().queue.copy.clone())),
-                "move" => Some(fist_copy::JobKind::Move(GLOBAL::cfg().queue.r#move.clone())),
-                _ => None,
-            };
-            TASKS::spawn_blocking(desc, move || {
-                // single-path items resolve their destination here against
-                // the effective navigation directory; multi-path items pass
-                // their stored destination to `QueueItem::execute` verbatim
-                let mut item = item;
-                if item.src.len() == 1 {
-                    let base_dest: OsString = match (item.dst.is_empty(), nav.as_ref()) {
-                        (true, Some(base)) => {
-                            let mut d: OsString = base.as_os_str().to_owned();
-                            d.push(std::path::MAIN_SEPARATOR_STR);
-                            d
-                        }
-                        (false, Some(base)) => item.dst.abs(base).into(),
-                        _ => item.dst.clone(),
-                    };
-                    item.dst = auto_dest_for_src(&item.src[0], &base_dest, &policy).into();
-                }
-                item.execute(nav.as_ref(), job_kind);
-            });
+            // transfers run inline here (config is main-thread TLS);
+            // blocking kinds spawn their own workers inside `perform`
+            crate::run::queue::execute::perform(item, nav);
+            let _ = desc;
         }
     }
 

@@ -72,6 +72,8 @@ pub(crate) struct JobCtx {
     pub buffer_size: usize,
     /// Extraction jobs run one archive-level work item instead of a walk.
     pub is_extract: bool,
+    /// Directory-transfer behavior when the target directory exists.
+    pub merge: crate::config::MergeStrategy,
     pub token: CancelToken,
     pub prog: Arc<Progress>,
     pub log: Arc<TaskLog>,
@@ -240,6 +242,7 @@ impl Scheduler {
             conflict: params.conflict,
             buffer_size: params.buffer_size.get(),
             is_extract,
+            merge: params.merge,
             token: CancelToken::new(),
             prog,
             log,

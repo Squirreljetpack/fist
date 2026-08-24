@@ -132,7 +132,7 @@ fn discover(
             // extraction rows announce themselves here: discovery happens
             // exactly once per task, so the persistent "Extracting" toast
             // is pushed exactly once and retired by [`finalize`]
-            if item.kind == EXTRACT_KIND
+            if item.kind == "extract"
                 && let Some(first) = item.src.first()
             {
                 TOAST::push_with_flag(
@@ -178,7 +178,7 @@ fn finalize(
     }
     announce(item);
     QUEUE_ACTION_HISTORY.lock().unwrap().push(item.clone());
-    if item.kind == EXTRACT_KIND {
+    if item.kind == "extract" {
         if target == QueueItemState::CompleteErr {
             // mark the skeleton so re-entry reports failure instead of
             // silently showing partial files, plus a transient notice
@@ -195,7 +195,7 @@ fn finalize(
 /// Writes the `.failed` marker into the extraction's skeleton dir (the
 /// workdir's parent). Best effort.
 fn mark_skeleton_failed(item: &QueueItem) {
-    let Some(marker_dir) = std::path::Path::new(item.dst.as_os_str()).parent() else {
+    let Some(marker_dir) = std::path::Path::new(item.data.as_os_str()).parent() else {
         return;
     };
     let _ = std::fs::write(marker_dir.join(".failed"), b"");

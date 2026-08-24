@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-use cba::bath::{PathExt, RenamePolicy, auto_dest_for_src};
+use cba::{bath::PathExt, claim as cba_claim};
 use matchmaker::{
     nucleo::{Color, Span},
     render::MMState,
@@ -130,19 +130,45 @@ impl MenuOverlay {
             PromptKind::NewDir => {
                 let current_item_parent = self.target_parent(state);
                 let input = self.prompt.input.value();
-                let input_path = Path::new(&input);
-                let dest = AbsPath::new_unchecked(input_path.abs(current_item_parent));
+                let dest = AbsPath::new_unchecked(Path::new(&input).abs(current_item_parent));
                 let cd = input.ends_with(std::path::MAIN_SEPARATOR);
 
                 TASKS::spawn("mkdir", async move {
-                    match std::fs::create_dir_all(&dest) {
-                        Ok(_) => {
-                            TOAST::push(ToastStyle::Success, "New: ", [short_display(&dest)]);
+                    // parents first, then an atomic claim on the final name:
+                    // a taken name is reported instead of merged into
+                    if let Some(parent) = dest.parent() {
+                        if let Err(e) = std::fs::create_dir_all(parent) {
+                            log::error!("Failed to create parent {parent:?}: {e}");
+                            TOAST::push(
+                                ToastStyle::Error,
+                                "Failed to create: ",
+                                [short_display(&dest)],
+                            );
+                            return;
+                        }
+                    }
+                    match cba_claim::reserve_dir(&dest, Some(&cba_claim::Naming::default())) {
+                        Ok(reserved) => {
+                            TOAST::push(
+                                ToastStyle::Success,
+                                "New: ",
+                                [short_display(reserved.path())],
+                            );
                             if cd {
-                                GLOBAL::send_action(FsAction::Jump(vec![dest.into()]));
+                                GLOBAL::send_action(FsAction::Jump(vec![
+                                    reserved.path().to_path_buf().into(),
+                                ]));
                             }
                         }
-                        Err(_) => {
+                        Err(cba_claim::ClaimError::Taken(_)) => {
+                            TOAST::push(
+                                ToastStyle::Error,
+                                "Already exists: ",
+                                [short_display(&dest)],
+                            );
+                        }
+                        Err(cba_claim::ClaimError::Io(e)) => {
+                            log::error!("Failed to create {dest:?}: {e}");
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Failed to create: ",
@@ -157,14 +183,9 @@ impl MenuOverlay {
                 if old_path.file_name().is_none() {
                     return OverlayEffect::None;
                 }
-                let dest = AbsPath::new_unchecked(
-                    auto_dest_for_src(
-                        &old_path,
-                        self.prompt.input.value(),
-                        &RenamePolicy::default(),
-                    )
-                    .abs(old_path.parent().unwrap()),
-                );
+                let input = self.prompt.input.value();
+                let dest =
+                    AbsPath::new_unchecked(Path::new(&input).abs(old_path.parent().unwrap()));
 
                 if dest == old_path {
                     TOAST::push_skipped();
@@ -178,6 +199,28 @@ impl MenuOverlay {
                 let renames_process_cwd = current_dir_matches(&old_path);
 
                 TASKS::spawn("rename", async move {
+                    // reserve the target first: a taken name fails the
+                    // rename instead of POSIX-replacing whatever is there
+                    let reserved = match cba_claim::reserve_file(&dest, None) {
+                        Ok(reserved) => reserved,
+                        Err(cba::claim::ClaimError::Taken(blocked)) => {
+                            TOAST::push(
+                                ToastStyle::Error,
+                                "Already exists: ",
+                                [short_display(&blocked)],
+                            );
+                            return;
+                        }
+                        Err(cba::claim::ClaimError::Io(e)) => {
+                            log::error!("Failed to reserve rename target {dest:?}: {e}");
+                            TOAST::push(
+                                ToastStyle::Error,
+                                "Failed to rename: ",
+                                [short_display(&old_path)],
+                            );
+                            return;
+                        }
+                    };
                     match rename(&old_path, &dest).await {
                         Ok(_) => {
                             let new_display = dest.to_string_lossy().to_string().into();

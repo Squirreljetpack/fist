@@ -4,8 +4,8 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use fist_copy::{
-    CancelToken, ConflictStrategy, CopyParams, JobKind, JobRequest, MoveParams, ReflinkMode,
-    Scheduler, SchedulerOptions, TaskState,
+    CancelToken, ConflictStrategy, CopyParams, JobKind, JobRequest, MergeStrategy, MoveParams,
+    ReflinkMode, Scheduler, SchedulerOptions, TaskState,
 };
 
 fn tmp(name: &str) -> tempfile::TempDir {
@@ -394,6 +394,19 @@ fn params_with(conflict: ConflictStrategy) -> CopyParams {
     }
 }
 
+/// Directory transfers whose assertions target the original destination
+/// pin the legacy merge behavior explicitly.
+fn dir_params(
+    conflict: ConflictStrategy,
+    merge: MergeStrategy,
+) -> CopyParams {
+    CopyParams {
+        conflict,
+        merge,
+        ..Default::default()
+    }
+}
+
 #[test]
 fn conflict_fail_keeps_existing_dest_and_fails_task() {
     let src = tmp("fc-fail-src");
@@ -453,6 +466,36 @@ fn conflict_skip_leaves_dest_and_counts_skipped() {
 }
 
 #[test]
+fn dir_transfer_onto_existing_target_renames_by_default() {
+    let src = tmp("fc-dirmove-src");
+    let dst = tmp("fc-dirmove-dst");
+    write_file(&src.path().join("f"), b"NEW");
+    write_file(&dst.path().join("guard"), b"OLD");
+
+    let sch = sched(1);
+    let h = sch
+        .submit(JobRequest {
+            kind: JobKind::Copy(params_with(ConflictStrategy::Overwrite)), // irrelevant at dir level
+            source: src.path().to_path_buf(),
+            dest: dst.path().to_path_buf(),
+        })
+        .expect("submit");
+    assert_eq!(
+        await_terminal(&h, Duration::from_secs(10)),
+        TaskState::CompleteOk
+    );
+
+    // existing target untouched; data landed in the claimed *sibling*
+    assert_eq!(fs::read(dst.path().join("guard")).unwrap(), b"OLD");
+    assert!(!dst.path().join("f").exists());
+    let transferred = dst.path().parent().unwrap().join(format!(
+        "{}_1",
+        dst.path().file_name().unwrap().to_string_lossy()
+    ));
+    assert_eq!(fs::read(transferred.join("f")).unwrap(), b"NEW");
+}
+
+#[test]
 fn conflict_rename_suffix_writes_free_sibling() {
     let src = tmp("fc-ren-src");
     let dst = tmp("fc-ren-dst");
@@ -494,7 +537,7 @@ fn conflict_abort_cancels_the_task_on_first_conflict() {
     let sch = sched(1);
     let h = sch
         .submit(JobRequest {
-            kind: JobKind::Copy(params_with(ConflictStrategy::Abort)),
+            kind: JobKind::Copy(dir_params(ConflictStrategy::Abort, MergeStrategy::Merge)),
             source: src.path().to_path_buf(),
             dest: dst.path().to_path_buf(),
         })
@@ -526,7 +569,10 @@ fn conflict_rename_suffix_handles_extensionless_and_nested_dirs() {
     let sch = sched(1);
     let h = sch
         .submit(JobRequest {
-            kind: JobKind::Copy(params_with(ConflictStrategy::RenameSuffix)),
+            kind: JobKind::Copy(dir_params(
+                ConflictStrategy::RenameSuffix,
+                MergeStrategy::Merge,
+            )),
             source: src.path().to_path_buf(),
             dest: dst.path().to_path_buf(),
         })

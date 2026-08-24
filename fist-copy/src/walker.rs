@@ -29,7 +29,7 @@ pub(crate) fn collect(
     tx: &crossbeam_channel::Sender<QueuedWork>,
 ) -> Result<(), WalkAbort> {
     let src = job.source.clone();
-    let dst_root = job.dest.clone();
+    let mut dst_root = job.dest.clone();
 
     let smeta = fs::symlink_metadata(&src).map_err(WalkAbort::Io)?;
 
@@ -39,6 +39,47 @@ pub(crate) fn collect(
 
     if dst_root.starts_with(&src) {
         return Err(WalkAbort::IntoItself);
+    }
+
+    // directory transfers resolve an existing target once, up front:
+    // per-entry conflicts only apply *inside* a Merge
+    if let Ok(dst_meta) = fs::symlink_metadata(&dst_root)
+        && dst_meta.is_dir()
+    {
+        match job.merge {
+            crate::config::MergeStrategy::Merge => {}
+            crate::config::MergeStrategy::Overwrite => {
+                job.log.info(format!(
+                    "merge overwrite: removing existing {}",
+                    dst_root.display()
+                ));
+                fs::remove_dir_all(&dst_root).map_err(WalkAbort::Io)?;
+            }
+            crate::config::MergeStrategy::Rename => {
+                let naming = cba::claim::Naming::default();
+                let reserved = cba::claim::reserve_dir(&dst_root, Some(&naming)).map_err(|e| {
+                    WalkAbort::Io(match e {
+                        cba::claim::ClaimError::Taken(blocked) => io::Error::new(
+                            io::ErrorKind::AlreadyExists,
+                            format!("no free name under {}", blocked.display()),
+                        ),
+                        cba::claim::ClaimError::Io(e) => e,
+                    })
+                })?;
+                let (claimed, _) = reserved.into_parts();
+                job.log.info(format!(
+                    "target existed: transferring into {} instead",
+                    claimed.display()
+                ));
+                dst_root = claimed;
+            }
+            crate::config::MergeStrategy::Fail => {
+                return Err(WalkAbort::Io(io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    format!("target directory already exists: {}", dst_root.display()),
+                )));
+            }
+        }
     }
 
     fs::create_dir_all(&dst_root).map_err(WalkAbort::Io)?;

@@ -77,6 +77,29 @@ they are pure consumers of the API above.
 5. caller navigates into the workdir immediately; `toast_entering` pushes
    the persistent "Extracting: <name>" toast
 
+## 1b. Dispatch → perform
+
+`QUEUE::dispatch(indices, nav)` is a short loop: snapshot pending rows,
+toast "Starting N items", and call `execute::perform(item, nav)` for each
+— **on the dispatching thread**. That placement is load-bearing: config
+lives in main-thread TLS, and transfers submit inline (submission is
+cheap), so `perform` can read `QueueConfig` directly.
+
+`perform(item, nav)` matches the kind once:
+
+- `copy` / `move`: resolve destination (`data` hint + `nav` via
+  `utils/path.rs:desired_path`; empty `data` ⇒ into `nav`, requiring it),
+  submit one engine job, stamp `status.task_id`. No spawn.
+- `symlink` / script kinds: `TASKS::spawn_blocking` their blocking bodies;
+  they finish themselves (terminal state + history) inside the spawned
+  task.
+- `extract` rows never reach here (`start_extract` owns them).
+- Transfers with an explicit `data` execute without nav; with empty `data`
+  they stay pending until dispatched from a real navigation pane.
+
+`item.data` is task input verbatim from enqueue time (destination hint /
+script destination) — never mutated after enqueue.
+
 ## 2. Queue row creation — still synchronous
 
 `queue/mod.rs:QUEUE::start_extract`:

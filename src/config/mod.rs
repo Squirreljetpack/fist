@@ -1,4 +1,4 @@
-use cba::{bath::RenamePolicy, bs::create_dir, vec_};
+use cba::{bs::create_dir, vec_};
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
@@ -282,7 +282,6 @@ impl Default for RgConfig {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FsConfig {
-    pub rename_policy: RenamePolicy,
     /// Preserve selections across reloads: selections are saved as hashed
     /// absolute paths before the worker restart and rehydrated once the
     /// fresh listing lands (see [`crate::run::selection`]).
@@ -292,7 +291,6 @@ pub struct FsConfig {
 impl Default for FsConfig {
     fn default() -> Self {
         Self {
-            rename_policy: Default::default(),
             refill_selections_after_reload: true,
         }
     }

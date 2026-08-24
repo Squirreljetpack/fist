@@ -12,7 +12,7 @@ mod token;
 mod walker;
 mod work;
 
-pub use config::{ConflictStrategy, CopyParams, MoveParams, ReflinkMode};
+pub use config::{ConflictStrategy, CopyParams, MergeStrategy, MoveParams, ReflinkMode};
 pub use job::{ExtractParams, JobKind, JobRequest, SubmitError};
 pub use log::TaskLog;
 pub use progress::{CleanupState, TaskSnapshot, TaskState};

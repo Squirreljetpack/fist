@@ -1411,6 +1411,7 @@ version = "0.0.4"
 dependencies = [
  "ar",
  "bzip2",
+ "cli_boilerplate_automation",
  "crossbeam-channel",
  "flate2",
  "libc",

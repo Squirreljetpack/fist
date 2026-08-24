@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Background copy/move/extract engine for fist: worker pool, reflink, cancellation, progress"
 
 [dependencies]
+cli_boilerplate_automation = { workspace = true }
 crossbeam-channel = "0.5"
 log = "0.4"
 serde = { workspace = true, features = ["derive"] }

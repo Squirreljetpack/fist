@@ -15,6 +15,26 @@ pub enum ConflictStrategy {
     Abort,
 }
 
+/// What a directory transfer does when the target directory already
+/// exists. Single-file transfers never consult it — their conflicts are
+/// handled per-entry by [`ConflictStrategy`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MergeStrategy {
+    /// The existing target is replaced wholesale (removed, then copied
+    /// fresh).
+    Overwrite,
+    /// The existing target is kept; entries are resolved per-entry by
+    /// [`ConflictStrategy`] inside it.
+    Merge,
+    /// The existing target is left untouched and the transfer lands in
+    /// the first free suffixed sibling (`name`, `name_1`, ...), claimed
+    /// atomically.
+    #[default]
+    Rename,
+    /// A pre-existing target fails the task.
+    Fail,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct CopyParams {
@@ -22,6 +42,7 @@ pub struct CopyParams {
     pub preserve_metadata: bool,
     pub reflink: ReflinkMode,
     pub conflict: ConflictStrategy,
+    pub merge: MergeStrategy,
     pub buffer_size: NonZeroUsize,
 }
 
@@ -35,6 +56,7 @@ impl Default for CopyParams {
             #[cfg(not(debug_assertions))]
             reflink: ReflinkMode::Auto,
             conflict: ConflictStrategy::Overwrite,
+            merge: MergeStrategy::default(),
             buffer_size: NonZeroUsize::new(512 * 1024).expect("static"),
         }
     }
