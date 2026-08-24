@@ -239,6 +239,63 @@ mod tests {
         );
     }
 
+    /// Extraction rows are created started, run on the engine, and
+    /// finalized by the pump watcher into CompleteOk with the payload
+    /// materialized under the given destination.
+    #[test]
+    fn extract_row_runs_to_completion() {
+        GLOBAL::init_test_senders();
+        if !std::process::Command::new("tar")
+            .arg("--version")
+            .output()
+            .is_ok_and(|o| o.status.success())
+        {
+            return;
+        }
+        let dir = tempdir().unwrap();
+        let src_dir = dir.path().join("xsrc");
+        std::fs::create_dir_all(src_dir.join("nested")).unwrap();
+        std::fs::write(src_dir.join("hello.txt"), "hello").unwrap();
+        std::fs::write(src_dir.join("nested/data.txt"), "data").unwrap();
+        let archive = dir.path().join("a.tar");
+        let out = std::process::Command::new("tar")
+            .args(["-cf"])
+            .arg(&archive)
+            .arg("-C")
+            .arg(&src_dir)
+            .args(["."])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "tar fixture failed");
+
+        let dest = dir.path().join("workdir");
+        std::fs::create_dir_all(&dest).unwrap();
+        let status = QUEUE::start_extract(AbsPath::new_unchecked(archive.clone()), dest.clone())
+            .expect("engine submission");
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while !status.state.is_complete() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "extraction row did not finish in time"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert_eq!(status.state.load(), QueueItemState::CompleteOk);
+        assert!(dest.join("hello.txt").exists());
+        assert!(dest.join("nested/data.txt").exists());
+
+        // the extraction row is registered as started by start_extract
+        // (other tests may run rows concurrently; only look at our kind)
+        let state = QUEUE_STATE.lock().unwrap();
+        let row = state
+            .shared
+            .iter()
+            .find(|i| i.kind == "extract" && i.src.len() == 1 && i.src[0].as_os_str() == archive)
+            .expect("extraction row in shared queue");
+        assert!(row.task_id.is_some());
+    }
+
     /// Exercises the production dispatch path: engine params must be resolved
     /// on the dispatching thread, because the row's task runs on a worker
     /// thread where config TLS is unset. A regression leaves the row Started

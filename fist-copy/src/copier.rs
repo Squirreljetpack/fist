@@ -24,6 +24,7 @@ pub(crate) fn execute(
     let res = match &work.item {
         WorkItem::File(f) => copy_one(job, f, scratch),
         WorkItem::Link(l) => recreate_link(job, l),
+        WorkItem::Extract(e) => crate::extract::runner::run(job, e),
     };
     match res {
         Ok(()) => ItemOutcome::Done,
@@ -44,6 +45,7 @@ fn describe(work: &QueuedWork) -> String {
             l.dst.display(),
             l.target.display()
         ),
+        WorkItem::Extract(e) => format!("extract {} -> {}", e.source.display(), e.dest.display()),
     }
 }
 

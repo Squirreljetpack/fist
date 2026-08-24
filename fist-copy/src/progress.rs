@@ -152,6 +152,14 @@ impl Progress {
         self.files_total.fetch_add(1, Ordering::Relaxed);
     }
 
+    /// Registers `n` entries without byte accounting (extraction).
+    pub(crate) fn register_entries(
+        &self,
+        n: u32,
+    ) {
+        self.files_total.fetch_add(n, Ordering::Relaxed);
+    }
+
     pub(crate) fn add_copied(
         &self,
         n: u64,

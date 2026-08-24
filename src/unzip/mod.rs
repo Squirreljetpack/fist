@@ -1,13 +1,14 @@
 //! Background archive extraction into temporary skeletons.
 //!
 //! Advancing into an archive synchronously creates a directory-only
-//! skeleton of its contents under the app temp dir ([`init`]), queues the
-//! full extraction on a background worker pool, and lets the fs watcher
-//! surface progress by keeping the skeleton dir's reloads unthrottled
-//! (see [`WatcherMessage::MustWatch`]).
+//! skeleton of its contents under the app temp dir ([`init`]), submits the
+//! full extraction to the [`fist_copy`] scheduler as an [`extract`] job,
+//! and lets the fs watcher surface progress by keeping the skeleton dir's
+//! reloads unthrottled (see [`WatcherMessage::MustWatch`]).
 //!
-//! Format support lives behind [`ArchiveBackend`]: the `decompress` crate
-//! covers zip/tar family/ar/rar, and sevenz-rust2 covers 7z.
+//! Format support lives in [`fist_copy::extract`]: per-format detection,
+//! entry-wise listing, and cancellation-aware extraction with entry-count
+//! progress on the copy worker pool.
 //!
 //! Every source path maps to one current skeleton for the lifetime of the
 //! process: re-entering an archive reuses its skeleton unless the archive
@@ -16,181 +17,46 @@
 //! seconds>` under the unzip root, and holds one subfolder named after the
 //! archive (extension included) which is the extraction workdir — so the
 //! archive's absolute path is recoverable from the skeleton dir name alone
-//! (see [`recover_archive`]). Removing all skeletons happens on exit; a
-//! hard exit strands the per-process root under the system temp dir, where
-//! the system tmp cleaner reclaims it.
+//! (see [`recover_archive`]). Cleanup runs as a named background task on
+//! exit ([`shutdown`]); a hard exit strands the per-process root under the
+//! system temp dir, where the system tmp cleaner reclaims it.
 
 use std::{
     collections::HashMap,
     path::{Component, Path, PathBuf},
-    sync::{Arc, Mutex, OnceLock, mpsc},
+    sync::{Mutex, OnceLock},
     thread,
+    time::Duration,
 };
 
-use matchmaker::nucleo::{Color, Span, Style};
+use fist_copy::extract;
+use matchmaker::nucleo::Span;
 
 use crate::{
     abspath::AbsPath,
     cli::paths::__unzip,
     config::ArchiveConfig,
-    run::state::{GLOBAL, TASKS, TOAST, ToastFlags, ToastStyle},
+    run::{
+        queue::{QUEUE, QueueItemState, QueueItemStatus},
+        state::{GLOBAL, TASKS, TOAST, ToastFlags, ToastStyle},
+    },
     watcher::WatcherMessage,
 };
 
-mod detect;
+/// Name under which [`shutdown`] registers its cleanup task, so the
+/// shutdown wait UI can surface it.
+const CLEANUP_TASK_DESC: &str = "unzip skeleton cleanup";
 
-// -------------------------- backends --------------------------
-
-/// One entry in an archive listing.
-struct EntryMeta {
-    path: PathBuf,
-    is_dir: bool,
-}
-
-/// A format backend: detection, cheap listing, and full extraction.
-trait ArchiveBackend: Send + Sync {
-    fn id(&self) -> &'static str;
-    fn detect(
-        &self,
-        path: &Path,
-    ) -> bool;
-    fn list(
-        &self,
-        source: &Path,
-    ) -> Result<Vec<EntryMeta>, String>;
-    fn extract_all(
-        &self,
-        source: &Path,
-        dest: &Path,
-    ) -> Result<(), String>;
-}
-
-/// zip, tar family, ar, and rar via the `decompress` crate.
-struct DecompressBackend;
-
-impl ArchiveBackend for DecompressBackend {
-    fn id(&self) -> &'static str {
-        "decompress"
-    }
-
-    fn detect(
-        &self,
-        path: &Path,
-    ) -> bool {
-        detect::is_decompress_archive(path)
-    }
-
-    fn list(
-        &self,
-        source: &Path,
-    ) -> Result<Vec<EntryMeta>, String> {
-        // content detection so archives matched by sniffing (unknown
-        // extension) list and extract through the same decompressor
-        let opts = decompress::ExtractOptsBuilder::default()
-            .detect_content(true)
-            .build()
-            .map_err(|e| e.to_string())?;
-        let listing = decompress::list(source, &opts).map_err(|e| e.to_string())?;
-        Ok(listing
-            .entries
-            .into_iter()
-            .map(|entry| {
-                let is_dir = entry.ends_with('/');
-                EntryMeta {
-                    path: PathBuf::from(entry),
-                    is_dir,
-                }
-            })
-            .collect())
-    }
-
-    fn extract_all(
-        &self,
-        source: &Path,
-        dest: &Path,
-    ) -> Result<(), String> {
-        // the filter sees the joined destination path: keep everything
-        // that stays inside the skeleton
-        let captured = dest.to_path_buf();
-        let opts = decompress::ExtractOptsBuilder::default()
-            .detect_content(true)
-            .filter(move |p| {
-                p.starts_with(&captured) && is_safe(p.strip_prefix(&captured).unwrap_or(p))
-            })
-            .build()
-            .map_err(|e| e.to_string())?;
-        decompress::decompress(source, dest, &opts)
-            .map(|_| ())
-            .map_err(|e| e.to_string())
-    }
-}
-
-/// 7z via sevenz-rust2 (pure Rust): header-only listing, whole-archive
-/// extraction.
-struct SevenZBackend;
-
-impl ArchiveBackend for SevenZBackend {
-    fn id(&self) -> &'static str {
-        "sevenz"
-    }
-
-    fn detect(
-        &self,
-        path: &Path,
-    ) -> bool {
-        path.extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| e.eq_ignore_ascii_case("7z"))
-    }
-
-    fn list(
-        &self,
-        source: &Path,
-    ) -> Result<Vec<EntryMeta>, String> {
-        let archive = sevenz_rust2::Archive::open(source).map_err(|e| e.to_string())?;
-        Ok(archive
-            .files
-            .iter()
-            .map(|entry| EntryMeta {
-                path: PathBuf::from(entry.name()),
-                is_dir: entry.is_directory(),
-            })
-            .collect())
-    }
-
-    fn extract_all(
-        &self,
-        source: &Path,
-        dest: &Path,
-    ) -> Result<(), String> {
-        sevenz_rust2::decompress_file(source, dest).map_err(|e| e.to_string())
-    }
-}
-
-fn backends() -> &'static [Box<dyn ArchiveBackend>] {
-    static BACKENDS: OnceLock<Vec<Box<dyn ArchiveBackend>>> = OnceLock::new();
-    BACKENDS.get_or_init(|| vec![Box::new(DecompressBackend), Box::new(SevenZBackend)])
-}
-
-fn backend_for(path: &Path) -> Option<&'static dyn ArchiveBackend> {
-    backends()
-        .iter()
-        .find(|backend| backend.detect(path))
-        .map(|backend| backend.as_ref())
-}
-
-// -------------------------- worker --------------------------
+// -------------------------- registry --------------------------
 
 /// Root of every extraction skeleton:
-/// `<tmp>/fist/<process-id>/unzipped_storage_press_undo_to_go_back`.
+/// `<tmp>/fist/<process-id>/unzip`.
 pub fn root() -> PathBuf {
     __unzip().to_path_buf()
 }
 
-/// Extraction worker pool size.
-const MAX_WORKERS: usize = 4;
-
 /// Lifecycle of a registered archive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum EntryState {
     /// Extraction queued or in progress.
     Skeleton,
@@ -198,7 +64,8 @@ enum EntryState {
     Failed,
 }
 
-/// One registered archive: its skeleton dir and lifecycle state.
+/// One registered archive: its skeleton dir, lifecycle state, and the
+/// queue row driving the extraction.
 struct Entry {
     /// Skeleton dir holding the archive-name workdir.
     temp: PathBuf,
@@ -209,70 +76,28 @@ struct Entry {
     #[allow(dead_code)]
     active: u32,
     state: EntryState,
+    /// The extraction queue row's status, present between start and
+    /// terminal row state.
+    row: Option<QueueItemStatus>,
 }
 
-/// One extraction job handed to a worker thread.
-struct Job {
-    /// Canonical archive path (also the map key).
-    source: PathBuf,
-    /// Extraction destination: the archive-name workdir.
-    temp: PathBuf,
-}
-
-struct Worker {
-    /// Job channel; dropping the sender stops the worker pool.
-    jobs: Mutex<Option<mpsc::Sender<Job>>>,
+struct Registry {
     /// Source path → entry, consulted by [`init`] to avoid re-extracting.
     entries: Mutex<HashMap<PathBuf, Entry>>,
     /// Extraction settings.
     config: ArchiveConfig,
 }
 
-static WORKER: OnceLock<Worker> = OnceLock::new();
+static REGISTRY: OnceLock<Registry> = OnceLock::new();
 
-fn worker() -> &'static Worker {
-    WORKER.get().expect("unzip::start not called")
+fn registry() -> &'static Registry {
+    REGISTRY.get().expect("unzip::start not called")
 }
 
-/// Spawn the extraction worker pool.
+/// Start the extraction subsystem: registers settings and arms the
+/// best-effort exit hook. Extraction itself runs on the copy scheduler.
 pub fn start(config: ArchiveConfig) {
-    let (tx, rx) = mpsc::channel();
-    let rx = Arc::new(Mutex::new(rx));
-    let workers = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1)
-        .min(MAX_WORKERS);
-
-    let mut spawned = 0;
-    for _ in 0..workers {
-        let rx = Arc::clone(&rx);
-        let handle = thread::Builder::new()
-            .name("fist-unzip".into())
-            .spawn(move || {
-                loop {
-                    let job = {
-                        let Ok(rx) = rx.lock() else {
-                            return;
-                        };
-                        rx.recv()
-                    };
-                    match job {
-                        Ok(job) => extract(job),
-                        // channel closed: stop
-                        Err(_) => return,
-                    }
-                }
-            })
-            .inspect_err(|e| log::error!("Failed to spawn unzip worker: {e}"));
-        if handle.is_ok() {
-            spawned += 1;
-        }
-        // workers are detached: exit must not block on an in-flight
-        // extraction, and the process exit kills them anyway
-    }
-
-    let _ = WORKER.set(Worker {
-        jobs: Mutex::new((spawned > 0).then_some(tx)),
+    let _ = REGISTRY.set(Registry {
         entries: Mutex::new(HashMap::new()),
         config,
     });
@@ -286,36 +111,59 @@ pub fn start(config: ArchiveConfig) {
 }
 
 /// Removes the whole skeleton root. Registered with `atexit` so hard exits
-/// also clean up; best effort, as worker threads may still be
-/// mid-extraction.
+/// also clean up; best effort, as extraction tasks may still be running.
 #[cfg(unix)]
 extern "C" fn cleanup_on_exit() {
     let _ = std::fs::remove_dir_all(root());
 }
 
-/// Whether `path` is an archive a backend can extract.
+/// Whether `path` is an archive the engine can extract.
 pub fn supported(path: &Path) -> bool {
-    backend_for(path).is_some()
+    extract::detect(path).is_some()
+}
+
+/// Cancels the in-flight extraction of `path` through its queue row, if
+/// one is running.
+pub fn cancel(path: &Path) -> bool {
+    let Ok(source) = path.canonicalize() else {
+        return false;
+    };
+    let Ok(state) = crate::run::queue::QUEUE_STATE.lock() else {
+        return false;
+    };
+    let Some(id) = state
+        .shared
+        .iter()
+        .filter(|i| i.kind == crate::run::queue::EXTRACT_KIND)
+        .filter(|i| i.src.len() == 1 && i.src[0].as_os_str() == source.as_os_str())
+        .find(|i| i.status.state.is_started())
+        .and_then(|i| i.task_id)
+    else {
+        return false;
+    };
+    drop(state);
+    crate::run::queue::scheduler().cancel(id);
+    true
 }
 
 /// Synchronously create (or reuse) the extraction skeleton for `path`,
-/// queue its extraction on the worker pool, and re-arm must-watch on the
-/// extraction workdir.
+/// queue its extraction on the copy scheduler, and re-arm must-watch on
+/// the extraction workdir.
 ///
 /// Returns the workdir to navigate into; `None` means the archive could
-/// not be listed (or previously failed) and the caller should handle the
-/// path normally.
+/// not be detected or listed (or previously failed) and the caller should
+/// handle the path normally.
 pub fn init(path: &Path) -> Option<AbsPath> {
     let source = path.canonicalize().ok()?;
-    let backend = backend_for(&source)?;
-    let w = worker();
+    let format = extract::detect(&source)?;
+    let r = registry();
 
     // Re-entering an archive reuses its skeleton — extraction may still be
     // running or already done — but only while the skeleton is newer than
     // the archive itself; an archive changed after its skeleton was
     // created makes the cached tree stale and it is regenerated. An
     // emptied workdir is likewise not reusable and is recreated.
-    if let Some(entry) = w.entries.lock().ok()?.get(&source) {
+    if let Some(entry) = r.entries.lock().ok()?.get(&source) {
         if matches!(entry.state, EntryState::Failed) {
             TOAST::notice(
                 ToastStyle::Error,
@@ -335,7 +183,7 @@ pub fn init(path: &Path) -> Option<AbsPath> {
             return Some(AbsPath::new_unchecked(entry.workdir.clone()));
         } else {
             log::info!("Stale skeleton for {}, re-extracting", source.display());
-            if w.config.cleanup_duplicates {
+            if r.config.cleanup_duplicates {
                 let source = source.clone();
                 TASKS::spawn_blocking("unzip stale cleanup", move || {
                     remove_stale_skeletons(&source);
@@ -344,15 +192,15 @@ pub fn init(path: &Path) -> Option<AbsPath> {
         }
     }
 
-    log::info!(
-        "Entering archive {} via backend {}",
-        source.display(),
-        backend.id()
-    );
-    let listing = match backend.list(&source) {
+    log::info!("Entering archive {} via {}", source.display(), format.id());
+    let listing = match extract::list(&source, format) {
         Ok(listing) => listing,
         Err(e) => {
-            log::error!("Failed to list archive {}: {e}", source.display());
+            log::error!(
+                "Failed to list archive {}: {e} ({})",
+                e.archive.display(),
+                e.source
+            );
             return None;
         }
     };
@@ -362,8 +210,8 @@ pub fn init(path: &Path) -> Option<AbsPath> {
         skeleton_dir(&workdir, entry);
     }
 
-    // register before queuing so a re-entry can never double-extract
-    w.entries.lock().ok()?.insert(
+    // register before submitting so a re-entry can never double-extract
+    r.entries.lock().ok()?.insert(
         source.clone(),
         Entry {
             temp: workdir
@@ -373,25 +221,65 @@ pub fn init(path: &Path) -> Option<AbsPath> {
             workdir: workdir.clone(),
             active: 0,
             state: EntryState::Skeleton,
+            row: None,
         },
     );
 
-    if let Some(jobs) = w.jobs.lock().ok().and_then(|jobs| jobs.clone())
-        && jobs
-            .send(Job {
-                source,
-                temp: workdir.clone(),
-            })
-            .is_err()
-    {
-        log::error!(
-            "Unzip worker not running; extraction of {} was dropped",
-            workdir.display()
-        );
+    match QUEUE::start_extract(AbsPath::new_unchecked(source.clone()), workdir.clone()) {
+        Some(row) => {
+            if let Ok(mut entries) = r.entries.lock()
+                && let Some(entry) = entries.get_mut(&source)
+            {
+                entry.row = Some(row.clone());
+            }
+            spawn_watch(row, source);
+        }
+        None => {
+            // no row was created; the entry stays registered as failed so
+            // re-entry reports the error instead of silently rebuilding
+            if let Ok(mut entries) = r.entries.lock()
+                && let Some(entry) = entries.get_mut(&source)
+            {
+                entry.state = EntryState::Failed;
+            }
+        }
     }
 
     must_watch(&workdir);
     Some(AbsPath::new_unchecked(workdir))
+}
+
+/// Watches the extraction queue row until terminal state, updating the
+/// skeleton lifecycle and retiring the "Extracting" toast. Completion and
+/// failure notifications are the queue pump's job.
+fn spawn_watch(
+    row: QueueItemStatus,
+    source: PathBuf,
+) {
+    let _ = thread::Builder::new()
+        .name("fist-unzip-watch".into())
+        .spawn(move || {
+            loop {
+                thread::sleep(Duration::from_millis(100));
+                let state = match row.state.load() {
+                    QueueItemState::Pending
+                    | QueueItemState::Started
+                    | QueueItemState::PendingErr => {
+                        continue;
+                    }
+                    QueueItemState::CompleteOk => EntryState::Complete,
+                    QueueItemState::CompleteErr => EntryState::Failed,
+                };
+                if let Ok(mut entries) = registry().entries.lock()
+                    && let Some(entry) = entries.get_mut(&source)
+                {
+                    entry.state = state;
+                    entry.row = None;
+                }
+                toast_extract_done(&source);
+                break;
+            }
+        });
 }
 
 /// Allocates the skeleton dir for `source` (named by [`skeleton_name`])
@@ -553,7 +441,7 @@ fn remove_stale_skeletons(source: &Path) {
 /// when it is an explicit directory, else its parent chain.
 fn skeleton_dir(
     root: &Path,
-    entry: &EntryMeta,
+    entry: &extract::ArchiveEntry,
 ) {
     let path = entry.path.as_path();
     // defensive: listings should already be sanitized, but archive
@@ -580,38 +468,6 @@ fn is_safe(path: &Path) -> bool {
             .all(|c| matches!(c, Component::Normal(_) | Component::CurDir))
 }
 
-/// Runs on a worker thread.
-fn extract(job: Job) {
-    let backend = backend_for(&job.source);
-    let result = match backend {
-        Some(backend) => backend.extract_all(&job.source, &job.temp),
-        None => Err("no backend recognizes this archive".into()),
-    };
-
-    // update lifecycle state
-    if let Ok(mut entries) = worker().entries.lock()
-        && let Some(entry) = entries.get_mut(&job.source)
-    {
-        entry.state = if result.is_ok() {
-            EntryState::Complete
-        } else {
-            EntryState::Failed
-        };
-    }
-
-    match result {
-        Ok(()) => toast_extracted(&job.source),
-        Err(e) => {
-            let id = backend.map(|backend| backend.id()).unwrap_or("none");
-            log::error!(
-                "Failed to extract {} (backend {id}): {e}",
-                job.source.display()
-            );
-            toast_extract_error(&job, &e);
-        }
-    }
-}
-
 /// Tell the watcher to keep reloading `temp` through event storms (the
 /// extraction itself produces them) until it pauses or is switched away.
 fn must_watch(temp: &Path) {
@@ -620,7 +476,7 @@ fn must_watch(temp: &Path) {
 
 pub fn toast_entering(path: &Path) {
     let source = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    let is_complete = worker()
+    let is_complete = registry()
         .entries
         .lock()
         .ok()
@@ -647,56 +503,32 @@ pub fn toast_entering(path: &Path) {
     }
 }
 
-fn toast_extracted(source: &Path) {
+/// Retires the persistent "Extracting" toast pushed by [`toast_entering`].
+/// The queue pump owns completion and failure notifications.
+fn toast_extract_done(source: &Path) {
     let name = source
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| source.to_string_lossy().to_string());
-    TOAST::pop("Extracting: ", &Span::raw(name.clone()));
-    TOAST::msg(
-        vec![
-            Span::styled("Extracted: ", Style::new().fg(Color::Red)),
-            Span::raw(name),
-        ],
-        true,
-    );
-}
-
-fn toast_extract_error(
-    job: &Job,
-    msg: &str,
-) {
-    let name = job
-        .source
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_else(|| job.source.to_string_lossy().to_string());
     TOAST::pop("Extracting: ", &Span::raw(name));
-    TOAST::notice(
-        ToastStyle::Error,
-        format!("Failed to extract {}: {msg}", job.source.display()),
-    );
 }
 
-/// Stops the worker pool and removes every skeleton. Called on graceful
-/// exit. Workers are detached rather than joined: exit must not block on an
-/// in-flight extraction, and skeletons are ephemeral — writes that race the
-/// removal below die with the process, whose per-process root is unique.
+/// Schedules skeleton cleanup as a named background task so the shutdown
+/// sequence can surface what it waits on ([`TASKS::shutdown`]); the task
+/// removes the whole skeleton root. In-flight extractions are cancelled
+/// beforehand by the scheduler's own shutdown.
 pub fn shutdown() {
-    let Some(w) = WORKER.get() else {
+    if REGISTRY.get().is_none() {
         return;
-    };
-
-    // closing the channel makes the workers stop after their current jobs
-    drop(w.jobs.lock().ok().and_then(|mut jobs| jobs.take()));
-
-    if let Ok(mut entries) = w.entries.lock() {
-        for (_, entry) in entries.drain() {
-            if let Err(e) = std::fs::remove_dir_all(&entry.temp) {
-                log::warn!("Failed to remove skeleton {:?}: {e}", entry.temp);
-            }
-        }
     }
+    TASKS::spawn_blocking(
+        CLEANUP_TASK_DESC,
+        || match std::fs::remove_dir_all(root()) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => log::warn!("Failed to remove skeleton root {:?}: {e}", root()),
+        },
+    );
 }
 
 #[cfg(test)]
@@ -714,7 +546,7 @@ mod tests {
     }
 
     #[test]
-    fn backend_detection() {
+    fn detection_covers_enabled_formats() {
         let dir = std::env::temp_dir().join(format!("fist-unzip-detect-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
@@ -722,21 +554,16 @@ mod tests {
         // content sniffing: zip and gzip magic
         let zip = dir.join("foo.zip");
         std::fs::write(&zip, b"PK\x03\x04").unwrap();
-        assert!(DecompressBackend.detect(&zip));
+        assert_eq!(extract::detect(&zip), Some(extract::Format::Zip));
 
         let gz = dir.join("foo.tar.gz");
         std::fs::write(&gz, b"\x1f\x8b\x08").unwrap();
-        assert!(DecompressBackend.detect(&gz));
+        assert_eq!(extract::detect(&gz), Some(extract::Format::Gz));
 
-        // unrecognized content is not a decompress archive
+        // unrecognized content is not an archive
         let txt = dir.join("bar.txt");
         std::fs::write(&txt, b"plain text").unwrap();
-        assert!(!DecompressBackend.detect(&txt));
-
-        // 7z stays extension-based
-        assert!(SevenZBackend.detect(Path::new("foo.7z")));
-        assert!(SevenZBackend.detect(Path::new("FOO.7Z")));
-        assert!(!SevenZBackend.detect(Path::new("foo.zip")));
+        assert_eq!(extract::detect(&txt), None);
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -856,28 +683,28 @@ mod tests {
 
         skeleton_dir(
             &dir,
-            &EntryMeta {
+            &extract::ArchiveEntry {
                 path: PathBuf::from("a/b/c.txt"),
                 is_dir: false,
             },
         );
         skeleton_dir(
             &dir,
-            &EntryMeta {
+            &extract::ArchiveEntry {
                 path: PathBuf::from("a/b/"),
                 is_dir: true,
             },
         );
         skeleton_dir(
             &dir,
-            &EntryMeta {
+            &extract::ArchiveEntry {
                 path: PathBuf::from("empty/"),
                 is_dir: true,
             },
         );
         skeleton_dir(
             &dir,
-            &EntryMeta {
+            &extract::ArchiveEntry {
                 path: PathBuf::from("flat"),
                 is_dir: false,
             },
@@ -885,14 +712,14 @@ mod tests {
         let evil = format!("../../fist-unzip-evil-{}", std::process::id());
         skeleton_dir(
             &dir,
-            &EntryMeta {
+            &extract::ArchiveEntry {
                 path: PathBuf::from(evil),
                 is_dir: true,
             },
         );
         skeleton_dir(
             &dir,
-            &EntryMeta {
+            &extract::ArchiveEntry {
                 path: PathBuf::from("/abs"),
                 is_dir: true,
             },

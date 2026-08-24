@@ -70,6 +70,8 @@ pub(crate) struct JobCtx {
     #[allow(dead_code)]
     pub conflict: ConflictStrategy,
     pub buffer_size: usize,
+    /// Extraction jobs run one archive-level work item instead of a walk.
+    pub is_extract: bool,
     pub token: CancelToken,
     pub prog: Arc<Progress>,
     pub log: Arc<TaskLog>,
@@ -199,7 +201,8 @@ impl Scheduler {
         if fs::symlink_metadata(&req.source).is_err() {
             return Err(SubmitError::SourceMissing(req.source.clone()));
         }
-        if req.dest.starts_with(&req.source) {
+        let is_extract = matches!(req.kind, JobKind::Extract(_));
+        if !is_extract && req.dest.starts_with(&req.source) {
             return Err(SubmitError::IntoItself {
                 source: req.source.clone(),
                 dest: req.dest.clone(),
@@ -210,12 +213,13 @@ impl Scheduler {
         let (params, is_move, delete_source): (&CopyParams, bool, bool) = match &req.kind {
             JobKind::Copy(p) => (p, false, false),
             JobKind::Move(m) => (&m.copy, true, m.delete_source),
+            JobKind::Extract(_) => (&CopyParams::default(), false, false),
         };
         let prog = Arc::new(Progress::new(is_move && delete_source));
         let log = Arc::new(TaskLog::default());
         log.info(format!(
             "task {id}: {} {} -> {}",
-            kind_name(is_move),
+            kind_name(is_move, is_extract),
             req.source.display(),
             req.dest.display()
         ));
@@ -231,9 +235,10 @@ impl Scheduler {
             dest: req.dest.clone(),
             delete_source: is_move && delete_source,
             preserve_metadata: params.preserve_metadata,
-            reflink_mode: params.reflink.clone(),
+            reflink_mode: params.reflink,
             conflict: params.conflict,
             buffer_size: params.buffer_size.get(),
+            is_extract,
             token: CancelToken::new(),
             prog,
             log,
@@ -330,8 +335,17 @@ fn handle_of(job: &Arc<JobCtx>) -> TaskHandle {
     }
 }
 
-fn kind_name(is_move: bool) -> &'static str {
-    if is_move { "move" } else { "copy" }
+fn kind_name(
+    is_move: bool,
+    is_extract: bool,
+) -> &'static str {
+    if is_extract {
+        "extract"
+    } else if is_move {
+        "move"
+    } else {
+        "copy"
+    }
 }
 
 fn fast_rename(job: &Arc<JobCtx>) -> bool {
@@ -426,7 +440,12 @@ fn collector_run(
         let _ = job.prog.cas_state(TaskState::Pending, TaskState::Canceled);
     } else {
         let _ = job.prog.cas_state(TaskState::Pending, TaskState::Started);
-        match walker::collect(&job, &tx) {
+        let collect_result = if job.is_extract {
+            walker::collect_extract(&job, &tx)
+        } else {
+            walker::collect(&job, &tx)
+        };
+        match collect_result {
             Ok(()) => {}
             Err(WalkAbort::Canceled) => {
                 let _ = job.prog.cas_state(TaskState::Started, TaskState::Canceled);

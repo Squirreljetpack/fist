@@ -20,10 +20,19 @@ pub(crate) struct LinkJob {
     pub target: PathBuf,
 }
 
+/// One archive extraction: `source` is unpacked into the existing
+/// directory `dest`.
+#[derive(Debug)]
+pub(crate) struct ExtractJob {
+    pub source: PathBuf,
+    pub dest: PathBuf,
+}
+
 #[derive(Debug)]
 pub(crate) enum WorkItem {
     File(FileJob),
     Link(LinkJob),
+    Extract(ExtractJob),
 }
 
 #[derive(Debug)]

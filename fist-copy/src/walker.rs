@@ -153,6 +153,23 @@ pub(crate) fn collect(
     Ok(())
 }
 
+/// Collection phase for extraction jobs: enqueues the single archive-level
+/// work item. Entry registration happens inside the extraction loop.
+pub(crate) fn collect_extract(
+    job: &Arc<JobCtx>,
+    tx: &crossbeam_channel::Sender<QueuedWork>,
+) -> Result<(), WalkAbort> {
+    job.enqueue(
+        tx,
+        None,
+        WorkItem::Extract(crate::work::ExtractJob {
+            source: job.source.clone(),
+            dest: job.dest.clone(),
+        }),
+    )?;
+    Ok(())
+}
+
 fn collect_single(
     job: &Arc<JobCtx>,
     src: &Path,

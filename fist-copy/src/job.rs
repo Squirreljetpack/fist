@@ -6,7 +6,16 @@ use crate::config::{CopyParams, MoveParams};
 pub enum JobKind {
     Copy(CopyParams),
     Move(MoveParams),
+    /// Unpack the source archive into `dest` (which must exist).
+    Extract(ExtractParams),
 }
+
+/// Settings for an extraction job.
+///
+/// Progress denominators come from the extraction itself, which registers
+/// each entry as it reaches it; this type is reserved for future options.
+#[derive(Debug, Clone, Default)]
+pub struct ExtractParams;
 
 #[derive(Debug, Clone)]
 pub struct JobRequest {

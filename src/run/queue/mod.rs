@@ -37,6 +37,12 @@ pub const BUILTIN_KINDS: [&str; 4] = ["copy", "move", "symlink", "none"];
 /// The builtin queue kinds that require a destination to execute.
 pub const DEST_KINDS: [&str; 3] = ["copy", "move", "symlink"];
 
+/// The engine-backed extraction row kind. Created only by
+/// [`QUEUE::start_extract`] when an archive is entered — never through the
+/// user-facing [`QUEUE::enqueue`] path — and executed against the archive's
+/// pre-allocated skeleton workdir.
+pub const EXTRACT_KIND: &str = "extract";
+
 /// Selector over queued operations used by `ExecuteQueue`/`ClearQueue`.
 /// Parsing is ASCII case-insensitive for the reserved spellings; any other
 /// value (including the empty string) is a custom [`QueueKind`].
@@ -241,6 +247,49 @@ pub struct QUEUE;
 
 impl QUEUE {
     // ------------- insert --------------
+
+    /// Enqueues an extraction of `source` into the pre-allocated skeleton
+    /// workdir `dest` and starts it immediately: extraction rows have no
+    /// pending phase and their destination is internal, so they bypass
+    /// [`QUEUE::enqueue`] and the dispatch-time destination resolution.
+    /// Submission happens here (not in [`QueueItem::execute`], which
+    /// extraction rows never run) so the caller learns of engine rejection
+    /// before any row exists.
+    ///
+    /// Returns the row's status handle for out-of-band observation (the
+    /// unzip registry watches it to advance skeleton lifecycle state), or
+    /// `None` when the engine rejected the submission — no row is created.
+    pub fn start_extract(
+        source: AbsPath,
+        dest: PathBuf,
+    ) -> Option<QueueItemStatus> {
+        let request = fist_copy::JobRequest {
+            kind: fist_copy::JobKind::Extract(fist_copy::ExtractParams),
+            source: source.as_os_str().to_owned().into(),
+            dest: dest.clone(),
+        };
+        let handle = match scheduler().submit(request) {
+            Ok(handle) => handle,
+            Err(e) => {
+                log::error!("Extraction submit failed for {}: {e}", source.display());
+                return None;
+            }
+        };
+
+        let mut item = QueueItem::new(EXTRACT_KIND.into(), source);
+        item.dst = dest.into_os_string();
+        item.task_id = Some(handle.id);
+        item.status.state.store(QueueItemState::Started);
+
+        let tracked = item.clone();
+        let status = item.status.clone();
+        QUEUE_STATE.lock().unwrap().shared.push(item);
+
+        // the pump watcher finalizes the row: progress, completion toasts,
+        // action history, and cancellation all behave as for copy/move
+        register_task(handle, &tracked);
+        Some(status)
+    }
 
     /// Enqueue `paths` into the shared queue under `kind`. Builtin kinds
     /// add one row per path, replacing a pending row with the same source
