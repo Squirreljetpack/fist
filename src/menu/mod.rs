@@ -34,7 +34,7 @@ impl Default for MenuActions {
 /// selectors; defining an action under one of these (case-insensitively) or
 /// under the empty key is a config error.
 pub const RESERVED_KEYS: [&str; 10] = [
-    "copy", "move", "symlink", "none", "all", "builtins", "first", "last", "default", ""
+    "copy", "move", "symlink", "none", "all", "builtins", "first", "last", "default", "",
 ];
 
 impl<'de> Deserialize<'de> for MenuActions {

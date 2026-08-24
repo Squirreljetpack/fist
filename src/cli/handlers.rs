@@ -561,7 +561,13 @@ async fn handle_default(
             );
 
         if cmd.list {
-            super::list::nav_list(cwd, vis, sort.unwrap_or_default(), &cli.output);
+            super::list::nav_list(
+                cwd,
+                vis,
+                sort.unwrap_or_default(),
+                &cfg.global.panes.nav.ignore_patterns,
+                &cli.output,
+            );
             return Ok(());
         };
 

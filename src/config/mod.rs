@@ -163,6 +163,11 @@ pub struct InterfaceConfig {
     /// the selected item instead of editing the query (DeleteWord).
     /// Defaults to false on macOS.
     pub prompt_locking_allow_trash_action: bool,
+    /// Whether the Trash action operates on the underlying items in the
+    /// database-backed panes (stashes and the files/folders/apps history).
+    /// When false, Trash routes to Delete there: records are removed instead
+    /// of the real paths.
+    pub allow_trash_db_items: bool,
     /// Hide the preview while the cursor is disabled (locked onto the cwd).
     pub hide_preview_when_cursor_disabled: bool,
     /// When false, Parent inside an archive's extraction workdir leaves the
@@ -201,6 +206,7 @@ impl Default for InterfaceConfig {
             prompt_locking_allow_trash_action: false,
             #[cfg(not(target_os = "macos"))]
             prompt_locking_allow_trash_action: true,
+            allow_trash_db_items: false,
             hide_preview_when_cursor_disabled: false,
             allow_enter_unzip_directory: false,
             stability_threshold: 30,
@@ -400,5 +406,14 @@ mod tests {
             toml::from_str(include_str!("../../assets/config/pager.dev.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.dev.toml")).unwrap();
+    }
+
+    #[test]
+    fn allow_trash_db_items_defaults_false() {
+        let cfg: Config = toml::from_str("").unwrap();
+        assert!(!cfg.global.interface.allow_trash_db_items);
+
+        let cfg: Config = toml::from_str("[interface]\nallow_trash_db_items = true\n").unwrap();
+        assert!(cfg.global.interface.allow_trash_db_items);
     }
 }

@@ -3,6 +3,7 @@
 show_preview = 60
 lock_prompt = false
 
+# ignore_patterns = [ ".DS_Store" ]
 # default_visibility = { hidden = true }
 
 [panes.find]
@@ -49,6 +50,7 @@ refind = "Search"
 prompt_locking = true
 # hide the preview when in the query bar
 hide_preview_when_cursor_disabled = true
+# allow_trash_db_items = true
 
 # prompt prefix when in the query bar: https://squirreljetpack.github.io/fist-docs/16-output-templates#the-format-template
 # cwd_prompt = '{2:2} '
