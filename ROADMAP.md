@@ -13,4 +13,4 @@ smarter determination for when to clear the dirsizecache: not too often so that 
 
 - maybe size resort makes sense to reset cursor to 0 as well
 
-take hidemetadata before cycling?
+Configurable ignore which applies unless visibility.all for nav pane

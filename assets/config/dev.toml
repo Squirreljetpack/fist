@@ -5,6 +5,7 @@ show_preview = 60
 lock_prompt = false
 
 default_visibility = { hidden = true }
+ignore_patterns = [ ".DS_Store" ]
 
 [panes.find]
 show_preview = 60
