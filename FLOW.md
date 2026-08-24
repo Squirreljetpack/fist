@@ -62,9 +62,10 @@ they are pure consumers of the API above.
      ⇒ cd straight into that row's workdir (covers concurrent re-entry and
      the same-second reallocation edge — no second worker, ever)
    - freshest on-disk skeleton for this source (dir name decodes to the
-     archive path): a `.failed` marker inside it reports "Extraction
-     failed" and bails; otherwise fresh (`ts > mtime`) *and populated* ⇒
-     reuse; stale or emptied ⇒ fall through and rebuild
+     archive path): fresh (`ts > mtime`) *and populated* ⇒ reuse;
+     fresh + `.failed` marker ⇒ return [`Entered::Failed`] (still
+     navigable into the partial tree; caller warns "Entering failed
+     archive"); stale or emptied ⇒ fall through and rebuild
    - `alloc_dir` creates `<tmp>/fist/<pid>/<encoded-path>--<unix-millis>/`
      plus the workdir named after the archive (app-owned: *where*);
      `extract::skeleton(workdir, listing)` materializes the directory-only
@@ -141,9 +142,10 @@ kill all future finalizations):
    CompleteOk/CompleteErr`. The CAS is the once-only "seen" flag — the
    winner alone pushes the `Complete:`/`Failed:` toast (+ reason),
    appends to `QUEUE_ACTION_HISTORY`, and evicts the cache entry.
-   Extract-specific branches: pop the persistent "Extracting:" toast; on
-   failure also drop a `.failed` marker into the skeleton dir plus a
-   transient "Extraction failed" notice.
+   Extract-specific branches: on **discovery**, push the persistent
+   "Extracting:" toast (discovery happens exactly once per task); on
+   failure also drop a `.failed` marker into the skeleton dir before
+   finalizing the row as errored.
 
 Lua/symlink rows self-finalize inline in `execute()` and never appear in
 snapshots; the watcher ignores them.

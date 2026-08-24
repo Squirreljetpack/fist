@@ -207,12 +207,17 @@ fn fmt_zst() -> Option<Format> {
     }
 }
 
-/// Magic-byte sniffing over the first bytes of the file. Used when the
+/// Magic-byte sniffing over the first block of the file. Used when the
 /// file name gives nothing away (or names a format whose feature is off).
+/// A full tar block is read so extensionless tars are recognized by their
+/// `ustar` magic at offset 257.
 fn detect_by_content(path: &Path) -> Option<Format> {
-    let mut buf = [0u8; 8];
+    let mut buf = [0u8; 512];
     let n = fs::File::open(path).ok()?.read(&mut buf).ok()?;
     let b = &buf[..n];
+    if b.len() >= 262 && b[257..262] == *b"ustar" {
+        return fmt_tar();
+    }
     Some(match b {
         b if b.starts_with(b"PK\x03\x04")
             || b.starts_with(b"PK\x05\x06")

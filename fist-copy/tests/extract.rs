@@ -85,10 +85,14 @@ fn make_archives(f: &Fixture) -> Vec<(PathBuf, &'static str)> {
     }
     if have("ar") {
         let p = d.join("a.ar");
+        // a member name longer than 15 chars exercises the GNU/BSD long
+        // filename string table
+        let long = d.join("a-very-long-member-name-exceeding-fifteen.txt");
+        std::fs::copy(src("src/hello.txt"), &long).unwrap();
         run(std::process::Command::new("ar")
             .args(["rcs"])
             .arg(&p)
-            .arg(src("src/hello.txt"))
+            .arg(&long)
             .arg(src("src/nested/data.txt")));
         out.push((p, "ar"));
     }

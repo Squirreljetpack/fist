@@ -181,7 +181,8 @@ fn link_target_is_safe<R: Read>(
 ) -> bool {
     let target = entry.link_name().ok().flatten();
     match target {
-        Some(t) => link_target_safe(dest, rel, &t),
+        // the OS resolves the target relative to the link's directory
+        Some(t) => link_target_safe(dest, rel.parent().unwrap_or(Path::new("")), &t),
         None => false,
     }
 }

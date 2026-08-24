@@ -35,9 +35,16 @@ pub(crate) fn extract(
     dest: &Path,
     ctx: &ExtractCtx<'_>,
 ) -> io::Result<()> {
-    let total = {
+    let (total, unsafe_count) = {
         let archive = open(source)?;
-        archive.files.len() as u32
+        (
+            archive.files.len() as u32,
+            archive
+                .files
+                .iter()
+                .filter(|e| !safety::is_safe(Path::new(e.name())))
+                .count() as u32,
+        )
     };
     if ctx.cancelled() {
         return Err(super::ctx::cancelled());
@@ -45,7 +52,6 @@ pub(crate) fn extract(
     // decompress_file has no per-entry hook to intercept writes, so any
     // unsafe entry refuses the whole archive rather than risking an escape
     ctx.register_entries(total);
-    let unsafe_count = count_unsafe(source)?;
     if unsafe_count > 0 {
         for _ in 0..total {
             ctx.entry_failed();
@@ -71,13 +77,4 @@ pub(crate) fn extract(
             Err(io::Error::other(e.to_string()))
         }
     }
-}
-
-fn count_unsafe(source: &Path) -> io::Result<u32> {
-    let archive = open(source)?;
-    Ok(archive
-        .files
-        .iter()
-        .filter(|e| !safety::is_safe(Path::new(e.name())))
-        .count() as u32)
 }

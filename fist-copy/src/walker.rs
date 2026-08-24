@@ -56,6 +56,7 @@ pub(crate) fn collect(
             Ok(e) => e,
             Err(e) => {
                 job.prog.register_file(0);
+                job.prog.file_failed();
                 job.log
                     .error(format!("walk error under {}: {e}", src.display()));
                 continue;
@@ -83,6 +84,7 @@ pub(crate) fn collect(
                 Ok(m) => m,
                 Err(e) => {
                     job.prog.register_file(0);
+                    job.prog.file_failed();
                     job.log
                         .error(format!("could not stat {}: {e}", path.display()));
                     continue;
@@ -92,6 +94,7 @@ pub(crate) fn collect(
                 && !(e.kind() == io::ErrorKind::AlreadyExists && dst.is_dir())
             {
                 job.prog.register_file(0);
+                job.prog.file_failed();
                 job.log
                     .error(format!("could not create directory {}: {e}", dst.display()));
                 continue;
@@ -106,6 +109,7 @@ pub(crate) fn collect(
                 Ok(t) => t,
                 Err(e) => {
                     job.prog.register_file(0);
+                    job.prog.file_failed();
                     job.log
                         .error(format!("could not read symlink {}: {e}", path.display()));
                     continue;
@@ -127,6 +131,7 @@ pub(crate) fn collect(
                 Ok(m) => m,
                 Err(e) => {
                     job.prog.register_file(0);
+                    job.prog.file_failed();
                     job.log
                         .error(format!("could not stat {}: {e}", path.display()));
                     continue;

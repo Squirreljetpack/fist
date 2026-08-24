@@ -20,9 +20,11 @@
 
 use std::path::{Component, Path, PathBuf};
 
-/// True when `path` is relative and contains no `..` components.
+/// True when `path` is non-empty, relative, and contains no `..`
+/// components.
 pub(crate) fn is_safe(path: &Path) -> bool {
-    !path.is_absolute()
+    !path.as_os_str().is_empty()
+        && !path.is_absolute()
         && path
             .components()
             .all(|c| matches!(c, Component::Normal(_) | Component::CurDir))

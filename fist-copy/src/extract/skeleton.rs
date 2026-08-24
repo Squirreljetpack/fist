@@ -27,11 +27,15 @@ pub fn skeleton(
             continue;
         }
         if entry.is_dir {
-            let _ = fs::create_dir_all(dest.join(path));
+            if let Err(e) = fs::create_dir_all(dest.join(path)) {
+                log::warn!("skeleton: could not create {:?}: {e}", path);
+            }
         } else if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
             // parents of every file form the directory tree, which also
             // covers listings that drop explicit dir entries (zip/tar)
-            let _ = fs::create_dir_all(dest.join(parent));
+            if let Err(e) = fs::create_dir_all(dest.join(parent)) {
+                log::warn!("skeleton: could not create {:?}: {e}", parent);
+            }
         }
     }
 }

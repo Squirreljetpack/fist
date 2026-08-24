@@ -73,7 +73,8 @@ impl TaskSnapshot {
         let copy = if self.total_bytes > 0 {
             self.copied_bytes as f32 / self.total_bytes as f32
         } else if self.files_total > 0 {
-            (self.files_ok + self.files_failed) as f32 / self.files_total as f32
+            (self.files_ok + self.files_failed + self.files_skipped) as f32
+                / self.files_total as f32
         } else {
             0.0
         };

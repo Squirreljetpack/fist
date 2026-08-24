@@ -20,12 +20,16 @@ use fist_copy::{Scheduler, TaskState};
 use super::*;
 use crate::run::{
     item::short_display,
-    state::{TOAST, ToastStyle},
+    state::{TOAST, ToastFlags, ToastStyle},
 };
 
 pub static COPY_SCHED: OnceLock<Scheduler> = OnceLock::new();
 
 static WATCHER: OnceLock<()> = OnceLock::new();
+
+/// Set by [`shutdown`]: the watcher finishes its tick and exits instead of
+/// sleeping on.
+static WATCHER_EXIT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 const TICK: Duration = Duration::from_millis(100);
 
@@ -59,6 +63,7 @@ pub fn task_log(task_id: u64) -> Option<Vec<String>> {
 
 /// Shut down the global scheduler if it was ever created.
 pub fn shutdown(drain_timeout: Duration) {
+    WATCHER_EXIT.store(true, std::sync::atomic::Ordering::Release);
     if let Some(sched) = COPY_SCHED.get() {
         sched.shutdown(drain_timeout);
     }
@@ -124,6 +129,19 @@ fn discover(
             .iter()
             .find(|i| i.status.task_id() == Some(id) && i.status.state.is_started())
         {
+            // extraction rows announce themselves here: discovery happens
+            // exactly once per task, so the persistent "Extracting" toast
+            // is pushed exactly once and retired by [`finalize`]
+            if item.kind == EXTRACT_KIND
+                && let Some(first) = item.src.first()
+            {
+                TOAST::push_with_flag(
+                    ToastStyle::Info,
+                    "Extracting: ",
+                    [short_display(first)],
+                    ToastFlags::PERSIST_CURSOR | ToastFlags::PERSIST_PANE,
+                );
+            }
             seen.insert(id, item.clone());
         }
     }

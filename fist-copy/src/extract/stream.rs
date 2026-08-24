@@ -5,7 +5,7 @@
 //! copied through the decoder under their de-suffixed name.
 
 use std::fs::{self, File};
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use super::ArchiveEntry;
@@ -74,7 +74,20 @@ pub(crate) fn extract(
             let full = dest.join(bare_stem(source));
             fs::create_dir_all(dest)?;
             let mut out = File::create(&full)?;
-            io::copy(&mut decoded, &mut out)?;
+            // chunked so cancellation lands between chunks and byte
+            // progress advances during the copy
+            let mut buf = vec![0u8; 64 * 1024];
+            loop {
+                if ctx.cancelled() {
+                    return Err(super::ctx::cancelled());
+                }
+                let n = decoded.read(&mut buf)?;
+                if n == 0 {
+                    break;
+                }
+                out.write_all(&buf[..n])?;
+                sb.report(ctx);
+            }
             drop(out);
             ctx.entry_ok();
             sb.finish(ctx);

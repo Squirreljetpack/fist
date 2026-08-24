@@ -105,11 +105,12 @@ impl JobCtx {
         self: &Arc<Self>,
         parent: Option<usize>,
         outcome: ItemOutcome,
+        count_files: bool,
     ) {
         match outcome {
-            ItemOutcome::Done => self.prog.file_ok(),
-            ItemOutcome::Failed => self.prog.file_failed(),
-            ItemOutcome::Skipped => {}
+            ItemOutcome::Done if count_files => self.prog.file_ok(),
+            ItemOutcome::Failed if count_files => self.prog.file_failed(),
+            _ => {}
         }
         if let Some(p) = parent {
             self.tracker.child_finished(p);
@@ -410,14 +411,18 @@ fn worker_loop(inner: Arc<Inner>) {
                 let job = { inner.jobs.lock().expect("jobs lock").get(&w.task).cloned() };
                 let Some(job) = job else { continue };
                 if job.token.is_cancelled() {
-                    job.complete_item(w.parent, ItemOutcome::Skipped);
+                    job.complete_item(w.parent, ItemOutcome::Skipped, false);
                     continue;
                 }
                 if scratch.len() < job.buffer_size {
                     scratch.resize(job.buffer_size, 0);
                 }
                 let outcome = copier::execute(&job, &w, &mut scratch[..]);
-                job.complete_item(w.parent, outcome);
+                // extraction items do their own per-entry accounting inside
+                // the runner; counting the archive-level item again would
+                // inflate files_ok/files_failed by one
+                let self_counting = matches!(w.item, crate::work::WorkItem::Extract(_));
+                job.complete_item(w.parent, outcome, !self_counting);
             }
             Err(RecvTimeoutError::Timeout) => {
                 if inner.shutting_down.load(Ordering::Acquire) {

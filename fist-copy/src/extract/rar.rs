@@ -74,5 +74,8 @@ pub(crate) fn extract(
             }
         }
     }
+    // entries after the failure are never registered, so the denominator
+    // stays short — but `files_failed > 0` still drives the task to
+    // CompleteErr in [`crate::scheduler::JobCtx::try_finish`]
     Ok(())
 }

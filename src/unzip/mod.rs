@@ -15,20 +15,37 @@
 //! Failures are recorded as a `.failed` marker in the skeleton dir by the
 //! pump watcher, and cleaned up with the whole per-process root on exit.
 
-use std::path::{Path, PathBuf};
-
-use fist_copy::extract;
-use matchmaker::nucleo::Span;
+use std::{
+    path::{Path, PathBuf},
+    sync::OnceLock,
+};
 
 use crate::{
     abspath::AbsPath,
     cli::paths::__unzip,
     run::{
         queue::{EXTRACT_KIND, QUEUE, QUEUE_STATE, scheduler},
-        state::{GLOBAL, TASKS, TOAST, ToastFlags, ToastStyle},
+        state::{GLOBAL, TASKS},
     },
     watcher::WatcherMessage,
 };
+use fist_copy::extract;
+
+/// Outcome of [`init`]; drives navigation and toasts at the call site.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Entered {
+    /// Navigate into the returned workdir; extraction is already running
+    /// (freshly submitted or picked up mid-flight).
+    Extracting(AbsPath),
+    /// Navigate into the returned workdir; contents are complete.
+    Complete(AbsPath),
+    /// The archive previously failed to extract (`.failed` marker);
+    /// navigable into the partial workdir, with a warning at the call
+    /// site.
+    Failed(AbsPath),
+    /// Not an extractable archive after all (undetectable or unlistable).
+    None,
+}
 
 // -------------------------- entry points --------------------------
 
@@ -38,14 +55,17 @@ pub fn root() -> PathBuf {
     __unzip().to_path_buf()
 }
 
-/// Registers the best-effort exit hook. No other setup: extraction runs on
-/// the copy scheduler and its lifecycle lives on disk and in the queue.
-pub fn start() {
-    // best-effort cleanup for exit paths that skip [`shutdown`]
-    // (e.g. `std::process::exit`) — leftovers are swept on the next start
+/// Arms the best-effort exit hook once, on first use: nothing needs
+/// cleaning before the first skeleton exists.
+fn arm_exit_hook() {
+    static ARMED: OnceLock<()> = OnceLock::new();
     #[cfg(unix)]
-    unsafe {
+    ARMED.get_or_init(|| unsafe {
         libc::atexit(cleanup_on_exit);
+    });
+    #[cfg(not(unix))]
+    {
+        _ = ARMED.get();
     }
 }
 
@@ -60,17 +80,14 @@ extern "C" fn cleanup_on_exit() {
 /// sequence can surface what it waits on. The scheduler's own shutdown has
 /// already cancelled in-flight extractions by then.
 pub fn shutdown() {
-    TASKS::spawn_blocking(
-        CLEANUP_TASK_DESC,
-        || match std::fs::remove_dir_all(root()) {
+    TASKS::spawn_blocking("unzip skeleton cleanup", || {
+        match std::fs::remove_dir_all(root()) {
             Ok(()) => {}
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
             Err(e) => log::warn!("Failed to remove skeleton root {:?}: {e}", root()),
-        },
-    );
+        }
+    });
 }
-
-const CLEANUP_TASK_DESC: &str = "unzip skeleton cleanup";
 
 /// Whether `path` is an archive the engine can extract.
 pub fn supported(path: &Path) -> bool {
@@ -86,9 +103,14 @@ pub fn supported(path: &Path) -> bool {
 /// populated skeleton is reused; stale or emptied ones are rebuilt. A
 /// `.failed` marker reports the previous attempt and bails. `None` means
 /// the caller should treat the path normally (the failure is toasted).
-pub fn init(path: &Path) -> Option<AbsPath> {
-    let source = path.canonicalize().ok()?;
-    let format = extract::detect(&source)?;
+pub fn init(path: &AbsPath) -> Entered {
+    arm_exit_hook();
+    let Some(source) = canonicalized(path) else {
+        return Entered::None;
+    };
+    let Some(format) = extract::detect(&source) else {
+        return Entered::None;
+    };
     let listing = match extract::list(&source, format) {
         Ok(listing) => listing,
         Err(e) => {
@@ -97,7 +119,7 @@ pub fn init(path: &Path) -> Option<AbsPath> {
                 e.archive.display(),
                 e.source
             );
-            return None;
+            return Entered::None;
         }
     };
 
@@ -107,35 +129,51 @@ pub fn init(path: &Path) -> Option<AbsPath> {
     // destination while one task is writing)
     if let Some(workdir) = running_workdir(&source) {
         must_watch(&workdir);
-        return Some(AbsPath::new_unchecked(workdir));
+        return Entered::Extracting(AbsPath::new_unchecked(workdir));
     }
 
-    let mtime = mtime_secs(&source);
+    let mtime = mtime_millis(&source);
 
     // freshest existing skeleton for this source, if any
     if let Some((skel, ts)) = freshest_skeleton(&source) {
-        if skel.join(FAILED_MARKER).exists() {
-            TOAST::notice(ToastStyle::Error, "Extraction failed");
-            return None;
-        }
         let workdir = workdir_of(&skel, &source);
+        // a failure only blocks reuse of the old tree while the skeleton
+        // is current for this archive; an updated archive gets rebuilt
+        // regardless of the marker
+        if ts > mtime && skel.join(FAILED_MARKER).exists() {
+            return Entered::Failed(AbsPath::new_unchecked(workdir));
+        }
         if ts > mtime && !workdir_is_empty(&workdir) {
             // fresh and populated: reuse
             must_watch(&workdir);
-            return Some(AbsPath::new_unchecked(workdir));
+            return Entered::Complete(AbsPath::new_unchecked(workdir));
         }
-        // stale or emptied: fall through to rebuild; the sweep below
-        // removes this and any older copies once allocation succeeded
+        // stale, emptied, or failed-and-stale: fall through to rebuild;
+        // the sweep below removes this and older copies after allocation
     }
 
-    let workdir = alloc_dir(&source)?;
+    let Some((workdir, skel_name)) = alloc_dir(&source) else {
+        return Entered::None;
+    };
     extract::skeleton(&workdir, &listing);
-    sweep_others(&source);
+    sweep_others(&source, &skel_name);
 
-    QUEUE::start_extract(AbsPath::new_unchecked(source.clone()), workdir.clone())?;
+    if QUEUE::start_extract(AbsPath::new_unchecked(source.clone()), workdir.clone()).is_none() {
+        // submission rejected: the just-created preview would otherwise be
+        // found "fresh and populated" forever; drop it
+        if let Some(skel) = workdir.parent() {
+            let _ = std::fs::remove_dir_all(skel);
+        }
+        return Entered::None;
+    }
 
     must_watch(&workdir);
-    Some(AbsPath::new_unchecked(workdir))
+    Entered::Extracting(AbsPath::new_unchecked(workdir))
+}
+
+/// The canonical path behind `path`.
+fn canonicalized(path: &AbsPath) -> Option<PathBuf> {
+    path.canonicalize().ok()
 }
 
 /// Cancels the in-flight extraction of `path`, if one is running.
@@ -178,27 +216,6 @@ fn must_watch(temp: &Path) {
     GLOBAL::send_watcher(WatcherMessage::MustWatch(temp.to_path_buf()));
 }
 
-pub fn toast_entering(path: &Path) {
-    let source = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    let extracting = running_row(&source).is_some();
-
-    if extracting {
-        let name = short_display_span(path);
-        TOAST::push_with_flag(
-            ToastStyle::Info,
-            "Extracting: ",
-            [name],
-            ToastFlags::PERSIST_CURSOR | ToastFlags::PERSIST_PANE,
-        );
-    } else {
-        TOAST::msg(Span::styled("Entering archive", ToastStyle::Info), true);
-    }
-}
-
-fn short_display_span(path: &Path) -> Span<'static> {
-    crate::run::item::short_display(path)
-}
-
 // -------------------------- skeleton layout --------------------------
 
 /// Marker file dropped into a skeleton dir when its extraction ends in
@@ -209,12 +226,13 @@ const FAILED_MARKER: &str = ".failed";
 /// Allocates the skeleton dir for `source` (named by [`skeleton_name`])
 /// plus its archive-name workdir — the extraction destination and the dir
 /// the user navigates into.
-fn alloc_dir(source: &Path) -> Option<PathBuf> {
-    let dir = root().join(skeleton_name(source));
+fn alloc_dir(source: &Path) -> Option<(PathBuf, String)> {
+    let skel_name = skeleton_name(source);
+    let dir = root().join(&skel_name);
     std::fs::create_dir_all(&dir).ok()?;
     let workdir = workdir_of(&dir, source);
     std::fs::create_dir_all(&workdir).ok()?;
-    Some(workdir)
+    Some((workdir, skel_name))
 }
 
 /// The workdir inside a skeleton: the archive file name, extension
@@ -313,7 +331,7 @@ fn skeleton_timestamp(name: &str) -> Option<u64> {
 }
 
 /// Archive mtime in unix millis (0 when unknowable — treated as ancient).
-fn mtime_secs(source: &Path) -> u64 {
+fn mtime_millis(source: &Path) -> u64 {
     std::fs::metadata(source)
         .ok()
         .and_then(|m| m.modified().ok())
@@ -355,8 +373,11 @@ fn freshest_skeleton(source: &Path) -> Option<(PathBuf, u64)> {
 /// Removes every skeleton decoding back to `source` except the one just
 /// allocated. Spawned on the blocking pool: deletion of large stale trees
 /// must not stall navigation.
-fn sweep_others(source: &Path) {
-    let keep = skeleton_name(source);
+fn sweep_others(
+    source: &Path,
+    keep: &str,
+) {
+    let keep = keep.to_owned();
     let source = source.to_path_buf();
     TASKS::spawn_blocking("unzip stale cleanup", move || {
         let Ok(entries) = std::fs::read_dir(root()) else {
