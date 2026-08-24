@@ -208,6 +208,10 @@ pub struct NavPaneSettings {
     /// Default visibility.
     /// - When None: show hidden files and hide ignored files when inside a git repository and the inverse otherwise
     pub default_visibility: Option<PartialVisibility>,
+    /// Glob patterns the Nav walker skips while listing (gitignore-style,
+    /// matched against paths relative to the listed directory). Ignored
+    /// entirely while visibility.all is engaged.
+    pub ignore_patterns: Vec<String>,
 }
 
 impl Default for NavPaneSettings {
@@ -221,6 +225,7 @@ impl Default for NavPaneSettings {
 
             default_sort: Some(SortOrder::mtime),
             default_visibility: Default::default(),
+            ignore_patterns: Default::default(),
         }
     }
 }
@@ -271,13 +276,19 @@ impl Clone for StashPaneSettings {
 }
 
 impl PartialEq for StashPaneSettings {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         self.0 == other.0
     }
 }
 
 impl std::fmt::Debug for StashPaneSettings {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
@@ -288,10 +299,7 @@ impl<'de> serde::Deserialize<'de> for StashPaneSettings {
         D: serde::Deserializer<'de>,
     {
         let map = HashMap::<String, StashPaneSetting>::deserialize(deserializer)?;
-        if let Some(key) = map
-            .keys()
-            .find(|k| k.eq_ignore_ascii_case("default"))
-        {
+        if let Some(key) = map.keys().find(|k| k.eq_ignore_ascii_case("default")) {
             return Err(serde::de::Error::custom(format!(
                 "stash name {key:?} is reserved"
             )));
@@ -307,7 +315,10 @@ impl Default for StashPaneSettings {
 }
 
 impl serde::Serialize for StashPaneSettings {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {

@@ -61,11 +61,12 @@ pub fn nav_list(
     cwd: &std::path::Path,
     vis: Visibility,
     sort: SortOrder,
+    ignore_patterns: &[String],
     output: &OutputOpts,
 ) {
     let (template, sep) = output_parts(output);
     // cwd is abs so results can be added as unchecked
-    let files: Vec<PathBuf> = list_dir(cwd, vis, 1).collect();
+    let files: Vec<PathBuf> = list_dir(cwd, vis, 1, ignore_patterns).collect();
     print_sorted(files, sort, &template, &sep);
 }
 

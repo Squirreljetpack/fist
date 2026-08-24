@@ -523,11 +523,12 @@ impl FsPane {
                 let sort = *sort;
                 let depth = *depth;
                 let complete = complete.clone();
+                let ignore_patterns = cfg.panes.nav.ignore_patterns.clone();
 
                 spawn_blocking(move || {
                     let mut empty = toast_on_empty;
 
-                    for path in list_dir(&cwd, vis, depth) {
+                    for path in list_dir(&cwd, vis, depth, &ignore_patterns) {
                         empty = false;
                         let item = PathItem::new_unchecked(path);
                         sort::store_sort_value(&item, sort::get_sort().order);

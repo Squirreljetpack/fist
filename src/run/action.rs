@@ -371,6 +371,20 @@ pub fn fsaction_aliaser(
                     && !no_confirm
                 {
                     acs![Action::DeleteWord]
+                } else if !GLOBAL::cfg().interface.allow_trash_db_items
+                    && STACK::with_current(|p| {
+                        matches!(
+                            p,
+                            FsPane::Stash { .. }
+                                | FsPane::Apps { .. }
+                                | FsPane::Files { .. }
+                                | FsPane::Folders { .. }
+                        )
+                    })
+                {
+                    // the db-backed panes track items rather than own them:
+                    // remove the records instead of trashing the real paths
+                    acs![FsAction::Delete(false)]
                 } else {
                     acs![Action::Custom(fa)]
                 }
@@ -992,10 +1006,17 @@ pub fn fsaction_handler(
         }
 
         FsAction::Trash(no_confirm) => {
-            let (stash_name, no_yes_default) = STACK::with_current(|p| match p {
-                FsPane::Stash { stash_name, .. } => (Some(stash_name.clone()), true),
-                FsPane::Apps { .. } | FsPane::Files { .. } | FsPane::Folders { .. } => (None, true),
-                _ => (None, false),
+            // db-backed panes (stash + apps/files/folders) route to Delete in
+            // the aliaser unless interface.allow_trash_db_items is set, so a
+            // Trash arriving here always operates on the real paths
+            let no_yes_default = STACK::with_current(|p| {
+                matches!(
+                    p,
+                    FsPane::Stash { .. }
+                        | FsPane::Apps { .. }
+                        | FsPane::Files { .. }
+                        | FsPane::Folders { .. }
+                )
             });
 
             let mut items = vec![];
@@ -1034,17 +1055,11 @@ pub fn fsaction_handler(
                     content: None,
                     content_above: false,
                     title_in_border: false,
-                    // on db history panes (apps/files/folders) trashing also
-                    // removes the real path; never default to Yes there
+                    // never default to Yes on the db-backed panes
                     cursor: if no_yes_default { 1 } else { 0 },
                     scroll: 0,
                 });
                 GLOBAL::send_action(FsAction::Confirm);
-                return;
-            }
-
-            if let Some(name) = stash_name {
-                db_stash_remove(name, items);
                 return;
             }
 

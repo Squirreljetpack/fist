@@ -1,10 +1,10 @@
 [tui]
-percentage = 50
-min = 10
-max = 25
+min = 12
 # when system clipboard cannot be (i.e. over ssh), this falls back to osc52.
 # set to true to never use the system clipboard.
 osc52 = false
+scroll = "Expansive"
+percentage = 70
 
 [ui]
 mouse_events = true
