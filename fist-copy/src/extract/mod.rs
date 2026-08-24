@@ -15,6 +15,7 @@
 pub(crate) mod ctx;
 pub(crate) mod runner;
 mod safety;
+mod skeleton;
 
 #[cfg(feature = "ar")]
 mod ar;
@@ -32,6 +33,7 @@ mod tarball;
 mod zip;
 
 pub use detect::{Format, detect};
+pub use skeleton::skeleton;
 
 use std::io;
 use std::path::Path;

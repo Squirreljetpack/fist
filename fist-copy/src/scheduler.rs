@@ -297,6 +297,20 @@ impl Scheduler {
             .collect()
     }
 
+    /// Log lines recorded so far for one task. Tasks are never evicted, so
+    /// this stays readable after completion.
+    pub fn log_lines(
+        &self,
+        id: TaskId,
+    ) -> Option<Vec<String>> {
+        self.inner
+            .jobs
+            .lock()
+            .expect("jobs lock")
+            .get(&id)
+            .map(|j| j.log.lines())
+    }
+
     pub fn shutdown(
         &self,
         drain_timeout: Duration,

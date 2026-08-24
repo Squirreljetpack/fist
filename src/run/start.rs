@@ -310,7 +310,7 @@ pub async fn start(
     // start watcher
     watcher.spawn()._ebog();
     // start the archive extraction worker
-    unzip::start(cfg.archive.clone());
+    unzip::start();
 
     // populate mm
     STACK::populate(injector, || {});

@@ -54,19 +54,22 @@ they are pure consumers of the API above.
    - extension map first (`a.tar.gz`, `.zip`, `.7z`, ...), then magic-byte
      sniff of the first bytes; formats whose cargo feature is off never
      match
-2. `unzip::init(path)`:
-   - canonicalize, look up the registry: re-entry **reuses** the existing
-     skeleton while it is *fresh* (skeleton timestamp > archive mtime,
-     second granularity); stale or emptied skeletons are rebuilt; a
-     previously failed archive reports an error toast and bails
-   - `extract::list(source, format)` — cheap listing (zip central dir,
+2. `unzip::init(path)` — stateless; every decision is a disk read or a
+   queue query:
+   - canonicalize, detect, list (`extract::list`: zip central dir,
      tar/ar/rar/7z headers; compressed streams decode-and-peek for tar)
-   - `alloc_dir`: creates `<tmp>/fist/<pid>/<encoded-path>--<unix-secs>/`
-     plus the workdir named after the archive; `skeleton_dir` materializes
-     the directory-only tree from the listing (paths validated, files never
-     created)
-   - registers `Entry { state: Skeleton, row: None, .. }` in the registry
-     **before** starting anything, so re-entry can't double-extract
+   - **running-row guard**: a started `extract` queue row for this source
+     ⇒ cd straight into that row's workdir (covers concurrent re-entry and
+     the same-second reallocation edge — no second worker, ever)
+   - freshest on-disk skeleton for this source (dir name decodes to the
+     archive path): a `.failed` marker inside it reports "Extraction
+     failed" and bails; otherwise fresh (`ts > mtime`) *and populated* ⇒
+     reuse; stale or emptied ⇒ fall through and rebuild
+   - `alloc_dir` creates `<tmp>/fist/<pid>/<encoded-path>--<unix-millis>/`
+     plus the workdir named after the archive (app-owned: *where*);
+     `extract::skeleton(workdir, listing)` materializes the directory-only
+     tree (engine-owned: *what*); an async sweep removes older skeletons
+     of the same source, excluding the new one
 3. `QUEUE::start_extract(source, workdir)` — see §2
 4. `must_watch(workdir)` → watcher keeps reloading the workdir unthrottled
    through extraction event storms
@@ -78,13 +81,13 @@ they are pure consumers of the API above.
 `queue/mod.rs:QUEUE::start_extract`:
 
 1. submits `JobRequest { kind: Extract(ExtractParams), source, dest }`
-   to the global copy scheduler; on rejection → no row at all, entry is
-   marked Failed in the registry
+   to the global copy scheduler; on rejection → no row at all
 2. pushes a row `{ kind: "extract", src: [archive], dst: workdir }`
-   already in `Started` state with `task_id` set — extract rows have no
-   pending phase and bypass dispatch-time destination resolution
-3. `pump::register_task(handle, row)` spawns a pump watcher thread that
-   polls the task snapshot every 100 ms
+   already in `Started` state with the engine task id stamped into its
+   status — extract rows have no pending phase and bypass dispatch-time
+   destination resolution
+3. lazily starts the unified watcher on first submission (nothing can
+   forget it)
 
 ## 3. Execution — copy worker pool
 
@@ -100,60 +103,57 @@ they are pure consumers of the API above.
   - `ctx.register_entries(1)` then ok / failed / skipped
   - unsafe paths (absolute, `..`, escaping link targets) are skipped, not
     extracted
-- progress semantics: `total_bytes` stays 0, so percent = resolved
-  entries / registered entries; the pump writes it into the row's atomic
-  `progress`
+- progress semantics — two tiers, chosen per format; `percent()` prefers
+  bytes whenever a byte total was seeded, and falls back to
+  resolved-entries / registered-entries when `total_bytes` is 0:
+  - **exact bytes** — zip (central-directory sizes, counted `io::copy`)
+  - **source bytes** — plain tar, ar, and compressed streams: a counting
+    reader wraps the raw file; denominator = file size. Exact for
+    uncompressed containers, an honest "archive processed" metric for
+    compressed ones. On success `SourceBytes::finish` folds in the
+    structural tail (tar zero-block padding, compression trailers) that
+    consumers never read, landing at exactly 100%; cancelled/failed tasks
+    keep their partial value
+  - **entry counts only** — rar and 7z (no interception point)
 - failure model: per-entry errors are recorded and the loop continues;
   structural errors (undetected format, unreadable archive) fail the task.
   Rar is the exception — its cursor is consuming, so the first failed
   entry aborts the rest. 7z extracts whole-archive (one unit of work).
 
-## 3b. The pump watcher
+## 3b. The unified watcher
 
-One per task, spawned by `pump.rs:register_task` at submission time (both
-copy/move dispatch and `start_extract`): a detached thread named
-`fist-copy-watch` that owns the `TaskHandle` and translates engine
-snapshots into UI state. It never touches the worker pool.
+ONE detached thread (`fist-copy-watch`), lazily started at the first
+engine-backed submission, watching the *scheduler* — not the queue. Its
+tick every 100 ms (wrapped in `catch_unwind`: a panicked tick must not
+kill all future finalizations):
 
-Loop, every 100 ms:
+1. `scheduler().snapshot()` → all `(TaskId, TaskSnapshot)` pairs; the
+   engine never evicts jobs, so terminal states are durable and nothing
+   can be missed between ticks
+2. **discovery**: ids not seen yet are resolved against `QUEUE_STATE` by
+   matching `status.task_id()` — exactly once per task, under the lock;
+   the resolved status clone (shared atomics with the stored row) is kept
+   in the watcher's local cache for the task's lifetime, so removing a
+   running row cannot lose its completion
+3. **mirror**: progress (u8 percent) and size written into the cached
+   status atomics
+4. **finalize**: on a terminal snapshot, CAS the row `Started →
+   CompleteOk/CompleteErr`. The CAS is the once-only "seen" flag — the
+   winner alone pushes the `Complete:`/`Failed:` toast (+ reason),
+   appends to `QUEUE_ACTION_HISTORY`, and evicts the cache entry.
+   Extract-specific branches: pop the persistent "Extracting:" toast; on
+   failure also drop a `.failed` marker into the skeleton dir plus a
+   transient "Extraction failed" notice.
 
-1. `handle.snapshot()` → plain-data `TaskSnapshot`
-2. row atomics updated in place (`QueueItemStatus` clones share them with
-   the stored row):
-   - `progress` = snapshot `percent()` clamped and scaled to `u8` — for
-     extractions this is resolved-entries / registered-entries
-   - `size` = `total_bytes`, only when non-zero (extractions keep it 0)
-3. state dispatch:
-   - `Pending` / `Started` → keep polling
-   - `CompleteOk` → CAS row `Started → CompleteOk` (rows not in `Started`,
-     e.g. failed submissions that were marked directly, are left alone),
-     push the `Complete:` toast, append the item to
-     `QUEUE_ACTION_HISTORY`, exit
-   - `CompleteErr` / `Canceled` → same CAS to `CompleteErr`, push
-     `Failed:` toast plus a notice carrying the reason ("canceled" or
-     "N file(s) failed"), exit
-
-On exit the handle is dropped from the process-global `COPY_TASKS` map,
-which is also what `task_log(task_id)` consults for the queue detail
-view's log lines. Because the watcher holds a *clone* of the row's status
-atomics, it works identically for rows created by dispatch-time execution
-and rows created directly by `start_extract`.
-
-The unzip registry runs a second, much smaller poller alongside this one
-(see §4); the two are independent and both tolerate the other finishing
-first.
+Lua/symlink rows self-finalize inline in `execute()` and never appear in
+snapshots; the watcher ignores them.
 
 ## 4. Completion
 
-Two independent observers fire:
-
-- **pump watcher** (§3b) on terminal snapshot: row state, toasts, action
-  history
-- **unzip registry watcher** (`unzip/mod.rs:spawn_watch`) on terminal row
-  status:
-  - `Entry.state` → Complete / Failed (drives reuse-vs-rebuild on next
-    entry)
-  - pops the persistent "Extracting:" toast
+One observer: the unified watcher (§3b) — row state, toasts, history,
+and the extract-specific `.failed` marker / "Extracting:" toast retire.
+There is no unzip-side thread: lifecycle state is *derived* from disk and
+queue rows at read time (see §1).
 
 ## 5. Cancellation
 

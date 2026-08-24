@@ -4,24 +4,25 @@
 //! iteration serves plain files, decoded streams, and stream prefixes
 //! already peeked by [`super::codec::peek_tar`].
 
-use std::fs::{self, File};
+use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 use tar::{Archive, Entry, EntryType};
 
 use super::ArchiveEntry;
+use super::codec::{self, SourceBytes};
 use super::ctx::ExtractCtx;
 use super::safety::{is_safe, link_target_safe};
 
 /// A rewind-free byte source: either a real file or a decoded stream that
 /// may start with an already-consumed peek block.
 pub(crate) enum ByteSource {
-    File(File),
+    File(Box<dyn Read + Send>),
     Stream {
         /// Bytes consumed during content sniffing, replayed first.
         prefix: Box<dyn Read + Send>,
-        inner: super::codec::BoxDecoder,
+        inner: codec::BoxDecoder,
     },
 }
 
@@ -42,13 +43,19 @@ impl Read for ByteSource {
 
 /// Opens `source` as a plain (uncompressed) tar.
 pub(crate) fn source(source: &Path) -> io::Result<ByteSource> {
-    Ok(ByteSource::File(File::open(source)?))
+    Ok(ByteSource::File(Box::new(fs::File::open(source)?)))
+}
+
+/// Builds a plain-tar source over an existing reader (a tracked file for
+/// source-byte accounting).
+pub(crate) fn source_reader(reader: impl Read + Send + 'static) -> ByteSource {
+    ByteSource::File(Box::new(reader))
 }
 
 /// Wraps a decoded stream whose first block was consumed by sniffing.
 pub(crate) fn source_from_decoded(
-    prefix_block: [u8; super::codec::TAR_BLOCK],
-    decoded: super::codec::BoxDecoder,
+    prefix_block: [u8; codec::TAR_BLOCK],
+    decoded: codec::BoxDecoder,
 ) -> ByteSource {
     ByteSource::Stream {
         prefix: Box::new(io::Cursor::new(prefix_block)),
@@ -69,13 +76,16 @@ pub(crate) fn list(reader: ByteSource) -> io::Result<Vec<ArchiveEntry>> {
     Ok(out)
 }
 
-/// Extracts the archive into `dest`, one progress unit per entry.
+/// Extracts the archive into `dest`, one progress unit per entry. When
+/// `bytes` is given, source consumption is folded into byte progress after
+/// every entry.
 pub(crate) fn extract(
     reader: ByteSource,
     dest: &Path,
     ctx: &ExtractCtx<'_>,
+    bytes: Option<&SourceBytes>,
 ) -> io::Result<()> {
-    for_each(reader, dest, ctx, |entry, full, _| {
+    for_each(reader, dest, ctx, bytes, |entry, full, _| {
         if entry.header().entry_type().is_dir() {
             fs::create_dir_all(&full)?;
             return Ok(());
@@ -107,12 +117,13 @@ fn for_each(
     reader: ByteSource,
     dest: &Path,
     ctx: &ExtractCtx<'_>,
+    bytes: Option<&SourceBytes>,
     mut write: impl FnMut(&mut Entry<'_, ByteSource>, PathBuf, &Path) -> io::Result<()>,
 ) -> io::Result<()> {
     let mut archive = Archive::new(reader);
     for entry in archive.entries()? {
         if ctx.cancelled() {
-            return Err(cancelled());
+            return Err(super::ctx::cancelled());
         }
         let mut entry = match entry {
             Ok(entry) => entry,
@@ -148,12 +159,11 @@ fn for_each(
                 ctx.entry_failed();
             }
         }
+        if let Some(bytes) = bytes {
+            bytes.report(ctx);
+        }
     }
     Ok(())
-}
-
-pub(crate) fn cancelled() -> io::Error {
-    super::ctx::cancelled()
 }
 
 /// Resolves the entry's path with Windows separators normalized away.

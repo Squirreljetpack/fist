@@ -12,10 +12,107 @@
 
 use std::fs;
 use std::io::Read;
+use std::path::Path;
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
 
 use super::detect::Format;
 
 pub(crate) const TAR_BLOCK: usize = 512;
+
+/// A byte counter shared between a wrapping reader and the progress
+/// reporter (see [`track_source`]).
+pub(crate) type ByteCount = Arc<AtomicU64>;
+
+/// Opens `source` for sequential reading while counting consumed bytes
+/// into a shared counter. The companion [`SourceBytes`] seeds the
+/// extraction's byte denominator: for uncompressed containers this is
+/// exactly payload progress, for compressed streams it is honest
+/// "archive processed" progress.
+///
+/// Returns the raw file; callers wrap it in their decoder chain so every
+/// read ticks the counter underneath.
+pub(crate) fn track_source(source: &Path) -> std::io::Result<(Counting<fs::File>, SourceBytes)> {
+    let file = fs::File::open(source)?;
+    let total = file.metadata()?.len();
+    let ctr: ByteCount = Arc::new(AtomicU64::new(0));
+    Ok((
+        Counting {
+            inner: file,
+            ctr: Arc::clone(&ctr),
+        },
+        SourceBytes {
+            ctr,
+            reported: AtomicU64::new(0),
+            total,
+        },
+    ))
+}
+
+/// The accounting handle belonging to one tracked source.
+pub(crate) struct SourceBytes {
+    ctr: ByteCount,
+    /// High-water mark already folded into progress; ticks are reported
+    /// as deltas against it.
+    reported: AtomicU64,
+    pub(crate) total: u64,
+}
+
+impl SourceBytes {
+    /// Seeds the denominator and folds newly consumed bytes into progress.
+    /// Call again (cheaply) whenever progress should advance.
+    pub(crate) fn report(
+        &self,
+        ctx: &super::ctx::ExtractCtx<'_>,
+    ) {
+        if self.total > 0 {
+            ctx.register_bytes(self.total);
+        }
+        let cur = self.ctr.load(Ordering::Relaxed);
+        let prev = self.reported.swap(cur, Ordering::Relaxed);
+        if cur > prev {
+            ctx.add_copied(cur - prev);
+        }
+    }
+
+    /// Reconciles the counter on successful completion: consumers stop at
+    /// logical end-of-data (tar's zero-block marker, compression trailers)
+    /// and never pull structural tail bytes, so the residual is folded in
+    /// to land at exactly 100%. A cancelled or failed task skips this and
+    /// keeps its honest partial value.
+    pub(crate) fn finish(
+        &self,
+        ctx: &super::ctx::ExtractCtx<'_>,
+    ) {
+        if self.total == 0 {
+            return;
+        }
+        let prev = self.reported.swap(self.total, Ordering::Relaxed);
+        if self.total > prev {
+            ctx.register_bytes(self.total);
+            ctx.add_copied(self.total - prev);
+        }
+    }
+}
+
+/// A reader that counts every byte pulled through it.
+pub(crate) struct Counting<R> {
+    inner: R,
+    ctr: ByteCount,
+}
+
+impl<R: Read> Read for Counting<R> {
+    fn read(
+        &mut self,
+        buf: &mut [u8],
+    ) -> std::io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.ctr.fetch_add(n as u64, Ordering::Relaxed);
+        Ok(n)
+    }
+}
 
 /// A decompressing reader over an underlying byte source.
 pub(crate) type BoxDecoder = Box<dyn Read + Send>;
@@ -23,7 +120,7 @@ pub(crate) type BoxDecoder = Box<dyn Read + Send>;
 /// Wraps `source` in the decoder for `format`. The caller guarantees the
 /// format matches (detection ran first).
 pub(crate) fn decode(
-    source: fs::File,
+    source: impl std::io::Read + Send + 'static,
     format: Format,
 ) -> BoxDecoder {
     match format {

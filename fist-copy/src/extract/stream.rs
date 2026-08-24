@@ -18,15 +18,13 @@ enum Shape {
     /// The stream decodes into a tar archive.
     Tar(ByteSource),
     /// The stream decodes to a single bare file.
-    Bare(BoxDecoderPlus),
+    Bare(Box<dyn Read + Send>),
 }
-
-type BoxDecoderPlus = Box<dyn Read + Send>;
 
 /// Classifies the decoded stream, returning either a tar source ready for
 /// iteration or a bare reader (with its peek block already consumed).
 fn shape(
-    source: File,
+    source: impl Read + Send + 'static,
     format: Format,
 ) -> io::Result<Shape> {
     let mut decoded = codec::decode(source, format);
@@ -57,9 +55,18 @@ pub(crate) fn extract(
     format: Format,
     ctx: &ExtractCtx<'_>,
 ) -> io::Result<()> {
-    match shape(File::open(source)?, format)? {
-        Shape::Tar(reader) => tarball::extract(reader, dest, ctx),
-        Shape::Bare(decoded) => {
+    // tracked at the raw layer: consumed compressed bytes vs file size
+    let (file, sb) = codec::track_source(source)?;
+    sb.report(ctx);
+    match shape(file, format)? {
+        Shape::Tar(reader) => {
+            let res = tarball::extract(reader, dest, ctx, Some(&sb));
+            if res.is_ok() {
+                sb.finish(ctx);
+            }
+            res
+        }
+        Shape::Bare(mut decoded) => {
             if ctx.cancelled() {
                 return Err(super::ctx::cancelled());
             }
@@ -67,10 +74,10 @@ pub(crate) fn extract(
             let full = dest.join(bare_stem(source));
             fs::create_dir_all(dest)?;
             let mut out = File::create(&full)?;
-            let mut decoded = decoded;
             io::copy(&mut decoded, &mut out)?;
             drop(out);
             ctx.entry_ok();
+            sb.finish(ctx);
             Ok(())
         }
     }

@@ -11,7 +11,7 @@ mod pump;
 mod status;
 pub use status::*;
 
-pub use pump::{register_task, scheduler, shutdown, task_log};
+pub use pump::{ensure_watcher, scheduler, shutdown, task_log};
 
 use std::{ffi::OsString, path::PathBuf, sync::Mutex};
 
@@ -118,8 +118,6 @@ pub struct QueueItem {
     pub src: Vec<AbsPath>,
     pub status: QueueItemStatus,
     pub dst: OsString,
-    /// The in-flight engine task for builtin transfers, set on dispatch.
-    pub task_id: Option<u64>,
 }
 
 impl QueueItem {
@@ -132,7 +130,6 @@ impl QueueItem {
             status: QueueItemStatus::new(&src),
             src: vec![src],
             dst: Default::default(),
-            task_id: None,
         }
     }
 
@@ -252,13 +249,10 @@ impl QUEUE {
     /// workdir `dest` and starts it immediately: extraction rows have no
     /// pending phase and their destination is internal, so they bypass
     /// [`QUEUE::enqueue`] and the dispatch-time destination resolution.
-    /// Submission happens here (not in [`QueueItem::execute`], which
-    /// extraction rows never run) so the caller learns of engine rejection
-    /// before any row exists.
     ///
-    /// Returns the row's status handle for out-of-band observation (the
-    /// unzip registry watches it to advance skeleton lifecycle state), or
-    /// `None` when the engine rejected the submission — no row is created.
+    /// Returns the row's status handle for out-of-band observation (the id
+    /// it carries drives cancellation and the unified watcher), or `None`
+    /// when the engine rejected the submission — no row is created.
     pub fn start_extract(
         source: AbsPath,
         dest: PathBuf,
@@ -278,16 +272,12 @@ impl QUEUE {
 
         let mut item = QueueItem::new(EXTRACT_KIND.into(), source);
         item.dst = dest.into_os_string();
-        item.task_id = Some(handle.id);
+        item.status.set_task_id(handle.id);
         item.status.state.store(QueueItemState::Started);
 
-        let tracked = item.clone();
         let status = item.status.clone();
         QUEUE_STATE.lock().unwrap().shared.push(item);
-
-        // the pump watcher finalizes the row: progress, completion toasts,
-        // action history, and cancellation all behave as for copy/move
-        register_task(handle, &tracked);
+        ensure_watcher();
         Some(status)
     }
 
@@ -325,7 +315,6 @@ impl QUEUE {
                 status: QueueItemStatus::new(&paths[0]),
                 src: paths,
                 dst: Default::default(),
-                task_id: None,
             });
         }
     }
@@ -453,7 +442,7 @@ impl QUEUE {
                     item.status.state.load(),
                     item.kind.clone(),
                     item.display(),
-                    item.task_id,
+                    item.status.task_id(),
                 )
             })
         };

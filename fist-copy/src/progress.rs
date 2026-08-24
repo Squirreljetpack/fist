@@ -160,6 +160,16 @@ impl Progress {
         self.files_total.fetch_add(n, Ordering::Relaxed);
     }
 
+    /// Seeds the byte denominator directly (extraction formats that know
+    /// the total up front); pairs with [`Self::add_copied`]. Idempotent:
+    /// repeated seeds with the same value are no-ops.
+    pub(crate) fn register_bytes(
+        &self,
+        n: u64,
+    ) {
+        self.total_bytes.fetch_max(n, Ordering::Relaxed);
+    }
+
     pub(crate) fn add_copied(
         &self,
         n: u64,

@@ -33,12 +33,22 @@ pub(crate) fn list(source: &Path) -> io::Result<Vec<ArchiveEntry>> {
 
 /// Extracts every entry into `dest`. Per-entry failures are recorded and
 /// skipped; only cancellation or a structural read error aborts the job.
+/// The central directory's uncompressed sizes make byte progress exact.
 pub(crate) fn extract(
     source: &Path,
     dest: &Path,
     ctx: &ExtractCtx<'_>,
 ) -> io::Result<()> {
     let mut archive = open(source)?;
+    // the central directory is already parsed; summing sizes is cheap
+    let mut total = 0u64;
+    for i in 0..archive.len() {
+        if let Ok(entry) = archive.by_index(i) {
+            total += entry.size();
+        }
+    }
+    ctx.register_bytes(total);
+
     for i in 0..archive.len() {
         if ctx.cancelled() {
             return Err(super::ctx::cancelled());
@@ -59,12 +69,15 @@ pub(crate) fn extract(
         };
         let full = dest.join(&rel);
         let res = if entry.is_dir() {
-            fs::create_dir_all(&full)
+            fs::create_dir_all(&full).map(|_| 0u64)
         } else {
             write_entry(&mut entry, &full)
         };
         match res {
-            Ok(()) => ctx.entry_ok(),
+            Ok(n) => {
+                ctx.entry_ok();
+                ctx.add_copied(n);
+            }
             Err(e) => {
                 log::warn!("zip: failed to extract {rel:?}: {e}");
                 ctx.entry_failed();
@@ -85,7 +98,7 @@ where
 fn write_entry<R>(
     entry: &mut zip::read::ZipFile<'_, R>,
     full: &Path,
-) -> io::Result<()>
+) -> io::Result<u64>
 where
     R: std::io::Read + std::io::Seek,
 {
@@ -93,7 +106,7 @@ where
         fs::create_dir_all(parent)?;
     }
     let mut out = File::create(full)?;
-    io::copy(entry, &mut out)?;
+    let n = io::copy(entry, &mut out)?;
     drop(out);
     if let Some(mode) = entry.unix_mode() {
         #[cfg(unix)]
@@ -106,5 +119,5 @@ where
             let _ = mode;
         }
     }
-    Ok(())
+    Ok(n)
 }

@@ -174,12 +174,88 @@ fn detect_list_extract_roundtrip() {
 
         // progress denominators resolve fully
         assert_eq!(snap.files_failed, 0);
+
+        // byte accounting: exact formats (zip, ar, plain tar) report the
+        // full payload; tracked streams report consumed source bytes.
+        // rar and 7z stay entry-counted
+        if format.id() != "rar" && format.id() != "7z" {
+            assert!(
+                snap.total_bytes > 0,
+                "no byte total for {} ({})",
+                path.display(),
+                format.id()
+            );
+            assert_eq!(
+                snap.copied_bytes,
+                snap.total_bytes,
+                "byte progress incomplete for {}",
+                path.display()
+            );
+        }
+
         sched.shutdown(Duration::from_secs(2));
     }
 }
 
 fn symlink_exists(p: &Path) -> bool {
     std::fs::symlink_metadata(p).is_ok()
+}
+
+#[test]
+fn skeleton_creates_dirs_only_and_skips_unsafe() {
+    let dir = std::env::temp_dir().join(format!(
+        "fist-copy-skeleton-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_nanos()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let entries = vec![
+        fist_copy::extract::ArchiveEntry {
+            path: "a/b/c.txt".into(),
+            is_dir: false,
+        },
+        fist_copy::extract::ArchiveEntry {
+            path: "a/b/".into(),
+            is_dir: true,
+        },
+        fist_copy::extract::ArchiveEntry {
+            path: "empty/".into(),
+            is_dir: true,
+        },
+        fist_copy::extract::ArchiveEntry {
+            path: "flat".into(),
+            is_dir: false,
+        },
+        // traversal and absolute entries never touch the disk
+        fist_copy::extract::ArchiveEntry {
+            path: "../../fist-copy-skeleton-evil".into(),
+            is_dir: true,
+        },
+        fist_copy::extract::ArchiveEntry {
+            path: "/abs".into(),
+            is_dir: true,
+        },
+    ];
+    fist_copy::extract::skeleton(&dir, &entries);
+
+    assert!(dir.join("a/b").is_dir());
+    assert!(dir.join("empty").is_dir());
+    // files are never created by the skeleton
+    assert!(!dir.join("a/b/c.txt").exists());
+    assert!(!dir.join("flat").exists());
+    assert!(
+        !std::env::temp_dir()
+            .join("fist-copy-skeleton-evil")
+            .exists()
+    );
+    assert!(!dir.join("abs").exists());
+
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

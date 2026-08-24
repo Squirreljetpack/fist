@@ -30,13 +30,16 @@ pub(crate) fn list(source: &Path) -> io::Result<Vec<ArchiveEntry>> {
     Ok(out)
 }
 
-/// Extracts every member into `dest` as a plain file.
+/// Extracts every member into `dest` as a plain file. The flat
+/// uncompressed layout makes source-byte consumption exact progress.
 pub(crate) fn extract(
     source: &Path,
     dest: &Path,
     ctx: &ExtractCtx<'_>,
 ) -> io::Result<()> {
-    let mut archive = ar::Archive::new(File::open(source)?);
+    let (file, sb) = super::codec::track_source(source)?;
+    sb.report(ctx);
+    let mut archive = ar::Archive::new(file);
     while let Some(entry) = archive.next_entry() {
         if ctx.cancelled() {
             return Err(super::ctx::cancelled());
@@ -65,7 +68,9 @@ pub(crate) fn extract(
                 ctx.entry_failed();
             }
         }
+        sb.report(ctx);
     }
+    sb.finish(ctx);
     Ok(())
 }
 

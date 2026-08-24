@@ -64,7 +64,19 @@ fn extract(
         Format::Zip => super::zip::extract(&work.source, &work.dest, ctx),
         #[cfg(feature = "tar")]
         Format::Tar => {
-            super::tarball::extract(super::tarball::source(&work.source)?, &work.dest, ctx)
+            // plain tar is uncompressed: source bytes are exact progress
+            let (file, sb) = super::codec::track_source(&work.source)?;
+            sb.report(ctx);
+            let res = super::tarball::extract(
+                super::tarball::source_reader(file),
+                &work.dest,
+                ctx,
+                Some(&sb),
+            );
+            if res.is_ok() {
+                sb.finish(ctx);
+            }
+            res
         }
         #[cfg(feature = "ar")]
         Format::Ar => super::ar::extract(&work.source, &work.dest, ctx),

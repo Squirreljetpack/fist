@@ -57,6 +57,23 @@ impl<'a> ExtractCtx<'a> {
         self.prog.register_entries(n);
     }
 
+    /// Seeds the byte denominator for formats that know it up front.
+    pub(crate) fn register_bytes(
+        &self,
+        total: u64,
+    ) {
+        self.prog.register_bytes(total);
+    }
+
+    /// Accounts payload bytes as they are produced; once the denominator is
+    /// seeded, percent derives from bytes instead of entry counts.
+    pub(crate) fn add_copied(
+        &self,
+        n: u64,
+    ) {
+        self.prog.add_copied(n);
+    }
+
     /// Marks one registered entry resolved successfully.
     pub(crate) fn entry_ok(&self) {
         self.prog.file_ok();
