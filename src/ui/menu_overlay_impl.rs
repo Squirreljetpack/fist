@@ -3,7 +3,6 @@ use crate::{
     abspath::AbsPath,
     config::StashPaneKind,
     db::DbTable,
-    fs::{auto_dest, create_all, rename},
     run::{
         FsAction,
         item::{PathItem, short_display},
@@ -11,13 +10,13 @@ use crate::{
     },
 };
 
-use cba::bath::{PathExt, RenamePolicy, auto_dest_for_src};
+use cba::{bath::PathExt, claim as cba_claim};
 use matchmaker::{
     nucleo::{Color, Span},
     render::MMState,
     ui::{Overlay, OverlayEffect},
 };
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::menu_overlay::MenuOverlay;
 
@@ -50,21 +49,17 @@ pub fn rename_prompt_for(path: &AbsPath) -> MenuPrompt {
     }
 }
 
-/// Whether `path` is the process's current working directory. The logical
-/// paths are compared first, falling back to canonical comparison in case the
-/// cwd was reached through a symlink. Must be called while `path` still
-/// exists.
-fn current_dir_matches(path: &AbsPath) -> bool {
-    let cwd = match std::env::current_dir() {
-        Ok(c) => c,
-        Err(_) => return false,
-    };
-    if cwd.as_path() == path.as_path() {
-        return true;
+/// If the process's current working directory is inside `path` (or equals
+/// `path`), returns the relative path from `path` to the cwd.
+/// Must be called while `path` still exists.
+pub(crate) fn current_dir_suffix(path: &AbsPath) -> Option<PathBuf> {
+    let cwd = std::env::current_dir().ok()?;
+    if let Ok(rel) = cwd.strip_prefix(path.as_path()) {
+        return Some(rel.to_path_buf());
     }
     match (cwd.canonicalize(), path.as_path().canonicalize()) {
-        (Ok(a), Ok(b)) => a == b,
-        _ => false,
+        (Ok(can_cwd), Ok(can_path)) => can_cwd.strip_prefix(&can_path).ok().map(Path::to_path_buf),
+        _ => None,
     }
 }
 
@@ -102,22 +97,30 @@ impl MenuOverlay {
             PromptKind::New => {
                 let current_item_parent = self.target_parent(state);
                 let input = self.prompt.input.value();
-                let input_path = Path::new(&input);
-                let dest = auto_dest(input_path, &current_item_parent); // replaced if input is absolute
-                let dest_slice = [dest];
+                let dest = crate::utils::path::auto_dest(&input, &current_item_parent); // replaced if input is absolute
 
                 TASKS::spawn("create", async move {
-                    match create_all(&dest_slice).await {
-                        Ok(_) => {
-                            let dest_path = match &dest_slice[0] {
-                                Ok(p) | Err(p) => p,
-                            };
+                    // parents first, then an exclusive claim: an existing
+                    // name is reported as skipped instead of truncated or
+                    // silently merged
+                    let claimed = match &dest {
+                        Ok(file) => {
+                            cba_claim::reserve_file_all(file, cba_claim::ClaimPolicy::Strict)
+                                .map(|_| ())
+                        }
+                        Err(dir) => cba_claim::reserve_dir_all(dir, cba_claim::ClaimPolicy::Strict)
+                            .map(|_| ()),
+                    };
+                    let dest_path = match &dest {
+                        Ok(p) | Err(p) => p,
+                    };
+                    match claimed {
+                        Ok(()) => {
                             TOAST::push(ToastStyle::Success, "New: ", [short_display(dest_path)]);
                         }
-                        Err(_) => {
-                            let dest_path = match &dest_slice[0] {
-                                Ok(p) | Err(p) => p,
-                            };
+                        Err(cba_claim::ClaimError::Taken) => TOAST::push_skipped(),
+                        Err(e) => {
+                            log::error!("Failed to create {dest_path:?}: {e:?}");
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Failed to create: ",
@@ -130,19 +133,30 @@ impl MenuOverlay {
             PromptKind::NewDir => {
                 let current_item_parent = self.target_parent(state);
                 let input = self.prompt.input.value();
-                let input_path = Path::new(&input);
-                let dest = AbsPath::new_unchecked(input_path.abs(current_item_parent));
+                let dest = AbsPath::new_unchecked(Path::new(&input).abs(current_item_parent));
                 let cd = input.ends_with(std::path::MAIN_SEPARATOR);
 
                 TASKS::spawn("mkdir", async move {
-                    match std::fs::create_dir_all(&dest) {
-                        Ok(_) => {
-                            TOAST::push(ToastStyle::Success, "New: ", [short_display(&dest)]);
-                            if cd {
-                                GLOBAL::send_action(FsAction::Jump(vec![dest.into()]));
+                    // parents first, then an atomic claim on the final name:
+                    // a taken name is reported instead of merged into
+                    match cba_claim::reserve_dir_all(&dest, cba_claim::ClaimPolicy::default()) {
+                        Ok(reserved) => {
+                            if let Some(path) = reserved.into_path() {
+                                TOAST::push(ToastStyle::Success, "New: ", [short_display(&path)]);
+                                if cd {
+                                    GLOBAL::send_action(FsAction::Jump(vec![path.into()]));
+                                }
                             }
                         }
-                        Err(_) => {
+                        Err(cba_claim::ClaimError::Taken) => {
+                            TOAST::push(
+                                ToastStyle::Error,
+                                "Already exists: ",
+                                [short_display(&dest)],
+                            );
+                        }
+                        Err(cba_claim::ClaimError::Io(e)) => {
+                            log::error!("Failed to create {dest:?}: {e}");
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Failed to create: ",
@@ -157,29 +171,76 @@ impl MenuOverlay {
                 if old_path.file_name().is_none() {
                     return OverlayEffect::None;
                 }
-                let dest = AbsPath::new_unchecked(
-                    auto_dest_for_src(
-                        &old_path,
-                        self.prompt.input.value(),
-                        &RenamePolicy::default(),
-                    )
-                    .abs(old_path.parent().unwrap()),
-                );
+                let input = self.prompt.input.value();
+                let dest =
+                    AbsPath::new_unchecked(Path::new(&input).abs(old_path.parent().unwrap()));
 
                 if dest == old_path {
                     TOAST::push_skipped();
                     return OverlayEffect::None;
                 }
 
-                // Snapshot the picker and process state before the move: the
-                // old path stops existing, and STACK is thread-local — the
-                // spawned task can only react through GLOBAL::send_action.
-                let renames_cwd = STACK::cwd().as_ref() == Some(&old_path);
-                let renames_process_cwd = current_dir_matches(&old_path);
+                // Snapshot any relative process cwd before the move: the old path stops
+                // existing on disk.
+                let renames_process_cwd = current_dir_suffix(&old_path);
 
                 TASKS::spawn("rename", async move {
-                    match rename(&old_path, &dest).await {
-                        Ok(_) => {
+                    // reserve the target first: a taken name fails the
+                    // rename instead of POSIX-replacing whatever is there;
+                    // directories must claim a directory placeholder, or
+                    // rename(2) fails with ENOTDIR against the file claim;
+                    // missing destination parents are invented by the claim
+                    // and repaid whenever the reservation is rolled back
+                    let is_dir = std::fs::symlink_metadata(&old_path)
+                        .map(|m| m.is_dir())
+                        .unwrap_or(false);
+
+                    let handle_claim_err = |e: cba_claim::ClaimError| match e {
+                        cba_claim::ClaimError::Taken => {
+                            TOAST::push(
+                                ToastStyle::Error,
+                                "Already exists: ",
+                                [short_display(&dest)],
+                            );
+                        }
+                        cba_claim::ClaimError::Io(e) => {
+                            log::error!("Failed to rename target {dest:?}: {e}");
+                            TOAST::push(
+                                ToastStyle::Error,
+                                "Failed to rename: ",
+                                [short_display(&old_path)],
+                            );
+                        }
+                    };
+
+                    let replaced = if is_dir {
+                        match cba_claim::replace_dir(&old_path, &dest, cba_claim::ClaimPolicy::Strict) {
+                            Ok(None) => Ok(()),
+                            Ok(Some(claim)) => {
+                                claim.rollback();
+                                Err(std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    "cross-device rename requires transfer engine",
+                                ))
+                            }
+                            Err(e) => return handle_claim_err(e),
+                        }
+                    } else {
+                        match cba_claim::replace_file(&old_path, &dest, cba_claim::ClaimPolicy::Strict) {
+                            Ok(None) => Ok(()),
+                            Ok(Some(claim)) => {
+                                claim.rollback();
+                                Err(std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    "cross-device rename requires transfer engine",
+                                ))
+                            }
+                            Err(e) => return handle_claim_err(e),
+                        }
+                    };
+
+                    match replaced {
+                        Ok(()) => {
                             let new_display = dest.to_string_lossy().to_string().into();
                             TOAST::pair(
                                 ToastStyle::Success,
@@ -187,19 +248,14 @@ impl MenuOverlay {
                                 short_display(&old_path),
                                 new_display,
                             );
-                            // the picker stood in the renamed directory: follow it;
-                            // otherwise the watcher's rename event refreshes the
-                            // listing, so no explicit reload is needed
-                            if renames_cwd {
-                                GLOBAL::send_action(FsAction::Jump(vec![dest.clone().into()]));
-                            }
-                            if renames_process_cwd {
-                                // the process's own working directory moved: follow
-                                // it so relative paths and spawned commands resolve
-                                if let Err(e) = std::env::set_current_dir(&dest) {
+                            if let Some(rel) = renames_process_cwd {
+                                // the process's own working directory (or an ancestor) moved:
+                                // follow it so relative paths and spawned commands resolve
+                                let new_cwd = dest.as_path().join(rel);
+                                if let Err(e) = std::env::set_current_dir(&new_cwd) {
                                     log::error!(
                                         "Failed to follow the renamed working directory {}: {e}",
-                                        dest.to_string_lossy()
+                                        new_cwd.display()
                                     );
                                     TOAST::notice(
                                         ToastStyle::Warning,
@@ -214,6 +270,7 @@ impl MenuOverlay {
                                 old_path.to_string_lossy(),
                                 dest.to_string_lossy()
                             );
+                            // the placeholder and invented ancestors were rolled back
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Failed to rename: ",

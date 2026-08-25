@@ -366,6 +366,10 @@ impl TableSelection {
                     i
                 };
                 // multi-path items do not support src editing
+                if !QUEUE::view_row_editable(self.view, underlying) {
+                    TOAST::push_skipped();
+                    return OverlayEffect::None;
+                }
                 if let Some((src, _)) = QUEUE::view_get(self.view, underlying)
                     && let [p] = src.as_slice()
                 {
@@ -385,6 +389,10 @@ impl TableSelection {
                     return OverlayEffect::None;
                 };
                 if i >= vlen {
+                    return OverlayEffect::None;
+                }
+                if !QUEUE::view_row_editable(self.view, visible[i]) {
+                    TOAST::push_skipped();
                     return OverlayEffect::None;
                 }
                 if let Some((_, d)) = QUEUE::view_get(self.view, visible[i]) {
@@ -532,7 +540,7 @@ impl QueueOverlay {
 
         let mut dst_w = self.headers[2].len() as u16;
         for item in items {
-            dst_w = dst_w.max(item.dst.to_string_lossy().width() as u16);
+            dst_w = dst_w.max(item.data.to_string_lossy().width() as u16);
         }
 
         let mut size_w = 10;
@@ -718,7 +726,7 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
                 let dst_cell = if is_editing && editing_info.unwrap().1 == 2 {
                     Cell::from("")
                 } else {
-                    Cell::from(item.dst.to_string_lossy().into_owned().pad(0, 1))
+                    Cell::from(item.data.to_string_lossy().into_owned().pad(0, 1))
                 };
                 let size = Cell::from(item.status.render(self.widths[3] as usize, &self.config));
 

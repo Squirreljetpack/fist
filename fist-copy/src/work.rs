@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use crate::meta::Attrs;
-use crate::scheduler::TaskId;
+use super::meta::Attrs;
+use super::scheduler::TaskId;
 
 pub(crate) type DirId = usize;
 
@@ -11,6 +11,9 @@ pub(crate) struct FileJob {
     pub dst: PathBuf,
     pub len: u64,
     pub attrs: Attrs,
+    /// Pre-opened file descriptor for single-file root transfers;
+    /// `None` for inner tree entries which resolve conflicts per-entry.
+    pub bound_fd: Option<std::fs::File>,
 }
 
 #[derive(Debug)]
@@ -20,10 +23,19 @@ pub(crate) struct LinkJob {
     pub target: PathBuf,
 }
 
+/// One archive extraction: `source` is unpacked into the existing
+/// directory `dest`.
+#[derive(Debug)]
+pub(crate) struct ExtractJob {
+    pub source: PathBuf,
+    pub dest: PathBuf,
+}
+
 #[derive(Debug)]
 pub(crate) enum WorkItem {
     File(FileJob),
     Link(LinkJob),
+    Extract(ExtractJob),
 }
 
 #[derive(Debug)]

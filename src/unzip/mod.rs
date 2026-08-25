@@ -1,185 +1,53 @@
 //! Background archive extraction into temporary skeletons.
 //!
 //! Advancing into an archive synchronously creates a directory-only
-//! skeleton of its contents under the app temp dir ([`init`]), queues the
-//! full extraction on a background worker pool, and lets the fs watcher
-//! surface progress by keeping the skeleton dir's reloads unthrottled
-//! (see [`WatcherMessage::MustWatch`]).
+//! preview of its contents ([`init`]), submits the full extraction to the
+//! copy scheduler as a queue row, and lets the fs watcher surface progress
+//! by keeping the workdir's reloads unthrottled (see
+//! [`WatcherMessage::MustWatch`]).
 //!
-//! Format support lives behind [`ArchiveBackend`]: the `decompress` crate
-//! covers zip/tar family/ar/rar, and sevenz-rust2 covers 7z.
-//!
-//! Every source path maps to one current skeleton for the lifetime of the
-//! process: re-entering an archive reuses its skeleton unless the archive
-//! changed after the skeleton was created, in which case the skeleton is
-//! regenerated. The skeleton dir is named `<percent-encoded path>--<unix
-//! seconds>` under the unzip root, and holds one subfolder named after the
-//! archive (extension included) which is the extraction workdir — so the
-//! archive's absolute path is recoverable from the skeleton dir name alone
-//! (see [`recover_archive`]). Removing all skeletons happens on exit; a
-//! hard exit strands the per-process root under the system temp dir, where
-//! the system tmp cleaner reclaims it.
+//! This module is stateless: everything worth knowing lives either on disk
+//! or in the queue. Skeleton dir names encode the archive's canonical path
+//! plus an allocation timestamp (`<percent-encoded path>--<unix millis>`,
+//! see [`recover_archive`]), so re-entry reuse, staleness, and recovery
+//! are pure reads; in-flight facts come from the queue row created by
+//! [`QUEUE::start_extract`] (its status carries the engine task id).
+//! Failures are recorded as a `.failed` marker in the skeleton dir by the
+//! pump watcher, and cleaned up with the whole per-process root on exit.
 
 use std::{
-    collections::HashMap,
-    path::{Component, Path, PathBuf},
-    sync::{Arc, Mutex, OnceLock, mpsc},
-    thread,
+    path::{Path, PathBuf},
+    sync::OnceLock,
 };
-
-use matchmaker::nucleo::{Color, Span, Style};
 
 use crate::{
     abspath::AbsPath,
     cli::paths::__unzip,
-    config::ArchiveConfig,
-    run::state::{GLOBAL, TASKS, TOAST, ToastFlags, ToastStyle},
+    run::{
+        queue::{QUEUE, QUEUE_STATE, scheduler},
+        state::{GLOBAL, TASKS},
+    },
     watcher::WatcherMessage,
 };
+use fist_copy::extract;
 
-mod detect;
-
-// -------------------------- backends --------------------------
-
-/// One entry in an archive listing.
-struct EntryMeta {
-    path: PathBuf,
-    is_dir: bool,
+/// Outcome of [`init`]; drives navigation and toasts at the call site.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Entered {
+    /// Navigate into the returned workdir; extraction is already running
+    /// (freshly submitted or picked up mid-flight).
+    Extracting(AbsPath),
+    /// Navigate into the returned workdir; contents are complete.
+    Complete(AbsPath),
+    /// The archive previously failed to extract (`.failed` marker);
+    /// navigable into the partial workdir, with a warning at the call
+    /// site.
+    Failed(AbsPath),
+    /// Not an extractable archive after all (undetectable or unlistable).
+    None,
 }
 
-/// A format backend: detection, cheap listing, and full extraction.
-trait ArchiveBackend: Send + Sync {
-    fn id(&self) -> &'static str;
-    fn detect(
-        &self,
-        path: &Path,
-    ) -> bool;
-    fn list(
-        &self,
-        source: &Path,
-    ) -> Result<Vec<EntryMeta>, String>;
-    fn extract_all(
-        &self,
-        source: &Path,
-        dest: &Path,
-    ) -> Result<(), String>;
-}
-
-/// zip, tar family, ar, and rar via the `decompress` crate.
-struct DecompressBackend;
-
-impl ArchiveBackend for DecompressBackend {
-    fn id(&self) -> &'static str {
-        "decompress"
-    }
-
-    fn detect(
-        &self,
-        path: &Path,
-    ) -> bool {
-        detect::is_decompress_archive(path)
-    }
-
-    fn list(
-        &self,
-        source: &Path,
-    ) -> Result<Vec<EntryMeta>, String> {
-        // content detection so archives matched by sniffing (unknown
-        // extension) list and extract through the same decompressor
-        let opts = decompress::ExtractOptsBuilder::default()
-            .detect_content(true)
-            .build()
-            .map_err(|e| e.to_string())?;
-        let listing = decompress::list(source, &opts).map_err(|e| e.to_string())?;
-        Ok(listing
-            .entries
-            .into_iter()
-            .map(|entry| {
-                let is_dir = entry.ends_with('/');
-                EntryMeta {
-                    path: PathBuf::from(entry),
-                    is_dir,
-                }
-            })
-            .collect())
-    }
-
-    fn extract_all(
-        &self,
-        source: &Path,
-        dest: &Path,
-    ) -> Result<(), String> {
-        // the filter sees the joined destination path: keep everything
-        // that stays inside the skeleton
-        let captured = dest.to_path_buf();
-        let opts = decompress::ExtractOptsBuilder::default()
-            .detect_content(true)
-            .filter(move |p| {
-                p.starts_with(&captured) && is_safe(p.strip_prefix(&captured).unwrap_or(p))
-            })
-            .build()
-            .map_err(|e| e.to_string())?;
-        decompress::decompress(source, dest, &opts)
-            .map(|_| ())
-            .map_err(|e| e.to_string())
-    }
-}
-
-/// 7z via sevenz-rust2 (pure Rust): header-only listing, whole-archive
-/// extraction.
-struct SevenZBackend;
-
-impl ArchiveBackend for SevenZBackend {
-    fn id(&self) -> &'static str {
-        "sevenz"
-    }
-
-    fn detect(
-        &self,
-        path: &Path,
-    ) -> bool {
-        path.extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| e.eq_ignore_ascii_case("7z"))
-    }
-
-    fn list(
-        &self,
-        source: &Path,
-    ) -> Result<Vec<EntryMeta>, String> {
-        let archive = sevenz_rust2::Archive::open(source).map_err(|e| e.to_string())?;
-        Ok(archive
-            .files
-            .iter()
-            .map(|entry| EntryMeta {
-                path: PathBuf::from(entry.name()),
-                is_dir: entry.is_directory(),
-            })
-            .collect())
-    }
-
-    fn extract_all(
-        &self,
-        source: &Path,
-        dest: &Path,
-    ) -> Result<(), String> {
-        sevenz_rust2::decompress_file(source, dest).map_err(|e| e.to_string())
-    }
-}
-
-fn backends() -> &'static [Box<dyn ArchiveBackend>] {
-    static BACKENDS: OnceLock<Vec<Box<dyn ArchiveBackend>>> = OnceLock::new();
-    BACKENDS.get_or_init(|| vec![Box::new(DecompressBackend), Box::new(SevenZBackend)])
-}
-
-fn backend_for(path: &Path) -> Option<&'static dyn ArchiveBackend> {
-    backends()
-        .iter()
-        .find(|backend| backend.detect(path))
-        .map(|backend| backend.as_ref())
-}
-
-// -------------------------- worker --------------------------
+// -------------------------- entry points --------------------------
 
 /// Root of every extraction skeleton:
 /// `<tmp>/fist/<process-id>/unzipped_storage_press_undo_to_go_back`.
@@ -187,244 +55,211 @@ pub fn root() -> PathBuf {
     __unzip().to_path_buf()
 }
 
-/// Extraction worker pool size.
-const MAX_WORKERS: usize = 4;
-
-/// Lifecycle of a registered archive.
-enum EntryState {
-    /// Extraction queued or in progress.
-    Skeleton,
-    Complete,
-    Failed,
-}
-
-/// One registered archive: its skeleton dir and lifecycle state.
-struct Entry {
-    /// Skeleton dir holding the archive-name workdir.
-    temp: PathBuf,
-    /// The extraction workdir (the archive-name subfolder) the user
-    /// navigates into.
-    workdir: PathBuf,
-    /// Active-user counter, reserved for refcounted cleanup.
-    #[allow(dead_code)]
-    active: u32,
-    state: EntryState,
-}
-
-/// One extraction job handed to a worker thread.
-struct Job {
-    /// Canonical archive path (also the map key).
-    source: PathBuf,
-    /// Extraction destination: the archive-name workdir.
-    temp: PathBuf,
-}
-
-struct Worker {
-    /// Job channel; dropping the sender stops the worker pool.
-    jobs: Mutex<Option<mpsc::Sender<Job>>>,
-    /// Source path → entry, consulted by [`init`] to avoid re-extracting.
-    entries: Mutex<HashMap<PathBuf, Entry>>,
-    /// Extraction settings.
-    config: ArchiveConfig,
-}
-
-static WORKER: OnceLock<Worker> = OnceLock::new();
-
-fn worker() -> &'static Worker {
-    WORKER.get().expect("unzip::start not called")
-}
-
-/// Spawn the extraction worker pool.
-pub fn start(config: ArchiveConfig) {
-    let (tx, rx) = mpsc::channel();
-    let rx = Arc::new(Mutex::new(rx));
-    let workers = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1)
-        .min(MAX_WORKERS);
-
-    let mut spawned = 0;
-    for _ in 0..workers {
-        let rx = Arc::clone(&rx);
-        let handle = thread::Builder::new()
-            .name("fist-unzip".into())
-            .spawn(move || {
-                loop {
-                    let job = {
-                        let Ok(rx) = rx.lock() else {
-                            return;
-                        };
-                        rx.recv()
-                    };
-                    match job {
-                        Ok(job) => extract(job),
-                        // channel closed: stop
-                        Err(_) => return,
-                    }
-                }
-            })
-            .inspect_err(|e| log::error!("Failed to spawn unzip worker: {e}"));
-        if handle.is_ok() {
-            spawned += 1;
-        }
-        // workers are detached: exit must not block on an in-flight
-        // extraction, and the process exit kills them anyway
-    }
-
-    let _ = WORKER.set(Worker {
-        jobs: Mutex::new((spawned > 0).then_some(tx)),
-        entries: Mutex::new(HashMap::new()),
-        config,
-    });
-
-    // best-effort cleanup for exit paths that skip [`shutdown`]
-    // (e.g. `std::process::exit`) — leftovers are swept on the next start
-    #[cfg(unix)]
-    unsafe {
+/// Arms the best-effort exit hook once, on first use: nothing needs
+/// cleaning before the first skeleton exists.
+#[cfg(unix)]
+fn arm_exit_hook() {
+    static ARMED: OnceLock<()> = OnceLock::new();
+    ARMED.get_or_init(|| unsafe {
         libc::atexit(cleanup_on_exit);
-    }
+    });
 }
+
+#[cfg(not(unix))]
+fn arm_exit_hook() {}
 
 /// Removes the whole skeleton root. Registered with `atexit` so hard exits
-/// also clean up; best effort, as worker threads may still be
-/// mid-extraction.
+/// also clean up; best effort, as extraction tasks may still be running.
 #[cfg(unix)]
 extern "C" fn cleanup_on_exit() {
     let _ = std::fs::remove_dir_all(root());
 }
 
-/// Whether `path` is an archive a backend can extract.
+/// Removes the skeleton root as a named background task so the shutdown
+/// sequence can surface what it waits on. The scheduler's own shutdown has
+/// already cancelled in-flight extractions by then.
+pub fn shutdown() {
+    TASKS::spawn_blocking("unzip skeleton cleanup", || {
+        match std::fs::remove_dir_all(root()) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => log::warn!("Failed to remove skeleton root {:?}: {e}", root()),
+        }
+    });
+}
+
+/// Whether `path` is an archive the engine can extract.
 pub fn supported(path: &Path) -> bool {
-    backend_for(path).is_some()
+    extract::detect(path).is_some()
 }
 
 /// Synchronously create (or reuse) the extraction skeleton for `path`,
-/// queue its extraction on the worker pool, and re-arm must-watch on the
-/// extraction workdir.
+/// start its extraction via a queue row, and return the workdir to
+/// navigate into.
 ///
-/// Returns the workdir to navigate into; `None` means the archive could
-/// not be listed (or previously failed) and the caller should handle the
-/// path normally.
-pub fn init(path: &Path) -> Option<AbsPath> {
-    let source = path.canonicalize().ok()?;
-    let backend = backend_for(&source)?;
-    let w = worker();
-
-    // Re-entering an archive reuses its skeleton — extraction may still be
-    // running or already done — but only while the skeleton is newer than
-    // the archive itself; an archive changed after its skeleton was
-    // created makes the cached tree stale and it is regenerated. An
-    // emptied workdir is likewise not reusable and is recreated.
-    if let Some(entry) = w.entries.lock().ok()?.get(&source) {
-        if matches!(entry.state, EntryState::Failed) {
-            TOAST::notice(
-                ToastStyle::Error,
-                format!("Extraction previously failed for {}", entry.temp.display()),
-            );
-            return None;
-        }
-        // An emptied workdir is not reusable: remove the skeleton so the
-        // recreate path below builds a fresh one. Only completed entries
-        // are eligible — a Skeleton entry is an extraction that may still
-        // be populating the workdir.
-        if matches!(entry.state, EntryState::Complete) && workdir_is_empty(&entry.workdir) {
-            log::info!("Empty skeleton for {}, re-extracting", source.display());
-            let _ = std::fs::remove_dir_all(&entry.temp);
-        } else if skeleton_is_fresh(&entry.temp, &source) {
-            must_watch(&entry.workdir);
-            return Some(AbsPath::new_unchecked(entry.workdir.clone()));
-        } else {
-            log::info!("Stale skeleton for {}, re-extracting", source.display());
-            if w.config.cleanup_duplicates {
-                let source = source.clone();
-                TASKS::spawn_blocking("unzip stale cleanup", move || {
-                    remove_stale_skeletons(&source);
-                });
-            }
-        }
-    }
-
-    log::info!(
-        "Entering archive {} via backend {}",
-        source.display(),
-        backend.id()
-    );
-    let listing = match backend.list(&source) {
+/// Re-entry resolves everything from disk and the queue: a running
+/// extraction for this source means cd into *that* row's workdir; a fresh,
+/// populated skeleton is reused; stale or emptied ones are rebuilt. A
+/// `.failed` marker reports the previous attempt and bails, but only when
+/// the skeleton holds partial content — an emptied one regenerates
+/// regardless of the marker. `None` means the caller should treat the path
+/// normally (the failure is toasted).
+pub fn init(path: &AbsPath) -> Entered {
+    arm_exit_hook();
+    let Some(source) = canonicalized(path) else {
+        return Entered::None;
+    };
+    let Some(format) = extract::detect(&source) else {
+        return Entered::None;
+    };
+    let listing = match extract::list(&source, format) {
         Ok(listing) => listing,
         Err(e) => {
-            log::error!("Failed to list archive {}: {e}", source.display());
-            return None;
+            log::error!(
+                "Failed to list archive {}: {e} ({})",
+                e.archive.display(),
+                e.source
+            );
+            return Entered::None;
         }
     };
 
-    let workdir = alloc_dir(&source)?;
-    for entry in &listing {
-        skeleton_dir(&workdir, entry);
+    // a running extraction wins unconditionally: cd into its workdir, no
+    // matter what the on-disk skeletons look like (also covers the
+    // same-second reallocation edge — two skeletons cannot both be "the"
+    // destination while one task is writing)
+    if let Some(workdir) = running_workdir(&source) {
+        must_watch(&workdir);
+        return Entered::Extracting(AbsPath::new_unchecked(workdir));
     }
 
-    // register before queuing so a re-entry can never double-extract
-    w.entries.lock().ok()?.insert(
-        source.clone(),
-        Entry {
-            temp: workdir
-                .parent()
-                .expect("the workdir sits inside its skeleton")
-                .to_path_buf(),
-            workdir: workdir.clone(),
-            active: 0,
-            state: EntryState::Skeleton,
-        },
-    );
+    let mtime = mtime_millis(&source);
 
-    if let Some(jobs) = w.jobs.lock().ok().and_then(|jobs| jobs.clone())
-        && jobs
-            .send(Job {
-                source,
-                temp: workdir.clone(),
-            })
-            .is_err()
-    {
-        log::error!(
-            "Unzip worker not running; extraction of {} was dropped",
-            workdir.display()
-        );
+    // freshest existing skeleton for this source, if any
+    if let Some((skel, ts)) = freshest_skeleton(&source) {
+        let workdir = workdir_of(&skel, &source);
+        if ts > mtime && !workdir_is_empty(&workdir) {
+            // fresh and populated: reuse. A failure marker only blocks
+            // reuse when there is partial content to warn about
+            if skel.join(FAILED_MARKER).exists() {
+                return Entered::Failed(AbsPath::new_unchecked(workdir));
+            }
+            must_watch(&workdir);
+            return Entered::Complete(AbsPath::new_unchecked(workdir));
+        }
+        // stale or emptied — emptied includes a failed attempt that never
+        // wrote anything: fall through to rebuild; the sweep below removes
+        // this and older copies after allocation
+    }
+
+    let Some((workdir, skel_name)) = alloc_dir(&source) else {
+        return Entered::None;
+    };
+    extract::skeleton(&workdir, &listing);
+    sweep_others(&source, &skel_name);
+
+    if QUEUE::start_extract(AbsPath::new_unchecked(source.clone()), workdir.clone()).is_none() {
+        // submission rejected: the just-created preview would otherwise be
+        // found "fresh and populated" forever; drop it
+        if let Some(skel) = workdir.parent() {
+            let _ = std::fs::remove_dir_all(skel);
+        }
+        return Entered::None;
     }
 
     must_watch(&workdir);
-    Some(AbsPath::new_unchecked(workdir))
+    Entered::Extracting(AbsPath::new_unchecked(workdir))
 }
+
+/// The canonical path behind `path`.
+fn canonicalized(path: &AbsPath) -> Option<PathBuf> {
+    path.canonicalize().ok()
+}
+
+/// Cancels the in-flight extraction of `path`, if one is running.
+pub fn cancel(path: &Path) -> bool {
+    let Ok(source) = path.canonicalize() else {
+        return false;
+    };
+    let Some(id) = running_row(&source).and_then(|i| i.status.task_id()) else {
+        return false;
+    };
+    scheduler().cancel(id);
+    true
+}
+
+// -------------------------- queue queries --------------------------
+
+/// The shared-queue row of a started extraction of `source`, if any.
+fn running_row(source: &Path) -> Option<crate::run::queue::QueueItem> {
+    let state = QUEUE_STATE.lock().unwrap();
+    state
+        .shared
+        .iter()
+        .find(|i| {
+            i.kind == "extract"
+                && i.status.state.is_started()
+                && i.src
+                    .first()
+                    .is_some_and(|p| p.as_os_str() == source.as_os_str())
+        })
+        .cloned()
+}
+/// The workdir of a started extraction of `source`.
+fn running_workdir(source: &Path) -> Option<PathBuf> {
+    running_row(source).map(|i| PathBuf::from(i.data.as_os_str()))
+}
+
+/// Tell the watcher to keep reloading `temp` through event storms (the
+/// extraction itself produces them) until it pauses or is switched away.
+fn must_watch(temp: &Path) {
+    GLOBAL::send_watcher(WatcherMessage::MustWatch(temp.to_path_buf()));
+}
+
+// -------------------------- skeleton layout --------------------------
+
+/// Marker file dropped into a skeleton dir when its extraction ends in
+/// error (see the pump watcher); makes re-entry report the failure instead
+/// of silently showing partial files.
+const FAILED_MARKER: &str = ".failed";
 
 /// Allocates the skeleton dir for `source` (named by [`skeleton_name`])
 /// plus its archive-name workdir — the extraction destination and the dir
 /// the user navigates into.
-fn alloc_dir(source: &Path) -> Option<PathBuf> {
-    let dir = root().join(skeleton_name(source));
+fn alloc_dir(source: &Path) -> Option<(PathBuf, String)> {
+    let skel_name = skeleton_name(source);
+    let dir = root().join(&skel_name);
     std::fs::create_dir_all(&dir).ok()?;
-    let workdir = dir.join(archive_dir_name(source));
+    let workdir = workdir_of(&dir, source);
     std::fs::create_dir_all(&workdir).ok()?;
-    Some(workdir)
+    Some((workdir, skel_name))
+}
+
+/// The workdir inside a skeleton: the archive file name, extension
+/// included.
+fn workdir_of(
+    skel: &Path,
+    source: &Path,
+) -> PathBuf {
+    skel.join(
+        source
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| encode_path(source)),
+    )
 }
 
 /// Skeleton dir name for `source`:
-/// `<percent-encoded canonical path>--<unix seconds>`. The timestamp makes
-/// regenerated skeletons unique; the encoded path (see [`encode_path`])
+/// `<percent-encoded canonical path>--<unix millis>`. Milliseconds make
+/// same-second re-allocation practically impossible; the encoded path
 /// keeps the original archive path recoverable from the dir name alone
 /// (see [`recover_archive`]).
 fn skeleton_name(source: &Path) -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
+        .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
     format!("{}--{now}", encode_path(source))
-}
-
-/// The workdir name inside a skeleton: the archive file name, extension
-/// included, so the archive's parent is recoverable from the path alone.
-fn archive_dir_name(source: &Path) -> String {
-    source
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| encode_path(source))
 }
 
 /// Percent-encodes `path` for use as a skeleton dir name: `/` becomes
@@ -486,8 +321,7 @@ fn strip_timestamp(name: &str) -> Option<&str> {
     Some(prefix)
 }
 
-/// Parses the `--<unix seconds>` timestamp suffix of a skeleton dir name.
-/// `None` when the name has no valid timestamp suffix.
+/// Parses the `--<unix millis>` timestamp suffix of a skeleton dir name.
 fn skeleton_timestamp(name: &str) -> Option<u64> {
     let (_, suffix) = name.rsplit_once("--")?;
     if suffix.is_empty() || !suffix.bytes().all(|b| b.is_ascii_digit()) {
@@ -496,33 +330,14 @@ fn skeleton_timestamp(name: &str) -> Option<u64> {
     suffix.parse().ok()
 }
 
-/// Whether `skeleton`'s cached extraction is still current for `source`.
-/// The skeleton's allocation time is read from the `--<unix seconds>`
-/// suffix of its dir name — no filesystem timestamps are consulted — and
-/// compared, at second granularity, against the archive's mtime. A name
-/// without a parseable suffix is not a skeleton and counts as stale, so
-/// re-entry allocates a fresh workdir.
-fn skeleton_is_fresh(
-    skeleton: &Path,
-    source: &Path,
-) -> bool {
-    let Some(ts) = skeleton
-        .file_name()
-        .and_then(|n| n.to_str())
-        .and_then(skeleton_timestamp)
-    else {
-        return false;
-    };
-    let Ok(archive) = std::fs::metadata(source) else {
-        return true;
-    };
-    let mtime_secs = archive
-        .modified()
+/// Archive mtime in unix millis (0 when unknowable — treated as ancient).
+fn mtime_millis(source: &Path) -> u64 {
+    std::fs::metadata(source)
         .ok()
+        .and_then(|m| m.modified().ok())
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    ts > mtime_secs
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 /// Whether an extraction workdir holds no entries. A missing directory
@@ -533,384 +348,52 @@ fn workdir_is_empty(workdir: &Path) -> bool {
         .unwrap_or(true)
 }
 
-/// Removes every skeleton under the unzip root that decodes back to
-/// `source` (older timestamped copies included).
-fn remove_stale_skeletons(source: &Path) {
-    if let Ok(entries) = std::fs::read_dir(root()) {
+/// The freshest existing skeleton decoding back to `source`:
+/// `(skeleton dir, timestamp)`.
+fn freshest_skeleton(source: &Path) -> Option<(PathBuf, u64)> {
+    let mut best: Option<(PathBuf, u64)> = None;
+    for entry in std::fs::read_dir(root()).ok()?.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            continue;
+        };
+        if recover_archive(name).as_deref() != Some(source) {
+            continue;
+        }
+        let Some(ts) = skeleton_timestamp(name) else {
+            continue;
+        };
+        if best.as_ref().is_none_or(|(_, bts)| ts > *bts) {
+            best = Some((entry.path(), ts));
+        }
+    }
+    best
+}
+
+/// Removes every skeleton decoding back to `source` except the one just
+/// allocated. Spawned on the blocking pool: deletion of large stale trees
+/// must not stall navigation.
+fn sweep_others(
+    source: &Path,
+    keep: &str,
+) {
+    let keep = keep.to_owned();
+    let source = source.to_path_buf();
+    TASKS::spawn_blocking("unzip stale cleanup", move || {
+        let Ok(entries) = std::fs::read_dir(root()) else {
+            return;
+        };
         for entry in entries.flatten() {
             let name = entry.file_name();
             let Some(name) = name.to_str() else {
                 continue;
             };
-            if recover_archive(name).as_deref() == Some(source) {
+            if name == keep {
+                continue;
+            }
+            if recover_archive(name).as_deref() == Some(&source) {
                 let _ = std::fs::remove_dir_all(entry.path());
             }
         }
-    }
-}
-
-/// Creates the directories implied by one archive entry: the entry itself
-/// when it is an explicit directory, else its parent chain.
-fn skeleton_dir(
-    root: &Path,
-    entry: &EntryMeta,
-) {
-    let path = entry.path.as_path();
-    // defensive: listings should already be sanitized, but archive
-    // metadata is never trusted to stay inside the skeleton
-    if !is_safe(path) {
-        log::warn!("Skipping unsafe archive entry {:?}", entry.path);
-        return;
-    }
-
-    if entry.is_dir {
-        let _ = std::fs::create_dir_all(root.join(path));
-    } else if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
-        // parents of every file form the directory tree, which also
-        // covers listings that drop explicit dir entries (zip/tar)
-        let _ = std::fs::create_dir_all(root.join(parent));
-    }
-}
-
-/// True when `path` is relative and contains no `..` components.
-fn is_safe(path: &Path) -> bool {
-    !path.is_absolute()
-        && path
-            .components()
-            .all(|c| matches!(c, Component::Normal(_) | Component::CurDir))
-}
-
-/// Runs on a worker thread.
-fn extract(job: Job) {
-    let backend = backend_for(&job.source);
-    let result = match backend {
-        Some(backend) => backend.extract_all(&job.source, &job.temp),
-        None => Err("no backend recognizes this archive".into()),
-    };
-
-    // update lifecycle state
-    if let Ok(mut entries) = worker().entries.lock()
-        && let Some(entry) = entries.get_mut(&job.source)
-    {
-        entry.state = if result.is_ok() {
-            EntryState::Complete
-        } else {
-            EntryState::Failed
-        };
-    }
-
-    match result {
-        Ok(()) => toast_extracted(&job.source),
-        Err(e) => {
-            let id = backend.map(|backend| backend.id()).unwrap_or("none");
-            log::error!(
-                "Failed to extract {} (backend {id}): {e}",
-                job.source.display()
-            );
-            toast_extract_error(&job, &e);
-        }
-    }
-}
-
-/// Tell the watcher to keep reloading `temp` through event storms (the
-/// extraction itself produces them) until it pauses or is switched away.
-fn must_watch(temp: &Path) {
-    GLOBAL::send_watcher(WatcherMessage::MustWatch(temp.to_path_buf()));
-}
-
-pub fn toast_entering(path: &Path) {
-    let source = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    let is_complete = worker()
-        .entries
-        .lock()
-        .ok()
-        .and_then(|entries| {
-            entries
-                .get(&source)
-                .map(|e| matches!(e.state, EntryState::Complete))
-        })
-        .unwrap_or(false);
-
-    if is_complete {
-        TOAST::msg(Span::styled("Entering archive", ToastStyle::Info), true);
-    } else {
-        let name = path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| path.to_string_lossy().to_string());
-        TOAST::push_with_flag(
-            ToastStyle::Info,
-            "Extracting: ",
-            [Span::raw(name)],
-            ToastFlags::PERSIST_CURSOR | ToastFlags::PERSIST_PANE,
-        );
-    }
-}
-
-fn toast_extracted(source: &Path) {
-    let name = source
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_else(|| source.to_string_lossy().to_string());
-    TOAST::pop("Extracting: ", &Span::raw(name.clone()));
-    TOAST::msg(
-        vec![
-            Span::styled("Extracted: ", Style::new().fg(Color::Red)),
-            Span::raw(name),
-        ],
-        true,
-    );
-}
-
-fn toast_extract_error(
-    job: &Job,
-    msg: &str,
-) {
-    let name = job
-        .source
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_else(|| job.source.to_string_lossy().to_string());
-    TOAST::pop("Extracting: ", &Span::raw(name));
-    TOAST::notice(
-        ToastStyle::Error,
-        format!("Failed to extract {}: {msg}", job.source.display()),
-    );
-}
-
-/// Stops the worker pool and removes every skeleton. Called on graceful
-/// exit. Workers are detached rather than joined: exit must not block on an
-/// in-flight extraction, and skeletons are ephemeral — writes that race the
-/// removal below die with the process, whose per-process root is unique.
-pub fn shutdown() {
-    let Some(w) = WORKER.get() else {
-        return;
-    };
-
-    // closing the channel makes the workers stop after their current jobs
-    drop(w.jobs.lock().ok().and_then(|mut jobs| jobs.take()));
-
-    if let Ok(mut entries) = w.entries.lock() {
-        for (_, entry) in entries.drain() {
-            if let Err(e) = std::fs::remove_dir_all(&entry.temp) {
-                log::warn!("Failed to remove skeleton {:?}: {e}", entry.temp);
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn safe_paths() {
-        assert!(is_safe(Path::new("a/b/c.txt")));
-        assert!(is_safe(Path::new("dir/")));
-        assert!(is_safe(Path::new("./x")));
-        assert!(!is_safe(Path::new("/etc/passwd")));
-        assert!(!is_safe(Path::new("../evil")));
-        assert!(!is_safe(Path::new("a/../../evil")));
-    }
-
-    #[test]
-    fn backend_detection() {
-        let dir = std::env::temp_dir().join(format!("fist-unzip-detect-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-
-        // content sniffing: zip and gzip magic
-        let zip = dir.join("foo.zip");
-        std::fs::write(&zip, b"PK\x03\x04").unwrap();
-        assert!(DecompressBackend.detect(&zip));
-
-        let gz = dir.join("foo.tar.gz");
-        std::fs::write(&gz, b"\x1f\x8b\x08").unwrap();
-        assert!(DecompressBackend.detect(&gz));
-
-        // unrecognized content is not a decompress archive
-        let txt = dir.join("bar.txt");
-        std::fs::write(&txt, b"plain text").unwrap();
-        assert!(!DecompressBackend.detect(&txt));
-
-        // 7z stays extension-based
-        assert!(SevenZBackend.detect(Path::new("foo.7z")));
-        assert!(SevenZBackend.detect(Path::new("FOO.7Z")));
-        assert!(!SevenZBackend.detect(Path::new("foo.zip")));
-
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn skeleton_names() {
-        let path = Path::new("/tmp/fist-archives.x/archive.7z");
-        let name = skeleton_name(path);
-
-        // <percent-encoded path>--<unix seconds>, recovering the source
-        let (encoded, ts) = name.rsplit_once("--").unwrap();
-        assert_eq!(encoded, "%2Ftmp%2Ffist-archives.x%2Farchive.7z");
-        assert!(!ts.is_empty() && ts.bytes().all(|b| b.is_ascii_digit()));
-        assert_eq!(recover_archive(&name).as_deref(), Some(path));
-
-        // a path at the root has no leading separator to trim
-        let root_path = Path::new("/a.tar");
-        let root_name = skeleton_name(root_path);
-        let (encoded, ts) = root_name.rsplit_once("--").unwrap();
-        assert_eq!(encoded, "%2Fa.tar");
-        assert!(!ts.is_empty() && ts.bytes().all(|b| b.is_ascii_digit()));
-        assert_eq!(recover_archive(&root_name).as_deref(), Some(root_path));
-    }
-
-    #[test]
-    fn skeleton_roundtrip() {
-        // % and / are escaped so the original path is losslessly recoverable
-        let path = Path::new("/tmp/a%2Fb (1)/ar..zip");
-        let name = skeleton_name(path);
-        assert_eq!(recover_archive(&name).as_deref(), Some(path));
-
-        // a path ending in --<digits> still recovers the full path
-        let tricky = Path::new("/x/a--123");
-        let name = skeleton_name(tricky);
-        assert_eq!(recover_archive(&name).as_deref(), Some(tricky));
-
-        // names without a timestamp suffix are not skeletons
-        assert_eq!(recover_archive("whatever"), None);
-    }
-
-    #[test]
-    fn skeleton_freshness() {
-        let dir = std::env::temp_dir().join(format!("fist-unzip-fresh-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-
-        let archive = dir.join("a.zip");
-        std::fs::write(&archive, b"x").unwrap();
-        let modified = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000);
-        std::fs::File::options()
-            .write(true)
-            .open(&archive)
-            .unwrap()
-            .set_modified(modified)
-            .unwrap();
-
-        // freshness comes from the --<unix seconds> suffix alone; the
-        // skeleton dir itself is never stat-ed
-        let skeleton = |ts: u64| dir.join(format!("whatever--{ts}"));
-
-        // skeleton allocated after the archive's mtime -> fresh
-        assert!(skeleton_is_fresh(&skeleton(1_800_000_000), &archive));
-        // skeleton allocated before the archive's mtime -> stale
-        assert!(!skeleton_is_fresh(&skeleton(1_500_000_000), &archive));
-        // same-second allocation counts as stale (second granularity)
-        assert!(!skeleton_is_fresh(&skeleton(1_700_000_000), &archive));
-        // name without a parseable timestamp -> stale, a fresh workdir is
-        // allocated on entry
-        assert!(!skeleton_is_fresh(&dir.join("no-timestamp"), &archive));
-        // an archive we cannot stat -> reuse whatever is cached
-        assert!(skeleton_is_fresh(&skeleton(0), &dir.join("missing.zip")));
-
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn skeleton_timestamp_parsing() {
-        let name = format!(
-            "{}--{}",
-            encode_path(Path::new("/a/b.zip")),
-            1_727_000_000u64
-        );
-        assert_eq!(skeleton_timestamp(&name), Some(1_727_000_000));
-        assert_eq!(
-            recover_archive(&name).as_deref(),
-            Some(Path::new("/a/b.zip"))
-        );
-
-        // missing or malformed suffixes parse to None (stale on entry)
-        assert_eq!(skeleton_timestamp("whatever"), None);
-        assert_eq!(skeleton_timestamp("a--"), None);
-        assert_eq!(skeleton_timestamp("a--x"), None);
-        assert_eq!(skeleton_timestamp("a--1x"), None);
-    }
-
-    #[test]
-    fn workdir_emptiness() {
-        let dir = std::env::temp_dir().join(format!("fist-unzip-empty-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-
-        // an empty directory reports empty
-        assert!(workdir_is_empty(&dir));
-        // a missing directory counts as empty
-        assert!(workdir_is_empty(&dir.join("missing")));
-        // entries make it non-empty
-        std::fs::write(dir.join("f.txt"), b"x").unwrap();
-        assert!(!workdir_is_empty(&dir));
-
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn skeleton_contains_dirs_only() {
-        let dir = std::env::temp_dir().join(format!("fist-unzip-test-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-
-        skeleton_dir(
-            &dir,
-            &EntryMeta {
-                path: PathBuf::from("a/b/c.txt"),
-                is_dir: false,
-            },
-        );
-        skeleton_dir(
-            &dir,
-            &EntryMeta {
-                path: PathBuf::from("a/b/"),
-                is_dir: true,
-            },
-        );
-        skeleton_dir(
-            &dir,
-            &EntryMeta {
-                path: PathBuf::from("empty/"),
-                is_dir: true,
-            },
-        );
-        skeleton_dir(
-            &dir,
-            &EntryMeta {
-                path: PathBuf::from("flat"),
-                is_dir: false,
-            },
-        );
-        let evil = format!("../../fist-unzip-evil-{}", std::process::id());
-        skeleton_dir(
-            &dir,
-            &EntryMeta {
-                path: PathBuf::from(evil),
-                is_dir: true,
-            },
-        );
-        skeleton_dir(
-            &dir,
-            &EntryMeta {
-                path: PathBuf::from("/abs"),
-                is_dir: true,
-            },
-        );
-
-        assert!(dir.join("a/b").is_dir());
-        assert!(dir.join("empty").is_dir());
-        // files are never created by the skeleton
-        assert!(!dir.join("a/b/c.txt").exists());
-        assert!(!dir.join("flat").exists());
-        // traversal and absolute entries never touch the disk
-        assert!(
-            !std::env::temp_dir()
-                .join(format!("fist-unzip-evil-{}", std::process::id()))
-                .exists()
-        );
-        assert!(!dir.join("abs").exists());
-
-        let _ = std::fs::remove_dir_all(&dir);
-    }
+    });
 }

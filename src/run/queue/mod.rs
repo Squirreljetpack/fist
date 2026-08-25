@@ -11,11 +11,11 @@ mod pump;
 mod status;
 pub use status::*;
 
-pub use pump::{register_task, scheduler, shutdown, task_log};
+pub use pump::{ensure_watcher, scheduler, shutdown, task_log};
 
 use std::{ffi::OsString, path::PathBuf, sync::Mutex};
 
-use cba::bath::{PathExt, auto_dest_for_src};
+use cba::bath::PathExt;
 use matchmaker::nucleo::Span;
 
 use crate::{
@@ -23,7 +23,7 @@ use crate::{
     cli::paths::__home,
     run::{
         FsPane,
-        state::{GLOBAL, MENU_ACTIONS, STACK, TASKS, TOAST, ToastStyle},
+        state::{MENU_ACTIONS, STACK, TASKS, TOAST, ToastStyle},
     },
 };
 
@@ -111,9 +111,9 @@ pub struct QueueItem {
     pub kind: QueueKind,
     pub src: Vec<AbsPath>,
     pub status: QueueItemStatus,
-    pub dst: OsString,
-    /// The in-flight engine task for builtin transfers, set on dispatch.
-    pub task_id: Option<u64>,
+    /// Task input: destination hint for transfers, script destination for
+    /// custom kinds. Never mutated after enqueue.
+    pub data: OsString,
 }
 
 impl QueueItem {
@@ -125,8 +125,7 @@ impl QueueItem {
             kind,
             status: QueueItemStatus::new(&src),
             src: vec![src],
-            dst: Default::default(),
-            task_id: None,
+            data: Default::default(),
         }
     }
 
@@ -242,6 +241,42 @@ pub struct QUEUE;
 impl QUEUE {
     // ------------- insert --------------
 
+    /// Enqueues an extraction of `source` into the pre-allocated skeleton
+    /// workdir `dest` and starts it immediately: extraction rows have no
+    /// pending phase and their destination is internal, so they bypass
+    /// [`QUEUE::enqueue`] and the dispatch-time destination resolution.
+    ///
+    /// Returns the row's status handle for out-of-band observation (the id
+    /// it carries drives cancellation and the unified watcher), or `None`
+    /// when the engine rejected the submission — no row is created.
+    pub fn start_extract(
+        source: AbsPath,
+        dest: PathBuf,
+    ) -> Option<QueueItemStatus> {
+        let request = fist_copy::JobRequest {
+            kind: fist_copy::JobKind::Extract(fist_copy::ExtractParams),
+            source: source.as_os_str().to_owned().into(),
+            dest: dest.clone(),
+        };
+        let handle = match scheduler().submit(request) {
+            Ok(handle) => handle,
+            Err(e) => {
+                log::error!("Extraction submit failed for {}: {e}", source.display());
+                return None;
+            }
+        };
+
+        let mut item = QueueItem::new("extract".into(), source);
+        item.data = dest.into_os_string();
+        item.status.set_task_id(handle.id);
+        item.status.state.store(QueueItemState::Started);
+
+        let status = item.status.clone();
+        QUEUE_STATE.lock().unwrap().shared.push(item);
+        ensure_watcher();
+        Some(status)
+    }
+
     /// Enqueue `paths` into the shared queue under `kind`. Builtin kinds
     /// add one row per path, replacing a pending row with the same source
     /// and kind (moved to the tail); custom menu kinds add one multi-path
@@ -275,8 +310,7 @@ impl QUEUE {
                 kind,
                 status: QueueItemStatus::new(&paths[0]),
                 src: paths,
-                dst: Default::default(),
-                task_id: None,
+                data: Default::default(),
             });
         }
     }
@@ -304,7 +338,7 @@ impl QUEUE {
                 .unwrap()
                 .shared
                 .get(index)
-                .map(|item| (item.src.clone(), item.dst.clone())),
+                .map(|item| (item.src.clone(), item.data.clone())),
             QueueView::Apps => STACK::with_current(|p| match p {
                 FsPane::Apps { pending, .. } => pending
                     .get(index)
@@ -312,6 +346,24 @@ impl QUEUE {
                     .map(|p| (vec![p], OsString::new())),
                 _ => None,
             }),
+        }
+    }
+
+    /// Whether the entry at `index` may have its source or destination
+    /// edited. Rows currently executing are excluded: engine tasks and
+    /// extraction bookkeeping read those fields while the task runs.
+    pub fn view_row_editable(
+        view: QueueView,
+        index: usize,
+    ) -> bool {
+        match view {
+            QueueView::Shared => QUEUE_STATE
+                .lock()
+                .unwrap()
+                .shared
+                .get(index)
+                .is_some_and(|item| !item.status.state.is_started()),
+            QueueView::Apps => true,
         }
     }
 
@@ -330,7 +382,7 @@ impl QUEUE {
                         item.src = vec![p];
                     }
                     if let Some(d) = dst {
-                        item.dst = d;
+                        item.data = d;
                     }
                 }
             }
@@ -404,7 +456,7 @@ impl QUEUE {
                     item.status.state.load(),
                     item.kind.clone(),
                     item.display(),
-                    item.task_id,
+                    item.status.task_id(),
                 )
             })
         };
@@ -435,7 +487,7 @@ impl QUEUE {
         item: &QueueItem,
         nav_cwd: Option<&AbsPath>,
     ) -> bool {
-        if !item.dst.is_empty() {
+        if !item.data.is_empty() {
             return false;
         }
         match item.kind.as_str() {
@@ -537,52 +589,52 @@ impl QUEUE {
         indices: Vec<usize>,
         nav_cwd: Option<AbsPath>,
     ) {
-        let queue: Vec<QueueItem> = {
+        use crate::run::queue::execute::{is_identity_transfer, transfer_dest};
+
+        // transfer destinations are resolved HERE, on the dispatcher thread
+        // (config is main-thread TLS): unresolvable rows stay pending, and
+        // identity transfers are reported as skipped — all before the
+        // start count is computed
+        let mut queue: Vec<QueueItem> = Vec::new();
+        {
             let state = QUEUE_STATE.lock().unwrap();
-            indices
-                .iter()
-                .filter_map(|&i| state.shared.get(i).cloned())
-                .filter(|item| !item.status.state.is_started())
-                .collect()
-        };
+            for i in indices {
+                let Some(mut item) = state.shared.get(i).cloned() else {
+                    continue;
+                };
+                if item.status.state.is_started() {
+                    continue;
+                }
+                if matches!(item.kind.as_str(), "copy" | "move" | "symlink") {
+                    let Some(dest) = transfer_dest(&item, nav_cwd.as_ref()) else {
+                        continue; // no nav to resolve against: stays pending
+                    };
+                    // moves/symlinks onto themselves do nothing; copies
+                    // still reach the worker so the conflict strategy can
+                    // act (e.g. RenameSuffix duplicates). Such a row can
+                    // never execute, so it becomes PendingErr — otherwise
+                    // it would be re-selected and re-skipped forever.
+                    if matches!(item.kind.as_str(), "move" | "symlink")
+                        && is_identity_transfer(&item, &dest)
+                    {
+                        item.status.state.store(QueueItemState::PendingErr);
+                        TOAST::push_skipped();
+                        continue;
+                    }
+                    item.data = dest.into_os_string();
+                }
+                queue.push(item);
+            }
+        }
         if queue.is_empty() {
             return;
         }
 
         TOAST::msg(format!("Starting {} items.", queue.len()), true);
 
-        let rename_policy = GLOBAL::cfg().fs.rename_policy.clone();
-
         for item in queue {
-            let desc = format!("{}: {}", item.kind, item.display());
             let nav = nav_cwd.clone();
-            let policy = rename_policy.clone();
-            // config lives in main-thread TLS: resolve engine params here,
-            // before the row's task runs on a worker thread
-            let job_kind = match item.kind.as_str() {
-                "copy" => Some(fist_copy::JobKind::Copy(GLOBAL::cfg().queue.copy.clone())),
-                "move" => Some(fist_copy::JobKind::Move(GLOBAL::cfg().queue.r#move.clone())),
-                _ => None,
-            };
-            TASKS::spawn_blocking(desc, move || {
-                // single-path items resolve their destination here against
-                // the effective navigation directory; multi-path items pass
-                // their stored destination to `QueueItem::execute` verbatim
-                let mut item = item;
-                if item.src.len() == 1 {
-                    let base_dest: OsString = match (item.dst.is_empty(), nav.as_ref()) {
-                        (true, Some(base)) => {
-                            let mut d: OsString = base.as_os_str().to_owned();
-                            d.push(std::path::MAIN_SEPARATOR_STR);
-                            d
-                        }
-                        (false, Some(base)) => item.dst.abs(base).into(),
-                        _ => item.dst.clone(),
-                    };
-                    item.dst = auto_dest_for_src(&item.src[0], &base_dest, &policy).into();
-                }
-                item.execute(nav.as_ref(), job_kind);
-            });
+            crate::run::queue::execute::perform(item, nav);
         }
     }
 
@@ -601,8 +653,10 @@ impl QUEUE {
         }
     }
 
-    /// Clear the pending rows matching `selector`; returns whether any were
-    /// removed. `First`/`Last` clear a single row.
+    /// Clear the pending rows matching `selector`; rows that failed before
+    /// starting (`PendingErr`) clear alongside them, so dispatch-rejected
+    /// rows never outlive a bulk clear. `First`/`Last` clear a single row.
+    /// Returns whether any were removed.
     pub fn clear_selected(selector: &QueueSelector) -> bool {
         let mut state = QUEUE_STATE.lock().unwrap();
         let indices: Vec<usize> = state
@@ -610,7 +664,9 @@ impl QUEUE {
             .iter()
             .enumerate()
             .filter(|(_, item)| {
-                item.status.state.is_pending() && Self::kind_matches(selector, &item.kind)
+                let state = item.status.state.load();
+                (state == QueueItemState::Pending || state == QueueItemState::PendingErr)
+                    && Self::kind_matches(selector, &item.kind)
             })
             .map(|(i, _)| i)
             .collect();

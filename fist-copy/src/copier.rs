@@ -1,42 +1,46 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
-use crate::config::{ConflictStrategy, ReflinkMode};
-use crate::error::WorkError;
-use crate::meta::apply_file_meta;
-use crate::reflink;
-use crate::scheduler::JobCtx;
-use crate::work::{FileJob, LinkJob, QueuedWork, WorkItem};
+use super::config::ConflictStrategy;
+use super::error::WorkError;
+use super::extract::runner;
+use super::meta::{Attrs, apply_file_meta};
+use super::reflink;
+use super::scheduler::TaskEntry;
+use super::work::{FileJob, LinkJob, QueuedWork, WorkItem};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ItemOutcome {
-    Done,
+    FileOk,
+    ExtractOk,
     Failed,
     Skipped,
 }
 
 pub(crate) fn execute(
-    job: &Arc<JobCtx>,
-    work: &QueuedWork,
+    task: &TaskEntry,
+    work: QueuedWork,
     scratch: &mut [u8],
 ) -> ItemOutcome {
-    let res = match &work.item {
-        WorkItem::File(f) => copy_one(job, f, scratch),
-        WorkItem::Link(l) => recreate_link(job, l),
+    let desc = describe(&work.item);
+    let res = match work.item {
+        WorkItem::File(f) => copy_one(task, f, scratch),
+        WorkItem::Link(l) => recreate_link(task, &l),
+        WorkItem::Extract(e) => runner::run(task, &e).map(|_| ItemOutcome::ExtractOk),
     };
     match res {
-        Ok(()) => ItemOutcome::Done,
+        Ok(outcome) => outcome,
         Err(WorkError::Canceled) => ItemOutcome::Skipped,
         Err(WorkError::Io(e)) => {
-            job.log.error(format!("{}: {e}", describe(work)));
+            task.log.error(format!("{desc}: {e}"));
             ItemOutcome::Failed
         }
     }
 }
 
-fn describe(work: &QueuedWork) -> String {
-    match &work.item {
+fn describe(item: &WorkItem) -> String {
+    match item {
         WorkItem::File(f) => format!("copy {} -> {}", f.src.display(), f.dst.display()),
         WorkItem::Link(l) => format!(
             "symlink {} -> {} (target {})",
@@ -44,19 +48,42 @@ fn describe(work: &QueuedWork) -> String {
             l.dst.display(),
             l.target.display()
         ),
+        WorkItem::Extract(e) => format!("extract {} -> {}", e.source.display(), e.dest.display()),
     }
 }
 
-/// Apply the job's [`ConflictStrategy`] against an existing destination,
-/// returning the path to write (`None` = skip this entry).
+/// The destination decision for one entry.
+enum Resolve {
+    /// Write to this path (already claimed free or declared replaceable).
+    Write(PathBuf),
+    /// Entry skipped by policy; the caller reports it.
+    Skip,
+}
+
+/// Apply the job's [`ConflictStrategy`] against an existing destination.
+/// Pure decision-making: progress accounting happens in the callers that
+/// turn [`Resolve`] into an [`ItemOutcome`].
 fn resolve_dest(
-    job: &Arc<JobCtx>,
+    task: &TaskEntry,
     dst: &Path,
-) -> Result<Option<PathBuf>, WorkError> {
-    match job.conflict {
+) -> Result<Resolve, WorkError> {
+    let job = task.active();
+    let free = || Ok(Resolve::Write(dst.to_path_buf()));
+    match job.params.conflict {
         ConflictStrategy::Overwrite => {
+            // replacing a directory is not representable at entry level;
+            // fail honestly instead of tripping over EISDIR later
+            if fs::metadata(dst).map(|m| m.is_dir()).unwrap_or(false) {
+                return Err(WorkError::Io(std::io::Error::new(
+                    std::io::ErrorKind::IsADirectory,
+                    format!(
+                        "cannot overwrite: destination is a directory: {}",
+                        dst.display()
+                    ),
+                )));
+            }
             let _ = fs::remove_file(dst);
-            Ok(Some(dst.to_path_buf()))
+            free()
         }
         ConflictStrategy::Fail => {
             if dest_exists(dst) {
@@ -68,23 +95,22 @@ fn resolve_dest(
                     ),
                 )))
             } else {
-                Ok(Some(dst.to_path_buf()))
+                free()
             }
         }
         ConflictStrategy::Skip => {
             if dest_exists(dst) {
-                job.log.info(format!(
+                task.log.info(format!(
                     "skipping existing destination (conflict strategy: skip): {}",
                     dst.display()
                 ));
-                job.prog.skip_file();
-                Ok(None)
+                Ok(Resolve::Skip)
             } else {
-                Ok(Some(dst.to_path_buf()))
+                free()
             }
         }
         ConflictStrategy::RenameSuffix => match free_sibling_of(dst) {
-            Some(path) => Ok(Some(path)),
+            Some(path) => Ok(Resolve::Write(path)),
             None => Err(WorkError::Io(std::io::Error::new(
                 std::io::ErrorKind::AlreadyExists,
                 format!("no free suffixed name for destination: {}", dst.display()),
@@ -92,14 +118,14 @@ fn resolve_dest(
         },
         ConflictStrategy::Abort => {
             if dest_exists(dst) {
-                job.log.info(format!(
+                task.log.info(format!(
                     "destination exists (conflict strategy: abort): {}",
                     dst.display()
                 ));
                 job.token.cancel();
                 Err(WorkError::Canceled)
             } else {
-                Ok(Some(dst.to_path_buf()))
+                free()
             }
         }
     }
@@ -136,92 +162,128 @@ fn with_suffix(
     dst.with_file_name(new_name)
 }
 
+/// Returns `OpenOptions` configured to never traverse trailing symlinks or reparse points.
+pub(crate) fn no_follow_options() -> OpenOptions {
+    let mut opts = OpenOptions::new();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.custom_flags(libc::O_NOFOLLOW);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        opts.custom_flags(0x00200000); // FILE_FLAG_OPEN_REPARSE_POINT
+    }
+    opts
+}
+
 fn copy_one(
-    job: &Arc<JobCtx>,
-    f: &FileJob,
+    task: &TaskEntry,
+    f: FileJob,
     scratch: &mut [u8],
-) -> Result<(), WorkError> {
+) -> Result<ItemOutcome, WorkError> {
+    let job = task.active();
     if job.token.is_cancelled() {
         return Err(WorkError::Canceled);
     }
-    let Some(dst) = resolve_dest(job, &f.dst)? else {
-        return Ok(());
-    };
-
-    if job.reflink_mode == ReflinkMode::Auto && reflink::same_device(&f.src, parent_of(&dst)) {
-        match reflink::clone_file(&f.src, &dst) {
-            Ok(()) => {
-                apply_file_meta(&dst, &f.attrs, job.preserve_metadata);
-                job.prog.add_copied(f.len);
-                if job.delete_source {
-                    delete_source_path(job, &f.src);
-                }
-                return Ok(());
-            }
-            Err(e) => {
-                job.log.info(format!(
-                    "reflink unavailable for {} ({e}); falling back to buffered copy",
-                    f.src.display()
-                ));
-                let _ = fs::remove_file(&dst);
+    // a root claim is a bound submit-time decision: write through it,
+    // bypassing per-entry conflict resolution. Inner entries resolve.
+    let FileJob {
+        src,
+        dst,
+        len,
+        attrs,
+        mut bound_fd,
+    } = f;
+    let dst = if bound_fd.is_some() {
+        dst
+    } else {
+        match resolve_dest(task, &dst)? {
+            Resolve::Write(dst) => dst,
+            Resolve::Skip => {
+                task.prog.skip_file();
+                return Ok(ItemOutcome::Skipped);
             }
         }
+    };
+
+    match reflink::attempt(&src, &dst, &mut bound_fd, job.params.reflink) {
+        reflink::Attempt::Cloned => {
+            task.prog.add_copied(len);
+            return Ok(seal_copy(task, &attrs, &src, &dst));
+        }
+        reflink::Attempt::Buffered(Some(e)) => task.log.info(format!(
+            "reflink unavailable for {} ({e}); falling back to buffered copy",
+            src.display()
+        )),
+        reflink::Attempt::Buffered(None) => {}
     }
 
-    ensure_parent(&dst)?;
-    let mut src = File::open(&f.src)?;
-    let mut opts = OpenOptions::new();
-    opts.write(true).create(true).truncate(true);
-    #[cfg(unix)]
-    if job.preserve_metadata
-        && let Some(mode) = f.attrs.mode
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        opts.mode(mode);
-    }
-    let mut out = opts.open(&dst)?;
-    out.set_len(f.len)?;
+    // destination parents exist by submit-time resolution; inner tree
+    // entries get theirs from the walk before any child is enqueued
+    let mut reader = File::open(&src)?;
+    // a surviving bound descriptor *is* the reservation: writing through
+    // it keeps the root atomic; vacated claims and inner entries reopen
+    // by path here
+    let mut out = match bound_fd.take() {
+        Some(file) => file,
+        None => {
+            let mut opts = no_follow_options();
+            opts.write(true).create(true).truncate(true);
+            #[cfg(unix)]
+            if job.params.preserve_metadata
+                && let Some(mode) = attrs.mode
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                opts.mode(mode);
+            }
+            opts.open(&dst)?
+        }
+    };
+    out.set_len(len)?;
 
     loop {
         if job.token.is_cancelled() {
             return Err(WorkError::Canceled);
         }
-        let n = src.read(scratch)?;
+        let n = reader.read(scratch)?;
         if n == 0 {
             break;
         }
         out.write_all(&scratch[..n])?;
-        job.prog.add_copied(n as u64);
+        task.prog.add_copied(n as u64);
     }
     out.flush()?;
     drop(out);
 
-    apply_file_meta(&dst, &f.attrs, job.preserve_metadata);
-    if job.delete_source {
-        delete_source_path(job, &f.src);
-    }
-    Ok(())
+    Ok(seal_copy(task, &attrs, &src, &dst))
 }
 
 fn recreate_link(
-    job: &Arc<JobCtx>,
+    task: &TaskEntry,
     l: &LinkJob,
-) -> Result<(), WorkError> {
+) -> Result<ItemOutcome, WorkError> {
+    let job = task.active();
     if job.token.is_cancelled() {
         return Err(WorkError::Canceled);
     }
-    let Some(dst) = resolve_dest(job, &l.dst)? else {
-        return Ok(());
+    let dst = match resolve_dest(task, &l.dst)? {
+        Resolve::Write(dst) => dst,
+        Resolve::Skip => {
+            task.prog.skip_file();
+            return Ok(ItemOutcome::Skipped);
+        }
     };
     create_symlink(&l.target, &dst)?;
-    job.prog.add_copied(0);
-    if job.delete_source {
-        delete_source_path(job, &l.src);
+    task.prog.add_copied(0);
+    if job.params.r#move {
+        delete_source_path(task, &l.src);
     }
-    Ok(())
+    Ok(ItemOutcome::FileOk)
 }
 
-fn create_symlink(
+pub(crate) fn create_symlink(
     target: &Path,
     dst: &Path,
 ) -> std::io::Result<()> {
@@ -250,41 +312,41 @@ fn create_symlink(
 }
 
 fn delete_source_path(
-    job: &Arc<JobCtx>,
+    task: &TaskEntry,
     src: &Path,
 ) {
     match fs::remove_file(src) {
         Ok(()) => {
-            job.prog.cleanup_started();
-            job.prog.cleanup_done(1);
+            task.prog.cleanup_started();
+            task.prog.cleanup_done(1);
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            job.log
+            task.log
                 .info(format!("source vanished during move: {}", src.display()));
-            job.prog.cleanup_started();
-            job.prog.cleanup_done(1);
+            task.prog.cleanup_started();
+            task.prog.cleanup_done(1);
         }
         Err(e) => {
-            job.prog.cleanup_started();
-            job.prog.cleanup_failed();
-            job.log
+            task.prog.cleanup_started();
+            task.prog.cleanup_failed();
+            task.log
                 .error(format!("could not remove source {}: {e}", src.display()));
         }
     }
 }
 
-fn ensure_parent(dst: &Path) -> std::io::Result<()> {
-    if let Some(p) = dst.parent()
-        && !p.as_os_str().is_empty()
-    {
-        fs::create_dir_all(p)?;
+/// Metadata and source cleanup shared by every successful copy path
+/// (reflinked or buffered); byte progress is accounted by the callers.
+fn seal_copy(
+    task: &TaskEntry,
+    attrs: &Attrs,
+    src: &Path,
+    dst: &Path,
+) -> ItemOutcome {
+    let job = task.active();
+    apply_file_meta(dst, attrs, job.params.preserve_metadata);
+    if job.params.r#move {
+        delete_source_path(task, src);
     }
-    Ok(())
-}
-
-fn parent_of(p: &Path) -> &Path {
-    match p.parent() {
-        Some(parent) if !parent.as_os_str().is_empty() => parent,
-        _ => Path::new("."),
-    }
+    ItemOutcome::FileOk
 }

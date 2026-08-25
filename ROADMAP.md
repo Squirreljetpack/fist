@@ -14,3 +14,5 @@ smarter determination for when to clear the dirsizecache: not too often so that 
 - maybe size resort makes sense to reset cursor to 0 as well
 
 Configurable ignore which applies unless visibility.all for nav pane
+
+editing a completed/err task resets it to pending (is this always intuitive/desirable?)

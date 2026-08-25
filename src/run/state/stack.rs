@@ -231,7 +231,7 @@ impl STACK {
 
 // ---------------- utilities
 impl STACK {
-    /// Return the cwd for Nav/Custom/Fd
+    /// Return the cwd for Nav/Custom/Fd/Rg
     pub fn cwd() -> Option<AbsPath> {
         STACK.with(|cell| {
             let Self { stack, index, .. } = &*cell.borrow();

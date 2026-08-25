@@ -122,11 +122,8 @@ expr_as_path_fn!(
 // the per-process temp parent (`<tmp>/fist/<pid>-<nanos>`), created on first use
 expr_as_path_fn!(__tmp, tmp_dir().__ebog());
 
-// the archive extraction root: `<tmp>/fist/<pid>-<nanos>/unzipped_storage_press_undo_to_go_back`
-expr_as_path_fn!(
-    __unzip,
-    __tmp().join("unzipped_storage_press_undo_to_go_back")
-);
+// the archive extraction root: `<tmp>/fist/<pid>-<nanos>/unzip`
+expr_as_path_fn!(__unzip, __tmp().join("unzip"));
 
 // ---------------------- FILES ----------------------
 #[cfg(debug_assertions)]

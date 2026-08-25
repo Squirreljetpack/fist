@@ -1,6 +1,7 @@
 mod config;
 mod copier;
 mod error;
+pub mod extract;
 mod job;
 mod log;
 mod meta;
@@ -11,8 +12,8 @@ mod token;
 mod walker;
 mod work;
 
-pub use config::{ConflictStrategy, CopyParams, MoveParams, ReflinkMode};
-pub use job::{JobKind, JobRequest, SubmitError};
+pub use config::{ConflictStrategy, ReflinkMode, RootStrategy, TransferParams};
+pub use job::{ExtractParams, JobKind, JobRequest, SubmitError};
 pub use log::TaskLog;
 pub use progress::{CleanupState, TaskSnapshot, TaskState};
 pub use scheduler::{Scheduler, SchedulerOptions, TaskHandle, TaskId};

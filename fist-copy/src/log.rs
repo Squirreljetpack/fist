@@ -69,6 +69,13 @@ impl TaskLog {
             .map(|g| g.errors.iter().cloned().collect())
             .unwrap_or_default()
     }
+
+    pub fn first_error(&self) -> Option<String> {
+        self.inner
+            .lock()
+            .ok()
+            .and_then(|g| g.errors.front().cloned())
+    }
 }
 
 fn push_capped(

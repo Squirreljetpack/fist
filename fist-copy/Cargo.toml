@@ -5,19 +5,54 @@ edition.workspace = true
 homepage.workspace = true
 license-file.workspace = true
 repository.workspace = true
-description = "Background copy/move engine for fist: worker pool, reflink, cancellation, progress"
+description = "Background copy/move/extract engine for fist: worker pool, reflink, cancellation, progress"
 
 [dependencies]
+cli_boilerplate_automation = { workspace = true }
 crossbeam-channel = "0.5"
 log = "0.4"
+reflink-copy = "0.1"
 serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
 walkdir = "2"
+
+# archive backends, one optional dependency per format family
+ar = { version = "0.9", optional = true }
+bzip2 = { version = "0.6", optional = true }
+flate2 = { version = "1", optional = true }
+sevenz-rust2 = { version = "0.21", optional = true }
+tar = { version = "0.4", optional = true }
+unrar = { version = "0.5", optional = true }
+xz2 = { version = "0.1", optional = true }
+zip = { version = "8.0", default-features = false, features = ["deflate"], optional = true }
+zstd = { version = "0.13", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [dev-dependencies]
 tempfile = "3.25.0"
+
+[features]
+default = []
+
+# single formats
+ar = ["dep:ar"]
+bz2 = ["dep:bzip2"]
+gz = ["dep:flate2"]
+rar = ["dep:unrar"]
+sevenz = ["dep:sevenz-rust2"]
+tar = ["dep:tar"]
+xz = ["dep:xz2"]
+zip = ["dep:zip"]
+zst = ["dep:zstd"]
+
+# compound shorthands (the engine sniffs compound vs bare by content,
+# these only exist so callers can enable families in one word)
+tarbz2 = ["tar", "bz2"]
+targz = ["tar", "gz"]
+tarxz = ["tar", "xz"]
+tarzst = ["tar", "zst"]
 
 [lints.clippy]
 uninlined_format_args = "allow"
