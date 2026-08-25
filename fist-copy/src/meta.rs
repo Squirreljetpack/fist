@@ -1,12 +1,12 @@
 use std::fs::{self, Metadata, Permissions};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
-use crate::log::TaskLog;
-use crate::progress::Progress;
-use crate::work::DirId;
+use super::log::TaskLog;
+use super::progress::Progress;
+use super::work::DirId;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct Attrs {
@@ -90,14 +90,11 @@ fn set_std_times(
     f.set_times(t)
 }
 
+#[derive(Default)]
 pub(crate) struct DirMetaTracker {
     nodes: Mutex<Vec<Node>>,
     root_done: AtomicBool,
     root_registered: AtomicBool,
-    preserve_meta: bool,
-    delete_source: bool,
-    prog: Arc<Progress>,
-    log: Arc<TaskLog>,
 }
 
 struct Node {
@@ -111,22 +108,17 @@ struct Node {
     finished: bool,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct DirContext<'a> {
+    pub prog: &'a Progress,
+    pub log: &'a TaskLog,
+    pub preserve_meta: bool,
+    pub is_move: bool,
+}
+
 impl DirMetaTracker {
-    pub(crate) fn new(
-        preserve_meta: bool,
-        delete_source: bool,
-        prog: Arc<Progress>,
-        log: Arc<TaskLog>,
-    ) -> Self {
-        Self {
-            nodes: Mutex::new(Vec::new()),
-            root_done: AtomicBool::new(false),
-            root_registered: AtomicBool::new(false),
-            preserve_meta,
-            delete_source,
-            prog,
-            log,
-        }
+    pub(crate) fn new() -> Self {
+        Self::default()
     }
 
     pub(crate) fn register_root(
@@ -183,6 +175,7 @@ impl DirMetaTracker {
     pub(crate) fn seal(
         &self,
         dir: DirId,
+        ctx: DirContext<'_>,
     ) {
         let fire = {
             let mut g = self.nodes.lock().expect("dir tracker poisoned");
@@ -195,13 +188,14 @@ impl DirMetaTracker {
             }
         };
         if fire {
-            self.finalize_node(dir);
+            self.finalize_node(dir, ctx);
         }
     }
 
     pub(crate) fn child_finished(
         &self,
         dir: DirId,
+        ctx: DirContext<'_>,
     ) {
         let fire = {
             let mut g = self.nodes.lock().expect("dir tracker poisoned");
@@ -214,13 +208,14 @@ impl DirMetaTracker {
             }
         };
         if fire {
-            self.finalize_node(dir);
+            self.finalize_node(dir, ctx);
         }
     }
 
     fn finalize_node(
         &self,
         dir: DirId,
+        ctx: DirContext<'_>,
     ) {
         let snapshot = {
             let g = self.nodes.lock().expect("dir tracker poisoned");
@@ -229,17 +224,17 @@ impl DirMetaTracker {
         };
         let (dest, attrs, src, parent) = snapshot;
 
-        if self.preserve_meta {
-            apply_dir_meta(&dest, &attrs, &self.log);
+        if ctx.preserve_meta {
+            apply_dir_meta(&dest, &attrs, ctx.log);
         }
-        if self.delete_source {
-            self.prog.cleanup_started();
+        if ctx.is_move {
+            ctx.prog.cleanup_started();
             match fs::remove_dir(&src) {
-                Ok(()) => self.prog.cleanup_done(1),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => self.prog.cleanup_done(1),
+                Ok(()) => ctx.prog.cleanup_done(1),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => ctx.prog.cleanup_done(1),
                 Err(e) => {
-                    self.prog.cleanup_failed();
-                    self.log.error(format!(
+                    ctx.prog.cleanup_failed();
+                    ctx.log.error(format!(
                         "could not remove source directory {}: {e}",
                         src.display()
                     ));
@@ -248,7 +243,7 @@ impl DirMetaTracker {
         }
 
         match parent {
-            Some(p) => self.child_finished(p),
+            Some(p) => self.child_finished(p, ctx),
             None => self.root_done.store(true, Ordering::Release),
         }
     }

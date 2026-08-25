@@ -22,6 +22,9 @@ pub struct QueueItemStatus {
     pub progress: Arc<AtomicU8>,
     /// bytes
     pub size: Arc<AtomicU64>,
+    /// The in-flight engine task id (`0` = none). An atomic because status
+    /// clones are the shared channel between rows and the pump watcher.
+    task_id: Arc<AtomicU64>,
 }
 
 impl QueueItemStatus {
@@ -31,6 +34,23 @@ impl QueueItemStatus {
             state: Default::default(),
             progress: Default::default(),
             size,
+            task_id: Default::default(),
+        }
+    }
+
+    /// Attaches the engine task id (call right after a successful submit).
+    pub fn set_task_id(
+        &self,
+        id: u64,
+    ) {
+        self.task_id.store(id, Ordering::Release);
+    }
+
+    /// The engine task id, when one was attached.
+    pub fn task_id(&self) -> Option<u64> {
+        match self.task_id.load(Ordering::Acquire) {
+            0 => None,
+            id => Some(id),
         }
     }
 }

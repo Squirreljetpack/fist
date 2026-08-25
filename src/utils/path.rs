@@ -3,6 +3,7 @@ use indexmap::IndexSet;
 use std::{
     collections::HashSet,
     env::current_dir,
+    ffi::OsStr,
     path::{Path, PathBuf},
 };
 
@@ -510,5 +511,41 @@ mod tests {
     fn expand_follow_empty_input() {
         let result = expand_follow(Vec::<PathBuf>::new(), true);
         assert!(result.is_empty());
+    }
+}
+
+/// Splits a prompt input into a file or a directory target: `Err` holds an
+/// absolute directory (input ended with a separator), `Ok` holds an
+/// absolute file. Relative inputs resolve against `cwd`.
+pub fn auto_dest(
+    dest: impl AsRef<OsStr>,
+    cwd: &Path,
+) -> Result<AbsPath, AbsPath> {
+    let dest = dest.as_ref();
+    let abs = AbsPath::new_unchecked(Path::new(dest).abs(cwd));
+    if dest.to_string_lossy().ends_with(std::path::MAIN_SEPARATOR) {
+        Err(abs)
+    } else {
+        Ok(abs)
+    }
+}
+
+/// The destination path a transfer implies: `dst` used as-is when it names
+/// a file, else `dst/src_file_name` (also when `dst` is empty or ends in a
+/// separator). Pure inference — collision decisions belong to the engine's
+/// conflict strategy at write time.
+pub fn desired_path(
+    src: &Path,
+    dst: &OsStr,
+) -> PathBuf {
+    let put_into = dst.is_empty() || dst.to_string_lossy().ends_with(std::path::MAIN_SEPARATOR);
+    let dst_path = Path::new(dst).normalize();
+    if put_into || dst_path.file_name().is_none() {
+        match src.file_name() {
+            Some(name) => dst_path.join(name),
+            None => dst_path,
+        }
+    } else {
+        dst_path
     }
 }

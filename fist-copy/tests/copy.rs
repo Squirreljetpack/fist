@@ -1,11 +1,11 @@
 use std::fs;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use fist_copy::{
-    CancelToken, ConflictStrategy, CopyParams, JobKind, JobRequest, MoveParams, ReflinkMode,
-    Scheduler, SchedulerOptions, TaskState,
+    CancelToken, ConflictStrategy, JobKind, JobRequest, ReflinkMode, RootStrategy, Scheduler,
+    SchedulerOptions, TaskState, TransferParams,
 };
 
 fn tmp(name: &str) -> tempfile::TempDir {
@@ -37,7 +37,7 @@ fn copy_req(
     dst: impl Into<std::path::PathBuf>,
 ) -> JobRequest {
     JobRequest {
-        kind: JobKind::Copy(CopyParams::default()),
+        kind: JobKind::Transfer(TransferParams::default()),
         source: src.into(),
         dest: dst.into(),
     }
@@ -48,9 +48,9 @@ fn move_req(
     dst: impl Into<std::path::PathBuf>,
 ) -> JobRequest {
     JobRequest {
-        kind: JobKind::Move(MoveParams {
-            copy: CopyParams::default(),
-            delete_source: true,
+        kind: JobKind::Transfer(TransferParams {
+            r#move: true,
+            ..TransferParams::default()
         }),
         source: src.into(),
         dest: dst.into(),
@@ -212,10 +212,8 @@ fn dir_into_itself_is_rejected() {
         .submit(copy_req(src.path(), src.path().join("sub")))
         .expect_err("must reject");
     assert!(matches!(err, fist_copy::SubmitError::IntoItself { .. }));
-    let err2 = sch
-        .submit(copy_req(src.path(), src.path()))
-        .expect_err("identity must reject");
-    assert!(matches!(err2, fist_copy::SubmitError::IntoItself { .. }));
+    // exact identity is allowed through: moves become a no-op, copies
+    // route by strategy (see move_onto_itself / dir tests)
 }
 
 #[test]
@@ -249,9 +247,9 @@ fn move_with_delete_disabled_behaves_like_copy() {
     let out = dst.path().join("f");
     let sch = sched(1);
     let req = JobRequest {
-        kind: JobKind::Move(MoveParams {
-            copy: CopyParams::default(),
-            delete_source: false,
+        kind: JobKind::Transfer(TransferParams {
+            r#move: false,
+            ..TransferParams::default()
         }),
         source: src.path().to_path_buf(),
         dest: out.clone(),
@@ -274,13 +272,93 @@ fn overwrite_replaces_existing_destination_content() {
 
     let sch = sched(1);
     let h = sch
-        .submit(copy_req(src.path().join("f"), dst.path().join("f")))
+        .submit(JobRequest {
+            kind: JobKind::Transfer(TransferParams {
+                root: RootStrategy::Overwrite,
+                ..params_with(ConflictStrategy::Overwrite)
+            }),
+            source: src.path().join("f"),
+            dest: dst.path().join("f"),
+        })
         .expect("submit");
     assert_eq!(
         await_terminal(&h, Duration::from_secs(10)),
         TaskState::CompleteOk
     );
     assert_eq!(fs::read(dst.path().join("f")).expect("read"), b"NEW");
+}
+
+#[test]
+fn deep_destination_parents_are_invented_and_survive_success() {
+    let base = tmp("fc-deep-base");
+    // two ancestor levels do not exist yet; submit must invent them
+    let dest = base.path().join("a").join("b").join("leaf");
+    write_file(&base.path().join("f"), b"DATA");
+
+    let sch = sched(1);
+    let h = sch
+        .submit(JobRequest {
+            kind: JobKind::Transfer(params_with(ConflictStrategy::Overwrite)),
+            source: base.path().join("f"),
+            dest,
+        })
+        .expect("missing parents are invented at submit");
+    assert_eq!(
+        await_terminal(&h, Duration::from_secs(10)),
+        TaskState::CompleteOk
+    );
+    assert_eq!(
+        fs::read(base.path().join("a/b/leaf")).expect("read"),
+        b"DATA"
+    );
+    // an existing non-directory ancestor still fails honestly
+    let err = sch
+        .submit(JobRequest {
+            kind: JobKind::Transfer(params_with(ConflictStrategy::Overwrite)),
+            source: base.path().join("f"),
+            dest: base.path().join("a/b/leaf/file"), // parent "leaf" is a file
+        })
+        .expect_err("file ancestor must be rejected");
+    match err {
+        fist_copy::SubmitError::Claim(_, err) => {
+            assert!(
+                err.to_string().to_lowercase().contains("not a directory"),
+                "err: {err}"
+            );
+        }
+        other => panic!("expected Claim, got {other:?}"),
+    }
+}
+
+#[test]
+fn overwrite_dir_source_onto_existing_file_replaces_obstruction() {
+    let src = tmp("fc-ovfile-src");
+    write_file(&src.path().join("inner"), b"NEW");
+    let dst = tmp("fc-ovfile-dst");
+    // a regular file sits where the directory must land: Overwrite clears
+    // the obstruction and claims a fresh destination directory
+    write_file(&dst.path().join("targetdir"), b"OLD");
+
+    let sch = sched(1);
+    let h = sch
+        .submit(JobRequest {
+            kind: JobKind::Transfer(TransferParams {
+                root: RootStrategy::Overwrite,
+                ..params_with(ConflictStrategy::Overwrite)
+            }),
+            source: src.path().to_path_buf(),
+            dest: dst.path().join("targetdir"),
+        })
+        .expect("dir-over-file overwrite must clear the obstruction at submit");
+    assert_eq!(
+        await_terminal(&h, Duration::from_secs(10)),
+        TaskState::CompleteOk
+    );
+    assert!(dst.path().join("targetdir").is_dir(), "must land as a dir");
+    assert_eq!(
+        fs::read(dst.path().join("targetdir").join("inner")).expect("read"),
+        b"NEW"
+    );
 }
 
 #[test]
@@ -292,7 +370,7 @@ fn cancel_mid_copy_stops_and_marks_canceled() {
         vec![3u8; 32 * 1024 * 1024].as_slice(),
     );
 
-    let params = CopyParams {
+    let params = TransferParams {
         buffer_size: std::num::NonZeroUsize::new(64 * 1024).unwrap(),
         workers: std::num::NonZeroUsize::new(1).unwrap(),
         ..Default::default()
@@ -302,7 +380,7 @@ fn cancel_mid_copy_stops_and_marks_canceled() {
     let sch = sched(1);
     let h = sch
         .submit(JobRequest {
-            kind: JobKind::Copy(params),
+            kind: JobKind::Transfer(params),
             source: src.path().into(),
             dest: out.clone(),
         })
@@ -340,7 +418,7 @@ fn reflink_auto_falls_back_gracefully_and_produces_correct_content() {
     let dst = tmp("fc-refl-dst");
     write_file(&src.path().join("data.bin"), vec![9u8; 200_000].as_slice());
 
-    let params = CopyParams {
+    let params = TransferParams {
         reflink: ReflinkMode::Auto,
         conflict: ConflictStrategy::Overwrite,
         ..Default::default()
@@ -350,7 +428,7 @@ fn reflink_auto_falls_back_gracefully_and_produces_correct_content() {
     let sch = sched(2);
     let h = sch
         .submit(JobRequest {
-            kind: JobKind::Copy(params),
+            kind: JobKind::Transfer(params),
             source: src.path().join("data.bin"),
             dest: out.clone(),
         })
@@ -387,27 +465,41 @@ fn single_symlink_job_copies_the_link_itself() {
 #[allow(dead_code)]
 fn unused(_: CancelToken) {}
 
-fn params_with(conflict: ConflictStrategy) -> CopyParams {
-    CopyParams {
+fn params_with(conflict: ConflictStrategy) -> TransferParams {
+    TransferParams {
         conflict,
+        ..Default::default()
+    }
+}
+
+/// Directory transfers whose assertions target the original destination
+/// pin the legacy merge behavior explicitly.
+fn dir_params(
+    conflict: ConflictStrategy,
+    root: RootStrategy,
+) -> TransferParams {
+    TransferParams {
+        conflict,
+        root,
         ..Default::default()
     }
 }
 
 #[test]
 fn conflict_fail_keeps_existing_dest_and_fails_task() {
+    // inner-entry Fail: directory transfer merging into an existing tree
     let src = tmp("fc-fail-src");
     let dst = tmp("fc-fail-dst");
-    write_file(&src.path().join("f"), b"NEW");
-    write_file(&dst.path().join("f"), b"OLD");
+    write_file(&src.path().join("tree/f"), b"NEW");
+    write_file(&dst.path().join("tree/f"), b"OLD");
 
-    let out = dst.path().join("f");
+    let out = dst.path().join("tree/f");
     let sch = sched(1);
     let h = sch
         .submit(JobRequest {
-            kind: JobKind::Copy(params_with(ConflictStrategy::Fail)),
-            source: src.path().join("f"),
-            dest: out.clone(),
+            kind: JobKind::Transfer(dir_params(ConflictStrategy::Fail, RootStrategy::Merge)),
+            source: src.path().to_path_buf(),
+            dest: dst.path().to_path_buf(),
         })
         .expect("submit");
     assert_eq!(
@@ -424,18 +516,19 @@ fn conflict_fail_keeps_existing_dest_and_fails_task() {
 
 #[test]
 fn conflict_skip_leaves_dest_and_counts_skipped() {
+    // inner-entry Skip: directory transfer merging into an existing tree
     let src = tmp("fc-skip-src");
     let dst = tmp("fc-skip-dst");
-    write_file(&src.path().join("f"), b"NEW");
-    write_file(&dst.path().join("f"), b"OLD");
+    write_file(&src.path().join("tree/f"), b"NEW");
+    write_file(&dst.path().join("tree/f"), b"OLD");
 
-    let out = dst.path().join("f");
+    let out = dst.path().join("tree/f");
     let sch = sched(1);
     let h = sch
         .submit(JobRequest {
-            kind: JobKind::Copy(params_with(ConflictStrategy::Skip)),
-            source: src.path().join("f"),
-            dest: out.clone(),
+            kind: JobKind::Transfer(dir_params(ConflictStrategy::Skip, RootStrategy::Merge)),
+            source: src.path().to_path_buf(),
+            dest: dst.path().to_path_buf(),
         })
         .expect("submit");
     assert_eq!(
@@ -453,6 +546,77 @@ fn conflict_skip_leaves_dest_and_counts_skipped() {
 }
 
 #[test]
+fn dir_transfer_onto_existing_target_renames_by_default() {
+    let src = tmp("fc-dirmove-src");
+    let dst = tmp("fc-dirmove-dst");
+    write_file(&src.path().join("f"), b"NEW");
+    write_file(&dst.path().join("guard"), b"OLD");
+
+    let sch = sched(1);
+    let h = sch
+        .submit(JobRequest {
+            kind: JobKind::Transfer(params_with(ConflictStrategy::Overwrite)), // irrelevant at dir level
+            source: src.path().to_path_buf(),
+            dest: dst.path().to_path_buf(),
+        })
+        .expect("submit");
+    assert_eq!(
+        await_terminal(&h, Duration::from_secs(10)),
+        TaskState::CompleteOk
+    );
+
+    // existing target untouched; data landed in the claimed *sibling*
+    assert_eq!(fs::read(dst.path().join("guard")).unwrap(), b"OLD");
+    assert!(!dst.path().join("f").exists());
+    let transferred = dst.path().parent().unwrap().join(format!(
+        "{}_1",
+        dst.path().file_name().unwrap().to_string_lossy()
+    ));
+    assert_eq!(fs::read(transferred.join("f")).unwrap(), b"NEW");
+}
+
+#[test]
+fn move_onto_itself_is_a_successful_noop() {
+    let src = tmp("fc-selfmove-src");
+    write_file(&src.path().join("keep"), b"DATA");
+
+    let sch = sched(1);
+    let h = sch
+        .submit(JobRequest {
+            kind: JobKind::Transfer(TransferParams {
+                conflict: ConflictStrategy::Overwrite, // would error if it ran
+                r#move: true,
+                ..Default::default()
+            }),
+            source: src.path().to_path_buf(),
+            dest: src.path().to_path_buf(),
+        })
+        .expect("submit");
+    assert_eq!(
+        await_terminal(&h, Duration::from_secs(10)),
+        TaskState::CompleteOk
+    );
+    // nothing happened: content and location intact, no siblings created
+    assert_eq!(fs::read(src.path().join("keep")).unwrap(), b"DATA");
+    let strays: Vec<PathBuf> = std::fs::read_dir(src.path().parent().unwrap())
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            *p != *src.path()
+                && p.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with("fc-selfmove-src")
+        })
+        .collect();
+    assert!(
+        strays.is_empty(),
+        "identity move created siblings: {strays:?}"
+    );
+}
+
+#[test]
 fn conflict_rename_suffix_writes_free_sibling() {
     let src = tmp("fc-ren-src");
     let dst = tmp("fc-ren-dst");
@@ -463,7 +627,7 @@ fn conflict_rename_suffix_writes_free_sibling() {
     let sch = sched(1);
     let h = sch
         .submit(JobRequest {
-            kind: JobKind::Copy(params_with(ConflictStrategy::RenameSuffix)),
+            kind: JobKind::Transfer(params_with(ConflictStrategy::RenameSuffix)),
             source: src.path().join("report.txt"),
             dest: out.clone(),
         })
@@ -494,7 +658,7 @@ fn conflict_abort_cancels_the_task_on_first_conflict() {
     let sch = sched(1);
     let h = sch
         .submit(JobRequest {
-            kind: JobKind::Copy(params_with(ConflictStrategy::Abort)),
+            kind: JobKind::Transfer(dir_params(ConflictStrategy::Abort, RootStrategy::Merge)),
             source: src.path().to_path_buf(),
             dest: dst.path().to_path_buf(),
         })
@@ -526,7 +690,10 @@ fn conflict_rename_suffix_handles_extensionless_and_nested_dirs() {
     let sch = sched(1);
     let h = sch
         .submit(JobRequest {
-            kind: JobKind::Copy(params_with(ConflictStrategy::RenameSuffix)),
+            kind: JobKind::Transfer(dir_params(
+                ConflictStrategy::RenameSuffix,
+                RootStrategy::Merge,
+            )),
             source: src.path().to_path_buf(),
             dest: dst.path().to_path_buf(),
         })
@@ -540,5 +707,221 @@ fn conflict_rename_suffix_handles_extensionless_and_nested_dirs() {
     assert_eq!(
         fs::read(dst.path().join("nested/blob")).expect("read nested"),
         b"NEW"
+    );
+}
+
+#[test]
+fn skip_conflict_counts_skipped_not_ok() {
+    // root-level file conflict under RootStrategy::Merge: file-merge is
+    // unimplemented, so the entry is skipped
+    let src = tmp("fc-skip2-src");
+    let dst = tmp("fc-skip2-dst");
+    write_file(&src.path().join("f"), b"NEW");
+    write_file(&dst.path().join("f"), b"OLD");
+
+    let sch = sched(1);
+    let h = sch
+        .submit(JobRequest {
+            kind: JobKind::Transfer(TransferParams {
+                root: RootStrategy::Merge,
+                ..params_with(ConflictStrategy::Skip)
+            }),
+            source: src.path().join("f"),
+            dest: dst.path().join("f"),
+        })
+        .expect("submit");
+    assert_eq!(
+        await_terminal(&h, Duration::from_secs(10)),
+        TaskState::CompleteOk
+    );
+    let snap = h.snapshot();
+    assert_eq!(snap.files_skipped, 1, "skip must count as skipped");
+    assert_eq!(snap.files_ok, 0, "skip must not count as ok");
+    assert_eq!(fs::read(dst.path().join("f")).unwrap(), b"OLD");
+}
+
+#[test]
+fn overwrite_onto_existing_dir_fails_honestly() {
+    let src = tmp("fc-ovdir-src");
+    let dst = tmp("fc-ovdir-dst");
+    write_file(&src.path().join("f"), b"NEW");
+    std::fs::create_dir(dst.path().join("targetdir")).unwrap();
+
+    // root conflicts are resolved at submit time and surface immediately;
+    // root strategy is set explicitly — type-blind Rename (the default)
+    // would claim `targetdir_1` instead of rejecting
+    let sch = sched(1);
+    let err = sch
+        .submit(JobRequest {
+            kind: JobKind::Transfer(TransferParams {
+                root: RootStrategy::Overwrite,
+                ..params_with(ConflictStrategy::Overwrite)
+            }),
+            source: src.path().join("f"),
+            dest: dst.path().join("targetdir"),
+        })
+        .expect_err("file-over-directory must be rejected at submit");
+    match err {
+        fist_copy::SubmitError::Claim(path, err) => {
+            assert_eq!(path, dst.path().join("targetdir"));
+            assert!(err.to_string().contains("directory"), "err: {err}");
+        }
+        other => panic!("expected Claim, got {other:?}"),
+    }
+    // the target directory survived untouched
+    assert!(dst.path().join("targetdir").is_dir());
+}
+
+#[test]
+fn identity_dir_copy_renames_and_populates_sibling() {
+    let src = tmp("fc-idcopy-src");
+    write_file(&src.path().join("f"), b"NEW");
+    write_file(&src.path().join("nested/g"), b"DEEP");
+
+    let sch = sched(1);
+    let h = sch
+        .submit(JobRequest {
+            kind: JobKind::Transfer(params_with(ConflictStrategy::Overwrite)),
+            source: src.path().to_path_buf(),
+            dest: src.path().to_path_buf(), // paste-in-place
+        })
+        .expect("submit");
+    assert_eq!(
+        await_terminal(&h, Duration::from_secs(10)),
+        TaskState::CompleteOk
+    );
+
+    let sibling = src.path().parent().unwrap().join(format!(
+        "{}_1",
+        src.path().file_name().unwrap().to_string_lossy()
+    ));
+    assert_eq!(fs::read(sibling.join("f")).unwrap(), b"NEW");
+    assert_eq!(fs::read(sibling.join("nested/g")).unwrap(), b"DEEP");
+    // original untouched
+    assert_eq!(fs::read(src.path().join("f")).unwrap(), b"NEW");
+}
+
+#[test]
+fn overwrite_dir_onto_existing_dir_clears_contents_and_copies() {
+    let src = tmp("fc-dirclear-src");
+    let dst = tmp("fc-dirclear-dst");
+    write_file(&src.path().join("new_file.txt"), b"NEW_DATA");
+    write_file(&dst.path().join("old_stale_file.txt"), b"OLD_STALE");
+    write_file(&dst.path().join("old_sub/nested.txt"), b"OLD_NESTED");
+
+    let sch = sched(1);
+    let h = sch
+        .submit(JobRequest {
+            kind: JobKind::Transfer(TransferParams {
+                root: RootStrategy::Overwrite,
+                ..params_with(ConflictStrategy::Overwrite)
+            }),
+            source: src.path().to_path_buf(),
+            dest: dst.path().to_path_buf(),
+        })
+        .expect("submit");
+    assert_eq!(
+        await_terminal(&h, Duration::from_secs(10)),
+        TaskState::CompleteOk
+    );
+
+    assert_eq!(
+        fs::read(dst.path().join("new_file.txt")).unwrap(),
+        b"NEW_DATA"
+    );
+    assert!(!dst.path().join("old_stale_file.txt").exists());
+    assert!(!dst.path().join("old_sub").exists());
+}
+
+#[test]
+fn move_dir_into_existing_dir_under_merge_merges_contents() {
+    let src = tmp("fc-dirmerge-src");
+    let dst = tmp("fc-dirmerge-dst");
+    write_file(&src.path().join("file_from_src.txt"), b"SRC_DATA");
+    write_file(&dst.path().join("existing_dst_file.txt"), b"DST_DATA");
+
+    let sch = sched(1);
+    let h = sch
+        .submit(JobRequest {
+            kind: JobKind::Transfer(TransferParams {
+                root: RootStrategy::Merge,
+                conflict: ConflictStrategy::Skip,
+                r#move: true,
+                ..Default::default()
+            }),
+            source: src.path().to_path_buf(),
+            dest: dst.path().to_path_buf(),
+        })
+        .expect("submit");
+    assert_eq!(
+        await_terminal(&h, Duration::from_secs(10)),
+        TaskState::CompleteOk
+    );
+
+    // Both files must exist in dst (merged, not cleared)
+    assert_eq!(
+        fs::read(dst.path().join("file_from_src.txt")).unwrap(),
+        b"SRC_DATA"
+    );
+    assert_eq!(
+        fs::read(dst.path().join("existing_dst_file.txt")).unwrap(),
+        b"DST_DATA"
+    );
+}
+
+#[test]
+fn type_mismatched_transfer_under_rename_creates_sibling() {
+    let src = tmp("fc-typemismatch-src");
+    let dst = tmp("fc-typemismatch-dst");
+
+    // 1. File source targeting existing directory under Rename (default)
+    write_file(&src.path().join("my_file.txt"), b"FILE_DATA");
+    std::fs::create_dir(dst.path().join("target_dir")).unwrap();
+
+    let sch = sched(1);
+    let h = sch
+        .submit(JobRequest {
+            kind: JobKind::Transfer(TransferParams {
+                root: RootStrategy::Rename,
+                ..Default::default()
+            }),
+            source: src.path().join("my_file.txt"),
+            dest: dst.path().join("target_dir"),
+        })
+        .expect("file-over-dir under Rename must claim sibling");
+    assert_eq!(
+        await_terminal(&h, Duration::from_secs(10)),
+        TaskState::CompleteOk
+    );
+    assert!(dst.path().join("target_dir").is_dir());
+    assert_eq!(
+        fs::read(dst.path().join("target_dir_1")).unwrap(),
+        b"FILE_DATA"
+    );
+
+    // 2. Directory source targeting existing file under Rename (default)
+    let src_dir = tmp("fc-typemismatch-srcdir");
+    write_file(&src_dir.path().join("inside.txt"), b"INSIDE");
+    write_file(&dst.path().join("target_file"), b"EXISTING_FILE");
+
+    let h2 = sch
+        .submit(JobRequest {
+            kind: JobKind::Transfer(TransferParams {
+                root: RootStrategy::Rename,
+                ..Default::default()
+            }),
+            source: src_dir.path().to_path_buf(),
+            dest: dst.path().join("target_file"),
+        })
+        .expect("dir-over-file under Rename must claim sibling");
+    assert_eq!(
+        await_terminal(&h2, Duration::from_secs(10)),
+        TaskState::CompleteOk
+    );
+    assert!(dst.path().join("target_file").is_file());
+    assert!(dst.path().join("target_file_1").is_dir());
+    assert_eq!(
+        fs::read(dst.path().join("target_file_1/inside.txt")).unwrap(),
+        b"INSIDE"
     );
 }

@@ -310,7 +310,6 @@ pub async fn start(
     // start watcher
     watcher.spawn()._ebog();
     // start the archive extraction worker
-    unzip::start(cfg.archive.clone());
 
     // populate mm
     STACK::populate(injector, || {});
@@ -321,8 +320,11 @@ pub async fn start(
     print_handle.map_to_vec(|s| prints!(s));
 
     TASKS::shutdown(500, 10, 3000).await;
+    // stop in-flight extractions first so skeleton cleanup is not racing
+    // the copy workers
     crate::run::queue::shutdown(std::time::Duration::from_secs(3));
     unzip::shutdown();
+    TASKS::shutdown(500, 10, 3000).await;
     // In the app pane, the picked program opens the pane's pending files
     // (fs :open, the OpenWith menu action); elsewhere the picked lines are
     // paths to open.

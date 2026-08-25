@@ -70,24 +70,25 @@ pub struct TaskSnapshot {
 
 impl TaskSnapshot {
     pub fn percent(&self) -> f32 {
-        let copy = if self.total_bytes > 0 {
-            self.copied_bytes as f32 / self.total_bytes as f32
-        } else if self.files_total > 0 {
-            (self.files_ok + self.files_failed) as f32 / self.files_total as f32
-        } else {
-            0.0
-        };
-        let p = if self.cleanup == CleanupState::Running {
-            let denom = self.files_total.max(1) as f32;
-            (copy * COPY_PHASE_SHARE
-                + (self.cleanup_done_files as f32 / denom) * (1.0 - COPY_PHASE_SHARE))
-                * 100.0
-        } else {
-            copy * 100.0
-        };
         if self.state == TaskState::CompleteOk {
             return 100.0;
         }
+        let copy = match (self.total_bytes, self.files_total) {
+            (t, _) if t > 0 => self.copied_bytes as f32 / t as f32,
+            (_, f) if f > 0 => {
+                (self.files_ok + self.files_failed + self.files_skipped) as f32 / f as f32
+            }
+            _ => 0.0,
+        };
+        let p = match self.cleanup {
+            CleanupState::Running => {
+                let denom = self.files_total.max(1) as f32;
+                (copy * COPY_PHASE_SHARE
+                    + (self.cleanup_done_files as f32 / denom) * (1.0 - COPY_PHASE_SHARE))
+                    * 100.0
+            }
+            _ => copy * 100.0,
+        };
         p.min(RUNNING_CAP)
     }
 }
@@ -152,6 +153,24 @@ impl Progress {
         self.files_total.fetch_add(1, Ordering::Relaxed);
     }
 
+    /// Registers `n` entries without byte accounting (extraction).
+    pub(crate) fn register_entries(
+        &self,
+        n: u32,
+    ) {
+        self.files_total.fetch_add(n, Ordering::Relaxed);
+    }
+
+    /// Seeds the byte denominator directly (extraction formats that know
+    /// the total up front); pairs with [`Self::add_copied`]. Idempotent:
+    /// repeated seeds with the same value are no-ops.
+    pub(crate) fn register_bytes(
+        &self,
+        n: u64,
+    ) {
+        self.total_bytes.fetch_max(n, Ordering::Relaxed);
+    }
+
     pub(crate) fn add_copied(
         &self,
         n: u64,
@@ -180,11 +199,6 @@ impl Progress {
                 Ordering::Acquire,
             );
         }
-    }
-
-    pub(crate) fn cleanup_skip(&self) {
-        self.cleanup
-            .store(CleanupState::Skipped as u8, Ordering::Release);
     }
 
     pub(crate) fn cleanup_force_success(&self) {

@@ -1,12 +1,24 @@
 use std::path::PathBuf;
 
-use crate::config::{CopyParams, MoveParams};
+use cba::claim::ClaimError;
+
+use super::config::TransferParams;
 
 #[derive(Debug, Clone)]
 pub enum JobKind {
-    Copy(CopyParams),
-    Move(MoveParams),
+    /// A file/directory transfer; `TransferParams::r#move` picks copy vs
+    /// move semantics (runtime-dynamic, driven by the queue row kind).
+    Transfer(TransferParams),
+    /// Unpack the source archive into `dest` (which must exist).
+    Extract(ExtractParams),
 }
+
+/// Settings for an extraction job.
+///
+/// Progress denominators come from the extraction itself, which registers
+/// each entry as it reaches it; this type is reserved for future options.
+#[derive(Debug, Clone, Default)]
+pub struct ExtractParams;
 
 #[derive(Debug, Clone)]
 pub struct JobRequest {
@@ -15,10 +27,11 @@ pub struct JobRequest {
     pub dest: PathBuf,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum SubmitError {
     SourceMissing(PathBuf),
     IntoItself { source: PathBuf, dest: PathBuf },
+    Claim(PathBuf, ClaimError),
     ShuttingDown,
 }
 
@@ -29,6 +42,9 @@ impl std::fmt::Display for SubmitError {
     ) -> std::fmt::Result {
         match self {
             SubmitError::SourceMissing(p) => write!(f, "source does not exist: {}", p.display()),
+            SubmitError::Claim(path, err) => {
+                write!(f, "cannot use '{}': {}", path.display(), err)
+            }
             SubmitError::IntoItself { source, dest } => {
                 write!(
                     f,
@@ -42,4 +58,11 @@ impl std::fmt::Display for SubmitError {
     }
 }
 
-impl std::error::Error for SubmitError {}
+impl std::error::Error for SubmitError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            SubmitError::Claim(_, err) => Some(err),
+            _ => None,
+        }
+    }
+}

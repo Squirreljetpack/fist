@@ -1047,4 +1047,26 @@ mod tests {
         };
         assert!(matches!(effect, OverlayEffect::None));
     }
+
+    #[test]
+    fn test_current_dir_suffix() {
+        let cwd = std::env::current_dir().unwrap();
+        let cwd_abs = AbsPath::new_unchecked(cwd.clone());
+        assert_eq!(
+            super::current_dir_suffix(&cwd_abs),
+            Some(std::path::PathBuf::from(""))
+        );
+
+        if let Some(parent) = cwd.parent() {
+            let parent_abs = AbsPath::new_unchecked(parent.to_path_buf());
+            let expected_rel = cwd.strip_prefix(parent).unwrap();
+            assert_eq!(
+                super::current_dir_suffix(&parent_abs),
+                Some(expected_rel.to_path_buf())
+            );
+        }
+
+        let non_existent = AbsPath::new_unchecked(cwd.join("__non_existent_subpath_xyz__"));
+        assert_eq!(super::current_dir_suffix(&non_existent), None);
+    }
 }

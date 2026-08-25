@@ -841,13 +841,27 @@ pub fn fsaction_handler(
                 // enter archives through a temp extraction skeleton
                 if item.path.is_file() && unzip::supported(item.path.as_path()) {
                     let archive_path = item.path.clone();
-                    match unzip::init(archive_path.as_path()) {
-                        Some(skeleton) => {
+                    match unzip::init(&archive_path) {
+                        // the persistent "Extracting" toast comes from the
+                        // pump watcher's discovery
+                        unzip::Entered::Extracting(skeleton) => {
                             enter_dir_pane(state, skeleton);
-                            unzip::toast_entering(archive_path.as_path());
                             return;
                         }
-                        None => TOAST::notice(
+                        unzip::Entered::Complete(skeleton) => {
+                            enter_dir_pane(state, skeleton);
+                            TOAST::msg("Entering archive", true);
+                            return;
+                        }
+                        unzip::Entered::Failed(skeleton) => {
+                            enter_dir_pane(state, skeleton);
+                            TOAST::msg(
+                                Span::styled("Entering failed archive", ToastStyle::Warning),
+                                true,
+                            );
+                            return;
+                        }
+                        unzip::Entered::None => TOAST::notice(
                             ToastStyle::Error,
                             format!("Failed to enter archive: {}", short_display(&archive_path)),
                         ),

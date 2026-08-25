@@ -230,36 +230,42 @@ impl FsWatcher {
                                     resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
                                     continue;
                                 } else {
-                                    // slide the window, count this event
-                                    while events.front().is_some_and(|t| now - *t > thrash.duration_ms) {
-                                        events.pop_front();
-                                    }
-                                    events.push_back(now);
-
-                                    if events.len() >= thrash.count {
-                                        // threshold tripped: drop the pending
-                                        // debounced reload, go quiet
-                                        log::debug!(
-                                            "Watcher throttling: {} events in {:?}",
-                                            events.len(),
-                                            thrash.duration_ms
-                                        );
-                                        throttled = true;
-                                        pending_reload = false;
-                                        debounce_timer.as_mut().reset(far_future());
-                                        resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
-                                    } else {
-                                        pending_reload = true;
-                                        debounce_timer.as_mut().reset(now + self.config.debounce_ms);
-                                    }
+                                    // collapse into the debounce window; the
+                                    // throttle counts *emitted* reloads, not
+                                    // raw events, so one operation's event
+                                    // burst counts as one
+                                    pending_reload = true;
+                                    debounce_timer.as_mut().reset(now + self.config.debounce_ms);
                                 }
                             }
                         }
                     }
                     _ = &mut debounce_timer, if pending_reload && !throttled => {
-                        // debounce window closed without tripping the throttle
                         pending_reload = false;
                         debounce_timer.as_mut().reset(far_future());
+
+                        let now = tokio::time::Instant::now();
+                        // slide the window over *emitted* reloads: a storm of
+                        // raw events inside one debounce window counts once
+                        while events.front().is_some_and(|t| now - *t > thrash.duration_ms) {
+                            events.pop_front();
+                        }
+                        events.push_back(now);
+
+                        // must-watch dirs stay immune: throttling must
+                        // never mute the authoritative reload source
+                        if self.must_watch.is_none() && events.len() >= thrash.count {
+                            // too many authoritative reloads in the window:
+                            // go quiet until the FS settles
+                            log::debug!(
+                                "Watcher throttling: {} reloads in {:?}",
+                                events.len(),
+                                thrash.duration_ms
+                            );
+                            throttled = true;
+                            resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
+                            continue;
+                        }
 
                         let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::SaveInput)));
                         let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::Reload)));
