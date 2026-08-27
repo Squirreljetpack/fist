@@ -25,17 +25,15 @@ use crate::{
     lessfilter::Preset,
     menu::{MenuEvaluationContext, MenuStrategy},
     run::{
-        reload::{
-            enter_dir_pane, fs_reload,
-        },
-        query_prompt::{enter_prompt, in_prompt, lock_prompt, refresh_prompt},
         item::short_display,
         pane::FsPane,
+        query_prompt::{enter_prompt, in_prompt, lock_prompt, refresh_prompt},
         queue::{
             BUILTIN_KINDS, QUEUE, QueueKind, QueueSelector, SelectorResult, show_queue_variant,
             validate_queue_kind,
         },
         register::{ExecutionMode, resolve_target},
+        reload::{enter_dir_pane, fs_reload},
         state::{
             AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, InPrompt,
             MENU_ACTIONS, MenuPrompt, STACK, STORE, TASKS, TOAST, ToastFlags, ToastStyle,
@@ -87,6 +85,8 @@ pub enum FsAction {
     // ----------------------------------
     /// Display current filters.
     ShowOptions,
+    /// Display keybind help.
+    Help,
     /// Display the queue overlay (the app view while in the app pane).
     ShowQueue,
     /// Clear the queued operations selected by a queue-kind selector;
@@ -144,6 +144,7 @@ pub enum FsAction {
         preset: Preset,
         paging: bool, // whether to feed the output to a pager
         header: When,
+        #[allow(unused)]
         special: u8,
     },
     /// Preview a file using a preset
@@ -224,15 +225,6 @@ impl FsAction {
             paging,
             header: When::Auto,
             special: Default::default(),
-        }
-    }
-
-    pub fn help() -> Self {
-        Self::Lessfilter {
-            preset: Preset::Preview,
-            paging: true,
-            header: When::Auto,
-            special: 1,
         }
     }
 }
@@ -1394,11 +1386,18 @@ pub fn fsaction_handler(
         }
         // ------------------------------------------------------
         // Execute/Accept
+        FsAction::Help => {
+            if STACK::in_app() {
+                return;
+            }
+            state.discriminant_payload = Some(ExecutionMode::Help.discriminant());
+            state.set_interrupt(Interrupt::Execute, String::new());
+        }
         FsAction::Lessfilter {
             preset,
             paging,
             header,
-            special,
+            special: _,
         } => {
             if STACK::in_app() {
                 // todo
@@ -1416,27 +1415,9 @@ pub fn fsaction_handler(
                 STORE::set(ExecuteHandlerShouldProcessParent {});
             }
 
-            let template = if special == 1 {
-                format!(
-                    "'{}' :tool showbinds",
-                    crate::cli::paths::current_exe()
-                        .to_str()
-                        .unwrap_or(crate::cli::paths::BINARY_SHORT),
-                )
-            } else {
-                preset.to_command_string(header)
-            };
+            let template = preset.to_command_string(header);
 
             if paging {
-                // Bat passthrough for the parent's pager: only the special
-                // showbinds flow stores opts (forcing ini syntax on the help
-                // text); other paged lessfilter runs store nothing, so the
-                // subtool colors its own output with the path it knows. PG_RAW
-                // lands on the child env at spawn (register_execute_handler)
-                // so the subtool skips its own bat.
-                if special == 1 {
-                    STORE::set_bat_opts(vec!["-l".into(), "ini".into()]);
-                }
                 state.discriminant_payload = Some(ExecutionMode::Paged.discriminant());
             }
 
@@ -1740,7 +1721,7 @@ enum_from_str_display! {
     units:
     Advance, Parent, Find, Search, History, App,
     Undo, Redo,
-    ShowOptions, ShowQueue,
+    ShowOptions, Help, ShowQueue,
     ShowMenu, FsToggle, ToggleHidden,
     Move, Copy, CopyPath, New, NewDir, Rename;
 
@@ -1827,11 +1808,8 @@ macro_rules! enum_from_str_display {
                                     }
                                 }
                                 SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | ResortSizes | Refilter | AcceptPrompt | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionSilent(_) | MenuActionExecPaged(_) => Ok(()), // internal
-                                Lessfilter { preset, paging, header: _, special, } => {
-                                    if *special == 1 {
-                                        write!(f, "Help")
-                                    }
-                                    else if *paging {
+                                Lessfilter { preset, paging, .. } => {
+                                    if *paging {
                                         write!(f, "LFPaged({preset})")
                                     } else {
                                         write!(f, "{preset}")
@@ -1970,9 +1948,6 @@ macro_rules! enum_from_str_display {
                                 n if data.is_none() && n.to_lowercase().parse::<Preset>().is_ok() => {
                                     let preset: Preset = n.to_lowercase().parse().unwrap_or(Preset::Open);
                                     Ok(FsAction::new_lessfilter(preset, false))
-                                }
-                                "Help" if data.is_none() => {
-                                    Ok(FsAction::help())
                                 }
                                 "Execute" | "Exec" => {
                                     let cmd = data.ok_or_else(|| "Missing command for Execute")?;
@@ -2182,5 +2157,22 @@ mod lfpreview_tests {
 
         assert!("LFPreview".parse::<FsAction>().is_err());
         assert!("LFPreview(invalid_preset)".parse::<FsAction>().is_err());
+    }
+}
+
+#[cfg(test)]
+mod help_tests {
+    use super::*;
+
+    #[test]
+    fn help_parse_and_display() {
+        let action: FsAction = "Help".parse().unwrap();
+        assert_eq!(action, FsAction::Help);
+        assert_eq!(action.to_string(), "Help");
+
+        let action_lower: FsAction = "help".parse().unwrap();
+        assert_eq!(action_lower, FsAction::Help);
+
+        assert!("Help(data)".parse::<FsAction>().is_err());
     }
 }

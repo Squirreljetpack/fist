@@ -27,6 +27,9 @@ pub enum ExecutionMode {
     Tty = 3,
     Detached = 4,
     Silent = 5,
+    /// Marker discriminant for in-app keybind help ([`crate::run::FsAction::Help`]).
+    /// Claimed by the help interrupt handler before the execute handler runs.
+    Help = 6,
     MenuAction = 7,
     LuaCommand = 8,
     LuaCommandPaged = 9,
@@ -240,7 +243,10 @@ pub(super) fn build_exec_command(
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null());
         }
-        ExecutionMode::LuaCommand | ExecutionMode::MenuAction | ExecutionMode::LuaCommandPaged => {
+        ExecutionMode::LuaCommand
+        | ExecutionMode::MenuAction
+        | ExecutionMode::LuaCommandPaged
+        | ExecutionMode::Help => {
             return None;
         }
     }

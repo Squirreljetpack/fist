@@ -9,6 +9,9 @@ percentage = 70
 [ui]
 mouse_events = true
 
+[status]
+show = true
+
 [results]
 wrap = true
 scroll_wrap = true

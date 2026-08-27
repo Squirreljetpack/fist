@@ -1,5 +1,6 @@
 mod execute;
 mod handlers;
+mod help;
 use execute::*;
 pub use execute::{ExecutionMode, resolve_target};
 pub use handlers::{paste_handler, query_handler, sync_handler};
@@ -12,10 +13,7 @@ use cba::{
 };
 use easy_ext::ext;
 use log::{info, warn};
-use matchmaker::{
-    message::Interrupt,
-    preview::AppendOnly,
-};
+use matchmaker::{message::Interrupt, preview::AppendOnly};
 use tokio::io::AsyncReadExt;
 
 use crate::run::state::GLOBAL::db;
@@ -23,9 +21,9 @@ use crate::{
     clipboard,
     run::{
         FsMatchmaker,
-        reload::fs_reload,
         item::PathItem,
         pane::FsPane,
+        reload::fs_reload,
         state::{FILTERS, MenuCommandPaths, STACK, STORE, TASKS},
     },
     utils::{command::tokio_from_script, formatter::format_path},
@@ -34,6 +32,14 @@ use crate::{
 #[ext(MMExt)]
 // overrides to support static formatter
 impl FsMatchmaker {
+    pub fn register_help_handler(
+        &mut self,
+        help_factory: matchmaker::HelpFactory,
+        help_config: matchmaker::config::HelpDisplayConfig,
+    ) {
+        help::register_help_handler(self, help_factory, help_config);
+    }
+
     pub fn register_reload_handler(&mut self) {
         self.register_interrupt_handler(Interrupt::Reload, move |state| {
             let template = state.payload();
@@ -111,7 +117,6 @@ impl FsMatchmaker {
                 warn!("Empty formatted command");
                 return;
             }
-
             let cwd = STACK::cwd();
             let vars = collect_exec_env(state, &path);
 

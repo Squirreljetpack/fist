@@ -5,7 +5,7 @@ use crate::{
     cli::clap_helpers::ClapStyleOverride, db::zoxide::HistoryConfig, watcher::WatcherConfig,
 };
 use crate::{
-    cli::{paths::*, CliOpts},
+    cli::{CliOpts, paths::*},
     lessfilter::Preset,
 };
 use fist_types::When;

@@ -12,7 +12,7 @@ use matchmaker_partial::Apply;
 use ratatui::style::Modifier;
 use std::path::Path;
 
-use super::{binds::default_binds, FsAction};
+use super::{FsAction, binds::default_binds};
 
 #[cfg(feature = "mm_overrides")]
 use crate::cli::env::get_mm_partial;
@@ -65,16 +65,11 @@ pub struct MMConfig {
     pub confirm: ConfirmConfig,
 
     // --- other ---
-    #[serde(default = "default_help_config")]
+    #[serde(default)]
     pub help: HelpDisplayConfig,
 }
 
-fn default_help_config() -> HelpDisplayConfig {
-    HelpDisplayConfig {
-        colors: None,
-        ..Default::default()
-    }
-}
+
 
 impl Default for MMConfig {
     fn default() -> Self {

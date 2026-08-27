@@ -192,9 +192,7 @@ impl STORE {
     /// # Additional
     /// When the prompt is set and the target is Ok, the target's filename is shown in the title of the input bar.
     /// Set bat passthrough extras for the next [`STORE::get_bat_opts`] call.
-    /// Called by the [`FsAction::Lessfilter`](crate::run::FsAction::Lessfilter)
-    /// paging handler for the help (special=1) flow; consumed one-shot by
-    /// `get_bat_opts` (take semantics).
+    /// Consumed one-shot by `get_bat_opts` (take semantics).
     pub fn set_bat_opts(opts: Vec<String>) {
         STORE::set(BatOpts(opts));
     }

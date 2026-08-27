@@ -9,9 +9,9 @@ use crate::{
     run::{
         FsPane,
         action::FsAction,
-        reload::fs_reload,
         item::{PathItem, short_display},
         queue::QUEUE,
+        reload::fs_reload,
         state::{
             GLOBAL, MenuCommandPaths, MenuPrompt, STACK, STORE, TOAST, ToastStyle, lessfilter_cfg,
         },

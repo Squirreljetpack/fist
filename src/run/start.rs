@@ -24,13 +24,13 @@ use crate::{
     errors::CliError,
     run::{
         action::{fsaction_aliaser, fsaction_handler},
-        reload::fs_post_reload_new,
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
-        query_prompt,
         previewer::make_previewer,
+        query_prompt,
         register::{MMExt, emit_print, paste_handler, path_formatter, query_handler, sync_handler},
+        reload::fs_post_reload_new,
         state::{
             AcceptFlavor, DB_FILTER, GLOBAL, HideMetadata, MENU_ACTIONS, STACK, STORE, TASKS,
             context::ActionContext, sort, ui::global_ui_init,
@@ -217,7 +217,7 @@ pub async fn start(
         confirm,
         tui,
         overlay,
-        help: _,
+        help,
     } = mm_cfg;
     _trace!(cfg);
 
@@ -257,7 +257,14 @@ pub async fn start(
         &mut mm,
         PreviewerConfig::default(),
         formatter,
+        Box::new({
+            let binds_ptr = binds_ptr.clone();
+            move |config| matchmaker::binds::display_help(&binds_ptr.load(), config)
+        }),
+    );
+    mm.register_help_handler(
         Box::new(move |config| matchmaker::binds::display_help(&binds_ptr.load(), config)),
+        help,
     );
 
     let mut context = ActionContext::new(print_handle.clone());

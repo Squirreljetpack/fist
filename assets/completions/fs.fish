@@ -298,6 +298,7 @@ complete -c fs -n "__fish_fs_using_subcommand :custom" -l output-sep -d 'Separat
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l cd -d 'print the first match'
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l no-store -d 'Do not store items in memory'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l help
 complete -c fs -n "__fish_fs_using_subcommand :custom" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -s v -d 'Increase the verbosity level'
@@ -337,6 +338,7 @@ complete -c fs -n "__fish_fs_using_subcommand :c" -l output-sep -d 'Separator pr
 complete -c fs -n "__fish_fs_using_subcommand :c" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l cd -d 'print the first match'
+complete -c fs -n "__fish_fs_using_subcommand :c" -l no-store -d 'Do not store items in memory'
 complete -c fs -n "__fish_fs_using_subcommand :c" -l help
 complete -c fs -n "__fish_fs_using_subcommand :c" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :c" -s v -d 'Increase the verbosity level'
