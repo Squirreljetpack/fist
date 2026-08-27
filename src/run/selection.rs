@@ -22,8 +22,8 @@ pub fn hash_path(path: &AbsPath) -> u64 {
 }
 
 /// Hashed selection paths pending rehydration after a reload. Stored in the
-/// [`crate::run::state::STORE`] by [`crate::run::ahandlers::fs_reload`] and
-/// consumed by [`crate::run::dhandlers::selection_refill_handler`].
+/// [`crate::run::state::STORE`] by [`crate::run::reload::fs_reload`] and
+/// consumed by [`crate::run::register::handlers::sync_handler`].
 #[derive(Debug)]
 pub struct PendingSelections(pub Vec<u64>);
 

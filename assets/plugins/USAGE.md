@@ -11,7 +11,7 @@ Use this skill to answer "how do I do X in fs" questions with concrete keys and 
 ## Mental model
 
 - Results list + query prompt. Up past the first row (or Down past the last) enters the *prompt*: the input becomes your current directory (shown as the cwd path) and actions apply to that directory.
-- With prompt locking on (default binds), `left`/`right` are `Parent`/`Advance`; inside the prompt they revert to text editing and `shift-left`/`shift-right` carry the pane actions instead. `alt-space` toggles the lock. If this feels unpredictable, set `interface.prompt_locking = false`.
+- With prompt locking on (default binds), `left`/`right` are `Parent`/`Advance`; inside the prompt they revert to text editing and `shift-left`/`shift-right` carry the pane actions instead. `alt-space` toggles the lock. If this feels unpredictable, remove the `prompt^^...` binds from `mm.toml`.
 - Every pane has an Options overlay (`alt-p`) for filtering/sorting; the menu overlay (`alt-e`) lists contextual file operations plus custom actions.
 
 ## Getting around

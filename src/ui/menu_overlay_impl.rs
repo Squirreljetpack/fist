@@ -144,7 +144,7 @@ impl MenuOverlay {
                             if let Some(path) = reserved.into_path() {
                                 TOAST::push(ToastStyle::Success, "New: ", [short_display(&path)]);
                                 if cd {
-                                    GLOBAL::send_action(FsAction::Jump(vec![path.into()]));
+                                    GLOBAL::send_action(FsAction::Jump(vec![path]));
                                 }
                             }
                         }

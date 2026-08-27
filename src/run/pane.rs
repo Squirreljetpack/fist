@@ -489,7 +489,7 @@ impl FsPane {
         // todo: lowpri: allow customizing?
     }
 
-    /// initialize input on new pane, see [`crate::run::ahandlers::fs_post_reload_new`]
+    /// initialize input on new pane, see [`crate::run::reload::fs_post_reload_new`]
     pub fn get_input(&self) -> String {
         match self {
             FsPane::Custom { input, .. }

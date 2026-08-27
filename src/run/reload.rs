@@ -1,6 +1,3 @@
-#![allow(unused_variables)]
-
-use crate::run::state::GLOBAL::cfg;
 use cba::{_trace, bring::split::split_whitespace_preserve_single_quotes};
 use fist_types::{
     filters::{SortOrder, Visibility},
@@ -12,7 +9,6 @@ use matchmaker::{
     message::{BindDirective, Event},
     ui::StatusUI,
 };
-use ratatui::text::Line;
 
 use crate::run::state::GLOBAL::db;
 use crate::{
@@ -20,163 +16,14 @@ use crate::{
     aliases::MMState,
     run::{
         FsAction, FsPane,
-        queue::{QUEUE, QueueSelector, SelectorResult},
+        query_prompt,
         selection,
         state::{
-            FILTERS, GLOBAL, InPrompt, STACK, STORE, TOAST, ToastStyle, sort,
-            ui::{global_ui, prompt_main_style},
+            FILTERS, GLOBAL, STACK, STORE, TOAST, sort,
+            ui::global_ui,
         },
     },
-    utils::formatter::format_prompt,
 };
-
-pub fn paste_handler(
-    content: String,
-    state: &MMState<'_>,
-) -> String {
-    if let Some(c) = STACK::nav_cwd()
-        && !(GLOBAL::cfg().interface.always_paste
-            // paste-inside-the-prompt: while the prompt mode is on (raw
-            // marker — set by lock_prompt under prompt_locking, by
-            // enter_prompt always), paste inserts into the query
-            || STORE::contains::<InPrompt>()
-            || state.overlay_index().is_some())
-    {
-        match QUEUE::select(&QueueSelector::Builtins, Some(&c)) {
-            SelectorResult::Ready(indices) => QUEUE::dispatch(indices, Some(c)),
-            SelectorResult::MissingDestination => TOAST::notice(
-                ToastStyle::Error,
-                "Missing destination for the queued items.",
-            ),
-            SelectorResult::NoItems => TOAST::msg("No items queued.", true),
-        }
-        String::new()
-    } else {
-        content
-    }
-}
-
-/// Declarative prompt:
-/// - cursor disabled (prompt mode): the directory prompt (falls back to the
-///   configured default prompt when there is no cwd);
-/// - otherwise: "d: " / "f: " when visibility is dirs-only / files-only,
-///   else the pane's configured prompt.
-pub fn refresh_prompt(state: &mut MMState<'_>) {
-    if state.picker_ui.results.cursor_disabled() {
-        if let Some(cwd) = STACK::cwd() {
-            let content = format_prompt(&GLOBAL::cfg().interface.cwd_prompt.clone(), &cwd);
-            state
-                .picker_ui
-                .query
-                .set_prompt_line(Line::styled(content, prompt_main_style()));
-        } else {
-            state.picker_ui.query.set_prompt(None);
-        };
-    } else {
-        let vis = FILTERS::visibility();
-        if vis.dirs && !vis.files {
-            state
-                .picker_ui
-                .query
-                .set_prompt_line(Line::styled("d: ", prompt_main_style()));
-        } else if vis.files && !vis.dirs {
-            state
-                .picker_ui
-                .query
-                .set_prompt_line(Line::styled("f: ", prompt_main_style()));
-        } else {
-            // the pane's configured prompt applied via temporary setters;
-            // panes without a configured prompt restore the config default
-            let (custom_prompt, custom_style) = STACK::with_current(|pane| {
-                (
-                    cfg().panes.prompt(pane),
-                    cfg()
-                        .panes
-                        .prompt_style(pane)
-                        .map(ratatui::style::Style::from),
-                )
-            });
-
-            match (custom_prompt, custom_style) {
-                (None, None) => state.picker_ui.query.set_prompt(None),
-                (p, s) => {
-                    let prompt = p.unwrap_or_else(|| state.picker_ui.query.config.prompt.clone());
-                    let style =
-                        s.unwrap_or_else(|| state.picker_ui.query.config.prompt_style.into());
-
-                    state
-                        .picker_ui
-                        .query
-                        .set_prompt_line(Line::styled(prompt, style));
-                }
-            }
-        }
-    }
-}
-
-/// Toggle the prompt mode (raw flag): the query bar is active while in the
-/// prompt — edit-actions (left/right, Delete, paste) edit the query instead
-/// of navigating, the border marks the mode, and `enter = false` also
-/// restores the cursor if it was disabled. Entering is gated on
-/// `interface.prompt_locking` — with locking off, `enter = true` is a no-op
-/// (the only way into the prompt is the cwd lock, [`enter_prompt`]) —
-/// leaving is never gated. The cwd lock implies the prompt mode and
-/// additionally makes actions apply to the cwd.
-pub fn lock_prompt(
-    state: &mut MMState<'_>,
-    enter: bool,
-) {
-    if enter && !GLOBAL::cfg().interface.prompt_locking {
-        return;
-    }
-    _trace!(enter);
-    // the marker tracks the raw prompt state (query bar active)
-    if enter {
-        STORE::set(InPrompt);
-    } else {
-        STORE::take::<InPrompt>();
-    }
-    // the query bar border is the prompt-mode indicator: shown only while
-    // in the prompt, hidden otherwise
-    state.picker_ui.query.show_border = enter;
-
-    if !enter {
-        state.stash_preview_visibility(None);
-        // leaving the prompt restores the cursor (the caller may still move
-        // it afterwards)
-        if state.picker_ui.results.cursor_disabled() {
-            state.picker_ui.results.disable_cursor(false);
-        }
-    }
-    refresh_prompt(state);
-}
-
-/// Prompt entry for a "cursor-disabling pathway" (Up/Down past the ends,
-/// first Accept, AutoJump(0)): enters the prompt and locks the active item
-/// onto the cwd — actions then apply to the cwd. Returns `false` (and does
-/// nothing) when there is no cwd to point at — Apps panes — in which case
-/// the caller passes the triggering key through.
-///
-/// Reimplements lock_prompt's entry branch rather than deferring to it,
-/// because lock_prompt gates entry on `interface.prompt_locking` and this
-/// is the ungated entry.
-pub fn enter_prompt(state: &mut MMState<'_>) -> bool {
-    if STACK::cwd().is_none() {
-        return false;
-    }
-    if !state.picker_ui.results.cursor_disabled()
-        && GLOBAL::cfg().interface.hide_preview_when_cursor_disabled
-        && let Some(p) = state.preview_ui
-    {
-        state.stash_preview_visibility(Some(false));
-    }
-    // enter the prompt mode unconditionally
-    STORE::set(InPrompt);
-    state.picker_ui.query.show_border = true;
-    state.picker_ui.results.disable_cursor(true);
-    refresh_prompt(state);
-    true
-}
 
 pub fn enter_dir_pane(
     state: &mut MMState<'_>,
@@ -391,9 +238,9 @@ pub fn fs_post_reload_new(state: &mut MMState<'_>) {
 
         if let Some(enter) = c.panes.locks_prompt(pane) {
             // this hides the preview if needed
-            lock_prompt(state, enter);
+            query_prompt::lock_prompt(state, enter);
         } else {
-            refresh_prompt(state);
+            query_prompt::refresh_prompt(state);
         }
 
         #[cfg(feature = "mm_overrides")]

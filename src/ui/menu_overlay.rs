@@ -9,7 +9,7 @@ use crate::{
     run::{
         FsPane,
         action::FsAction,
-        ahandlers::fs_reload,
+        reload::fs_reload,
         item::{PathItem, short_display},
         queue::QUEUE,
         state::{

@@ -18,8 +18,7 @@ pub fn parse_liza_args(args: &[OsString]) -> LizaConfig {
 
         let s = arg.to_string_lossy();
 
-        if s.starts_with("::") {
-            let mode_str = &s[2..];
+        if let Some(mode_str) = s.strip_prefix("::") {
             if mode_str.is_empty() || mode_str == "h" || mode_str == "help" {
                 config.show_help = true;
             } else {

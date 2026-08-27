@@ -118,7 +118,7 @@ Otherwise, this will OVERWRITE your main config."#
     pub fullscreen: Option<Option<bool>>,
 
     #[arg(long, global = true)]
-    /// See `interface.prompt_locking`
+    /// Lock the prompt at startup.
     pub lock_prompt: Option<bool>,
 
     #[arg(long, global = true)]

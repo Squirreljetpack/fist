@@ -12,7 +12,6 @@ target/
 *.pdb
 
 assets/temp
-TODO/
 
 docs_*/
 fist.log

@@ -47,7 +47,6 @@ refind = "Search"
 ### MISC ###
 
 [interface]
-prompt_locking = true
 # hide the preview when in the query bar
 hide_preview_when_cursor_disabled = true
 # allow_trash_db_items = true

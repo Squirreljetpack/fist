@@ -5,7 +5,7 @@ use crate::{
     cli::clap_helpers::ClapStyleOverride, db::zoxide::HistoryConfig, watcher::WatcherConfig,
 };
 use crate::{
-    cli::{CliOpts, paths::*},
+    cli::{paths::*, CliOpts},
     lessfilter::Preset,
 };
 use fist_types::When;
@@ -137,17 +137,6 @@ pub struct InterfaceConfig {
     pub no_multi_accept: bool,
     /// When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
-    /// When false, entering the prompt mode is disabled: `lock_prompt`
-    /// no-ops on entry, so the direct pathways — the LockPrompt action
-    /// (alt-space), the per-pane `lock_prompt` config, and `--lock-prompt`
-    /// — do nothing, and the prompt exists only as the cwd lock
-    /// ([`crate::run::ahandlers::enter_prompt`], entered via Up/Down past
-    /// the ends or AutoJump(0)). Leaving the prompt is never gated.
-    pub prompt_locking: bool,
-    /// While in the prompt, whether the Trash action acts on
-    /// the selected item instead of editing the query (DeleteWord).
-    /// Defaults to false on macOS.
-    pub prompt_locking_allow_trash_action: bool,
     /// Whether the Trash action operates on the underlying items in the
     /// database-backed panes (stashes and the files/folders/apps history).
     /// When false, Trash routes to Delete there: records are removed instead
@@ -186,11 +175,6 @@ impl Default for InterfaceConfig {
             cwd_prompt: "{} ".into(),
             toast_on_empty: true,
             autojump_advance: false,
-            prompt_locking: false,
-            #[cfg(target_os = "macos")]
-            prompt_locking_allow_trash_action: false,
-            #[cfg(not(target_os = "macos"))]
-            prompt_locking_allow_trash_action: true,
             allow_trash_db_items: false,
             hide_preview_when_cursor_disabled: false,
             allow_enter_unzip_directory: false,
@@ -389,6 +373,7 @@ mod tests {
             toml::from_str(include_str!("../../assets/config/pager.dev.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.dev.toml")).unwrap();
+        let _: MMConfig = toml::from_str(include_str!("../../assets/config/mac.mm.toml")).unwrap();
     }
 
     #[test]

@@ -37,7 +37,7 @@ pub fn lessfilter_cfg() -> &'static LessfilterConfig {
 #[derive(Debug)]
 pub struct ExecuteHandlerShouldProcessParent;
 
-/// Set by [`crate::run::ahandlers::fs_reload`] when a new pane's sort
+/// Set by [`crate::run::reload::fs_reload`] when a new pane's sort
 /// override (panesetting `default_sort`) is applied; consumed by
 /// [`crate::run::FsAction::ReSort`]. While present, the column-2 metadata
 /// override (the sort-value display) is skipped (see [`crate::run::start::format_tail`]).
@@ -58,13 +58,11 @@ pub struct InitialPreserveWhitespaceInSearch;
 
 /// Prompt-mode flag (raw): the query bar is active (border shown, left/right
 /// edit the query, Accept is intercepted). Set on entry by
-/// [`crate::run::ahandlers::lock_prompt`] — gated on
-/// `interface.prompt_locking`, so with locking off only the cwd lock
-/// ([`crate::run::ahandlers::enter_prompt`]) sets it — and taken on leave
-/// (never gated).
+/// [`crate::run::query_prompt::lock_prompt`] and
+/// [`crate::run::query_prompt::enter_prompt`], and taken on leave.
 ///
 /// Invariant: cursor_disabled ⇒ cwd exists — the cursor is only disabled by
-/// [`crate::run::ahandlers::enter_prompt`], which requires a cwd.
+/// [`crate::run::query_prompt::enter_prompt`], which requires a cwd.
 #[derive(Debug, Clone)]
 pub struct InPrompt;
 

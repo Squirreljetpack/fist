@@ -195,7 +195,7 @@ fn render_flat_output(
             for entry in entries {
                 let name = entry.file_name().to_string_lossy().to_string();
                 let file_entry =
-                    build_file_entry(name, &entry.path(), entry.path().is_dir(), config);
+                    build_file_entry(name, entry.path(), entry.path().is_dir(), config);
                 writeln!(writer, "{file_entry}")?;
             }
         } else {

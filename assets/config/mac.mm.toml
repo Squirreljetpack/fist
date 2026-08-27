@@ -1,11 +1,20 @@
 [tui]
-percentage = 50
-min = 22
-max = 25
+min = 12
+# when system clipboard cannot be (i.e. over ssh), this falls back to osc52.
+# set to true to never use the system clipboard.
+osc52 = false
+scroll = "Expansive"
+percentage = 70
 
-[preview]
+[ui]
+mouse_events = true
+
+[results]
 wrap = true
+scroll_wrap = true
+row_connection = "Disjoint"
 
+# default
 [[preview.layout]]
 side = "right"
 percentage = 40
@@ -13,6 +22,7 @@ min = 30
 max = 120
 border = { type = "LightDoubleDashed", color = "DarkGray" }
 
+# find
 [[preview.layout]]
 side = "top"
 percentage = 50
@@ -20,6 +30,7 @@ min = 5
 max = 50
 border = { type = "LightDoubleDashed", color = "DarkGray" }
 
+# wide
 [[preview.layout]]
 side = "right"
 percentage = 80
@@ -27,28 +38,49 @@ min = 5
 max = 200
 border = { type = "LightDoubleDashed", color = "DarkGray" }
 
+# app
+[[preview.layout]]
+side = "left"
+percentage = 70
+min = 5
+max = 20
+
+[preview]
+wrap = true
+scroll_wrap = true
+
 [overlay]
-border = { type = "Plain", padding = 1 }
+border = { type = "Rounded", color = "darkGrey", padding = 1 }
 
 [query]
 border = { type = "Rounded", sides = "ALL", color = "blue" }
+# word movement stops at these characters in addition to whitespace
+word_boundaries = ['.', '/']
+reset_cursor_on_query_change = true
 
 [binds]
-# Prompt-mode overrides: see mm.toml
+# Prompt locking: Arrow keys navigate when unlocked, and move cursor when locked
 "prompt^^shift-left" = "Parent"
 "prompt^^shift-right" = "Advance"
 "prompt^^left" = "BackwardChar"
 "prompt^^right" = "ForwardChar"
 "prompt^^ctrl-h" = "DeleteWord"
-"ctrl-m" = "Execute(echo hi | pg)"
-"ctrl-q" = "ExecPaged(echo hi)"
+"left" = "Parent"
+"right" = "Advance"
+"shift-left" = "BackwardChar"
+"shift-right" = "ForwardChar"
+"alt-space" = "LockPrompt"
+"ctrl-space" = "LockPrompt"
+# Consistent scheme: Arrow keys always move the cursor
+# "shift-left" = "Parent"
+# "shift-right" = "Advance"
 
 ### MM
-"shift-right" = "ForwardChar"
-"shift-left" = "BackwardChar"
 "tab" = ["ToggleSelection", "Down"]
 "ctrl-a" = "CycleSelections"
 "ctrl-shift-a" = "ClearSelections"
+"alt-shift-a" = "Pos(0)" # cursor to query start
+"alt-shift-e" = "Pos(-1)" # cursor to query end
 "alt-enter" = "Print"
 "alt-r" = "Reload"
 
@@ -68,8 +100,7 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 "alt-down" = "VScroll(-1)"
 
 ### Panes
-"right" = "Advance"
-"left" = "Parent"
+
 "ctrl-f" = "Find"
 "ctrl-r" = "Search"
 "ctrl-g" = "History"
@@ -83,8 +114,10 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 "alt-u" = "ShowQueue"
 "alt-shift-u" = "ClearQueue"
 "alt-e" = "ShowMenu"
+"ctrl-e" = "ShowMenu"
 "ctrl-u" = "ClearQuery"
 "alt-p" = "ShowOptions"
+"ctrl-p" = "ShowOptions"
 "ctrl-d" = "FsToggle"
 "ctrl-s" = "ToggleHidden" # if this freezes your terminal, check that you have set stty -ixon
 
@@ -97,15 +130,23 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 "ctrl-y" = "CopyPath"
 "delete" = "Trash"
 "shift-delete" = "Delete"
-# non-mac default; mac dev keeps DeleteWord (lib default, no mac.dev toml)
-"alt-backspace" = "Trash"
+"f2" = "Rename"
 "ctrl-shift-r" = "Rename"
 
+"ctrl-h" = "Trash"
+"cmd-backspace" = "Trash"
+# alternative if no delete key:
+"ctrl-shift-backspace" = "Delete"
+"shift-cmd-backspace" = "Delete"
+"alt-backspace" = "DeleteWord"
+
 ### Stash
-"alt-s" = "PushStash"
-"alt-shift-s" = "OpenStash"
-"alt-b" = "PushStash(bookmark)"
-"alt-shift-b" = "OpenStash(bookmark)"
+# "alt-s" = "PushStash"
+# "alt-shift-s" = "OpenStash"
+# "alt-b" = "PushStash(bookmark)"
+# "alt-shift-b" = "OpenStash(bookmark)"
+"alt-s" = "Stash"
+"alt-b" = "Stash(bookmark)"
 
 ### Preview / Execute
 ### (DEFAULTS) ####
@@ -134,7 +175,6 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 
 ### Autojump
 "ctrl-0" = "AutoJump(0)"
-"alt-space" = "LockPrompt" # toggles the prompt (None = toggle)
 "ctrl-1" = "AutoJump(1)"
 "ctrl-2" = "AutoJump(2)"
 "ctrl-3" = "AutoJump(3)"

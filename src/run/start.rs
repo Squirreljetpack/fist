@@ -24,12 +24,13 @@ use crate::{
     errors::CliError,
     run::{
         action::{fsaction_aliaser, fsaction_handler},
-        ahandlers::{self, fs_post_reload_new, paste_handler},
+        reload::fs_post_reload_new,
         item::PathItem,
         mm_config::{MATCHER_CONFIG, MMConfig},
         pane::FsPane,
+        query_prompt,
         previewer::make_previewer,
-        register::{MMExt, emit_print, path_formatter, query_handler, sync_handler},
+        register::{MMExt, emit_print, paste_handler, path_formatter, query_handler, sync_handler},
         state::{
             AcceptFlavor, DB_FILTER, GLOBAL, HideMetadata, MENU_ACTIONS, STACK, STORE, TASKS,
             context::ActionContext, sort, ui::global_ui_init,
@@ -139,7 +140,7 @@ fn make_mm(
 
     // cwd prompt <=> cursor_disabled can change on any cursor movement
     mm.register_event_handler(Event::CursorChange, |state, _| {
-        ahandlers::refresh_prompt(state);
+        query_prompt::refresh_prompt(state);
     });
 
     (mm, injector)
@@ -149,7 +150,7 @@ fn make_mm(
 /// an empty tail, else the tail text.
 ///
 /// The metadata override is skipped while a fresh sort override is hiding it
-/// ([`HideMetadata`], stored by [`crate::run::ahandlers::fs_reload`] and the
+/// ([`HideMetadata`], stored by [`crate::run::reload::fs_reload`] and the
 /// start initializer when the pane's sort matches its configured `default_sort`,
 /// and consumed by `ReSort`): the pane renders the plain tail until the first
 /// explicit re-sort.
@@ -272,9 +273,9 @@ pub async fn start(
             state.picker_ui.query.show_border = false;
             fs_post_reload_new(state);
             if let Some(enter) = lock_prompt {
-                ahandlers::lock_prompt(state, enter);
+                query_prompt::lock_prompt(state, enter);
             };
-            ahandlers::refresh_prompt(state); // defensive
+            query_prompt::refresh_prompt(state); // defensive
         })
         .paste_handler(paste_handler)
         .overlay_config(overlay)
