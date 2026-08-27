@@ -9,10 +9,7 @@ use ratatui::text::Line;
 use crate::run::state::GLOBAL::cfg;
 use crate::{
     aliases::MMState,
-    run::state::{
-        FILTERS, GLOBAL, InPrompt, STACK, STORE,
-        ui::{prompt_main_style},
-    },
+    run::state::{FILTERS, GLOBAL, InPrompt, STACK, STORE, ui::prompt_main_style},
     utils::formatter::format_prompt,
 };
 

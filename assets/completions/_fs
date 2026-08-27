@@ -227,6 +227,7 @@ _arguments "${_arguments_options[@]}" : \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--cd[print the first match]' \
+'--no-store[Do not store items in memory]' \
 '--help[]' \
 '(-v)*-q[Reduce the verbosity level]' \
 '(-q)*-v[Increase the verbosity level]' \
@@ -255,6 +256,7 @@ _arguments "${_arguments_options[@]}" : \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--cd[print the first match]' \
+'--no-store[Do not store items in memory]' \
 '--help[]' \
 '(-v)*-q[Reduce the verbosity level]' \
 '(-q)*-v[Increase the verbosity level]' \

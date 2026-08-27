@@ -430,6 +430,10 @@ pub struct CustomCommand {
     #[arg(long, alias = "is")]
     pub input_sep: Option<char>,
 
+    /// Do not store items in memory.
+    #[arg(long)]
+    pub no_store: bool,
+
     #[arg(long, action = ArgAction::Help)]
     pub help: (),
 }

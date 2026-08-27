@@ -74,38 +74,54 @@ impl FsPane {
                 transform,
                 ..
             } => {
-                complete.store(false, Ordering::SeqCst);
-                if let Some(stored) = stored {
-                    stored.map_to_vec(|item| {
-                        sort::store_sort_value(item, sort::get_sort().order);
-                        injector.push(item.clone())
-                    });
-                    if complete.load(Ordering::SeqCst) {
-                        return None;
+                let stdout: Box<dyn Read + Send + Sync> = match cmd {
+                    Some((prog, args)) => {
+                        if complete.load(Ordering::SeqCst) && stored.is_some() {
+                            if let Some(stored) = stored {
+                                stored.map_to_vec(|item| {
+                                    sort::store_sort_value(item, sort::get_sort().order);
+                                    let _ = injector.push(item.clone());
+                                });
+                            }
+                            return None;
+                        }
+
+                        if let Some(stored) = stored {
+                            stored.clear();
+                        }
+                        complete.store(false, Ordering::SeqCst);
+
+                        log::info!("spawning: {}", display_sh_prog_and_args(prog, args));
+
+                        let (child, stdout) = Command::new(prog)
+                            .args(args)
+                            .current_dir(cwd)
+                            .spawn_piped()
+                            ._ebog()?;
+                        TASKS::register_child(TaskId::Populate, child);
+                        Box::new(stdout)
                     }
-                }
+                    None => {
+                        if let Some(stored) = stored {
+                            stored.map_to_vec(|item| {
+                                sort::store_sort_value(item, sort::get_sort().order);
+                                let _ = injector.push(item.clone());
+                            });
+                            if complete.load(Ordering::SeqCst) {
+                                return None;
+                            }
+                        } else if complete.load(Ordering::SeqCst) {
+                            return None;
+                        }
+                        Box::new(io::stdin())
+                    }
+                };
 
                 let delim = *delim;
                 let cwd = cwd.clone();
                 let stored = stored.clone();
                 let complete = complete.clone();
                 let transform = transform.clone();
-
-                // Some = spawn and read its stdout; None = read stdin
-                let stdout: Box<dyn Read + Send + Sync> = match cmd {
-                    Some((prog, args)) => {
-                        log::info!("spawning: {}", display_sh_prog_and_args(prog, args));
-
-                        let (child, stdout) = Command::new(prog)
-                            .args(args)
-                            .current_dir(&cwd)
-                            .spawn_piped()
-                            ._ebog()?;
-                        TASKS::register_child(TaskId::Populate, child);
-                        Box::new(stdout)
-                    }
-                    None => Box::new(io::stdin()),
-                };
 
                 map_reader(
                     stdout,
@@ -145,7 +161,9 @@ impl FsPane {
                         if count == Some(0) {
                             GLOBAL::send_mm(RenderCommand::NoMatch);
                         }
-                        complete.store(true, Ordering::SeqCst);
+                        if count.is_some() {
+                            complete.store(true, Ordering::SeqCst);
+                        }
                     },
                 )
             }
@@ -657,4 +675,168 @@ pub fn map_reader_rg(
         log::info!("Command completed");
         anyhow::Ok(())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::ui::StyleConfig;
+    use crate::run::state::ui::{global_ui_init, try_global_ui};
+    use matchmaker::nucleo::{Column, Worker};
+    use std::ffi::OsString;
+    use std::sync::Mutex;
+
+    static TEST_POPULATE_LOCK: Mutex<()> = Mutex::new(());
+
+    fn init_test_env() {
+        if try_global_ui().is_none() {
+            let _ = std::panic::catch_unwind(|| global_ui_init(StyleConfig::DEFAULT));
+        }
+        GLOBAL::init_test_senders();
+    }
+
+    fn test_worker() -> Worker<PathItem, ()> {
+        Worker::new(
+            [Column::new("_", |item: &PathItem, _: &()| item.render())],
+            0,
+        )
+    }
+
+    #[tokio::test]
+    async fn test_custom_pane_command_caching() {
+        let _guard = TEST_POPULATE_LOCK.lock().unwrap();
+        init_test_env();
+        let worker = test_worker();
+        let injector = worker.injector();
+        let cfg = GlobalConfig::default();
+        let cwd = AbsPath::new_unchecked(std::env::current_dir().unwrap());
+
+        let cmd = Some((
+            OsString::from("printf"),
+            vec![OsString::from("line1\nline2\nline3\n")],
+        ));
+
+        let pane = FsPane::new_custom(
+            cwd,
+            Default::default(),
+            cmd,
+            true,
+            SortOrder::none,
+            None,
+            None,
+            None,
+        );
+
+        // First run: should spawn and populate
+        let handle = pane.populate(injector.clone(), &cfg, || {});
+        assert!(handle.is_some());
+        let _ = handle.unwrap().await;
+
+        if let FsPane::Custom {
+            stored, complete, ..
+        } = &pane
+        {
+            assert!(complete.load(Ordering::SeqCst));
+            assert!(stored.is_some());
+            let items = stored
+                .as_ref()
+                .unwrap()
+                .map_to_vec(|item| item.path.clone());
+            assert_eq!(items.len(), 3);
+        } else {
+            panic!("Expected Custom pane");
+        }
+
+        // Second run: since complete is true and stored is present, should return None (use cache)
+        let handle2 = pane.populate(injector.clone(), &cfg, || {});
+        assert!(handle2.is_none());
+
+        // Verify stored items remain intact
+        if let FsPane::Custom {
+            stored, complete, ..
+        } = &pane
+        {
+            assert!(complete.load(Ordering::SeqCst));
+            let items = stored
+                .as_ref()
+                .unwrap()
+                .map_to_vec(|item| item.path.clone());
+            assert_eq!(items.len(), 3);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_custom_pane_command_regenerate_when_incomplete() {
+        let _guard = TEST_POPULATE_LOCK.lock().unwrap();
+        init_test_env();
+        let worker = test_worker();
+        let injector = worker.injector();
+        let cfg = GlobalConfig::default();
+        let cwd = AbsPath::new_unchecked(std::env::current_dir().unwrap());
+
+        let cmd = Some((
+            OsString::from("printf"),
+            vec![OsString::from("first\nsecond\n")],
+        ));
+
+        let pane = FsPane::new_custom(
+            cwd,
+            Default::default(),
+            cmd,
+            true,
+            SortOrder::none,
+            None,
+            None,
+            None,
+        );
+
+        // Manually simulate an incomplete state with partial stored items
+        if let FsPane::Custom {
+            stored, complete, ..
+        } = &pane
+        {
+            complete.store(false, Ordering::SeqCst);
+            if let Some(stored) = stored {
+                stored.push(PathItem::new_unchecked("/fake/path".into()));
+            }
+        }
+
+        // Populate: should regenerate (clear stored and spawn command)
+        let handle = pane.populate(injector.clone(), &cfg, || {});
+        assert!(handle.is_some());
+        let _ = handle.unwrap().await;
+
+        if let FsPane::Custom {
+            stored, complete, ..
+        } = &pane
+        {
+            assert!(complete.load(Ordering::SeqCst));
+            let items = stored
+                .as_ref()
+                .unwrap()
+                .map_to_vec(|item| item.path.clone());
+            assert_eq!(items.len(), 2);
+        }
+    }
+
+    #[test]
+    fn test_custom_pane_store_disabled() {
+        let cwd = AbsPath::new_unchecked(std::env::current_dir().unwrap());
+        let pane = FsPane::new_custom(
+            cwd,
+            Default::default(),
+            None,
+            false,
+            SortOrder::none,
+            None,
+            None,
+            None,
+        );
+
+        if let FsPane::Custom { stored, .. } = &pane {
+            assert!(stored.is_none());
+        } else {
+            panic!("Expected Custom pane");
+        }
+    }
 }

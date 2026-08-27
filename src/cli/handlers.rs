@@ -605,7 +605,7 @@ async fn handle_custom(
     let vis = cmd.vis.into_resolved(Some(Default::default()));
     let cwd = AbsPath::new_unchecked(__cwd());
 
-    let keep_store = cmd_.is_none();
+    let keep_store = !cmd.no_store;
     let pane = FsPane::new_custom(
         cwd,
         vis,

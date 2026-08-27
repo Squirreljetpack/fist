@@ -15,13 +15,8 @@ use crate::{
     abspath::AbsPath,
     aliases::MMState,
     run::{
-        FsAction, FsPane,
-        query_prompt,
-        selection,
-        state::{
-            FILTERS, GLOBAL, STACK, STORE, TOAST, sort,
-            ui::global_ui,
-        },
+        FsAction, FsPane, query_prompt, selection,
+        state::{FILTERS, GLOBAL, STACK, STORE, TOAST, sort, ui::global_ui},
     },
 };
 

@@ -33,17 +33,16 @@ Two sides converge on `pager_cfg().bat_opts` (`pager.toml`) as the base:
 
 - **Parent (Paged execution):** `STORE::get_bat_opts()` (in `run/state/temp.rs`)
   merges `pager_cfg().bat_opts` with one-shot `STORE` extras
-  (`set_bat_opts`, used by the lessfilter help flow). Decided once in the
-  execute handler; when bat runs, the child gets `PG_RAW=true` so the spawned
-  subtool skips its own bat rendering.
+  (`set_bat_opts`). Decided once in the execute handler; when bat runs, the
+  child gets `PG_RAW=true` so the spawned subtool skips its own bat rendering.
 - **Subtool (lessfilter / `fs :tool pager`):** `env_bat_opts()`
   (`lessfilter/helpers.rs`) resolves env overrides (`PG_FLAGS`, `PG_LANG`,
   `PG_FILENAME`, `HIGHLIGHT_LINE`) on top of the `pager_cfg().bat_opts`
   default; `None` (from `PG_RAW=true` or `bat_opts = None`) skips bat.
 
-`bat = None` everywhere means raw passthrough with no highlighting; `Some`
-pipes the stream through the `bat` binary when it is on `PATH`, spawning it
-with the given args.
+`bat = None` everywhere means raw passthrough with no highlighting (or ANSI
+formatting handled upstream, as in in-app help); `Some` pipes the stream
+through the `bat` binary when it is on `PATH`, spawning it with the given args.
 
 ### Global DB
 

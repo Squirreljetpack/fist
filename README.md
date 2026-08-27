@@ -151,8 +151,8 @@ Once inside, you can navigate and re-enter from other panes by pressing the `lef
 ##### Prompt locking
 
 > [!NOTE]
-> 
-> The following describes what is probably the least straightforward feature of F:st. Hopefully, it will make more sense when you start to use it.  If not, the behavior comes from a block of bind definitions in [`mm.toml`](#configuration)[^customization-philosophy] that you can delete to disable.
+>
+> The following describes what is probably the least straightforward feature of F:st. Hopefully, it will make more sense when you start to use it. If not, the behavior comes from a block of bind definitions in [`mm.toml`](#configuration)[^customization-philosophy] that you can delete to disable.
 
 F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. Unfortunately, because the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions necessarily have to be rebound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in query-reliant panes like [`Find`](#find) or [`Search`](#search), the query bar locks when entering these panes: indicated by a blue border around your prompt. When the prompt is locked, the `Accept` action is intercepted, and the `left`/`right` and `shift-left`/`right` keys switch roles, so that `left`/`right` reverts to only moving the caret in your query.
 On macos, `cmd+delete` also returns to `DeleteWord` instead of `Trash`.
@@ -351,7 +351,7 @@ The line-editor widget functions push your selected paths onto your command line
 
 To disable any function/widget, just set its bind to an empty string.
 
-#####
+##### 
 
 > [!NOTE]
 >
@@ -549,7 +549,7 @@ spawn_with = ["pueue", "add", "-g", "apps", "--"]
    - **Nushell**: Remove `source ~/.config/nushell/fist.nu` from `~/.config/nushell/config.nu` and delete `~/.config/nushell/fist.nu`.
    - **Fish**: Remove `fs :tool shell --shell=fish | source` from `~/.config/fish/config.fish`.
 
-3. **Remove configuration, state, and cache** *(optional)*:
+3. **Remove configuration, state, and cache**:
 
    ```sh
    rm -rf ~/.config/fist ~/.local/state/fist ~/.cache/fist

@@ -1,8 +1,8 @@
-pub mod reload;
-pub mod query_prompt;
 mod binds;
 mod previewer;
+pub mod query_prompt;
 pub(crate) mod register;
+pub mod reload;
 
 // mm/init
 pub mod item;

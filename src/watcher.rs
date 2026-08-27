@@ -185,6 +185,12 @@ impl FsWatcher {
                                         let _ = watcher.watch(&new_path, recursive_mode);
                                         self.current_path = Some(new_path.clone());
                                         log::debug!("Watching: {:?}", new_path);
+
+                                        pending_reload = false;
+                                        events.clear();
+                                        throttled = false;
+                                        debounce_timer.as_mut().reset(far_future());
+                                        resume_timer.as_mut().reset(far_future());
                                     }
                                     Some(old_path) => {
                                         if &new_path != old_path {
@@ -192,13 +198,16 @@ impl FsWatcher {
                                             let _ = watcher.watch(&new_path, recursive_mode);
                                             *old_path = new_path.clone();
                                             log::debug!("Watching: {:?}", new_path);
+
+                                            // the old storm belongs to the old path
+                                            pending_reload = false;
+                                            events.clear();
+                                            throttled = false;
+                                            debounce_timer.as_mut().reset(far_future());
+                                            resume_timer.as_mut().reset(far_future());
                                         }
                                     }
                                 }
-                                // the old storm belongs to the old path
-                                pending_reload = false;
-                                events.clear();
-                                throttled = false;
 
                                 // leaving the must-watch dir re-enables
                                 // thrash throttling
@@ -214,6 +223,8 @@ impl FsWatcher {
                                 pending_reload = false;
                                 events.clear();
                                 throttled = false;
+                                debounce_timer.as_mut().reset(far_future());
+                                resume_timer.as_mut().reset(far_future());
                             }
                             WatcherMessage::Reload => {
                                 let now = tokio::time::Instant::now();
@@ -309,5 +320,131 @@ pub mod serde_duration_ms {
     {
         let ms = u64::deserialize(deserializer)?;
         Ok(Duration::from_millis(ms))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_thrash_prevention_throttles_repeated_events_on_same_directory() {
+        let (render_tx, mut render_rx) = mpsc::unbounded_channel();
+        let config = WatcherConfig {
+            fs_poll_ms: Duration::from_millis(100),
+            debounce_ms: Duration::from_millis(20),
+            thrash_threshold: ThrashSetting {
+                count: 3,
+                duration_ms: Duration::from_millis(1000),
+                resume_delay_ms: Duration::from_millis(150),
+            },
+        };
+
+        let (watcher, tx) = FsWatcher::new(config, render_tx);
+        watcher.spawn().unwrap();
+
+        let temp_dir = std::env::temp_dir();
+        tx.send(WatcherMessage::Switch(temp_dir.clone(), RecursiveMode::NonRecursive)).unwrap();
+
+        // 1st reload: debounces and emits reload
+        tx.send(WatcherMessage::Reload).unwrap();
+        let cmd1 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
+        assert!(matches!(cmd1, RenderCommand::Action(Action::Custom(FsAction::SaveInput))));
+        let cmd2 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
+        assert!(matches!(cmd2, RenderCommand::Action(Action::Custom(FsAction::Reload))));
+        // Application reload populates and sends Switch for the same directory:
+        tx.send(WatcherMessage::Switch(temp_dir.clone(), RecursiveMode::NonRecursive)).unwrap();
+
+        // 2nd reload: debounces and emits reload
+        tx.send(WatcherMessage::Reload).unwrap();
+        let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
+        let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
+        tx.send(WatcherMessage::Switch(temp_dir.clone(), RecursiveMode::NonRecursive)).unwrap();
+
+        // 3rd reload: trips thrash threshold (count = 3). Reload is throttled!
+        tx.send(WatcherMessage::Reload).unwrap();
+        // Should NOT emit reload within 100ms
+        let throttled_check = tokio::time::timeout(Duration::from_millis(80), render_rx.recv()).await;
+        assert!(throttled_check.is_err(), "Expected watcher to be throttled, but received: {:?}", throttled_check);
+
+        // While throttled, more events arrive:
+        tx.send(WatcherMessage::Reload).unwrap();
+        let throttled_check2 = tokio::time::timeout(Duration::from_millis(80), render_rx.recv()).await;
+        assert!(throttled_check2.is_err(), "Expected watcher to stay throttled during event storm");
+
+        // After quiet period (> resume_delay_ms = 150ms), one authoritative reload is emitted
+        let settle1 = tokio::time::timeout(Duration::from_millis(1000), render_rx.recv()).await.unwrap().unwrap();
+        assert!(matches!(settle1, RenderCommand::Action(Action::Custom(FsAction::SaveInput))));
+        let settle2 = tokio::time::timeout(Duration::from_millis(1000), render_rx.recv()).await.unwrap().unwrap();
+        assert!(matches!(settle2, RenderCommand::Action(Action::Custom(FsAction::Reload))));
+    }
+
+    #[tokio::test]
+    async fn test_thrash_prevention_resets_on_path_switch() {
+        let (render_tx, mut render_rx) = mpsc::unbounded_channel();
+        let config = WatcherConfig {
+            fs_poll_ms: Duration::from_millis(100),
+            debounce_ms: Duration::from_millis(20),
+            thrash_threshold: ThrashSetting {
+                count: 2,
+                duration_ms: Duration::from_millis(1000),
+                resume_delay_ms: Duration::from_millis(150),
+            },
+        };
+
+        let (watcher, tx) = FsWatcher::new(config, render_tx);
+        watcher.spawn().unwrap();
+
+        let dir1 = std::env::temp_dir();
+        let dir2 = std::env::temp_dir().join("fist_test_dir2");
+        let _ = std::fs::create_dir_all(&dir2);
+
+        tx.send(WatcherMessage::Switch(dir1.clone(), RecursiveMode::NonRecursive)).unwrap();
+
+        // 1st reload on dir1: emitted
+        tx.send(WatcherMessage::Reload).unwrap();
+        let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
+        let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
+
+        // Switch to dir2: should reset storm state
+        tx.send(WatcherMessage::Switch(dir2.clone(), RecursiveMode::NonRecursive)).unwrap();
+
+        // 1st reload on dir2: should NOT be throttled because count is 1 for dir2
+        tx.send(WatcherMessage::Reload).unwrap();
+        let cmd1 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
+        assert!(matches!(cmd1, RenderCommand::Action(Action::Custom(FsAction::SaveInput))));
+        let cmd2 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
+        assert!(matches!(cmd2, RenderCommand::Action(Action::Custom(FsAction::Reload))));
+
+        let _ = std::fs::remove_dir_all(&dir2);
+    }
+
+    #[tokio::test]
+    async fn test_must_watch_disables_throttling() {
+        let (render_tx, mut render_rx) = mpsc::unbounded_channel();
+        let config = WatcherConfig {
+            fs_poll_ms: Duration::from_millis(100),
+            debounce_ms: Duration::from_millis(20),
+            thrash_threshold: ThrashSetting {
+                count: 2,
+                duration_ms: Duration::from_millis(1000),
+                resume_delay_ms: Duration::from_millis(150),
+            },
+        };
+
+        let (watcher, tx) = FsWatcher::new(config, render_tx);
+        watcher.spawn().unwrap();
+
+        let temp_dir = std::env::temp_dir();
+        tx.send(WatcherMessage::MustWatch(temp_dir.clone())).unwrap();
+        tx.send(WatcherMessage::Switch(temp_dir.clone(), RecursiveMode::NonRecursive)).unwrap();
+
+        // Send 3 reloads (> count 2)
+        for _ in 0..3 {
+            tx.send(WatcherMessage::Reload).unwrap();
+            let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
+            let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
+            tx.send(WatcherMessage::Switch(temp_dir.clone(), RecursiveMode::NonRecursive)).unwrap();
+        }
     }
 }

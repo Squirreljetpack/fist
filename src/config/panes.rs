@@ -81,16 +81,6 @@ pub struct PaneSettings {
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
 }
-// impl Default for PaneSettings {
-//     fn default() -> Self {
-//         Self {
-//             prompt: None,
-//             show_preview: None,
-//             lock_prompt: Some(true),
-//             preview_layout_index: 0,
-//         }
-//     }
-// }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
