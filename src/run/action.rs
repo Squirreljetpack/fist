@@ -25,7 +25,10 @@ use crate::{
     lessfilter::Preset,
     menu::{MenuEvaluationContext, MenuStrategy},
     run::{
-        ahandlers::{enter_dir_pane, enter_prompt, fs_reload, lock_prompt, refresh_prompt},
+        reload::{
+            enter_dir_pane, fs_reload,
+        },
+        query_prompt::{enter_prompt, in_prompt, lock_prompt, refresh_prompt},
         item::short_display,
         pane::FsPane,
         queue::{
@@ -246,12 +249,9 @@ pub fn fsaction_aliaser(
     a: Action<FsAction>,
     state: &mut MMState<'_>,
 ) -> Actions<FsAction> {
-    // prompt-mode state: the raw InPrompt marker (the query bar is active).
-    // With prompt_locking on, the direct pathways (LockPrompt action, pane
-    // lock_prompt config, --lock-prompt) set it; with locking off they are
-    // no-ops, so only the cwd lock (enter_prompt) does.
-    let in_prompt = STORE::contains::<InPrompt>();
-    let raw_input = in_prompt || state.overlay_index().is_some();
+    // overlay state: while an overlay is open, file-navigation binds are
+    // redirected to query-editing actions (the overlay owns the input field).
+    let raw_input = state.overlay_index().is_some();
 
     match a {
         Action::Custom(fa) => match fa {
@@ -365,13 +365,8 @@ pub fn fsaction_aliaser(
                 }
             }
             FsAction::Delete(_) => acs![Action::Custom(fa)],
-            FsAction::Trash(no_confirm) => {
-                if !GLOBAL::cfg().interface.prompt_locking_allow_trash_action
-                    && in_prompt
-                    && !no_confirm
-                {
-                    acs![Action::DeleteWord]
-                } else if !GLOBAL::cfg().interface.allow_trash_db_items
+            FsAction::Trash(_) => {
+                if !GLOBAL::cfg().interface.allow_trash_db_items
                     && STACK::with_current(|p| {
                         matches!(
                             p,
@@ -439,13 +434,13 @@ pub fn fsaction_aliaser(
                 } else if digit == 0
                 // 0 -> TogglePrompt
                 {
-                    if in_prompt {
+                    if in_prompt() {
                         lock_prompt(state, false);
                     } else {
                         enter_prompt(state);
                     }
                     acs![]
-                } else if in_prompt
+                } else if in_prompt()
                 // in prompt => jump out
                 {
                     lock_prompt(state, false);
@@ -527,7 +522,7 @@ pub fn fsaction_aliaser(
                     || state.overlay_index().is_some()
                 {
                     acs![a]
-                } else if in_prompt && matches!(a, Action::Accept) {
+                } else if in_prompt() && matches!(a, Action::Accept) {
                     if state.picker_ui.results.cursor_disabled() {
                         // already locked: accept on the cwd
                         acs![FsAction::AcceptPrompt]
@@ -555,16 +550,6 @@ pub fn fsaction_aliaser(
             {
                 TOAST::msg("Cannot reload streams", false);
                 acs![]
-            }
-
-            Action::ForwardChar | Action::BackwardChar
-                if !state.picker_ui.results.cursor_disabled() && STORE::contains::<InPrompt>() =>
-            {
-                acs![if matches!(a, Action::ForwardChar) {
-                    FsAction::Advance
-                } else {
-                    FsAction::Parent
-                }]
             }
 
             _ => acs![a],
@@ -1458,9 +1443,9 @@ pub fn fsaction_handler(
             state.set_interrupt(Interrupt::Execute, template);
         }
 
-        // See the handlers in [`crate::run::dhandlers`]: the mode is
-        // transported in `state.discriminant_payload`, the template stays
-        // untouched.
+        // See the execute handlers in [`crate::run::register::execute`]: the
+        // mode is transported in `state.discriminant_payload`, the template
+        // stays untouched.
         fa @ (FsAction::Execute(_) | FsAction::ExecPaged(_) | FsAction::ExecTTY(_)) => {
             let (mode, template) = match fa {
                 FsAction::Execute(t) => (ExecutionMode::Normal, t),

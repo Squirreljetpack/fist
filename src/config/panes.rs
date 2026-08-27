@@ -260,6 +260,7 @@ pub enum InsertionStrategy {
 
 /// Per-stash pane settings, keyed by stash name (the unnamed stash is "").
 /// The name "default" (case-insensitive) is reserved.
+#[derive(Default)]
 pub struct StashPaneSettings(HashMap<String, StashPaneSetting>);
 
 impl std::ops::Deref for StashPaneSettings {
@@ -305,12 +306,6 @@ impl<'de> serde::Deserialize<'de> for StashPaneSettings {
             )));
         }
         Ok(Self(map))
-    }
-}
-
-impl Default for StashPaneSettings {
-    fn default() -> Self {
-        Self(HashMap::new())
     }
 }
 
@@ -423,13 +418,13 @@ impl PanesConfig {
         pane: &FsPane,
     ) -> Option<StyleSetting> {
         match pane {
-            FsPane::Custom { .. } => self.custom.prompt_style.clone(),
-            FsPane::Find { .. } => self.find.prompt_style.clone(),
-            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.prompt_style.clone(),
-            FsPane::Apps { .. } => self.app.prompt_style.clone(),
-            FsPane::Nav { .. } => self.nav.prompt_style.clone(),
-            FsPane::Search { .. } => self.search.prompt_style.clone(),
-            FsPane::Stash { stash_name, .. } => self.stash_setting(stash_name).prompt_style.clone(),
+            FsPane::Custom { .. } => self.custom.prompt_style,
+            FsPane::Find { .. } => self.find.prompt_style,
+            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.prompt_style,
+            FsPane::Apps { .. } => self.app.prompt_style,
+            FsPane::Nav { .. } => self.nav.prompt_style,
+            FsPane::Search { .. } => self.search.prompt_style,
+            FsPane::Stash { stash_name, .. } => self.stash_setting(stash_name).prompt_style,
         }
     }
 

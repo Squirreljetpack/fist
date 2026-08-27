@@ -1,13 +1,13 @@
 use matchmaker::{
     action::Action,
     bindmap,
-    binds::{BindMap, BindMapExt, key},
+    binds::{key, BindMap, BindMapExt},
 };
 
 use crate::lessfilter::Preset;
 use fist_types::When;
 
-use super::{FsAction, queue::QueueSelector};
+use super::{queue::QueueSelector, FsAction};
 
 pub fn default_binds() -> BindMap<FsAction> {
     let mut fs = bindmap!(
@@ -30,22 +30,6 @@ pub fn default_binds() -> BindMap<FsAction> {
         key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete(false),
     );
 
-    // cmd+backspace is traditional for trash on mac
-    #[cfg(target_os = "macos")]
-    let ext = bindmap!(
-        key!(ctrl-h), key!(cmd-backspace) => FsAction::Trash(false),
-        key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete(false),
-        key!(alt-backspace) => Action::DeleteWord,
-    );
-
-    // default binds for when without delete key
-    #[cfg(not(target_os = "macos"))]
-    let ext = bindmap!(
-        key!(alt-backspace) => FsAction::Trash(false),
-        key!(ctrl-shift-backspace), key!(shift-cmd-backspace) => FsAction::Delete(false),
-    );
-
-    fs.extend(ext);
     fs.extend_from(BindMap::default_binds());
 
     fs

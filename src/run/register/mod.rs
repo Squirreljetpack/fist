@@ -1,6 +1,8 @@
 mod execute;
+mod handlers;
 use execute::*;
 pub use execute::{ExecutionMode, resolve_target};
+pub use handlers::{paste_handler, query_handler, sync_handler};
 
 use std::{ffi::OsString, process::Stdio};
 
@@ -11,74 +13,23 @@ use cba::{
 use easy_ext::ext;
 use log::{info, warn};
 use matchmaker::{
-    message::{Event, Interrupt},
+    message::Interrupt,
     preview::AppendOnly,
 };
 use tokio::io::AsyncReadExt;
 
 use crate::run::state::GLOBAL::db;
 use crate::{
-    aliases::MMState,
     clipboard,
     run::{
         FsMatchmaker,
-        ahandlers::fs_reload,
+        reload::fs_reload,
         item::PathItem,
         pane::FsPane,
-        selection,
         state::{FILTERS, MenuCommandPaths, STACK, STORE, TASKS},
     },
     utils::{command::tokio_from_script, formatter::format_path},
 };
-
-//  Apply recovery methods which depend on all entries being present.
-/// Rehydrates the selections that [`crate::run::ahandlers::fs_reload`] snapshotted as path hashes once the
-/// fresh listing has landed.
-pub fn sync_handler(
-    state: &mut MMState<'_>,
-    _: &Event,
-) {
-    // reload saved state
-    if let Some(seek) = STORE::take()
-        && let Some(i) = state
-            .picker_ui
-            .worker
-            .matched_results()
-            .position(|x| x.path == seek)
-    {
-        state.picker_ui.results.cursor_jump(i as u32);
-        STORE::take::<u32>();
-    } else
-    // this part is exclusive to [`FsAction::Undo`], Forward and watcher reload.
-    if let Some(index) = STORE::take() {
-        state.picker_ui.results.cursor_jump(index);
-    };
-
-    // peek: only refill once the pane has finished populating
-    let ready = STORE::with::<selection::PendingSelections, _>(|pending| {
-        !pending.0.is_empty() && STACK::with_current(FsPane::is_complete)
-    })
-    .unwrap_or(false);
-    if !ready {
-        return;
-    }
-
-    if let Some(selection::PendingSelections(hashes)) =
-        STORE::take::<selection::PendingSelections>()
-    {
-        let items = state.picker_ui.worker.nucleo.items();
-        let indices = selection::rehydrate(&hashes, items.iter());
-        state.picker_ui.clear_selections();
-        state.picker_ui.selector.extend(indices);
-    }
-}
-
-pub fn query_handler(
-    _state: &mut MMState<'_>,
-    _: &Event,
-) {
-    // rg query change is handled by rebinds
-}
 
 #[ext(MMExt)]
 // overrides to support static formatter

@@ -148,13 +148,20 @@ To begin, call `fs` without any positional arguments.
 
 Once inside, you can navigate and re-enter from other panes by pressing the `left`/`right` arrow keys (corresponding to the `Parent`/ `Advance` actions).
 
-#### Prompt locking
+##### Prompt locking
 
-F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. However, it has its downsides: as the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions by necessity have to be rebound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in query-reliant panes like [`Find`](#Find) or [`Search`](#Search), the pane enters a `locked` state for these: indicated by a blue border around your prompt. When the prompt is locked, the `Parent` and `BackwardChar` actions switch roles, and likewise for `Advance` and `ForwardChar`. The `Accept` action is also intercepted, and On macos, the default `cmd+delete` is also restricted to `DeleteWord` instead of `Trash`.
+> [!NOTE]
+> 
+> The following describes what is probably the least straightforward feature of F:st. Hopefully, it will make more sense when you start to use it.  If not, the behavior comes from a block of bind definitions in [`mm.toml`](#configuration)[^customization-philosophy] that you can delete to disable.
 
-The locked state can also be entered by *entering the prompt* -- pressing up at the first result, (or down at the last with `results.cycle`). Note that `in_prompt` ⇒ `locked_prompt`: in this state, the prompt displays your current directory, and all actions apply to that instead. To exit the prompt, just press up or down again. To exit *the locked state*, there is also the default bind `alt-space`[^prompt-lock] -- but this is usually unnecessary as you can just press `shift-left`/`right` to recover the `Parent`/`Advance` actions.
+F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. Unfortunately, because the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions necessarily have to be rebound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in query-reliant panes like [`Find`](#find) or [`Search`](#search), the query bar locks when entering these panes: indicated by a blue border around your prompt. When the prompt is locked, the `Accept` action is intercepted, and the `left`/`right` and `shift-left`/`right` keys switch roles, so that `left`/`right` reverts to only moving the caret in your query.
+On macos, `cmd+delete` also returns to `DeleteWord` instead of `Trash`.
 
-Unfortunately, this is easily the least straightforward feature of F:st. Hopefully, it will make more sense when you start to use it. If it doesn't, you can always set `interface.prompt_locking` to false to make your arrow keys always do "the same thing". In fact, rather more is true: every aspect of the above described behavior can be adjusted to your preference through configuration. This is one of the guiding heuristics of the project: it seeks to provide the best out-of-the-box experience through opiniated defaults, but full power should always remain with the user: underneath the surface, everything is customizable or extensible.
+The locked state can also be entered by *entering the prompt* -- pressing up at the first result, (or down at the last with `results.cycle`). Note that `in_prompt` ⇒ `locked_prompt`: in this state, the prompt displays your current directory, and all actions apply to that instead. To exit the prompt, just press up or down again. To toggle *the locked state*, you can press `alt-space`[^prompt-lock] -- but this is not often necessary.
+
+[^prompt-lock]: necessarily, this will also drop you out of the prompt if you were in it
+
+[^customization-philosophy]: One of the guiding heuristics of the project is to provide the best out-of-the-box experience through opiniated defaults, but full power should always remain with the user: underneath the surface, everything is customizable or extensible.
 
 ### Find
 
@@ -184,24 +191,25 @@ You can perform a full text search
 - using the subcommand: `fs : [OPTIONS] [PATTERNS]... [-- <RG_ARGS>...]`
 - or by triggering the `Search` action (`ctrl-r`) in-app.
 
-In f:ist, each result supports two columns: the main filepath column, and a secondary context column[^columns].
+In f:ist, each result displays two columns: the filepath, and a context column[^columns].
 
-In this pane, the context column contains the query matches (and any requested context lines around them).
+In this pane, the context column contains the query matches and surrounding context.
 
-This pane operates in a query and a filter mode, which can be switched between[^mode-switch]:
+This pane operates in a query and a filter mode, which can be switched between with `ctrl-r`:
 
-- In *query mode*, the results are (dynamically) populated with all text matches of a given query (your input).
-- In *filter mode*, the results are filtered to only lines matching your input.
-- By default, the filter applies to the main (first) column. To switch to filtering the second column, type `%` (i.e. `path_filter % context_filter`)
-- The current query/filter of the inactive mode is displayed above your input.
-- In query mode, multiple queries (of which any should match) are seperated by whitespace. Queries containing whitespace can be grouped together by single quotes. Single quotes can be escaped as `\'`.
+- In *query mode*, the results are populated with all text matches of a your main query.
+- In *filter mode*, the results are filtered to only lines matching your filter query.
+- By default, the filter applies to the main (first) column. This allows you to easily look for all text matches restricted the results to a specific file extension or pattern[^mode-switch].
+- In query mode, multiple queries (results must match at least one) are seperated by whitespace. Queries containing whitespace can be grouped together by single quotes. Single quotes can be escaped as `\'`.
 - The default mode treats the given queries as *regexes* (as opposed to the filter input, which does not). This can be toggled, or the default [reconfigured](#configuration).
 
 > [!NOTE]
 >
-> When the active item is `advance`/`executed` on, the matched line and column are saved in the environment variables `HIGHLIGHT_LINE` and `HIGHLIGHT_COLUMN`. If your system has a compatible editor, the `Lessfilter::Edit` action can automatically open the file to the corresponding position -- otherwise, you can configure this manually.
+> When the active item is `advance`/`executed` on, the matched line and column are saved in the environment variables `HIGHLIGHT_LINE` and `HIGHLIGHT_COLUMN`. If your `$EDITOR` is supported, the `Lessfilter::Edit` action (which `advance` dispatches to) automatically opens the file to the corresponding position (you can also configure this manually).
 
 <img src=".README.assets/search-pane.png" alt="Search pane" style="width: 700px;" />
+
+[^mode-switch]: To switch to filtering the second column, type `%` (i.e. `path_filter % context_filter`).
 
 ### Stream/Custom
 
@@ -273,11 +281,7 @@ Panes can be navigated between using the `Undo/Redo` actions.
 
 For more information on any of the panes, run `fs [pane] --help` with the appropriate subcommand (i.e. `:rg`).
 
-[^prompt-lock]: necessarily, this will also drop you out of the prompt if you were in it
-
 [^columns]: In the previous panes, the secondary column was simply empty and therefore not displayed.
-
-[^mode-switch]: via the same action.
 
 [^relevance]: frequency, recency, and similarity to query.
 
@@ -303,7 +307,7 @@ For more information, consult the [docs](https://squirreljetpack.github.io/fist-
 
 The other, more direct way to add arbitrary execution flows is by adding `Execute`-type actions in the `[binds]` section. These work the same way as binds from [matchmaker](https://github.com/Squirreljetpack/matchmaker) or [fzf](https://github.com/junegunn/fzf).
 
-For example, the default `mm.toml` binds `Ctrl-Esc` to `Execute($SHELL)`: the inner string is executed in your shell environment, allowing you to drop into a shell from your current directory in f:st. On exit, you return to the main app. There are also additional variants such as `ExecPaged`, which lets you view your results in a navigable interface, or `Become` -- which transforms the process into the script provided instead of pausing f:st.
+For example, the default `mm.toml` binds `Ctrl-Esc` to `Execute($SHELL)`: the inner string is executed in your shell environment, allowing you to drop into a shell from your current directory in f:st. On exit, you return to the main app. There are also additional variants such as `ExecPaged`, which lets you view your results in a navigable interface, or `Become` -- which transforms the process instead of pausing f:st.
 
 ### Queue
 
@@ -343,11 +347,11 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 > One final change from zoxide is the introduction of the `history.refind` setting in the [config](#configuration).
 > When no match is found, or when the top result is the current directory, this setting causes the the interactive interface to be started.
 
-The line-editor widget functions push your selected paths onto your command line. By default, `shift+left` binds to recursive directory search, `shift+right` binds to recursive file search. There is also a full-text search widget bound to `shift+down`: this one does not modify your command-line, but is useful rather because it leaves it *intact*.
+The line-editor widget functions push your selected paths onto your command line. By default, `shift-left` binds to recursive directory search, `shift-right` binds to recursive file search. There is also a full-text search widget bound to `shift-down`: the default action opens your editor at the match, but you can still push paths using `alt-enter`.
 
-To disable any function/widget, just set its bind to the empty string.
+To disable any function/widget, just set its bind to an empty string.
 
-##### 
+#####
 
 > [!NOTE]
 >
@@ -452,7 +456,7 @@ The built-in actions are:
 - `Header`
 - `None`
 
-Additional actions can be defined via the same same shell+[templating](https://squirreljetpack.github.io/fist-docs/output-templates#the-format-template) syntax as actions under `[bind]`. For example:
+Additional actions can be defined via the same same shell + [templating](https://squirreljetpack.github.io/fist-docs/output-templates#the-format-template) syntax as actions under `[bind]`. For example:
 
 ```toml
 [rules]
@@ -532,6 +536,7 @@ spawn_with = ["pueue", "add", "-g", "apps", "--"]
 ### Full uninstallation
 
 1. **Remove binary**:
+
    ```sh
    # Installed via cargo:
    cargo uninstall fist
@@ -545,6 +550,7 @@ spawn_with = ["pueue", "add", "-g", "apps", "--"]
    - **Fish**: Remove `fs :tool shell --shell=fish | source` from `~/.config/fish/config.fish`.
 
 3. **Remove configuration, state, and cache** *(optional)*:
+
    ```sh
    rm -rf ~/.config/fist ~/.local/state/fist ~/.cache/fist
    ```

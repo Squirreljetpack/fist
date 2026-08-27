@@ -282,7 +282,7 @@ impl STACK {
     }
 
     // don't save index for rg and find because order is not guaranteed
-    /// Note that because state is saved on update (and initialization) for [`FsPane::Search`] (see [`crate::run::ahandlers::fs_reload`]), rg is omitted here
+    /// Note that because state is saved on update (and initialization) for [`FsPane::Search`] (see [`crate::run::reload::fs_reload`]), rg is omitted here
     // todo: lowpri: configurable save
     pub fn save_input(
         content: String,

@@ -34,6 +34,12 @@ border = { type = "Plain", padding = 1 }
 border = { type = "Rounded", sides = "ALL", color = "blue" }
 
 [binds]
+# Prompt-mode overrides: see mm.toml
+"prompt^^shift-left" = "Parent"
+"prompt^^shift-right" = "Advance"
+"prompt^^left" = "BackwardChar"
+"prompt^^right" = "ForwardChar"
+"prompt^^ctrl-h" = "DeleteWord"
 "ctrl-m" = "Execute(echo hi | pg)"
 "ctrl-q" = "ExecPaged(echo hi)"
 
@@ -91,6 +97,8 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 "ctrl-y" = "CopyPath"
 "delete" = "Trash"
 "shift-delete" = "Delete"
+# non-mac default; mac dev keeps DeleteWord (lib default, no mac.dev toml)
+"alt-backspace" = "Trash"
 "ctrl-shift-r" = "Rename"
 
 ### Stash

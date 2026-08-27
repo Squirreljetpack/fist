@@ -59,16 +59,21 @@ word_boundaries = ['.', '/']
 reset_cursor_on_query_change = true
 
 [binds]
-# Alternate scheme:
-# "shift-left" = "Parent"
-# "shift-right" = "Advance"
-# config.toml: interface.prompt_locking = false
-"shift-left" = "BackwardChar"
-"shift-right" = "ForwardChar"
+# Prompt locking: Arrow keys navigate when unlocked, and move cursor when locked
+"prompt^^shift-left" = "Parent"
+"prompt^^shift-right" = "Advance"
+"prompt^^left" = "BackwardChar"
+"prompt^^right" = "ForwardChar"
+"prompt^^ctrl-h" = "DeleteWord"
 "left" = "Parent"
 "right" = "Advance"
+"shift-left" = "BackwardChar"
+"shift-right" = "ForwardChar"
 "alt-space" = "LockPrompt"
 "ctrl-space" = "LockPrompt"
+# Consistent scheme: Arrow keys always move the cursor
+# "shift-left" = "Parent"
+# "shift-right" = "Advance"
 
 ### MM
 "tab" = ["ToggleSelection", "Down"]
@@ -130,6 +135,7 @@ reset_cursor_on_query_change = true
 # alternative if no delete key:
 "ctrl-shift-backspace" = "Delete"
 "shift-cmd-backspace" = "Delete"
+"alt-backspace" = "Trash"
 
 ### Stash
 # "alt-s" = "PushStash"

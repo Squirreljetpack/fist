@@ -1,4 +1,5 @@
-pub mod ahandlers;
+pub mod reload;
+pub mod query_prompt;
 mod binds;
 mod previewer;
 pub(crate) mod register;
