@@ -10,8 +10,6 @@ use ratatui::style::Color;
 pub struct PanesSettings {
     pub display_script_simultaneous_count: usize,
     pub display_script_batch_size: usize,
-    /// Change the sorting method to the new default when changing to a new pane type
-    pub apply_default_sort: bool,
 }
 
 impl Default for PanesSettings {
@@ -19,7 +17,6 @@ impl Default for PanesSettings {
         Self {
             display_script_simultaneous_count: 15,
             display_script_batch_size: 1000,
-            apply_default_sort: true,
         }
     }
 }

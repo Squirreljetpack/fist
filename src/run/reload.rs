@@ -74,7 +74,7 @@ pub fn enter_dir_pane(
         }
     }
 
-    let pane = FsPane::new_nav(path, vis, sort::get_sort().order);
+    let pane = FsPane::new_nav(path, vis, Default::default()).set_initial_sort();
     STACK::push(pane);
     fs_reload(state, is_new, dir_changed);
 }
@@ -107,27 +107,6 @@ pub fn fs_reload(
             {
                 v.apply(pv);
             }
-            let new_sort = c.panes.default_sort(pane);
-            match pane {
-                FsPane::Custom { sort, vis, .. }
-                | FsPane::Find { sort, vis, .. }
-                | FsPane::Search { sort, vis, .. }
-                | FsPane::Nav { sort, vis, .. } => {
-                    if c.panes.settings.apply_default_sort
-                        && let Some(new_sort) = new_sort
-                    {
-                        *sort = new_sort;
-                    }
-
-                    FILTERS::set(*vis);
-                }
-                FsPane::Files { .. }
-                | FsPane::Folders { .. }
-                | FsPane::Apps { .. }
-                | FsPane::Stash { .. } => {
-                    // logically we should add configurable default but i don't think anything besides frecency is desirable [for the default]
-                }
-            }
         });
     }
 
@@ -151,7 +130,7 @@ pub fn fs_reload(
         state.picker_ui.clear_selections();
     }
 
-    sort::set_sort_from_pane(state, is_new.then_some(true));
+    sort::set_sort_from_pane(state, false);
     if sort::get_sort().order == SortOrder::size && (is_new || dir_changed) {
         let preserve = GLOBAL::cfg().interface.preserve_size_cache
             && STACK::cwd()

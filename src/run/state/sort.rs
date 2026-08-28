@@ -64,10 +64,11 @@ pub fn order_is_none() -> bool {
 }
 
 /// Updates the global `SORT_MODE` lock and returns the new `SortMode`.
-pub fn set_global_sort_from_pane(set_meta: Option<bool>) -> SortMode {
-    if let Some(set) = set_meta {
+/// If `unhide_meta` is true: attempts to remove HideMetadata (or sets it if the new sort is none).
+pub fn set_global_sort_from_pane(unhide_meta: bool) -> SortMode {
+    if unhide_meta {
         STACK::with_current(|p| {
-            if set && p.on_default_sort() {
+            if p.sort_order() == SortOrder::none {
                 STORE::set(HideMetadata);
             } else {
                 take_hide_metadata(p);
@@ -103,20 +104,21 @@ pub fn set_global_sort_from_pane(set_meta: Option<bool>) -> SortMode {
 }
 
 /// Unhide the metadata column: the explicit re-sort / sort-cycle flows.
-/// No-op on panes that never show metadata (rg and SQL db panes, which
-/// reload by sorting).
+///
+/// No-op on panes that never show a metadata column (rg and SQL db panes,
+/// which reload externally by sorting). Checking `!pane.is_externally_sorted()`
+/// prevents swallowing the first sort keypress/toggle in the options overlay.
 pub fn take_hide_metadata(pane: &FsPane) -> bool {
     !pane.is_externally_sorted() && STORE::take::<HideMetadata>().is_some()
 }
 
 /// Pushes the current pane's sort into global and updates Nucleo.
-/// If set_meta = false: attempts to remove HideMetadata
-/// If set_meta = true: hides the metadata for the default sort (i.e. new pane)
+/// If `unhide_meta` is true: unhides metadata (or sets HideMetadata if sort is none).
 pub fn set_sort_from_pane(
     state: &mut MMState<'_>,
-    set_meta: Option<bool>,
+    unhide_meta: bool,
 ) {
-    let SortMode { order, threshold } = set_global_sort_from_pane(set_meta);
+    let SortMode { order, threshold } = set_global_sort_from_pane(unhide_meta);
 
     state.picker_ui.worker.nucleo.sort_with(sort_fn_for(order));
     state.picker_ui.worker.nucleo.set_stability(threshold);
@@ -214,7 +216,7 @@ pub fn store_sort_value(
 /// Fill flow for a mid-pane sort change (no reload): snapshot the existing
 /// items, compute the new sort values off-thread, then dispatch `ReSort`.
 pub fn fill_then_resort(state: &MMState<'_>) {
-    let SortMode { order, threshold } = set_global_sort_from_pane(None);
+    let SortMode { order, threshold } = set_global_sort_from_pane(false);
 
     match order {
         // no fill needed: name compares paths, none unsorts
@@ -249,5 +251,71 @@ pub fn fill_then_resort(state: &MMState<'_>) {
                 GLOBAL::send_action(FsAction::ReSort);
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use fist_types::filters::Visibility;
+
+    #[test]
+    fn test_set_initial_sort_inherits_when_unhidden() {
+        GLOBAL::init_test_senders();
+        STACK::init(FsPane::new_nav(
+            AbsPath::new("/tmp"),
+            Visibility::DEFAULT,
+            SortOrder::mtime,
+        ));
+        STORE::take::<HideMetadata>();
+        set_global_sort_from_pane(false);
+
+        // HideMetadata is none (actively sorted) -> Find pane should inherit mtime
+        let find_pane = FsPane::new_fd(
+            AbsPath::new("/tmp"),
+            Default::default(),
+            Visibility::DEFAULT,
+        )
+        .set_initial_sort();
+
+        assert_eq!(find_pane.sort_order(), SortOrder::mtime);
+        assert!(!STORE::contains::<HideMetadata>());
+    }
+
+    #[test]
+    fn test_set_initial_sort_uses_default_when_hidden() {
+        GLOBAL::init_test_senders();
+        STACK::init(FsPane::new_nav(
+            AbsPath::new("/tmp"),
+            Visibility::DEFAULT,
+            SortOrder::mtime,
+        ));
+        STORE::set(HideMetadata);
+        set_global_sort_from_pane(false);
+
+        // HideMetadata is some -> Find pane gets default sort (none)
+        let find_pane = FsPane::new_fd(
+            AbsPath::new("/tmp"),
+            Default::default(),
+            Visibility::DEFAULT,
+        )
+        .set_initial_sort();
+
+        assert_eq!(find_pane.sort_order(), SortOrder::none);
+    }
+
+    #[test]
+    fn test_set_global_sort_sets_hidemetadata_on_none() {
+        GLOBAL::init_test_senders();
+        STACK::init(FsPane::new_nav(
+            AbsPath::new("/tmp"),
+            Visibility::DEFAULT,
+            SortOrder::none,
+        ));
+        STORE::take::<HideMetadata>();
+        assert!(!STORE::contains::<HideMetadata>());
+
+        set_global_sort_from_pane(true);
+        assert!(STORE::contains::<HideMetadata>());
     }
 }

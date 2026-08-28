@@ -98,7 +98,7 @@ pub struct LessfilterCommand {
 ))]
 pub struct BumpCommand {
     /// path to bump.
-    #[arg(value_name = "PATHS")]
+    #[arg(value_name = "PATH")]
     pub paths: Vec<PathBuf>,
 
     /// glob pattern to bump.
@@ -150,7 +150,7 @@ pub enum FollowMode {
 #[derive(Debug, Parser, Default, Clone)]
 pub struct TrashCommand {
     /// Paths to trash.
-    #[arg(value_name = "PATHS")]
+    #[arg(value_name = "PATH")]
     pub paths: Vec<PathBuf>,
 
     /// No prompt when when trash fails.
