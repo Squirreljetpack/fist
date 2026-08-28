@@ -875,6 +875,7 @@ mod tests {
 
     #[test]
     fn test_options_overlay_sql_db_sort_toggling() {
+        GLOBAL::init_test_senders();
         STACK::init(FsPane::Files {
             sort: SortOrder::none,
             input: (String::new(), 0),
@@ -911,6 +912,7 @@ mod tests {
 
     #[test]
     fn test_options_overlay_stash_sort_cycling() {
+        GLOBAL::init_test_senders();
         STACK::init(FsPane::new_stash("test-stash".into()));
 
         let mut overlay = OptionsOverlay::default();
@@ -945,6 +947,7 @@ mod tests {
 
     #[test]
     fn test_options_overlay_nav_hidemetadata_unhide_before_cycle() {
+        GLOBAL::init_test_senders();
         STACK::init(FsPane::new_nav(
             AbsPath::new("/tmp"),
             Visibility::DEFAULT,

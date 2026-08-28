@@ -378,7 +378,7 @@ pub struct DefaultCommand {
     #[arg(short = 't', long = "types", value_delimiter = ',')]
     pub types: Vec<FileTypeArg>,
 
-    #[arg(value_name = "PATHS")]
+    #[arg(value_name = "PATH")]
     /// Paths to search in. Searches the current directory if none specified (and not otherwise configured).
     pub paths: Vec<OsString>,
 

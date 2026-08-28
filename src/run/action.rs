@@ -257,8 +257,8 @@ pub fn fsaction_aliaser(
             // problem: we set global sort to tell what to inject, but rendered sizes may be stale, this is not a big problem as this only
             // conflates mtime/atime, the other sort modes don't depend on the Atomic metadata field.
             FsAction::ReSort => {
-                // sort explicitly set: unhide the metadata column
-                sort::set_sort_from_pane(state, false.into());
+                // sort explicitly set: unhide the metadata column (or set HideMetadata if sort is none)
+                sort::set_sort_from_pane(state, true);
                 state.worker_resort();
                 state.picker_ui.results.set_dirty();
                 acs![]
@@ -566,7 +566,8 @@ pub fn fsaction_handler(
             STACK::save_input(content, index);
 
             // pane
-            let pane = FsPane::new_fd(STACK::_cwd(), sort::get_sort().order, FILTERS::visibility());
+            let pane = FsPane::new_fd(STACK::_cwd(), Default::default(), FILTERS::visibility())
+                .set_initial_sort();
 
             // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
             // todo: there is a problem
@@ -656,7 +657,7 @@ pub fn fsaction_handler(
 
                 let pane = FsPane::new_rg(
                     cwd,
-                    sort::get_sort().order,
+                    Default::default(),
                     FILTERS::visibility(),
                     //
                     paths,
@@ -669,7 +670,8 @@ pub fn fsaction_handler(
                     one_line,
                     fixed_strings,
                     vec![],
-                );
+                )
+                .set_initial_sort();
                 STACK::push(pane);
                 fs_reload(state, true, false);
             }
@@ -910,7 +912,7 @@ pub fn fsaction_handler(
             STACK::save_input(content, index);
             // a same-variant current pane is replaced in place, which
             // also covers switching between stash names
-            STACK::set_or_push(FsPane::new_stash(name));
+            STACK::set_or_push(FsPane::new_stash(name).set_initial_sort());
             fs_reload(state, true, false);
         }
 
@@ -975,7 +977,7 @@ pub fn fsaction_handler(
                         fs_reload(state, true, true);
                     }
                 } else {
-                    STACK::set_or_push(FsPane::new_stash(name));
+                    STACK::set_or_push(FsPane::new_stash(name).set_initial_sort());
                     fs_reload(state, true, false);
                 }
                 return;

@@ -276,7 +276,7 @@ pub async fn start(
         .ext_handler(move |x, y| fsaction_handler(x, y, &mut context))
         .ext_aliaser(fsaction_aliaser)
         .initializer(move |state| {
-            sort::set_sort_from_pane(state, true.into());
+            sort::set_sort_from_pane(state, false);
             state.picker_ui.query.show_border = false;
             fs_post_reload_new(state);
             if let Some(enter) = lock_prompt {
@@ -310,7 +310,10 @@ pub async fn start(
         .expect("DB_FILTER initialized more than once");
     // init global
     GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane, bind_tx);
-    sort::set_global_sort_from_pane(true.into());
+    if STACK::with_current(FsPane::on_default_sort) {
+        STORE::set(HideMetadata);
+    }
+    sort::set_global_sort_from_pane(false);
     clipboard::init(cfg.misc.clipboard_delay_ms, osc52, copy_trailing_newline);
     crate::spawn::init_spawn_with(cfg.misc.spawn_with);
     global_ui_init(cfg.styles);

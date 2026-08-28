@@ -12,7 +12,7 @@ use crate::{
     lua::{LuaFn, compile_script},
     run::{
         item::PathItem,
-        state::{GLOBAL, InitialPreserveWhitespaceInSearch, STORE},
+        state::{GLOBAL, HideMetadata, InitialPreserveWhitespaceInSearch, STACK, STORE, sort},
     },
 };
 use fist_types::{
@@ -289,6 +289,39 @@ impl FsPane {
             | FsPane::Stash { sort, .. }
             | FsPane::Nav { sort, .. } => *sort,
         }
+    }
+
+    /// Sets the initial sort order for a new Nav, Find, Search, or Stash pane.
+    ///
+    /// - Coming from Apps/History or when the previous pane was on default sort (`HideMetadata.is_some()`):
+    ///   applies the pane's configured default sort, setting `HideMetadata` if on default sort.
+    /// - When the previous pane had actively engaged/unhidden sort (`HideMetadata.is_none()`):
+    ///   inherits the current sort order (if supported by this pane), keeping `HideMetadata` unhidden.
+    pub fn set_initial_sort(mut self) -> Self {
+        let from_app_or_history = STACK::with_current(|p| {
+            matches!(
+                p,
+                FsPane::Apps { .. } | FsPane::Files { .. } | FsPane::Folders { .. }
+            )
+        });
+
+        let default_sort = GLOBAL::cfg().panes.default_sort(&self).unwrap_or_default();
+
+        let new_sort = if from_app_or_history || STORE::contains::<HideMetadata>() {
+            STORE::set(HideMetadata);
+            default_sort
+        } else {
+            let current_sort = sort::get_sort().order;
+            if self.sort_options().contains(&current_sort) {
+                current_sort
+            } else {
+                STORE::set(HideMetadata);
+                default_sort
+            }
+        };
+
+        *self.sort_mut() = new_sort;
+        self
     }
 
     #[inline]

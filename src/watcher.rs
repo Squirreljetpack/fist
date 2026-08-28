@@ -344,39 +344,90 @@ mod tests {
         watcher.spawn().unwrap();
 
         let temp_dir = std::env::temp_dir();
-        tx.send(WatcherMessage::Switch(temp_dir.clone(), RecursiveMode::NonRecursive)).unwrap();
+        tx.send(WatcherMessage::Switch(
+            temp_dir.clone(),
+            RecursiveMode::NonRecursive,
+        ))
+        .unwrap();
 
         // 1st reload: debounces and emits reload
         tx.send(WatcherMessage::Reload).unwrap();
-        let cmd1 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
-        assert!(matches!(cmd1, RenderCommand::Action(Action::Custom(FsAction::SaveInput))));
-        let cmd2 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
-        assert!(matches!(cmd2, RenderCommand::Action(Action::Custom(FsAction::Reload))));
+        let cmd1 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            cmd1,
+            RenderCommand::Action(Action::Custom(FsAction::SaveInput))
+        ));
+        let cmd2 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            cmd2,
+            RenderCommand::Action(Action::Custom(FsAction::Reload))
+        ));
         // Application reload populates and sends Switch for the same directory:
-        tx.send(WatcherMessage::Switch(temp_dir.clone(), RecursiveMode::NonRecursive)).unwrap();
+        tx.send(WatcherMessage::Switch(
+            temp_dir.clone(),
+            RecursiveMode::NonRecursive,
+        ))
+        .unwrap();
 
         // 2nd reload: debounces and emits reload
         tx.send(WatcherMessage::Reload).unwrap();
-        let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
-        let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
-        tx.send(WatcherMessage::Switch(temp_dir.clone(), RecursiveMode::NonRecursive)).unwrap();
+        let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        tx.send(WatcherMessage::Switch(
+            temp_dir.clone(),
+            RecursiveMode::NonRecursive,
+        ))
+        .unwrap();
 
         // 3rd reload: trips thrash threshold (count = 3). Reload is throttled!
         tx.send(WatcherMessage::Reload).unwrap();
         // Should NOT emit reload within 100ms
-        let throttled_check = tokio::time::timeout(Duration::from_millis(80), render_rx.recv()).await;
-        assert!(throttled_check.is_err(), "Expected watcher to be throttled, but received: {:?}", throttled_check);
+        let throttled_check =
+            tokio::time::timeout(Duration::from_millis(80), render_rx.recv()).await;
+        assert!(
+            throttled_check.is_err(),
+            "Expected watcher to be throttled, but received: {:?}",
+            throttled_check
+        );
 
         // While throttled, more events arrive:
         tx.send(WatcherMessage::Reload).unwrap();
-        let throttled_check2 = tokio::time::timeout(Duration::from_millis(80), render_rx.recv()).await;
-        assert!(throttled_check2.is_err(), "Expected watcher to stay throttled during event storm");
+        let throttled_check2 =
+            tokio::time::timeout(Duration::from_millis(80), render_rx.recv()).await;
+        assert!(
+            throttled_check2.is_err(),
+            "Expected watcher to stay throttled during event storm"
+        );
 
         // After quiet period (> resume_delay_ms = 150ms), one authoritative reload is emitted
-        let settle1 = tokio::time::timeout(Duration::from_millis(1000), render_rx.recv()).await.unwrap().unwrap();
-        assert!(matches!(settle1, RenderCommand::Action(Action::Custom(FsAction::SaveInput))));
-        let settle2 = tokio::time::timeout(Duration::from_millis(1000), render_rx.recv()).await.unwrap().unwrap();
-        assert!(matches!(settle2, RenderCommand::Action(Action::Custom(FsAction::Reload))));
+        let settle1 = tokio::time::timeout(Duration::from_millis(1000), render_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            settle1,
+            RenderCommand::Action(Action::Custom(FsAction::SaveInput))
+        ));
+        let settle2 = tokio::time::timeout(Duration::from_millis(1000), render_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            settle2,
+            RenderCommand::Action(Action::Custom(FsAction::Reload))
+        ));
     }
 
     #[tokio::test]
@@ -399,22 +450,48 @@ mod tests {
         let dir2 = std::env::temp_dir().join("fist_test_dir2");
         let _ = std::fs::create_dir_all(&dir2);
 
-        tx.send(WatcherMessage::Switch(dir1.clone(), RecursiveMode::NonRecursive)).unwrap();
+        tx.send(WatcherMessage::Switch(
+            dir1.clone(),
+            RecursiveMode::NonRecursive,
+        ))
+        .unwrap();
 
         // 1st reload on dir1: emitted
         tx.send(WatcherMessage::Reload).unwrap();
-        let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
-        let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
+        let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
 
         // Switch to dir2: should reset storm state
-        tx.send(WatcherMessage::Switch(dir2.clone(), RecursiveMode::NonRecursive)).unwrap();
+        tx.send(WatcherMessage::Switch(
+            dir2.clone(),
+            RecursiveMode::NonRecursive,
+        ))
+        .unwrap();
 
         // 1st reload on dir2: should NOT be throttled because count is 1 for dir2
         tx.send(WatcherMessage::Reload).unwrap();
-        let cmd1 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
-        assert!(matches!(cmd1, RenderCommand::Action(Action::Custom(FsAction::SaveInput))));
-        let cmd2 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
-        assert!(matches!(cmd2, RenderCommand::Action(Action::Custom(FsAction::Reload))));
+        let cmd1 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            cmd1,
+            RenderCommand::Action(Action::Custom(FsAction::SaveInput))
+        ));
+        let cmd2 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            cmd2,
+            RenderCommand::Action(Action::Custom(FsAction::Reload))
+        ));
 
         let _ = std::fs::remove_dir_all(&dir2);
     }
@@ -436,15 +513,30 @@ mod tests {
         watcher.spawn().unwrap();
 
         let temp_dir = std::env::temp_dir();
-        tx.send(WatcherMessage::MustWatch(temp_dir.clone())).unwrap();
-        tx.send(WatcherMessage::Switch(temp_dir.clone(), RecursiveMode::NonRecursive)).unwrap();
+        tx.send(WatcherMessage::MustWatch(temp_dir.clone()))
+            .unwrap();
+        tx.send(WatcherMessage::Switch(
+            temp_dir.clone(),
+            RecursiveMode::NonRecursive,
+        ))
+        .unwrap();
 
         // Send 3 reloads (> count 2)
         for _ in 0..3 {
             tx.send(WatcherMessage::Reload).unwrap();
-            let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
-            let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv()).await.unwrap().unwrap();
-            tx.send(WatcherMessage::Switch(temp_dir.clone(), RecursiveMode::NonRecursive)).unwrap();
+            let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            let _ = tokio::time::timeout(Duration::from_millis(100), render_rx.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            tx.send(WatcherMessage::Switch(
+                temp_dir.clone(),
+                RecursiveMode::NonRecursive,
+            ))
+            .unwrap();
         }
     }
 }
