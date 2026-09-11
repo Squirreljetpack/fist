@@ -17,3 +17,4 @@ Configurable ignore which applies unless visibility.all for nav pane
 
 editing a completed/err task resets it to pending (is this always intuitive/desirable?)
 
+Parent does not restore to correct position when sort is active
