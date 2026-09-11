@@ -207,7 +207,7 @@ pub struct FdConfig {
     pub default_args: Vec<String>,
 
     /// - Auto: When the pattern for fs :: starts with a dot and is followed only by alphanumeric characters, and -h is not specified, include hidden files.
-    /// - Always: When query for fs :: starts with a dot and is followed only by alphanumeric characters, and -h/-I are not specified, include hidden/ignored files respectively.
+    /// - Always: When query for fs :: starts with a dot, and -h/-I are not specified, include hidden/ignored files respectively.
     /// - Never: No change.
     ///
     /// Additionally, when this setting is not Never, hidden visibility is automatically turned on when starting a nav pane in a directory containing only hidden files.

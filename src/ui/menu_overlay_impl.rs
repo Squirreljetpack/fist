@@ -214,7 +214,11 @@ impl MenuOverlay {
                     };
 
                     let replaced = if is_dir {
-                        match cba_claim::replace_dir(&old_path, &dest, cba_claim::ClaimPolicy::Strict) {
+                        match cba_claim::replace_dir(
+                            &old_path,
+                            &dest,
+                            cba_claim::ClaimPolicy::Strict,
+                        ) {
                             Ok(None) => Ok(()),
                             Ok(Some(claim)) => {
                                 claim.rollback();
@@ -226,7 +230,11 @@ impl MenuOverlay {
                             Err(e) => return handle_claim_err(e),
                         }
                     } else {
-                        match cba_claim::replace_file(&old_path, &dest, cba_claim::ClaimPolicy::Strict) {
+                        match cba_claim::replace_file(
+                            &old_path,
+                            &dest,
+                            cba_claim::ClaimPolicy::Strict,
+                        ) {
                             Ok(None) => Ok(()),
                             Ok(Some(claim)) => {
                                 claim.rollback();
