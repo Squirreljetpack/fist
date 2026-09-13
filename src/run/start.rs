@@ -13,6 +13,8 @@ use matchmaker::{
     preview::AppendOnly,
 };
 
+use fist_types::When;
+
 use crate::run::state::GLOBAL::db;
 use crate::{
     aliases::MMState,
@@ -32,8 +34,8 @@ use crate::{
         register::{MMExt, emit_print, paste_handler, path_formatter, query_handler, sync_handler},
         reload::fs_post_reload_new,
         state::{
-            AcceptFlavor, DB_FILTER, GLOBAL, HideMetadata, MENU_ACTIONS, STACK, STORE, TASKS,
-            context::ActionContext, sort, ui::global_ui_init,
+            AcceptFlavor, DB_FILTER, GLOBAL, HideMetadata, LockPromptSetting, MENU_ACTIONS, STACK,
+            STORE, TASKS, context::ActionContext, sort, ui::global_ui_init,
         },
     },
     spawn::{Program, open_wrapped},
@@ -280,7 +282,15 @@ pub async fn start(
             state.picker_ui.query.show_border = false;
             fs_post_reload_new(state);
             if let Some(enter) = lock_prompt {
-                query_prompt::lock_prompt(state, enter);
+                STORE::set(LockPromptSetting(enter));
+                match enter {
+                    When::Always => query_prompt::lock_prompt(state, true),
+                    When::Never => query_prompt::lock_prompt(state, false),
+                    When::Auto => {
+                        let is_nonempty = !state.picker_ui.query.input().is_empty();
+                        query_prompt::lock_prompt(state, is_nonempty);
+                    }
+                }
             };
             query_prompt::refresh_prompt(state); // defensive
         })

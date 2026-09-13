@@ -1,22 +1,18 @@
 use cba::{_trace, bring::split::split_whitespace_preserve_single_quotes};
 use fist_types::{
+    When,
     filters::{SortOrder, Visibility},
     git::in_git_repo,
 };
-use matchmaker::{
-    acs,
-    config::StringOrInt,
-    message::{BindDirective, Event},
-    ui::StatusUI,
-};
+use matchmaker::{config::StringOrInt, ui::StatusUI};
 
 use crate::run::state::GLOBAL::db;
 use crate::{
     abspath::AbsPath,
     aliases::MMState,
     run::{
-        FsAction, FsPane, query_prompt, selection,
-        state::{FILTERS, GLOBAL, STACK, STORE, TOAST, sort, ui::global_ui},
+        FsPane, query_prompt, selection,
+        state::{FILTERS, GLOBAL, LockPromptSetting, STACK, STORE, TOAST, sort, ui::global_ui},
     },
 };
 
@@ -210,11 +206,16 @@ pub fn fs_post_reload_new(state: &mut MMState<'_>) {
             }
         }
 
-        if let Some(enter) = c.panes.locks_prompt(pane) {
-            // this hides the preview if needed
-            query_prompt::lock_prompt(state, enter);
-        } else {
-            query_prompt::refresh_prompt(state);
+        let enter = c.panes.locks_prompt(pane);
+        STORE::set(LockPromptSetting(enter));
+        // this hides the preview if needed
+        match enter {
+            When::Always => query_prompt::lock_prompt(state, true),
+            When::Never => query_prompt::lock_prompt(state, false),
+            When::Auto => {
+                let is_nonempty = !state.picker_ui.query.input().is_empty();
+                query_prompt::lock_prompt(state, is_nonempty);
+            }
         }
 
         #[cfg(feature = "mm_overrides")]
@@ -319,15 +320,6 @@ pub fn fs_post_reload(state: &mut MMState<'_>) {
                 s.set(Some(status));
                 s.status_config.show = true;
 
-                if f {
-                    GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()));
-                } else {
-                    GLOBAL::send_bind(BindDirective::Bind(
-                        Event::QueryChange.into(),
-                        acs![FsAction::Reload],
-                    ));
-                }
-
                 state.picker_ui.filtering = f;
             }
             _ => {
@@ -348,7 +340,6 @@ pub fn fs_post_reload(state: &mut MMState<'_>) {
                 }
 
                 state.picker_ui.filtering = true;
-                GLOBAL::send_bind(BindDirective::Unbind(Event::QueryChange.into()))
             }
         }
         _trace!(pane);

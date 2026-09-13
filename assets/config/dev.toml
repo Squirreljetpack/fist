@@ -2,19 +2,19 @@
 #
 [panes.nav]
 show_preview = 60
-lock_prompt = false
+lock_prompt = "never"
 
 default_visibility = { hidden = true }
-ignore_patterns = [ ".DS_Store" ]
+ignore_patterns = [".DS_Store"]
 
 [panes.find]
 show_preview = 60
-lock_prompt = true
+# lock_prompt = "auto"
 
 on_leave_unset_dirs_only = true
 
 [panes.search]
-lock_prompt = true
+lock_prompt = "auto"
 show_preview = 20
 preview_layout_index = 1
 

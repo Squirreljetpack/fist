@@ -1,17 +1,17 @@
 ### PANES ###
 [panes.nav]
 show_preview = 60
-lock_prompt = false
+lock_prompt = "never"
 
 # ignore_patterns = [ ".DS_Store" ]
 # default_visibility = { hidden = true }
 
 [panes.find]
 show_preview = 60
-lock_prompt = true
+# lock_prompt = "auto"
 
 [panes.search]
-lock_prompt = true
+lock_prompt = "auto"
 show_preview = 20
 preview_layout_index = 1
 
@@ -32,7 +32,7 @@ show_preview = true
 ### SETTINGS ###
 
 [fd]
-dot_query_show_hidden = "Always"
+dot_query_show_hidden = "always"
 
 [rg]
 empty_pattern = "-v ^ *$"

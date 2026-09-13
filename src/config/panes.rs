@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::run::FsPane;
-use fist_types::filters::*;
+use fist_types::{When, filters::*};
 use matchmaker::config::{ShowCondition, StyleSetting};
 use ratatui::style::Color;
 
@@ -63,7 +63,11 @@ impl Default for PanesConfig {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+const fn default_never() -> When {
+    When::Never
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PaneSettings {
     /// Input prompt
@@ -73,10 +77,23 @@ pub struct PaneSettings {
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
-    pub lock_prompt: Option<bool>,
+    #[serde(default = "default_never")]
+    pub lock_prompt: When,
 
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
+}
+
+impl Default for PaneSettings {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            prompt_style: None,
+            show_preview: None,
+            lock_prompt: When::Never,
+            preview_layout_index: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -89,7 +106,8 @@ pub struct FdPaneSettings {
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
-    pub lock_prompt: Option<bool>,
+    #[serde(default = "default_never")]
+    pub lock_prompt: When,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
@@ -111,7 +129,7 @@ impl Default for FdPaneSettings {
             prompt: None,
             prompt_style: None,
             show_preview: None,
-            lock_prompt: None,
+            lock_prompt: When::Never,
             preview_layout_index: 0,
             default_visibility: None,
             on_leave_unset_dirs_only: false,
@@ -121,7 +139,7 @@ impl Default for FdPaneSettings {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RgPaneSettings {
     /// Input prompt
@@ -131,7 +149,8 @@ pub struct RgPaneSettings {
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
-    pub lock_prompt: Option<bool>,
+    #[serde(default = "default_never")]
+    pub lock_prompt: When,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
@@ -156,25 +175,24 @@ pub struct RgPaneSettings {
     pub fs_status_template: String,
 }
 
-// impl Default for RgPaneSettings {
-//     fn default() -> Self {
-//         Self {
-//             prompt: None,
-//             lock_prompt: Some(true),
-//             show_preview: Some(ShowCondition::Free(20)),
-//             preview_layout_index: 1,
-
-//             one_line: true,
-//             fixed_strings: false,
-//             default_visibility: None,
-//             default_sort: Some(SortOrder::none),
-//             search_empty_query: true,
-
-//             rg_status_template: r"{blue:filter: {}} \s\m/\t".into(),
-//             fs_status_template: r"{red:query: {}} \s\m/\t".into(),
-//         }
-//     }
-// }
+impl Default for RgPaneSettings {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            prompt_style: None,
+            show_preview: None,
+            lock_prompt: When::Never,
+            preview_layout_index: 0,
+            default_visibility: None,
+            default_sort: None,
+            one_line: false,
+            fixed_strings: false,
+            preserve_whitespace: false,
+            rg_status_template: String::new(),
+            fs_status_template: String::new(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -184,7 +202,8 @@ pub struct NavPaneSettings {
     /// Style of the input prompt
     pub prompt_style: Option<StyleSetting>,
     /// Whether to enter the prompt when switching to this pane
-    pub lock_prompt: Option<bool>,
+    #[serde(default = "default_never")]
+    pub lock_prompt: When,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Default preview layout index for this pane
@@ -206,7 +225,7 @@ impl Default for NavPaneSettings {
         Self {
             prompt: None,
             prompt_style: None,
-            lock_prompt: None,
+            lock_prompt: When::Never,
             show_preview: Some(ShowCondition::Free(50)),
             preview_layout_index: 0,
 
@@ -217,7 +236,7 @@ impl Default for NavPaneSettings {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct HistoryPaneSettings {
     /// Input prompt
@@ -226,9 +245,22 @@ pub struct HistoryPaneSettings {
     pub prompt_style: Option<StyleSetting>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
-    pub lock_prompt: Option<bool>,
+    #[serde(default = "default_never")]
+    pub lock_prompt: When,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
+}
+
+impl Default for HistoryPaneSettings {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            prompt_style: None,
+            show_preview: None,
+            lock_prompt: When::Never,
+            preview_layout_index: 0,
+        }
+    }
 }
 
 /// What to do when stashing a path that is already present in the stash.
@@ -324,7 +356,7 @@ pub enum StashPaneKind {
 }
 
 /// Settings of a single stash pane, looked up by stash name.
-#[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct StashPaneSetting {
     /// Input prompt
@@ -334,7 +366,8 @@ pub struct StashPaneSetting {
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
     /// Whether to enter the prompt when switching to this pane
-    pub lock_prompt: Option<bool>,
+    #[serde(default = "default_never")]
+    pub lock_prompt: When,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
@@ -342,6 +375,20 @@ pub struct StashPaneSetting {
     pub kind: StashPaneKind,
     /// What to do when stashing a path that is already in the stash.
     pub insert: InsertionStrategy,
+}
+
+impl Default for StashPaneSetting {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            prompt_style: None,
+            show_preview: None,
+            lock_prompt: When::Never,
+            preview_layout_index: 0,
+            kind: StashPaneKind::Transient,
+            insert: InsertionStrategy::Replace,
+        }
+    }
 }
 
 impl StashPaneSetting {
@@ -354,14 +401,14 @@ impl StashPaneSetting {
             ..StyleSetting::DEFAULT
         }),
         show_preview: None,
-        lock_prompt: None,
+        lock_prompt: When::Never,
         preview_layout_index: 0,
         kind: StashPaneKind::Transient,
         insert: InsertionStrategy::Replace,
     };
 }
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AppPaneSettings {
     /// Input prompt
@@ -370,11 +417,25 @@ pub struct AppPaneSettings {
     pub prompt_style: Option<StyleSetting>,
     /// Whether to show the preview when switching to this pane. (Default: inherit).
     pub show_preview: Option<ShowCondition>,
-    pub lock_prompt: Option<bool>,
+    #[serde(default = "default_never")]
+    pub lock_prompt: When,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
     pub app_scan_directories: Vec<PathBuf>,
+}
+
+impl Default for AppPaneSettings {
+    fn default() -> Self {
+        Self {
+            prompt: None,
+            prompt_style: None,
+            show_preview: None,
+            lock_prompt: When::Never,
+            preview_layout_index: 0,
+            app_scan_directories: Vec::new(),
+        }
+    }
 }
 
 // -------------------------------------------------------------------
@@ -418,7 +479,7 @@ impl PanesConfig {
     pub fn locks_prompt(
         &self,
         pane: &FsPane,
-    ) -> Option<bool> {
+    ) -> When {
         match pane {
             FsPane::Custom { .. } => self.custom.lock_prompt,
             FsPane::Find { .. } => self.find.lock_prompt,
