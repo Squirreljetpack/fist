@@ -12,14 +12,12 @@ use cba::define_when;
 
 define_when! {
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
+    #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, clap::ValueEnum)]
     pub enum When {
-        #[cfg_attr(feature = "serde", serde(alias = "false", alias = "never"))]
         Never,
         #[default]
-        #[cfg_attr(feature = "serde", serde(alias = "auto"))]
         Auto,
-        #[cfg_attr(feature = "serde", serde(alias = "true", alias = "always"))]
         Always
     }
 }

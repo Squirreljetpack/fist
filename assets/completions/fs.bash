@@ -125,7 +125,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -247,7 +247,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -313,7 +313,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -399,7 +399,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -465,7 +465,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -527,7 +527,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -585,7 +585,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -699,7 +699,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -749,7 +749,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -799,7 +799,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -849,7 +849,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -899,7 +899,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -949,7 +949,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -999,7 +999,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -1049,7 +1049,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -1099,7 +1099,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -1149,7 +1149,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -1199,7 +1199,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -1249,7 +1249,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -1299,7 +1299,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)
@@ -1349,7 +1349,7 @@ _fs() {
                     return 0
                     ;;
                 --lock-prompt)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
                     return 0
                     ;;
                 --output-sep)

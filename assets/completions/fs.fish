@@ -35,8 +35,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_needs_command" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_needs_command" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_needs_command" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_needs_command" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_needs_command" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_needs_command" -l opener -d 'Program used to open files on accept' -r
@@ -92,8 +93,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :open" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :open" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :open" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :open" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :open" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :open" -l opener -d 'Program used to open files on accept' -r
@@ -114,8 +116,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :o" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :o" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :o" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :o" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :o" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :o" -l opener -d 'Program used to open files on accept' -r
@@ -143,8 +146,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :file" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :file" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :file" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :file" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :file" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :file" -l opener -d 'Program used to open files on accept' -r
@@ -171,8 +175,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :dir" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :dir" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l opener -d 'Program used to open files on accept' -r
@@ -209,8 +214,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :fd" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l opener -d 'Program used to open files on accept' -r
@@ -250,8 +256,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand ::" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand ::" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l opener -d 'Program used to open files on accept' -r
@@ -292,8 +299,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :custom" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :custom" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l opener -d 'Program used to open files on accept' -r
@@ -332,8 +340,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :c" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :c" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :c" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :c" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l opener -d 'Program used to open files on accept' -r
@@ -376,8 +385,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :rg" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :rg" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l opener -d 'Program used to open files on accept' -r
@@ -429,8 +439,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l opener -d 'Program used to open files on accept' -r
@@ -460,8 +471,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l opener -d 'Program used to open files on accept' -r
@@ -492,8 +504,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l opener -d 'Program used to open files on accept' -r
@@ -511,8 +524,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l opener -d 'Program used to open files on accept' -r
@@ -530,8 +544,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l opener -d 'Program used to open files on accept' -r
@@ -549,8 +564,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l opener -d 'Program used to open files on accept' -r
@@ -568,8 +584,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l opener -d 'Program used to open files on accept' -r
@@ -587,8 +604,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l opener -d 'Program used to open files on accept' -r
@@ -606,8 +624,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l opener -d 'Program used to open files on accept' -r
@@ -625,8 +644,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -l opener -d 'Program used to open files on accept' -r
@@ -644,8 +664,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l opener -d 'Program used to open files on accept' -r
@@ -663,8 +684,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l opener -d 'Program used to open files on accept' -r
@@ -682,8 +704,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -l opener -d 'Program used to open files on accept' -r
@@ -701,8 +724,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l opener -d 'Program used to open files on accept' -r
@@ -720,8 +744,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l opener -d 'Program used to open files on accept' -r
@@ -752,8 +777,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l opener -d 'Program used to open files on accept' -r
@@ -771,8 +797,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l opener -d 'Program used to open files on accept' -r
@@ -790,8 +817,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l opener -d 'Program used to open files on accept' -r
@@ -809,8 +837,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l opener -d 'Program used to open files on accept' -r
@@ -828,8 +857,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l opener -d 'Program used to open files on accept' -r
@@ -847,8 +877,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l opener -d 'Program used to open files on accept' -r
@@ -866,8 +897,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l opener -d 'Program used to open files on accept' -r
@@ -885,8 +917,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -l opener -d 'Program used to open files on accept' -r
@@ -904,8 +937,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l opener -d 'Program used to open files on accept' -r
@@ -923,8 +957,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l opener -d 'Program used to open files on accept' -r
@@ -942,8 +977,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -l opener -d 'Program used to open files on accept' -r
@@ -961,8 +997,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l opener -d 'Program used to open files on accept' -r
@@ -986,8 +1023,9 @@ all\t''
 auto\t''"
 complete -c fs -n "__fish_fs_using_subcommand :info" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :info" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "true\t''
-false\t''"
+complete -c fs -n "__fish_fs_using_subcommand :info" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+auto\t''
+always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :info" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :info" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :info" -l opener -d 'Program used to open files on accept' -r

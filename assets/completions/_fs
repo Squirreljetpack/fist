@@ -20,7 +20,7 @@ _fs() {
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -65,7 +65,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -86,7 +86,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -109,7 +109,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -130,7 +130,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -158,7 +158,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -190,7 +190,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -222,7 +222,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -251,7 +251,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -287,7 +287,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -336,7 +336,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -369,7 +369,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -395,7 +395,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -411,7 +411,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -428,7 +428,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -445,7 +445,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -462,7 +462,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -479,7 +479,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -496,7 +496,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -513,7 +513,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -529,7 +529,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -546,7 +546,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -563,7 +563,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -579,7 +579,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -600,7 +600,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -626,7 +626,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -642,7 +642,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -659,7 +659,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -676,7 +676,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -693,7 +693,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -710,7 +710,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -727,7 +727,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -744,7 +744,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -760,7 +760,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -777,7 +777,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -794,7 +794,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -810,7 +810,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
@@ -834,7 +834,7 @@ _arguments "${_arguments_options[@]}" : \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
 '--fullscreen=[]::ORIENTATION:(true false)' \
-'--lock-prompt=[Lock the prompt at startup]:LOCK_PROMPT:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \

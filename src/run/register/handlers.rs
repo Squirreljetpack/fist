@@ -2,15 +2,18 @@
 //! `query_handler` (rg query changes), and `paste_handler` (paste
 //! dispatch or query insertion).
 
+use fist_types::When;
 use matchmaker::message::Event;
 
 use crate::{
     aliases::MMState,
     run::{
         pane::FsPane,
+        query_prompt,
         queue::{QUEUE, QueueSelector, SelectorResult},
+        reload::fs_reload,
         selection,
-        state::{GLOBAL, InPrompt, STACK, STORE, TOAST, ToastStyle},
+        state::{GLOBAL, InPrompt, LockPromptSetting, STACK, STORE, TOAST, ToastStyle},
     },
 };
 
@@ -56,10 +59,33 @@ pub fn sync_handler(
 }
 
 pub fn query_handler(
-    _state: &mut MMState<'_>,
+    state: &mut MMState<'_>,
     _: &Event,
 ) {
-    // rg query change is handled by rebinds
+    if STORE::get::<LockPromptSetting>() == Some(LockPromptSetting(When::Auto)) {
+        let is_empty = state.picker_ui.query.input().is_empty();
+        if is_empty {
+            if query_prompt::in_prompt() {
+                query_prompt::lock_prompt(state, false);
+            }
+        } else if !query_prompt::in_prompt() {
+            query_prompt::lock_prompt(state, true);
+        }
+    }
+
+    let should_reload = STACK::with_current(|pane| {
+        matches!(
+            pane,
+            FsPane::Search {
+                filtering: false,
+                ..
+            }
+        )
+    });
+
+    if should_reload {
+        fs_reload(state, false, false);
+    }
 }
 
 /// Paste dispatch: with a nav cwd and no prompt/overlay active, the pasted

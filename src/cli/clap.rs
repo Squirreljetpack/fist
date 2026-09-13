@@ -11,7 +11,7 @@ use crate::{
     db::DbTable,
 };
 use fist_types::filters::SortOrder;
-use fist_types::{filetypes::FileTypeArg, filters::PartialVisibility};
+use fist_types::{When, filetypes::FileTypeArg, filters::PartialVisibility};
 
 // #[derive(Parser, Debug)]
 // #[command(version, about, long_about = None)]
@@ -117,9 +117,9 @@ Otherwise, this will OVERWRITE your main config."#
     )]
     pub fullscreen: Option<Option<bool>>,
 
-    #[arg(long, global = true)]
+    #[arg(long, global = true, value_name = "WHEN")]
     /// Lock the prompt at startup.
-    pub lock_prompt: Option<bool>,
+    pub lock_prompt: Option<When>,
 
     #[arg(long, global = true)]
     pub alt_accept: bool,

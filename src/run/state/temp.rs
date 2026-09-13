@@ -4,6 +4,7 @@ use std::{cell::RefCell, fmt::Debug, sync::OnceLock};
 
 use anymap::AnyMap;
 use cba::{_dbg, define_collection_wrapper};
+use fist_types::When;
 
 use crate::{
     abspath::AbsPath, cli::paths::lessfilter_cfg_path, config::pager_cfg,
@@ -65,6 +66,12 @@ pub struct InitialPreserveWhitespaceInSearch;
 /// [`crate::run::query_prompt::enter_prompt`], which requires a cwd.
 #[derive(Debug, Clone)]
 pub struct InPrompt;
+
+/// The active pane's configured [`fist_types::When`] prompt-locking setting,
+/// tracked in [`STORE`] on pane reload/startup so [`crate::run::register::query_handler`]
+/// and other components can query it directly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LockPromptSetting(pub When);
 
 /// Set by the action aliaser when an accept keypress resolves to the *print*
 /// flavor (`alt_accept` XOR alt-enter, outside app panes); consumed by the
