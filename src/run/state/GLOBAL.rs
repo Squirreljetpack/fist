@@ -105,19 +105,16 @@ pub fn init_test_senders() {
 
 // ------------ SENDERS --------------
 pub fn send_action(action: impl Into<Action<FsAction>>) {
-    RENDER_TX
-        .get()
-        .expect("render tx missing")
-        .send(matchmaker::message::RenderCommand::Action(action.into()))
-        ._elog();
+    if let Some(tx) = RENDER_TX.get() {
+        tx.send(matchmaker::message::RenderCommand::Action(action.into()))
+            ._elog();
+    }
 }
 
 pub fn send_mm(msg: matchmaker::message::RenderCommand<FsAction>) {
-    RENDER_TX
-        .get()
-        .expect("render tx missing")
-        .send(msg)
-        ._elog();
+    if let Some(tx) = RENDER_TX.get() {
+        tx.send(msg)._elog();
+    }
 }
 
 pub fn send_watcher(msg: WatcherMessage) {

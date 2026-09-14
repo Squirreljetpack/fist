@@ -170,6 +170,166 @@ impl TOAST {
         GLOBAL::send_action(FsAction::set_footer(footer));
     }
 
+    /// Clear all transient messages while preserving toasts carrying
+    /// [`ToastFlags::PERSIST_PANE`] (grouped copy/delete lists, notices, and
+    /// other categorized toasts).
+    pub fn clear_msgs() {
+        let mut state = TOAST.lock().unwrap();
+
+        state.retain(|line| line.flags.contains(ToastFlags::PERSIST_PANE));
+
+        let footer = if state.is_empty() {
+            None
+        } else {
+            Some(make_toast(&state))
+        };
+        GLOBAL::send_action(FsAction::set_footer(footer));
+    }
+
+    /// Remove an item from a list toast by prefix, and remove the toast entry if the list becomes empty.
+    pub fn pop(
+        prefix: &str,
+        item: &Span<'static>,
+    ) {
+        let mut state = TOAST.lock().unwrap();
+        state.retain_mut(|line| {
+            if line.prefix.content == prefix {
+                if let ToastContent::List(items) = &mut line.content {
+                    items.retain(|i| i != item);
+                    return !items.is_empty();
+                }
+            }
+            true
+        });
+
+        let footer = if state.is_empty() {
+            None
+        } else {
+            Some(make_toast(&state))
+        };
+        GLOBAL::send_action(FsAction::set_footer(footer));
+    }
+
+    /// Push items under a styled prefix group, merging into existing groups if present.
+    ///
+    /// ### Example:
+    /// ```text
+    /// Copied: file_a.rs, file_b.rs
+    /// ```
+    /// If a toast with `prefix` already exists, new items are appended (deduplicated).
+    pub fn push(
+        style: ToastStyle,
+        prefix: impl Into<std::borrow::Cow<'static, str>>,
+        items: impl IntoIterator<Item = Span<'static>>,
+    ) {
+        Self::push_with_flag(style, prefix, items, ToastFlags::PERSIST_PANE);
+    }
+
+    /// Push a pair of items with an arrow separator (`A → B`), labeled by a prefix.
+    ///
+    /// ### Example:
+    /// ```text
+    /// Renamed: old_path.txt → new_path.txt
+    /// ```
+    pub fn pair(
+        style: ToastStyle,
+        prefix: &'static str,
+        from: Span<'static>,
+        to: Span<'static>,
+    ) {
+        let mut state = TOAST.lock().unwrap();
+        let prefix_span = Span::styled(prefix, style);
+        state.push(ToastLine {
+            prefix: prefix_span,
+            content: ToastContent::Pair(from, to),
+            flags: ToastFlags::PERSIST_PANE,
+        });
+
+        let toast = make_toast(&state);
+        GLOBAL::send_action(FsAction::set_footer(toast));
+    }
+
+    /// Push a single notice line prefixed by the style's default label.
+    ///
+    /// ### Example:
+    /// ```text
+    /// Warning: Disk space is low
+    /// Error: Permission denied
+    /// ```
+    pub fn notice(
+        style: ToastStyle,
+        msg: impl Into<std::borrow::Cow<'static, str>>,
+    ) {
+        let mut state = TOAST.lock().unwrap();
+        let prefix_span = Span::styled(format!("{style}: "), style);
+        state.push(ToastLine {
+            prefix: prefix_span,
+            content: ToastContent::Line(msg.into().into()),
+            flags: ToastFlags::PERSIST_PANE,
+        });
+
+        let toast = make_toast(&state);
+        GLOBAL::send_action(FsAction::set_footer(toast));
+    }
+
+    /// Push a toast line, replacing any existing toast with matching prefix.
+    ///
+    /// If an active toast already has the same `prefix`, its prefix, content,
+    /// and flags are replaced in-place, preserving its position in the toast list.
+    /// Otherwise, a new toast line is appended.
+    pub fn replace(
+        style: impl Into<Style>,
+        prefix: impl Into<std::borrow::Cow<'static, str>>,
+        line: impl Into<Line<'static>>,
+    ) {
+        Self::replace_with_flag(style, prefix, line, ToastFlags::PERSIST_PANE);
+    }
+
+    /// Push an un-prefixed toast line, replacing any existing toast whose line content starts with `match_prefix`.
+    pub fn replace_msg(
+        match_prefix: &str,
+        line: impl Into<Line<'static>>,
+    ) {
+        Self::replace_msg_with_flag(match_prefix, line, ToastFlags::PERSIST_PANE);
+    }
+
+    /// Push an un-prefixed raw message line.
+    ///
+    /// When `replace` is `true`, all other transient lines (carrying no
+    /// [`ToastFlags`]) are evicted first so only the latest status message is
+    /// displayed.
+    pub fn msg(
+        line: impl Into<Line<'static>>,
+        replace: bool,
+    ) {
+        let mut state = TOAST.lock().unwrap();
+
+        if replace {
+            state.retain(|line| line.flags.contains(ToastFlags::PERSIST_PANE));
+        }
+
+        let prefix_span = Span::raw("");
+        state.push(ToastLine {
+            prefix: prefix_span,
+            content: ToastContent::Line(line.into()),
+            flags: ToastFlags::empty(),
+        });
+
+        let toast = make_toast(&state);
+        GLOBAL::send_action(FsAction::set_footer(toast));
+    }
+
+    /// Convenience helper to display a dimmed `"No entries"` status message,
+    /// replacing any previous un-prefixed messages.
+    pub fn toast_empty() {
+        TOAST::msg(
+            Span::styled("No entries", Style::new().fg(Color::DarkGray).italic()),
+            true,
+        );
+    }
+}
+
+impl TOAST {
     /// Increment or insert a dimmed `"Skipped"` counter line in the footer.
     ///
     /// - If no `"Skipped"` line exists: renders `"Skipped"`.
@@ -227,61 +387,6 @@ impl TOAST {
         GLOBAL::send_action(FsAction::set_footer(toast));
     }
 
-    /// Clear all transient messages while preserving toasts carrying
-    /// [`ToastFlags::PERSIST_PANE`] (grouped copy/delete lists, notices, and
-    /// other categorized toasts).
-    pub fn clear_msgs() {
-        let mut state = TOAST.lock().unwrap();
-
-        state.retain(|line| line.flags.contains(ToastFlags::PERSIST_PANE));
-
-        let footer = if state.is_empty() {
-            None
-        } else {
-            Some(make_toast(&state))
-        };
-        GLOBAL::send_action(FsAction::set_footer(footer));
-    }
-
-    /// Remove an item from a list toast by prefix, and remove the toast entry if the list becomes empty.
-    pub fn pop(
-        prefix: &str,
-        item: &Span<'static>,
-    ) {
-        let mut state = TOAST.lock().unwrap();
-        state.retain_mut(|line| {
-            if line.prefix.content == prefix {
-                if let ToastContent::List(items) = &mut line.content {
-                    items.retain(|i| i != item);
-                    return !items.is_empty();
-                }
-            }
-            true
-        });
-
-        let footer = if state.is_empty() {
-            None
-        } else {
-            Some(make_toast(&state))
-        };
-        GLOBAL::send_action(FsAction::set_footer(footer));
-    }
-
-    /// Push items under a styled prefix group, merging into existing groups if present.
-    ///
-    /// ### Example:
-    /// ```text
-    /// Copied: file_a.rs, file_b.rs
-    /// ```
-    /// If a toast with `prefix` already exists, new items are appended (deduplicated).
-    pub fn push(
-        style: ToastStyle,
-        prefix: impl Into<std::borrow::Cow<'static, str>>,
-        items: impl IntoIterator<Item = Span<'static>>,
-    ) {
-        Self::push_with_flag(style, prefix, items, ToastFlags::PERSIST_PANE);
-    }
-
     /// Push a grouped list toast with explicit clear-behavior flags.
     ///
     /// [`TOAST::push`] defers to this with [`ToastFlags::PERSIST_PANE`]; callers
@@ -322,86 +427,66 @@ impl TOAST {
         GLOBAL::send_action(FsAction::set_footer(toast));
     }
 
-    /// Push a pair of items with an arrow separator (`A → B`), labeled by a prefix.
-    ///
-    /// ### Example:
-    /// ```text
-    /// Renamed: old_path.txt → new_path.txt
-    /// ```
-    pub fn pair(
-        style: ToastStyle,
-        prefix: &'static str,
-        from: Span<'static>,
-        to: Span<'static>,
-    ) {
-        let mut state = TOAST.lock().unwrap();
-        let prefix_span = Span::styled(prefix, style);
-        state.push(ToastLine {
-            prefix: prefix_span,
-            content: ToastContent::Pair(from, to),
-            flags: ToastFlags::PERSIST_PANE,
-        });
-
-        let toast = make_toast(&state);
-        GLOBAL::send_action(FsAction::set_footer(toast));
-    }
-
-    /// Push a single notice line prefixed by the style's default label.
-    ///
-    /// ### Example:
-    /// ```text
-    /// Warning: Disk space is low
-    /// Error: Permission denied
-    /// ```
-    pub fn notice(
-        style: ToastStyle,
-        msg: impl Into<std::borrow::Cow<'static, str>>,
-    ) {
-        let mut state = TOAST.lock().unwrap();
-        let prefix_span = Span::styled(format!("{style}: "), style);
-        state.push(ToastLine {
-            prefix: prefix_span,
-            content: ToastContent::Line(msg.into().into()),
-            flags: ToastFlags::PERSIST_PANE,
-        });
-
-        let toast = make_toast(&state);
-        GLOBAL::send_action(FsAction::set_footer(toast));
-    }
-
-    /// Push an un-prefixed raw message line.
-    ///
-    /// When `replace` is `true`, all other transient lines (carrying no
-    /// [`ToastFlags`]) are evicted first so only the latest status message is
-    /// displayed.
-    pub fn msg(
+    /// Push a replaceable toast line with explicit clear-behavior flags.
+    pub fn replace_with_flag(
+        style: impl Into<Style>,
+        prefix: impl Into<std::borrow::Cow<'static, str>>,
         line: impl Into<Line<'static>>,
-        replace: bool,
+        flags: ToastFlags,
     ) {
         let mut state = TOAST.lock().unwrap();
+        let prefix_cow = prefix.into();
+        let prefix_span = Span::styled(prefix_cow.clone(), style.into());
+        let new_line = line.into();
 
-        if replace {
-            state.retain(|line| line.flags.contains(ToastFlags::PERSIST_PANE));
+        if let Some(existing) = state
+            .iter_mut()
+            .find(|line| line.prefix.content == prefix_cow)
+        {
+            existing.prefix = prefix_span;
+            existing.content = ToastContent::Line(new_line);
+            existing.flags = flags;
+        } else {
+            state.push(ToastLine {
+                prefix: prefix_span,
+                content: ToastContent::Line(new_line),
+                flags,
+            });
         }
 
-        let prefix_span = Span::raw("");
-        state.push(ToastLine {
-            prefix: prefix_span,
-            content: ToastContent::Line(line.into()),
-            flags: ToastFlags::empty(),
-        });
-
         let toast = make_toast(&state);
         GLOBAL::send_action(FsAction::set_footer(toast));
     }
 
-    /// Convenience helper to display a dimmed `"No entries"` status message,
-    /// replacing any previous un-prefixed messages.
-    pub fn toast_empty() {
-        TOAST::msg(
-            Span::styled("No entries", Style::new().fg(Color::DarkGray).italic()),
-            true,
-        );
+    /// Push a replaceable un-prefixed toast line with explicit clear-behavior flags.
+    pub fn replace_msg_with_flag(
+        match_prefix: &str,
+        line: impl Into<Line<'static>>,
+        flags: ToastFlags,
+    ) {
+        let mut state = TOAST.lock().unwrap();
+        let new_line = line.into();
+
+        if let Some(existing) = state.iter_mut().find(|l| {
+            matches!(
+                &l.content,
+                ToastContent::Line(line)
+                    if line.spans.first().is_some_and(|s| s.content.starts_with(match_prefix))
+            )
+        }) {
+            existing.prefix = Span::raw("");
+            existing.content = ToastContent::Line(new_line);
+            existing.flags = flags;
+        } else {
+            state.push(ToastLine {
+                prefix: Span::raw(""),
+                content: ToastContent::Line(new_line),
+                flags,
+            });
+        }
+
+        let toast = make_toast(&state);
+        GLOBAL::send_action(FsAction::set_footer(toast));
     }
 }
 

@@ -1,5 +1,6 @@
 use crate::run::action::FsAction;
-use matchmaker::{action::Action, event::RenderSender, message::RenderCommand};
+use crate::run::state::{TOAST, ToastStyle};
+use matchmaker::{action::Action, event::RenderSender, message::RenderCommand, nucleo::Span};
 use notify::{
     Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher,
     event::ModifyKind,
@@ -275,6 +276,11 @@ impl FsWatcher {
                             );
                             throttled = true;
                             resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
+                            TOAST::replace(
+                                ToastStyle::Normal,
+                                "file watcher ",
+                                Span::styled("paused", ToastStyle::Warning),
+                            );
                             continue;
                         }
 
@@ -286,6 +292,12 @@ impl FsWatcher {
                         throttled = false;
                         events.clear();
                         resume_timer.as_mut().reset(far_future());
+
+                        TOAST::replace(
+                            ToastStyle::Normal,
+                            "file watcher ",
+                            Span::styled("resumed", ToastStyle::Info),
+                        );
 
                         let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::SaveInput)));
                         let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::Reload)));
