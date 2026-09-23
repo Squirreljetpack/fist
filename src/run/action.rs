@@ -840,10 +840,16 @@ pub fn fsaction_handler(
                             );
                             return;
                         }
-                        unzip::Entered::None => TOAST::notice(
-                            ToastStyle::Error,
-                            format!("Failed to enter archive: {}", short_display(&archive_path)),
-                        ),
+                        unzip::Entered::None => {
+                            TOAST::notice(
+                                ToastStyle::Error,
+                                format!(
+                                    "Failed to enter archive: {}",
+                                    short_display(&archive_path)
+                                ),
+                            );
+                            return;
+                        }
                     }
                 }
 

@@ -75,22 +75,26 @@ extern "C" fn cleanup_on_exit() {
     let _ = std::fs::remove_dir_all(root());
 }
 
-/// Removes the skeleton root as a named background task so the shutdown
-/// sequence can surface what it waits on. The scheduler's own shutdown has
+/// Removes the skeleton root synchronously. The scheduler's own shutdown has
 /// already cancelled in-flight extractions by then.
 pub fn shutdown() {
-    TASKS::spawn_blocking("unzip skeleton cleanup", || {
-        match std::fs::remove_dir_all(root()) {
-            Ok(()) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => log::warn!("Failed to remove skeleton root {:?}: {e}", root()),
-        }
-    });
+    match std::fs::remove_dir_all(root()) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => log::warn!("Failed to remove skeleton root {:?}: {e}", root()),
+    }
 }
 
 /// Whether `path` is an archive the engine can extract.
 pub fn supported(path: &Path) -> bool {
     extract::detect(path).is_some()
+}
+
+/// Drops the skeleton directory containing `workdir`, e.g. when job submission fails.
+pub fn remove_skeleton(workdir: &Path) {
+    if let Some(skel) = workdir.parent() {
+        let _ = std::fs::remove_dir_all(skel);
+    }
 }
 
 /// Synchronously create (or reuse) the extraction skeleton for `path`,
@@ -111,17 +115,6 @@ pub fn init(path: &AbsPath) -> Entered {
     };
     let Some(format) = extract::detect(&source) else {
         return Entered::None;
-    };
-    let listing = match extract::list(&source, format) {
-        Ok(listing) => listing,
-        Err(e) => {
-            log::error!(
-                "Failed to list archive {}: {e} ({})",
-                e.archive.display(),
-                e.source
-            );
-            return Entered::None;
-        }
     };
 
     // a running extraction wins unconditionally: cd into its workdir, no
@@ -152,6 +145,18 @@ pub fn init(path: &AbsPath) -> Entered {
         // this and older copies after allocation
     }
 
+    let listing = match extract::list(&source, format) {
+        Ok(listing) => listing,
+        Err(e) => {
+            log::error!(
+                "Failed to list archive {}: {e} ({})",
+                e.archive.display(),
+                e.source
+            );
+            return Entered::None;
+        }
+    };
+
     let Some((workdir, skel_name)) = alloc_dir(&source) else {
         return Entered::None;
     };
@@ -159,8 +164,6 @@ pub fn init(path: &AbsPath) -> Entered {
     sweep_others(&source, &skel_name);
 
     if QUEUE::start_extract(AbsPath::new_unchecked(source.clone()), workdir.clone()).is_none() {
-        // submission rejected: the just-created preview would otherwise be
-        // found "fresh and populated" forever; drop it
         if let Some(skel) = workdir.parent() {
             let _ = std::fs::remove_dir_all(skel);
         }
@@ -396,4 +399,47 @@ fn sweep_others(
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_init_starts_extraction() {
+        GLOBAL::init_test_senders();
+        let tmp = tempfile::tempdir().unwrap();
+        let src_dir = tmp.path().join("src");
+        let subfolder = src_dir.join("subfolder");
+        std::fs::create_dir_all(&subfolder).unwrap();
+        std::fs::write(subfolder.join("hello.txt"), b"hello world").unwrap();
+
+        let tar_path = tmp.path().join("sample.tar");
+        let status = std::process::Command::new("tar")
+            .arg("-cf")
+            .arg(&tar_path)
+            .arg("-C")
+            .arg(&src_dir)
+            .arg(".")
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        let abs_tar = AbsPath::new_unchecked(&tar_path);
+        let entered = init(&abs_tar);
+        let workdir = match entered {
+            Entered::Extracting(workdir) => workdir,
+            other => panic!("expected Entered::Extracting, got {other:?}"),
+        };
+
+        assert!(workdir.exists());
+        assert!(workdir.join("subfolder").is_dir());
+
+        let source = tar_path.canonicalize().unwrap();
+        let running = running_row(&source);
+        assert!(running.is_some(), "extraction job should be started");
+
+        cancel(&source);
+        remove_skeleton(workdir.as_path());
+    }
 }

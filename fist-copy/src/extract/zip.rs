@@ -5,7 +5,7 @@
 //! and entry paths come pre-validated by `enclosed_name` (zip-slip guard).
 
 use std::fs::{self, File};
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::Path;
 
 use super::ArchiveEntry;
@@ -19,16 +19,14 @@ fn open(source: &Path) -> io::Result<zip::ZipArchive<File>> {
 /// Lists every entry; names that fail the traversal check surface as
 /// entries with empty paths so callers can count them.
 pub(crate) fn list(source: &Path) -> io::Result<Vec<ArchiveEntry>> {
-    let mut archive = open(source)?;
-    let mut out = Vec::with_capacity(archive.len());
-    for i in 0..archive.len() {
-        let entry = archive.by_index(i)?;
-        out.push(ArchiveEntry {
-            path: enclosed(&entry).unwrap_or_default(),
-            is_dir: entry.is_dir(),
-        });
-    }
-    Ok(out)
+    let archive = open(source)?;
+    Ok(archive
+        .file_names()
+        .map(|name| ArchiveEntry {
+            is_dir: name.ends_with('/') || name.ends_with('\\'),
+            path: name.trim_end_matches(['/', '\\']).into(),
+        })
+        .collect())
 }
 
 /// Extracts every entry into `dest`. Per-entry failures are recorded and
@@ -40,20 +38,25 @@ pub(crate) fn extract(
     ctx: &ExtractCtx<'_>,
 ) -> io::Result<()> {
     let mut archive = open(source)?;
-    // the central directory is already parsed; summing sizes is cheap
-    let mut total = 0u64;
-    for i in 0..archive.len() {
-        if let Ok(entry) = archive.by_index(i) {
-            total += entry.size();
+    let total = match archive.decompressed_size() {
+        Some(t) => t as u64,
+        None => {
+            let mut sum = 0u64;
+            for i in 0..archive.len() {
+                if let Ok(entry) = archive.by_index(i) {
+                    sum += entry.size();
+                }
+            }
+            sum
         }
-    }
+    };
     ctx.register_bytes(total);
+    ctx.register_entries(archive.len() as u32);
 
     for i in 0..archive.len() {
         if ctx.cancelled() {
             return Err(super::ctx::cancelled());
         }
-        ctx.register_entries(1);
         let mut entry = match archive.by_index(i) {
             Ok(entry) => entry,
             Err(e) => {
@@ -71,16 +74,24 @@ pub(crate) fn extract(
         let res = if entry.is_dir() {
             fs::create_dir_all(&full).map(|_| 0u64)
         } else if entry.is_symlink() {
-            write_symlink(&mut entry, &rel, dest, &full)
+            match write_symlink(&mut entry, &rel, dest, &full) {
+                Ok(n) => {
+                    ctx.add_copied(n);
+                    Ok(n)
+                }
+                Err(e) => Err(e),
+            }
         } else {
-            write_entry(&mut entry, &full)
+            write_entry(&mut entry, &full, ctx)
         };
         match res {
-            Ok(n) => {
+            Ok(_) => {
                 ctx.entry_ok();
-                ctx.add_copied(n);
             }
             Err(e) => {
+                if ctx.cancelled() {
+                    return Err(super::ctx::cancelled());
+                }
                 log::warn!("zip: failed to extract {rel:?}: {e}");
                 ctx.entry_failed();
             }
@@ -142,6 +153,7 @@ where
 fn write_entry<R>(
     entry: &mut zip::read::ZipFile<'_, R>,
     full: &Path,
+    ctx: &ExtractCtx<'_>,
 ) -> io::Result<u64>
 where
     R: std::io::Read + std::io::Seek,
@@ -150,7 +162,21 @@ where
         fs::create_dir_all(parent)?;
     }
     let mut out = File::create(full)?;
-    let n = io::copy(entry, &mut out)?;
+    let mut buf = [0u8; 64 * 1024];
+    let mut written = 0u64;
+    loop {
+        if ctx.cancelled() {
+            return Err(super::ctx::cancelled());
+        }
+        let n = entry.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        out.write_all(&buf[..n])?;
+        written += n as u64;
+        ctx.add_copied(n as u64);
+    }
+    out.flush()?;
     drop(out);
     if let Some(mode) = entry.unix_mode() {
         #[cfg(unix)]
@@ -163,5 +189,5 @@ where
             let _ = mode;
         }
     }
-    Ok(n)
+    Ok(written)
 }

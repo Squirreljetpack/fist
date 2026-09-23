@@ -1,8 +1,6 @@
-#![allow(unused_variables)]
-
 use std::{borrow::Cow, ffi::OsString, sync::Arc};
 
-use cba::{_trace, bog::BogOkExt, prints};
+use cba::{_trace, bog::BogOkExt, prints, wbog};
 use fist_types::filters::SortOrder;
 use matchmaker::{
     Either, MatchError, Matchmaker, PickOptions,
@@ -62,7 +60,7 @@ fn make_mm(
 ) -> (FsMatchmaker, FsInjector) {
     let worker = Worker::new(
         [
-            Column::new("_", |item: &PathItem, d: &()| {
+            Column::new("%", |item: &PathItem, d: &()| {
                 if let Ok([_, o]) = &item.tail
                     && !o.is_empty()
                 {
@@ -193,7 +191,7 @@ fn format_tail(item: &PathItem) -> Text<'static> {
     item.tail_text()
 }
 
-// "entrypoint", called ONCE
+// entrypoint
 pub async fn start(
     pane: FsPane,
     cfg: Config,
@@ -330,7 +328,6 @@ pub async fn start(
 
     // start watcher
     watcher.spawn()._ebog();
-    // start the archive extraction worker
 
     // populate mm
     STACK::populate(injector, || {});
@@ -340,12 +337,26 @@ pub async fn start(
     // print before errors
     print_handle.map_to_vec(|s| prints!(s));
 
-    TASKS::shutdown(500, 10, 3000).await;
-    // stop in-flight extractions first so skeleton cleanup is not racing
-    // the copy workers
-    crate::run::queue::shutdown(std::time::Duration::from_secs(3));
-    unzip::shutdown();
-    TASKS::shutdown(500, 10, 3000).await;
+    // stop in-flight extractions under TASKS so any delay is surfaced to the user
+    TASKS::spawn_blocking("stopping background transfers", || {
+        crate::run::queue::shutdown(std::time::Duration::from_secs(3));
+    });
+    TASKS::shutdown(400, 10, 3000).await;
+
+    // clean up per-process unzip storage once transfers have stopped
+    let mut cleanup = tokio::task::spawn_blocking(unzip::shutdown);
+    let warn_deadline = tokio::time::sleep(std::time::Duration::from_millis(400));
+    tokio::pin!(warn_deadline);
+
+    tokio::select! {
+        res = &mut cleanup => {
+            let _ = res;
+        }
+        _ = &mut warn_deadline => {
+            wbog!("...cleaning up temporary directories");
+            let _ = cleanup.await;
+        }
+    }
     // In the app pane, the picked program opens the pane's pending files
     // (fs :open, the OpenWith menu action); elsewhere the picked lines are
     // paths to open.

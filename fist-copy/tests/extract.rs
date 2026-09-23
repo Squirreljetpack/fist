@@ -317,3 +317,86 @@ fn cancel_before_start_yields_canceled_state() {
     assert!(!wait_ok(&handle));
     sched.shutdown(Duration::from_secs(2));
 }
+
+#[test]
+fn sevenz_extraction_progress_updates_during_directory() {
+    if !have("7z") || !cfg!(feature = "sevenz") {
+        return;
+    }
+    let f = fixture();
+    let src_dir = f.dir.join("src_7z");
+    let sub = src_dir.join("subdir");
+    std::fs::create_dir_all(&sub).unwrap();
+    for i in 0..10 {
+        std::fs::write(sub.join(format!("file{i}.bin")), vec![b'x'; 256 * 1024]).unwrap();
+    }
+
+    let archive_path = f.dir.join("test_dir.7z");
+    run(std::process::Command::new("7z")
+        .args(["a", "-bso0", "-bsp0", "-y"])
+        .arg(&archive_path)
+        .arg(".")
+        .current_dir(&src_dir));
+
+    let dest = f.dir.join("dest_7z");
+    std::fs::create_dir_all(&dest).unwrap();
+
+    let sched = Scheduler::new(SchedulerOptions {
+        workers: std::num::NonZeroUsize::new(1).unwrap(),
+    });
+    let handle = sched
+        .submit(JobRequest {
+            kind: JobKind::Extract(ExtractParams),
+            source: archive_path,
+            dest: dest.clone(),
+        })
+        .expect("submit");
+
+    assert!(wait_ok(&handle));
+    let snap = handle.snapshot();
+    assert_eq!(snap.files_failed, 0);
+    assert_eq!(snap.copied_bytes, snap.total_bytes);
+    assert!(snap.total_bytes >= 10 * 256 * 1024);
+    assert!(dest.join("subdir/file0.bin").exists());
+
+    sched.shutdown(Duration::from_secs(2));
+}
+
+#[test]
+fn sevenz_extraction_cancellation_mid_stream() {
+    if !have("7z") || !cfg!(feature = "sevenz") {
+        return;
+    }
+    let f = fixture();
+    let src_dir = f.dir.join("src_7z_cancel");
+    std::fs::create_dir_all(&src_dir).unwrap();
+    for i in 0..50 {
+        std::fs::write(src_dir.join(format!("file{i}.bin")), vec![b'y'; 256 * 1024]).unwrap();
+    }
+    let archive_path = f.dir.join("cancel.7z");
+    run(std::process::Command::new("7z")
+        .args(["a", "-bso0", "-bsp0", "-y"])
+        .arg(&archive_path)
+        .arg(".")
+        .current_dir(&src_dir));
+
+    let dest = f.dir.join("dest_7z_cancel");
+    std::fs::create_dir_all(&dest).unwrap();
+
+    let sched = Scheduler::new(SchedulerOptions {
+        workers: std::num::NonZeroUsize::new(1).unwrap(),
+    });
+    let handle = sched
+        .submit(JobRequest {
+            kind: JobKind::Extract(ExtractParams),
+            source: archive_path,
+            dest,
+        })
+        .expect("submit");
+
+    handle.cancel();
+    assert!(!wait_ok(&handle));
+    let snap = handle.snapshot();
+    assert_eq!(snap.state, fist_copy::TaskState::Canceled);
+    sched.shutdown(Duration::from_secs(2));
+}
