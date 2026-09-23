@@ -147,7 +147,6 @@ partial = [
     "matchmaker-partial",
     "matchmaker-partial-macros/partial",
 ]
-mm_overrides = ["partial"]
 
 image-defaults = ["image/png", "image/jpeg"]
 image-all = [

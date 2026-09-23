@@ -9,7 +9,7 @@ use ratatui::text::Line;
 use crate::run::state::GLOBAL::cfg;
 use crate::{
     aliases::MMState,
-    run::state::{FILTERS, GLOBAL, InPrompt, STACK, STORE, ui::prompt_main_style},
+    run::state::{GLOBAL, InPrompt, STACK, STORE, ui::prompt_main_style},
     utils::formatter::format_prompt,
 };
 
@@ -30,7 +30,7 @@ pub fn refresh_prompt(state: &mut MMState<'_>) {
             state.picker_ui.query.set_prompt(None);
         };
     } else {
-        let vis = FILTERS::visibility();
+        let vis = STACK::visibility();
         if vis.dirs && !vis.files {
             state
                 .picker_ui

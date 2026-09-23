@@ -136,7 +136,7 @@ pub(crate) fn extract(
 
             #[cfg(unix)]
             {
-                let unix_mode = (entry.windows_attributes() >> 16) as u32;
+                let unix_mode = entry.windows_attributes() >> 16;
                 if unix_mode != 0 {
                     use std::os::unix::fs::PermissionsExt;
                     let _ = fs::set_permissions(&dest_path, fs::Permissions::from_mode(unix_mode));

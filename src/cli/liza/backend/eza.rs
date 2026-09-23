@@ -472,8 +472,10 @@ mod tests {
         File::create(root.join("ignored.txt")).unwrap();
         File::create(root.join("visible.txt")).unwrap();
 
-        let mut config = LizaConfig::default();
-        config.git_ignore = true;
+        let config = LizaConfig {
+            git_ignore: true,
+            ..Default::default()
+        };
 
         let flattened = flatten_directory_targets(&[root.to_path_buf()], 1, &config);
         let names: Vec<String> = flattened

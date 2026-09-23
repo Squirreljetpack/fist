@@ -228,8 +228,10 @@ mod tests {
         fs::create_dir(&sub).unwrap();
         File::create(sub.join("file.txt")).unwrap();
 
-        let mut config = LizaConfig::default();
-        config.all = true;
+        let config = LizaConfig {
+            all: true,
+            ..Default::default()
+        };
         let node = build_tree_node(temp.path(), "root".into(), 0, 2, &config);
 
         assert_eq!(node.value.name, "root");
@@ -245,9 +247,11 @@ mod tests {
         let file_path = temp.path().join("hello.sh");
         File::create(&file_path).unwrap();
 
-        let mut config = LizaConfig::default();
-        config.show_size = true;
-        config.show_mtime = true;
+        let config = LizaConfig {
+            show_size: true,
+            show_mtime: true,
+            ..Default::default()
+        };
 
         let entry = build_file_entry("hello.sh".into(), &file_path, false, &config);
         assert!(entry.metadata.is_some());
@@ -268,9 +272,11 @@ mod tests {
         File::create(temp.path().join("ignored.txt")).unwrap();
         File::create(temp.path().join("visible.txt")).unwrap();
 
-        let mut config = LizaConfig::default();
-        config.all = true;
-        config.git_ignore = true;
+        let config = LizaConfig {
+            all: true,
+            git_ignore: true,
+            ..Default::default()
+        };
 
         let entries = collect_dir_entries(temp.path(), &config);
         let names: Vec<String> = entries

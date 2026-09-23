@@ -3,7 +3,7 @@ use crate::{
         FsPane,
         action::FsAction,
         item::PathItem,
-        state::{FILTERS, GLOBAL, STACK, sort},
+        state::{GLOBAL, STACK, sort},
     },
     utils::{serde::border_result, text::bold_indices},
 };
@@ -250,7 +250,7 @@ impl OptionsOverlay {
 
     // active or not
     fn get_visibility_items(&self) -> Vec<(Vec<Span<'static>>, Option<bool>)> {
-        let vis = FILTERS::visibility();
+        let vis = STACK::visibility();
 
         let hidden_label = if vis.hidden_only {
             let label = if vis.files {
@@ -442,35 +442,40 @@ impl OptionsOverlay {
         match x {
             // visibility pane
             0 => {
-                refilter = true;
-                FILTERS::with_mut(|vis| {
-                    if !matches!(y, 2 | 3) {
-                        vis.set_all(false);
-                    }
-                    match y {
-                        0 => {
-                            (vis.hidden, vis.hidden_only) = if vis.hidden_only {
-                                vis.files = false;
-                                (false, false)
-                            } else if vis.hidden {
-                                if !vis.dirs {
-                                    vis.files = true;
+                reload = STACK::with_current_mut(|p| {
+                    if let Some(vis) = p.vis_mut() {
+                        let before = *vis;
+                        if !matches!(y, 2 | 3) {
+                            vis.set_all(false);
+                        }
+                        match y {
+                            0 => {
+                                (vis.hidden, vis.hidden_only) = if vis.hidden_only {
+                                    vis.files = false;
+                                    (false, false)
+                                } else if vis.hidden {
+                                    if !vis.dirs {
+                                        vis.files = true;
+                                    }
+                                    (false, true)
+                                } else {
+                                    (true, false)
                                 }
-                                (false, true)
-                            } else {
-                                (true, false)
                             }
-                        }
-                        1 => vis.ignore = !vis.ignore,
-                        2 => {
-                            if vis.files {
-                                vis.files = !vis.files;
-                            } else {
-                                vis.dirs = !vis.dirs
+                            1 => vis.ignore = !vis.ignore,
+                            2 => {
+                                if vis.files {
+                                    vis.files = !vis.files;
+                                } else {
+                                    vis.dirs = !vis.dirs
+                                }
                             }
+                            3 => vis.toggle_all(),
+                            _ => {}
                         }
-                        3 => vis.toggle_all(),
-                        _ => {}
+                        *vis != before
+                    } else {
+                        false
                     }
                 });
             }
@@ -716,34 +721,38 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
 
             // visibility toggles
             'h' | 'H' | 'I' | 'd' | 'D' | 'a' if self.pane_lens[0] > 0 => {
-                refilter = FILTERS::with_mut(|vis| {
-                    let before = *vis;
-                    if !matches!(c, 'D' | 'a') {
-                        vis.set_all(false);
-                    }
-                    match c {
-                        // 'a' is the highlighted key of the 'all' row
-                        'a' => vis.toggle_all(),
-                        'h' => (vis.hidden, vis.hidden_only) = (!vis.hidden, false),
-                        'H' => {
-                            if !vis.dirs {
-                                vis.files = true;
-                            }
-                            (vis.hidden, vis.hidden_only) = (false, !vis.hidden_only)
+                reload = STACK::with_current_mut(|p| {
+                    if let Some(vis) = p.vis_mut() {
+                        let before = *vis;
+                        if !matches!(c, 'D' | 'a') {
+                            vis.set_all(false);
                         }
-                        'd' | 'D' => {
-                            if !STACK::in_rg() {
-                                if vis.files {
-                                    vis.files = !vis.files
-                                } else {
-                                    vis.dirs = !vis.dirs
+                        match c {
+                            // 'a' is the highlighted key of the 'all' row
+                            'a' => vis.toggle_all(),
+                            'h' => (vis.hidden, vis.hidden_only) = (!vis.hidden, false),
+                            'H' => {
+                                if !vis.dirs {
+                                    vis.files = true;
+                                }
+                                (vis.hidden, vis.hidden_only) = (false, !vis.hidden_only)
+                            }
+                            'd' | 'D' => {
+                                if !STACK::in_rg() {
+                                    if vis.files {
+                                        vis.files = !vis.files
+                                    } else {
+                                        vis.dirs = !vis.dirs
+                                    }
                                 }
                             }
+                            'I' => vis.ignore = !vis.ignore,
+                            _ => {}
                         }
-                        'I' => vis.ignore = !vis.ignore,
-                        _ => {}
+                        *vis != before
+                    } else {
+                        false
                     }
-                    *vis != before
                 });
             }
 
@@ -857,9 +866,11 @@ mod tests {
 
     #[test]
     fn test_options_overlay_cursor_clamping() {
-        let mut overlay = OptionsOverlay::default();
-        overlay.pane_lens = [4, 3, 0];
-        overlay.cursor = [0, 0];
+        let mut overlay = OptionsOverlay {
+            pane_lens: [4, 3, 0],
+            cursor: [0, 0],
+            ..Default::default()
+        };
 
         // Down multiple times past 4 items (indices 0..3)
         for _ in 0..10 {

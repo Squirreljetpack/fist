@@ -13,10 +13,10 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("-F --style=colors"))]
     pub z_dot_args: String,
     /// Arguments passed to `fs ::` when z is invoked with a trailing `./`
-    #[arg(long, default_value_t = String::from("-a"))]
+    #[arg(long, default_value_t = String::from("-u"))]
     pub z_slash_args: String,
     /// Arguments passed to `fs :dir` for the interactive jump menu
-    #[arg(long, default_value_t = String::from("--sort atime --style=colors --lock-prompt=false"))]
+    #[arg(long, default_value_t = String::from("--sort atime --style=colors"))]
     pub z_dir_args: String,
 
     /// Name for open function.
@@ -41,10 +41,10 @@ pub struct ShellCommand {
     #[arg(long)]
     pub rg_open_cmd: Option<String>,
     /// Arguments passed to `fs ::` when dir widget is invoked
-    #[arg(long, default_value_t = String::from("-F --style=colors --lock-prompt=false -a"))]
+    #[arg(long, default_value_t = String::from("-F --style=colors --lock-prompt=never -u"))]
     pub dir_widget_args: String,
     /// Arguments passed to `fs ::` when file widget is invoked
-    #[arg(long, default_value_t = String::from("--alt-accept -f --reset-visibility --style=icon-colors --lock-prompt=false -- .."))]
+    #[arg(long, default_value_t = String::from("--alt-accept -f --style=icon-colors --lock-prompt=never -- .."))]
     pub file_widget_args: String,
     /// Arguments passed to `fs :` when rg widget is invoked
     #[arg(long, default_value_t = String::from("-1 --fullscreen --style=colors --preserve-whitespace"))]

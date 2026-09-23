@@ -17,7 +17,7 @@ pub enum ClapStyleOverride {
 #[derive(Debug, Default, Clone, Args)]
 pub struct CaseArgs {
     #[arg(
-        short = 'i',
+        short = 'c',
         long = "ignore-case",
         overrides_with_all = ["case_sensitive", "smart_case"]
     )]

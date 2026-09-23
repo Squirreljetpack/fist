@@ -366,8 +366,6 @@ pub struct DefaultCommand {
     pub sort: Option<SortOrder>,
     #[command(flatten)]
     pub vis: PartialVisibility,
-    #[arg(short = 'A', long)]
-    pub no_all: bool,
 
     /// print the first match.
     #[arg(long)]
@@ -392,9 +390,6 @@ pub struct DefaultCommand {
     /// Accepts a file when prefixed with @.
     #[arg(long)]
     pub transform: Option<String>,
-
-    #[arg(long, default_value_t)]
-    pub reset_visibility: bool,
 
     #[arg(long)]
     pub list: bool,

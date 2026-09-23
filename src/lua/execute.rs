@@ -234,7 +234,7 @@ mod tests {
             toast_push("success", prefix, item)
         "#;
         // 1st run: sets +x
-        let res = execute(cmd, &[abs.clone()], "", None, None);
+        let res = execute(cmd, std::slice::from_ref(&abs), "", None, None);
         assert!(res.is_ok(), "execute +x failed: {res:?}");
         assert_ne!(
             std::fs::metadata(&file_path).unwrap().permissions().mode() & 0o111,

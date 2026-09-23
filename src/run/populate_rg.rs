@@ -328,7 +328,7 @@ mod tests {
         let vis = fist_types::filters::Visibility::default();
 
         let lines = vec![
-            "src/run/start.rs\028:20:        previewer::make_previewer,".to_string(),
+            "src/run/start.rs\x0028:20:        previewer::make_previewer,".to_string(),
             "253:21:    let previewer = make_previewer(".to_string(),
             "".to_string(),
         ];

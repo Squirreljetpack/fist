@@ -11,8 +11,6 @@ ignore_patterns = [".DS_Store"]
 show_preview = 60
 # lock_prompt = "auto"
 
-on_leave_unset_dirs_only = true
-
 [panes.search]
 lock_prompt = "auto"
 show_preview = 20

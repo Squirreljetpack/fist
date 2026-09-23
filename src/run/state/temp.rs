@@ -73,6 +73,10 @@ pub struct InPrompt;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LockPromptSetting(pub When);
 
+/// Marker set in [`STORE`] when `smart_visibility.git_repo` is [`When::Always`], enabling git visibility transitions in `enter_dir_pane`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SmartGitVisibility;
+
 /// Set by the action aliaser when an accept keypress resolves to the *print*
 /// flavor (`alt_accept` XOR alt-enter, outside app panes); consumed by the
 /// [`matchmaker::Matchmaker`] accept hook, which then emits the selection and
@@ -145,7 +149,6 @@ impl MenuPrompt {
 
 /// AbsPath: Previous Directory
 /// u32: Stashed index
-/// Visibility: Initial visibility if fd pane was initialized without pv, from --reset-visibility
 pub struct STORE;
 
 /// Bat passthrough argument extras, handed to the pager via the STORE TLS map.

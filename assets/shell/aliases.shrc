@@ -32,7 +32,7 @@ n() {
 
 o()  { FS_VERBOSITY=1 fs :o "${@:-.}"; }
 
-alias zf="fs :file --sort atime --lock-prompt=false"
+alias zf="fs :file --sort atime"
 #:
 
 #: fish
@@ -94,7 +94,7 @@ function o
   end
 end
 
-alias zf="fs :file --sort atime --lock-prompt=false"
+alias zf="fs :file --sort atime"
 #:
 
 #: nu,nushell

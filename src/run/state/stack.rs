@@ -6,11 +6,13 @@ use std::{cell::RefCell, mem::discriminant, sync::RwLock};
 use log::{self};
 use matchmaker::SSS;
 
+use fist_types::filters::Visibility;
+
 use crate::{
     abspath::AbsPath,
     run::{
         FsInjector, FsPane,
-        state::{FILTERS, GLOBAL, InitialNoRelative, STORE},
+        state::{GLOBAL, InitialNoRelative, STORE},
     },
     watcher::WatcherMessage,
 };
@@ -72,15 +74,6 @@ impl STACK {
             stack.truncate(*index + 1);
 
             let same = discriminant(&stack[*index]) == discriminant(&pane);
-
-            match stack[*index] {
-                FsPane::Find { .. } => {
-                    if GLOBAL::cfg().panes.find.on_leave_unset_dirs_only {
-                        FILTERS::with_vis_mut(|v| v.dirs = false);
-                    }
-                }
-                _ => {}
-            };
 
             *index += 1;
 
@@ -274,6 +267,23 @@ impl STACK {
         })
     }
 
+    /// Returns the visibility of the current pane, or the most recent
+    /// ancestor pane that stores visibility. Defaults to [`Visibility::DEFAULT`].
+    pub fn visibility() -> Visibility {
+        STACK.with(|cell| {
+            let Self { stack, index, .. } = &*cell.borrow();
+            if stack.is_empty() {
+                return Visibility::DEFAULT;
+            }
+            for s in stack[0..=*index].iter().rev() {
+                if let Some(vis) = s.vis() {
+                    return vis;
+                }
+            }
+            Visibility::DEFAULT
+        })
+    }
+
     pub fn is_last() -> bool {
         STACK.with(|cell| {
             let Self { stack, index, .. } = &*cell.borrow();
@@ -380,5 +390,53 @@ mod tests {
         // replaced by RENDER_PATH — see set_render_path/populate)
         let bg_cwd = std::thread::spawn(STACK::cwd).join().unwrap();
         assert_eq!(bg_cwd, None);
+    }
+
+    #[test]
+    fn test_stack_visibility() {
+        let p1 = AbsPath::new_unchecked(Path::new("/tmp/test_dir1"));
+        let mut vis1 = Visibility::DEFAULT;
+        vis1.hidden = true;
+
+        STACK::init(FsPane::Nav {
+            cwd: p1.clone(),
+            sort: Default::default(),
+            vis: vis1,
+            depth: 1,
+            input: (String::new(), 0),
+            complete: Default::default(),
+        });
+
+        assert_eq!(STACK::visibility(), vis1);
+
+        // Push a non-vis pane (Apps)
+        STACK::push(FsPane::Apps {
+            sort: Default::default(),
+            pending: Vec::new(),
+        });
+
+        // Should look backward and find vis1
+        assert_eq!(STACK::visibility(), vis1);
+
+        // Push a new Nav pane with different vis
+        let p2 = AbsPath::new_unchecked(Path::new("/tmp/test_dir2"));
+        let mut vis2 = Visibility::DEFAULT;
+        vis2.files = true;
+
+        STACK::push(FsPane::Nav {
+            cwd: p2.clone(),
+            sort: Default::default(),
+            vis: vis2,
+            depth: 1,
+            input: (String::new(), 0),
+            complete: Default::default(),
+        });
+
+        assert_eq!(STACK::visibility(), vis2);
+
+        // Back to Apps pane
+        assert!(STACK::stack_prev());
+        // Apps pane should look back and see vis1
+        assert_eq!(STACK::visibility(), vis1);
     }
 }

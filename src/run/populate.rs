@@ -703,6 +703,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::await_holding_lock)]
     async fn test_custom_pane_command_caching() {
         let _guard = TEST_POPULATE_LOCK.lock().unwrap();
         init_test_env();
@@ -766,6 +767,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::await_holding_lock)]
     async fn test_custom_pane_command_regenerate_when_incomplete() {
         let _guard = TEST_POPULATE_LOCK.lock().unwrap();
         init_test_env();
