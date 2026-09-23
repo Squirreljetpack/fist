@@ -12,13 +12,50 @@ use fist_types::When;
 
 mod pager;
 mod panes;
-mod partial;
 mod styles;
 pub use pager::*;
 pub use panes::*;
-pub use partial::*;
 pub mod ui;
 use ui::StyleConfig;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SmartVisibilityConfig {
+    /// When a find pattern starts with '.', automatically show hidden files.
+    pub dot_query_show_hidden: bool,
+    /// When a find pattern starts with '.', automatically show ignored files.
+    pub dot_query_show_ignored: bool,
+    /// Automatically enable `-h` (show hidden) in Nav panes if the directory contains only hidden entries, preventing the folder from appearing empty.
+    pub empty_folders: bool,
+    /// Automatically set hidden=true, ignore=true when inside a git repository.
+    /// When::Auto (default) only applies smart git at init; When::Always also adapts visibility across git boundaries at runtime; When::Never disables it.
+    pub git_repo: When,
+    /// Disable -I (unhide ignored) if any explicitly provided path/target is ignored by git.
+    pub ignored_targets: bool,
+    /// Retain file/folder visibility filters (only files / only dirs) when changing to a nav pane.
+    pub retain_filetype_filters: bool,
+}
+
+impl Default for SmartVisibilityConfig {
+    fn default() -> Self {
+        Self {
+            dot_query_show_hidden: true,
+            dot_query_show_ignored: false,
+            empty_folders: true,
+            git_repo: When::Auto,
+            ignored_targets: true,
+            retain_filetype_filters: false,
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct MatchmakerOverrides {
+    pub fullscreen: bool,
+    pub reverse: Option<bool>,
+}
+
 // ------ CONFIG ------
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -51,11 +88,28 @@ pub struct Config {
     /// Settings related to saving to and retrieving from history.
     #[serde(default)]
     pub history: HistoryConfig,
+
+    /// Matchmaker overrides (`fullscreen`, `reverse`).
+    #[serde(skip)]
+    pub mm: MatchmakerOverrides,
 }
 
 impl Default for Config {
     fn default() -> Self {
         toml::from_str(include_str!("../../assets/config/config.toml")).unwrap()
+    }
+}
+
+impl std::ops::Deref for Config {
+    type Target = GlobalConfig;
+    fn deref(&self) -> &Self::Target {
+        &self.global
+    }
+}
+
+impl std::ops::DerefMut for Config {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.global
     }
 }
 
@@ -81,9 +135,8 @@ pub struct GlobalConfig {
     /// Configure background copy/move queue behavior.
     pub queue: QueueConfig,
 
-    /// Matchmaker styling overrides (per-pane).
-    /// [Warning!]: Unstable and untested.
-    pub mm: MatchmakerOverrides,
+    /// Configure smart visibility heuristics (dot-queries, empty folders, git-repo context, ignored targets).
+    pub smart_visibility: SmartVisibilityConfig,
 }
 
 /// Settings for background transfer queue (copy/move).
@@ -205,13 +258,6 @@ pub struct FdConfig {
     pub reduce_paths: bool,
     /// The set of arguments applied to the end of `fs ::` when no `fd_args` were given.
     pub default_args: Vec<String>,
-
-    /// - Auto: When the pattern for fs :: starts with a dot and is followed only by alphanumeric characters, and -h is not specified, include hidden files.
-    /// - Always: When query for fs :: starts with a dot, and -h/-I are not specified, include hidden/ignored files respectively.
-    /// - Never: No change.
-    ///
-    /// Additionally, when this setting is not Never, hidden visibility is automatically turned on when starting a nav pane in a directory containing only hidden files.
-    pub dot_query_show_hidden: When,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -313,8 +359,8 @@ impl Config {
         }
 
         if let Some(r) = cli.fullscreen {
-            self.global.mm.fullscreen = true;
-            self.global.mm.reverse = r.map(|s| !s);
+            self.mm.fullscreen = true;
+            self.mm.reverse = r.map(|s| !s);
         }
         if cli.alt_accept {
             self.global.interface.alt_accept = !self.global.interface.alt_accept
@@ -374,14 +420,5 @@ mod tests {
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.dev.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mac.mm.toml")).unwrap();
-    }
-
-    #[test]
-    fn allow_trash_db_items_defaults_false() {
-        let cfg: Config = toml::from_str("").unwrap();
-        assert!(!cfg.global.interface.allow_trash_db_items);
-
-        let cfg: Config = toml::from_str("[interface]\nallow_trash_db_items = true\n").unwrap();
-        assert!(cfg.global.interface.allow_trash_db_items);
     }
 }

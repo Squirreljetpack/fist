@@ -1,7 +1,7 @@
 use cba::{_trace, bring::split::split_whitespace_preserve_single_quotes};
 use fist_types::{
     When,
-    filters::{SortOrder, Visibility},
+    filters::SortOrder,
     git::in_git_repo,
 };
 use matchmaker::{config::StringOrInt, ui::StatusUI};
@@ -12,7 +12,10 @@ use crate::{
     aliases::MMState,
     run::{
         FsPane, query_prompt, selection,
-        state::{FILTERS, GLOBAL, LockPromptSetting, STACK, STORE, TOAST, sort, ui::global_ui},
+        state::{
+            GLOBAL, LockPromptSetting, STACK, STORE, SmartGitVisibility, TOAST, sort,
+            ui::global_ui,
+        },
     },
 };
 
@@ -50,8 +53,13 @@ pub fn enter_dir_pane(
 
     // apply smart git visibility on entering a git repo
     // default_vis is_some is handled separately in fs_reload
-    let mut vis = FILTERS::visibility();
-    if GLOBAL::cfg().panes.nav.default_visibility.is_none() {
+    let mut vis = STACK::visibility();
+    if is_new && !GLOBAL::cfg().smart_visibility.retain_filetype_filters {
+        vis.files = false;
+        vis.dirs = false;
+    }
+    let smart_git_repo = STORE::contains::<SmartGitVisibility>();
+    if smart_git_repo && GLOBAL::cfg().panes.nav.default_visibility.is_none() {
         match (
             in_git_repo(old.map(|x| x.inner())),
             in_git_repo(Some(path.inner())),
@@ -88,17 +96,7 @@ pub fn fs_reload(
     if is_new && !dir_changed {
         STACK::with_current_mut(|pane| {
             let c = GLOBAL::cfg();
-            // apply on non-initial new pane: update visibility
-            if let Some(mut dv) = STORE::get::<Visibility>() {
-                let pv = c.panes.default_visibility(pane).unwrap_or_default();
-
-                // behaves as if initial (fd) cmd was specified without visibility modifiers
-                if let Some(v) = pane.vis_mut() {
-                    dv.apply(pv);
-                    *v = dv;
-                    STORE::take::<Visibility>();
-                }
-            } else if let Some(pv) = c.panes.default_visibility(pane)
+            if let Some(pv) = c.panes.default_visibility(pane)
                 && let Some(v) = pane.vis_mut()
             {
                 v.apply(pv);
@@ -216,31 +214,6 @@ pub fn fs_post_reload_new(state: &mut MMState<'_>) {
                 let is_nonempty = !state.picker_ui.query.input().is_empty();
                 query_prompt::lock_prompt(state, is_nonempty);
             }
-        }
-
-        #[cfg(feature = "mm_overrides")]
-        {
-            use matchmaker_partial::Apply;
-            let partial = c.mm.get(pane);
-
-            state.ui.config.apply(partial.ui.clone());
-            state.picker_ui.input.config.apply(partial.input.clone());
-            state
-                .picker_ui
-                .results
-                .config
-                .apply(partial.results.clone());
-            state
-                .picker_ui
-                .results
-                .status_config
-                .apply(partial.status.clone());
-            state
-                .preview_ui
-                .as_mut()
-                .unwrap()
-                .config
-                .apply(partial.preview.clone());
         }
     });
 

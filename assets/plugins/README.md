@@ -2,13 +2,6 @@
 
 This directory ships [Agent Skills](https://agentskills.io/specification)-format instructions that teach coding agents how to configure and operate [F:ist](https://github.com/Squirreljetpack/fist). The same files work in Codex, pi, OpenCode, and Claude Code; only the discovery directory differs. When installing, each file must be saved as `SKILL.md` inside a folder named after the skill.
 
-| File                               | Skill               | Covers                                                                                       |
-| ---------------------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
-| [`ACTIONS.md`](./ACTIONS.md)       | `fist-menu-actions` | Menu actions: TOML schema, strategies, conditions, the Lua environment, queue integration    |
-| [`LESSFILTER.md`](./LESSFILTER.md) | `fist-lessfilter`   | `lessfilter.toml`: presets, scored rules and patterns, builtin/custom actions, categories    |
-| [`LAUNCH.md`](./LAUNCH.md)         | `fist-launch`       | CLI pane launching: subcommands, visibility/sort flags, fd/rg passthrough, output formatting |
-| [`USAGE.md`](./USAGE.md)           | `fist-usage`        | Everyday TUI operation: navigation, selection, file ops, queue, stashes, previews, options   |
-
 ## Install with curl
 
 The commands below download reviewed files without executing remote content. Pick your host's root, then install any subset of the four skills:

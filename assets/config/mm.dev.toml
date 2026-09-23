@@ -85,8 +85,8 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 "alt-e" = "ShowMenu"
 "ctrl-u" = "ClearQuery"
 "alt-p" = "ShowOptions"
-"ctrl-d" = "FsToggle"
-"ctrl-s" = "ToggleHidden" # if this freezes your terminal, check that you have set stty -ixon
+"ctrl-d" = "CycleFilter"
+"ctrl-s" = "ToggleFilter" # if this freezes your terminal, check that you have set stty -ixon
 
 ### File Actions
 "ctrl-v" = "Paste"

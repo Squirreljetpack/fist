@@ -28,8 +28,8 @@ pub struct PanesConfig {
     pub app: AppPaneSettings,
     pub history: HistoryPaneSettings,
     pub nav: NavPaneSettings,
-    pub find: FdPaneSettings,
-    pub search: RgPaneSettings,
+    pub find: FindPaneSettings,
+    pub search: SearchPaneSettings,
     pub custom: PaneSettings,
     pub stashes: StashPaneSettings,
 
@@ -47,10 +47,10 @@ impl Default for PanesConfig {
                 ..Default::default()
             },
             nav: NavPaneSettings::default(),
-            find: FdPaneSettings {
+            find: FindPaneSettings {
                 ..Default::default()
             },
-            search: RgPaneSettings {
+            search: SearchPaneSettings {
                 ..Default::default()
             },
             custom: PaneSettings {
@@ -98,7 +98,7 @@ impl Default for PaneSettings {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct FdPaneSettings {
+pub struct FindPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Style of the input prompt
@@ -114,8 +114,6 @@ pub struct FdPaneSettings {
     /// Default visibility.
     /// - When None: show hidden files and hide ignored files when inside a git repository and the inverse otherwise
     pub default_visibility: Option<PartialVisibility>,
-    /// When leaving the fd pane, untoggle the `only show directories` visibility filter.
-    pub on_leave_unset_dirs_only: bool,
     /// If the number of items added is less than this threshold, enable the directory watcher to auto-refresh the pane on changes.
     pub max_refresh_items_threshold: usize,
     /// If the execution time is less than this threshold (in milliseconds), enable the directory watcher to auto-refresh the pane on changes.
@@ -123,7 +121,7 @@ pub struct FdPaneSettings {
     pub max_refresh_execution_time_threshold: std::time::Duration,
 }
 
-impl Default for FdPaneSettings {
+impl Default for FindPaneSettings {
     fn default() -> Self {
         Self {
             prompt: None,
@@ -132,7 +130,6 @@ impl Default for FdPaneSettings {
             lock_prompt: When::Never,
             preview_layout_index: 0,
             default_visibility: None,
-            on_leave_unset_dirs_only: false,
             max_refresh_items_threshold: 20000,
             max_refresh_execution_time_threshold: std::time::Duration::from_millis(400), // a generous default threshold to be sure it's working
         }
@@ -141,7 +138,7 @@ impl Default for FdPaneSettings {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct RgPaneSettings {
+pub struct SearchPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
     /// Style of the input prompt
@@ -175,7 +172,7 @@ pub struct RgPaneSettings {
     pub fs_status_template: String,
 }
 
-impl Default for RgPaneSettings {
+impl Default for SearchPaneSettings {
     fn default() -> Self {
         Self {
             prompt: None,

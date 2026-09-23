@@ -821,7 +821,7 @@ mod tests {
         cache.add(&b);
         cache.wait();
 
-        let single = build_tree(&[a.clone()], &cache, 2, true, 0.0);
+        let single = build_tree(std::slice::from_ref(&a), &cache, 2, true, 0.0);
         let skeleton = build_skeleton(&[a.clone(), b.clone()], &cache, 2, true, 0.0);
 
         let branch = skeleton.children.iter().find(|c| c.name == "a").unwrap();

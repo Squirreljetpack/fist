@@ -4,8 +4,6 @@ use std::sync::OnceLock;
 use crate::db::zoxide::HistoryConfig;
 use crate::menu::MenuActions;
 
-mod filters;
-pub use filters::*;
 pub mod sort;
 mod stack;
 pub use stack::*;

@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_fs_global_optspecs
-    string join \n q v override= config= mm-config= dump-config style= fullscreen= lock-prompt= alt-accept output-sep= format= opener= sort= h= I= a= F= f= A/no-all cd t/types= transform= reset-visibility list help V/version
+    string join \n q v override= config= mm-config= dump-config style= fullscreen= lock-prompt= alt-accept output-sep= format= opener= sort= h H i I u U F f cd t/types= transform= list help V/version
 end
 
 function __fish_fs_needs_command
@@ -46,25 +46,21 @@ mtime\t''
 atime\t''
 size\t''
 none\t''"
-complete -c fs -n "__fish_fs_needs_command" -s h -d 'show hidden files and folders' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_needs_command" -s I -d 'HIDE ignored files' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_needs_command" -s a -d 'show all' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_needs_command" -s F -d 'only show directories' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_needs_command" -s f -d 'show only files' -r -f -a "true\t''
-false\t''"
 complete -c fs -n "__fish_fs_needs_command" -s t -l types -d 'restrict search to certain file types and extensions (`:t types` to list)' -r
 complete -c fs -n "__fish_fs_needs_command" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
 complete -c fs -n "__fish_fs_needs_command" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_needs_command" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_needs_command" -l dump-config -d 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.'
 complete -c fs -n "__fish_fs_needs_command" -l alt-accept
-complete -c fs -n "__fish_fs_needs_command" -s A -l no-all
+complete -c fs -n "__fish_fs_needs_command" -s h -d 'Show hidden files and folders'
+complete -c fs -n "__fish_fs_needs_command" -s H -d 'Hide hidden files and folders'
+complete -c fs -n "__fish_fs_needs_command" -s i -d 'Show ignored files'
+complete -c fs -n "__fish_fs_needs_command" -s I -d 'Hide ignored files'
+complete -c fs -n "__fish_fs_needs_command" -s u
+complete -c fs -n "__fish_fs_needs_command" -s U
+complete -c fs -n "__fish_fs_needs_command" -s F -d 'Only show directories'
+complete -c fs -n "__fish_fs_needs_command" -s f -d 'Show only files'
 complete -c fs -n "__fish_fs_needs_command" -l cd -d 'print the first match'
-complete -c fs -n "__fish_fs_needs_command" -l reset-visibility
 complete -c fs -n "__fish_fs_needs_command" -l list
 complete -c fs -n "__fish_fs_needs_command" -l help
 complete -c fs -n "__fish_fs_needs_command" -s V -l version -d 'Print version'
@@ -191,16 +187,6 @@ mtime\t''
 atime\t''
 size\t''
 none\t''"
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s h -d 'show hidden files and folders' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s I -d 'HIDE ignored files' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s a -d 'show all' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s F -d 'only show directories' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s f -d 'show only files' -r -f -a "true\t''
-false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s t -l types -d 'restrict search to certain file types and extensions (`:t types` to list)' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l override -d 'config override' -r
@@ -220,9 +206,15 @@ always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l opener -d 'Program used to open files on accept' -r
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s A -l no-all
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s h -d 'Show hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s H -d 'Hide hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s i -d 'Show ignored files'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s I -d 'Hide ignored files'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s u
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s U
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s F -d 'Only show directories'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s f -d 'Show only files'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l cd -d 'print the first match'
-complete -c fs -n "__fish_fs_using_subcommand :fd" -l reset-visibility
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l list
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l help
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s q -d 'Reduce the verbosity level'
@@ -233,16 +225,6 @@ mtime\t''
 atime\t''
 size\t''
 none\t''"
-complete -c fs -n "__fish_fs_using_subcommand ::" -s h -d 'show hidden files and folders' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand ::" -s I -d 'HIDE ignored files' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand ::" -s a -d 'show all' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand ::" -s F -d 'only show directories' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand ::" -s f -d 'show only files' -r -f -a "true\t''
-false\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -s t -l types -d 'restrict search to certain file types and extensions (`:t types` to list)' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l override -d 'config override' -r
@@ -262,24 +244,20 @@ always\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l opener -d 'Program used to open files on accept' -r
-complete -c fs -n "__fish_fs_using_subcommand ::" -s A -l no-all
+complete -c fs -n "__fish_fs_using_subcommand ::" -s h -d 'Show hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand ::" -s H -d 'Hide hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand ::" -s i -d 'Show ignored files'
+complete -c fs -n "__fish_fs_using_subcommand ::" -s I -d 'Hide ignored files'
+complete -c fs -n "__fish_fs_using_subcommand ::" -s u
+complete -c fs -n "__fish_fs_using_subcommand ::" -s U
+complete -c fs -n "__fish_fs_using_subcommand ::" -s F -d 'Only show directories'
+complete -c fs -n "__fish_fs_using_subcommand ::" -s f -d 'Show only files'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l cd -d 'print the first match'
-complete -c fs -n "__fish_fs_using_subcommand ::" -l reset-visibility
 complete -c fs -n "__fish_fs_using_subcommand ::" -l list
 complete -c fs -n "__fish_fs_using_subcommand ::" -l help
 complete -c fs -n "__fish_fs_using_subcommand ::" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand ::" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :custom" -s h -d 'show hidden files and folders' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :custom" -s I -d 'HIDE ignored files' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :custom" -s a -d 'show all' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :custom" -s F -d 'only show directories' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :custom" -s f -d 'show only files' -r -f -a "true\t''
-false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l sort -r -f -a "name\t''
 mtime\t''
 atime\t''
@@ -305,22 +283,20 @@ always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s h -d 'Show hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s H -d 'Hide hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s i -d 'Show ignored files'
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s I -d 'Hide ignored files'
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s u
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s U
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s F -d 'Only show directories'
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s f -d 'Show only files'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l no-store -d 'Do not store items in memory'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l help
 complete -c fs -n "__fish_fs_using_subcommand :custom" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :c" -s h -d 'show hidden files and folders' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :c" -s I -d 'HIDE ignored files' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :c" -s a -d 'show all' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :c" -s F -d 'only show directories' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :c" -s f -d 'show only files' -r -f -a "true\t''
-false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :c" -l sort -r -f -a "name\t''
 mtime\t''
 atime\t''
@@ -346,22 +322,20 @@ always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :c" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :c" -s h -d 'Show hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand :c" -s H -d 'Hide hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand :c" -s i -d 'Show ignored files'
+complete -c fs -n "__fish_fs_using_subcommand :c" -s I -d 'Hide ignored files'
+complete -c fs -n "__fish_fs_using_subcommand :c" -s u
+complete -c fs -n "__fish_fs_using_subcommand :c" -s U
+complete -c fs -n "__fish_fs_using_subcommand :c" -s F -d 'Only show directories'
+complete -c fs -n "__fish_fs_using_subcommand :c" -s f -d 'Show only files'
 complete -c fs -n "__fish_fs_using_subcommand :c" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :c" -l no-store -d 'Do not store items in memory'
 complete -c fs -n "__fish_fs_using_subcommand :c" -l help
 complete -c fs -n "__fish_fs_using_subcommand :c" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :c" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :c" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s h -d 'show hidden files and folders' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s I -d 'HIDE ignored files' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s a -d 'show all' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s F -d 'only show directories' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s f -d 'show only files' -r -f -a "true\t''
-false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l sort -r -f -a "name\t''
 mtime\t''
 atime\t''
@@ -391,7 +365,15 @@ always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l opener -d 'Program used to open files on accept' -r
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s i -l ignore-case
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s h -d 'Show hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s H -d 'Hide hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s i -d 'Show ignored files'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s I -d 'Hide ignored files'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s u
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s U
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s F -d 'Only show directories'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s f -d 'Show only files'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s c -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s S -l smart-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l fixed-strings -d 'Enable fixed string matching'
@@ -406,16 +388,6 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -l help
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :" -s h -d 'show hidden files and folders' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :" -s I -d 'HIDE ignored files' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :" -s a -d 'show all' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :" -s F -d 'only show directories' -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :" -s f -d 'show only files' -r -f -a "true\t''
-false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -l sort -r -f -a "name\t''
 mtime\t''
 atime\t''
@@ -445,7 +417,15 @@ always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l opener -d 'Program used to open files on accept' -r
-complete -c fs -n "__fish_fs_using_subcommand :" -s i -l ignore-case
+complete -c fs -n "__fish_fs_using_subcommand :" -s h -d 'Show hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand :" -s H -d 'Hide hidden files and folders'
+complete -c fs -n "__fish_fs_using_subcommand :" -s i -d 'Show ignored files'
+complete -c fs -n "__fish_fs_using_subcommand :" -s I -d 'Hide ignored files'
+complete -c fs -n "__fish_fs_using_subcommand :" -s u
+complete -c fs -n "__fish_fs_using_subcommand :" -s U
+complete -c fs -n "__fish_fs_using_subcommand :" -s F -d 'Only show directories'
+complete -c fs -n "__fish_fs_using_subcommand :" -s f -d 'Show only files'
+complete -c fs -n "__fish_fs_using_subcommand :" -s c -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :" -s S -l smart-case
 complete -c fs -n "__fish_fs_using_subcommand :" -l fixed-strings -d 'Enable fixed string matching'

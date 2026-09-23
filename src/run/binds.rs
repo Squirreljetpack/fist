@@ -67,8 +67,8 @@ fn config_as_code() -> BindMap<FsAction> {
         key!(ctrl-e), key!(alt-e) => FsAction::ShowMenu,
         // -- options --
         key!(ctrl-p), key!(alt-p) => FsAction::ShowOptions,
-        key!(ctrl-d) => FsAction::FsToggle,
-        key!(ctrl-s) => FsAction::ToggleHidden,
+        key!(ctrl-d) => FsAction::CycleFilter,
+        key!(ctrl-s) => FsAction::ToggleFilter,
 
         // File actions
         // ----------------------------------

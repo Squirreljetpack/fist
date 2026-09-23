@@ -25,11 +25,6 @@ _fs() {
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--sort=[]:SORT:(name mtime atime size none)' \
-'-h+[show hidden files and folders]::HIDDEN:(true false)' \
-'-I+[HIDE ignored files]::IGNORE:(true false)' \
-'-a+[show all]::ALL:(true false)' \
-'-F+[only show directories]::DIRS:(true false)' \
-'-f+[show only files]::FILES:(true false)' \
 '*-t+[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
@@ -37,10 +32,15 @@ _fs() {
 '(-q)*-v[Increase the verbosity level]' \
 '--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.]' \
 '--alt-accept[]' \
-'-A[]' \
-'--no-all[]' \
+'-h[Show hidden files and folders]' \
+'-H[Hide hidden files and folders]' \
+'-i[Show ignored files]' \
+'-I[Hide ignored files]' \
+'-u[]' \
+'-U[]' \
+'-F[Only show directories]' \
+'-f[Show only files]' \
 '--cd[print the first match]' \
-'--reset-visibility[]' \
 '--list[]' \
 '--help[]' \
 '-V[Print version]' \
@@ -145,11 +145,6 @@ _arguments "${_arguments_options[@]}" : \
 (:fd)
 _arguments "${_arguments_options[@]}" : \
 '--sort=[]:SORT:(name mtime atime size none)' \
-'-h+[show hidden files and folders]::HIDDEN:(true false)' \
-'-I+[HIDE ignored files]::IGNORE:(true false)' \
-'-a+[show all]::ALL:(true false)' \
-'-F+[only show directories]::DIRS:(true false)' \
-'-f+[show only files]::FILES:(true false)' \
 '*-t+[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
@@ -162,10 +157,15 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
-'-A[]' \
-'--no-all[]' \
+'-h[Show hidden files and folders]' \
+'-H[Hide hidden files and folders]' \
+'-i[Show ignored files]' \
+'-I[Hide ignored files]' \
+'-u[]' \
+'-U[]' \
+'-F[Only show directories]' \
+'-f[Show only files]' \
 '--cd[print the first match]' \
-'--reset-visibility[]' \
 '--list[]' \
 '--help[]' \
 '(-v)*-q[Reduce the verbosity level]' \
@@ -177,11 +177,6 @@ _arguments "${_arguments_options[@]}" : \
 (::)
 _arguments "${_arguments_options[@]}" : \
 '--sort=[]:SORT:(name mtime atime size none)' \
-'-h+[show hidden files and folders]::HIDDEN:(true false)' \
-'-I+[HIDE ignored files]::IGNORE:(true false)' \
-'-a+[show all]::ALL:(true false)' \
-'-F+[only show directories]::DIRS:(true false)' \
-'-f+[show only files]::FILES:(true false)' \
 '*-t+[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
@@ -194,10 +189,15 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
-'-A[]' \
-'--no-all[]' \
+'-h[Show hidden files and folders]' \
+'-H[Hide hidden files and folders]' \
+'-i[Show ignored files]' \
+'-I[Hide ignored files]' \
+'-u[]' \
+'-U[]' \
+'-F[Only show directories]' \
+'-f[Show only files]' \
 '--cd[print the first match]' \
-'--reset-visibility[]' \
 '--list[]' \
 '--help[]' \
 '(-v)*-q[Reduce the verbosity level]' \
@@ -208,11 +208,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (:custom)
 _arguments "${_arguments_options[@]}" : \
-'-h+[show hidden files and folders]::HIDDEN:(true false)' \
-'-I+[HIDE ignored files]::IGNORE:(true false)' \
-'-a+[show all]::ALL:(true false)' \
-'-F+[only show directories]::DIRS:(true false)' \
-'-f+[show only files]::FILES:(true false)' \
 '--sort=[]:SORT:(name mtime atime size none)' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail)]:TRANSFORM:_default' \
 '--tail-sep=[Delimiter used to split off the input into a (path, tail) pair]:TAIL_SEP:_default' \
@@ -226,6 +221,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'-h[Show hidden files and folders]' \
+'-H[Hide hidden files and folders]' \
+'-i[Show ignored files]' \
+'-I[Hide ignored files]' \
+'-u[]' \
+'-U[]' \
+'-F[Only show directories]' \
+'-f[Show only files]' \
 '--cd[print the first match]' \
 '--no-store[Do not store items in memory]' \
 '--help[]' \
@@ -237,11 +240,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (:c)
 _arguments "${_arguments_options[@]}" : \
-'-h+[show hidden files and folders]::HIDDEN:(true false)' \
-'-I+[HIDE ignored files]::IGNORE:(true false)' \
-'-a+[show all]::ALL:(true false)' \
-'-F+[only show directories]::DIRS:(true false)' \
-'-f+[show only files]::FILES:(true false)' \
 '--sort=[]:SORT:(name mtime atime size none)' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail)]:TRANSFORM:_default' \
 '--tail-sep=[Delimiter used to split off the input into a (path, tail) pair]:TAIL_SEP:_default' \
@@ -255,6 +253,14 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'-h[Show hidden files and folders]' \
+'-H[Hide hidden files and folders]' \
+'-i[Show ignored files]' \
+'-I[Hide ignored files]' \
+'-u[]' \
+'-U[]' \
+'-F[Only show directories]' \
+'-f[Show only files]' \
 '--cd[print the first match]' \
 '--no-store[Do not store items in memory]' \
 '--help[]' \
@@ -266,11 +272,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (:rg)
 _arguments "${_arguments_options[@]}" : \
-'-h+[show hidden files and folders]::HIDDEN:(true false)' \
-'-I+[HIDE ignored files]::IGNORE:(true false)' \
-'-a+[show all]::ALL:(true false)' \
-'-F+[only show directories]::DIRS:(true false)' \
-'-f+[show only files]::FILES:(true false)' \
 '--sort=[]:SORT:(name mtime atime size none)' \
 '*-p+[Files or directories to search in]:PATHS:_files' \
 '*--path=[Files or directories to search in]:PATHS:_files' \
@@ -291,7 +292,15 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
-'-i[]' \
+'-h[Show hidden files and folders]' \
+'-H[Hide hidden files and folders]' \
+'-i[Show ignored files]' \
+'-I[Hide ignored files]' \
+'-u[]' \
+'-U[]' \
+'-F[Only show directories]' \
+'-f[Show only files]' \
+'-c[]' \
 '--ignore-case[]' \
 '-s[]' \
 '--case-sensitive[]' \
@@ -315,11 +324,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (:)
 _arguments "${_arguments_options[@]}" : \
-'-h+[show hidden files and folders]::HIDDEN:(true false)' \
-'-I+[HIDE ignored files]::IGNORE:(true false)' \
-'-a+[show all]::ALL:(true false)' \
-'-F+[only show directories]::DIRS:(true false)' \
-'-f+[show only files]::FILES:(true false)' \
 '--sort=[]:SORT:(name mtime atime size none)' \
 '*-p+[Files or directories to search in]:PATHS:_files' \
 '*--path=[Files or directories to search in]:PATHS:_files' \
@@ -340,7 +344,15 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
-'-i[]' \
+'-h[Show hidden files and folders]' \
+'-H[Hide hidden files and folders]' \
+'-i[Show ignored files]' \
+'-I[Hide ignored files]' \
+'-u[]' \
+'-U[]' \
+'-F[Only show directories]' \
+'-f[Show only files]' \
+'-c[]' \
 '--ignore-case[]' \
 '-s[]' \
 '--case-sensitive[]' \

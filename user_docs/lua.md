@@ -97,7 +97,7 @@ return path
 Transform matches of `.git` directories so that selecting the row targets and displays the parent project folder:
 
 ```bash
-fs -a --transform '
+fs -u --transform '
 local path, tail = ...
 local parent = path:gsub("/%.git$", "")
 if parent ~= path then

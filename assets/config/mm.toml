@@ -121,8 +121,8 @@ reset_cursor_on_query_change = true
 "ctrl-u" = "ClearQuery"
 "alt-p" = "ShowOptions"
 "ctrl-p" = "ShowOptions"
-"ctrl-d" = "FsToggle"
-"ctrl-s" = "ToggleHidden" # if this freezes your terminal, check that you have set stty -ixon
+"ctrl-d" = "CycleFilter"
+"ctrl-s" = "ToggleFilter" # if this freezes your terminal, check that you have set stty -ixon
 
 ### File Actions
 "ctrl-v" = "Paste"

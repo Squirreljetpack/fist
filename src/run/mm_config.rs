@@ -14,9 +14,6 @@ use std::path::Path;
 
 use super::{FsAction, binds::default_binds};
 
-#[cfg(feature = "mm_overrides")]
-use crate::cli::env::get_mm_partial;
-
 use crate::{
     config::Config,
     lessfilter::Preset,
@@ -87,11 +84,6 @@ pub const MATCHER_CONFIG: nucleo::Config = const { nucleo::Config::DEFAULT.match
 
 pub fn get_mm_binds(path: &Path) -> (ResolvedBindMap<FsAction>, HelpDisplayConfig) {
     let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
-    #[cfg(feature = "mm_overrides")]
-    if let Some(partial) = get_mm_partial() {
-        mm_cfg.render.apply(partial);
-    }
-
     mm_cfg.binds.extend_from(default_binds());
 
     (mm_cfg.binds.resolve_semantics(&[]), mm_cfg.help)
@@ -102,11 +94,6 @@ pub fn get_mm_cfg(
     cfg: &Config,
 ) -> MMConfig {
     let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
-    #[cfg(feature = "mm_overrides")]
-    if let Some(partial) = get_mm_partial() {
-        mm_cfg.render.apply(partial);
-    }
-
     mm_cfg.binds.extend_from(default_binds());
 
     // Render display
@@ -130,8 +117,8 @@ pub fn get_mm_cfg(
     // loc column hidden by default (rg panes only)
     results.hidden_columns = HiddenColumns::from_iter([2]);
 
-    if cfg.global.mm.reverse.is_some() {
-        results.reverse = cfg.global.mm.reverse
+    if cfg.mm.reverse.is_some() {
+        results.reverse = cfg.mm.reverse
     }
 
     if status.template.is_empty() {
@@ -162,7 +149,7 @@ pub fn get_mm_cfg(
 
     let tui = &mut mm_cfg.tui;
     // non-fullscreen by default
-    if cfg.global.mm.fullscreen {
+    if cfg.mm.fullscreen {
         tui.layout = None
     } else if tui.layout.is_none() {
         tui.layout = Some(TerminalLayoutSettings {

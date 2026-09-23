@@ -33,7 +33,7 @@ use crate::{
         reload::fs_post_reload_new,
         state::{
             AcceptFlavor, DB_FILTER, GLOBAL, HideMetadata, LockPromptSetting, MENU_ACTIONS, STACK,
-            STORE, TASKS, context::ActionContext, sort, ui::global_ui_init,
+            STORE, SmartGitVisibility, TASKS, context::ActionContext, sort, ui::global_ui_init,
         },
     },
     spawn::{Program, open_wrapped},
@@ -60,7 +60,7 @@ fn make_mm(
 ) -> (FsMatchmaker, FsInjector) {
     let worker = Worker::new(
         [
-            Column::new("%", |item: &PathItem, d: &()| {
+            Column::new("%", |item: &PathItem, _d: &()| {
                 if let Ok([_, o]) = &item.tail
                     && !o.is_empty()
                 {
@@ -68,9 +68,9 @@ fn make_mm(
                 }
                 item.render()
             })
-            .with_raw(|item: &PathItem, d: &()| Cow::Owned(item.display_name())),
+            .with_raw(|item: &PathItem, _d: &()| Cow::Owned(item.display_name())),
             Column::new("", |item: &PathItem, _| format_tail(item)).with_raw(
-                |item: &PathItem, d: &()| match &item.tail {
+                |item: &PathItem, _d: &()| match &item.tail {
                     Ok([s, _]) => Cow::Borrowed(s.as_str()),
                     Err(t) => Cow::Owned(t.to_string()),
                 },
@@ -121,7 +121,7 @@ fn make_mm(
 
     mm.config_render(render);
     // command-output copy needs this after `tui` is consumed below
-    let copy_trailing_newline = tui.copy_trailing_newline;
+    let _copy_trailing_newline = tui.copy_trailing_newline;
     mm.config_tui(tui);
     mm.config_matcher(MATCHER_CONFIG);
 
@@ -316,8 +316,10 @@ pub async fn start(
     DB_FILTER
         .set(cfg.history.clone())
         .expect("DB_FILTER initialized more than once");
-    // init global
     GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane, bind_tx);
+    if GLOBAL::cfg().smart_visibility.git_repo == When::Always {
+        STORE::set(SmartGitVisibility);
+    }
     if STACK::with_current(FsPane::on_default_sort) {
         STORE::set(HideMetadata);
     }

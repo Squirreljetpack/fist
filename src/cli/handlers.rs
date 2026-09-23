@@ -58,6 +58,7 @@ use crate::{
 };
 use fist_types::filters::{SortOrder, Visibility};
 use fist_types::{
+    When,
     filetypes::{FileType, FileTypeArg},
     filters::PartialVisibility,
 };
@@ -174,9 +175,18 @@ async fn handle_rg(
     mut cmd: SearchCommand,
     mut cfg: Config,
 ) -> Result<(), CliError> {
-    let vis = cmd
+    let mut vis = cmd
         .vis
-        .into_resolved(cfg.global.panes.search.default_visibility);
+        .into_resolved(
+            cfg.global.panes.search.default_visibility,
+            cfg.smart_visibility.git_repo != When::Never,
+        );
+
+    if cfg.smart_visibility.ignored_targets && cmd.vis.ignore().is_none() {
+        if fist_types::git::any_path_is_ignored(&cmd.paths) {
+            vis.ignore = false;
+        }
+    }
 
     let sort = cmd.sort.unwrap_or(
         cfg.global
@@ -331,20 +341,20 @@ async fn handle_default(
             .iter()
             .all(|x| matches!(x, FileTypeArg::Type(FileType::Directory)))
         {
-            if cmd.vis.files == Some(false) {
+            if cmd.vis.files {
                 wbog!("Overriding vis.dirs to true due to -t d")
             }
-            cmd.vis.dirs = Some(true)
+            cmd.vis.set_files(false);
         }
         if cmd
             .types
             .iter()
             .all(|x| !matches!(x, FileTypeArg::Type(FileType::Directory)))
         {
-            if cmd.vis.files == Some(false) {
+            if cmd.vis.dirs {
                 wbog!("Overriding vis.files to true due to -t")
             }
-            cmd.vis.files = Some(true)
+            cmd.vis.set_files(true);
         }
     }
 
@@ -360,14 +370,6 @@ async fn handle_default(
     } else {
         cmd.types.clone()
     };
-
-    if cmd.reset_visibility {
-        let vis = resolve_fd_visibility(Default::default(), &cmd, &cfg);
-        STORE::set(vis)
-    }
-    if cmd.no_all {
-        cmd.vis.all = Some(false)
-    }
 
     let pool = Pool::new_from_cfg(&cfg).await?;
 
@@ -463,10 +465,13 @@ async fn handle_default(
         if nav_pane {
             let vis = cmd
                 .vis
-                .into_resolved(cfg.global.panes.nav.default_visibility)
+                .into_resolved(
+                    cfg.global.panes.nav.default_visibility,
+                    cfg.smart_visibility.git_repo != When::Never,
+                )
                 .enable_hidden_if_empty_otherwise(
                     &cwd,
-                    cmd.vis.hidden.is_none() && !cfg.global.fd.dot_query_show_hidden.is_never(),
+                    cmd.vis.hidden().is_none() && cfg.smart_visibility.empty_folders,
                 );
 
             FsPane::new_nav(
@@ -536,14 +541,7 @@ async fn handle_default(
 
         if cmd.list {
             // mirror new_fd behavior
-
-            let mut vis = cmd
-                .vis
-                .into_resolved(cfg.global.panes.find.default_visibility);
-            if cmd.vis.hidden.is_none() && last_query_starts_with_dot(&cmd.paths) {
-                vis.hidden = true;
-            }
-
+            let vis = resolve_fd_visibility(cmd.vis, &cmd, &cfg);
             return super::list::fd_list(vis, &types, &cmd.paths, &cmd.fd, &cfg, &cli.output);
         };
 
@@ -554,10 +552,13 @@ async fn handle_default(
         let cwd = __cwd();
         let vis = cmd
             .vis
-            .into_resolved(cfg.global.panes.nav.default_visibility)
+            .into_resolved(
+                cfg.global.panes.nav.default_visibility,
+                cfg.smart_visibility.git_repo != When::Never,
+            )
             .enable_hidden_if_empty_otherwise(
                 cwd,
-                cmd.vis.hidden.is_none() && !cfg.global.fd.dot_query_show_hidden.is_never(),
+                cmd.vis.hidden().is_none() && cfg.smart_visibility.empty_folders,
             );
 
         if cmd.list {
@@ -602,7 +603,10 @@ async fn handle_custom(
     let pool = Pool::new_from_cfg(&cfg).await?;
 
     let sort = cmd.sort.unwrap_or_default();
-    let vis = cmd.vis.into_resolved(Some(Default::default()));
+    let vis = cmd.vis.into_resolved(
+        Some(Default::default()),
+        cfg.smart_visibility.git_repo != When::Never,
+    );
     let cwd = AbsPath::new_unchecked(__cwd());
 
     let keep_store = !cmd.no_store;
@@ -1099,15 +1103,24 @@ pub fn resolve_fd_visibility(
     cmd: &DefaultCommand,
     cfg: &Config,
 ) -> Visibility {
-    let mut vis = cmd_vis.into_resolved(cfg.global.panes.find.default_visibility);
+    let mut vis = cmd_vis.into_resolved(
+        cfg.global.panes.find.default_visibility,
+        cfg.smart_visibility.git_repo != When::Never,
+    );
 
-    let dot_query_show_hidden = cfg.global.fd.dot_query_show_hidden;
+    let smart = cfg.smart_visibility;
 
-    if last_query_starts_with_dot(&cmd.paths) && !dot_query_show_hidden.is_never() {
-        if cmd_vis.hidden.is_none() {
+    if last_query_starts_with_dot(&cmd.paths) {
+        if smart.dot_query_show_hidden && cmd_vis.hidden().is_none() {
             vis.hidden = true;
         }
-        if cmd_vis.ignore.is_none() && dot_query_show_hidden.is_always() {
+        if smart.dot_query_show_ignored && cmd_vis.ignore().is_none() {
+            vis.ignore = false;
+        }
+    }
+
+    if smart.ignored_targets && cmd_vis.ignore().is_none() {
+        if fist_types::git::any_path_is_ignored(&cmd.paths) {
             vis.ignore = false;
         }
     }

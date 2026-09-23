@@ -22,7 +22,7 @@ use crate::{
 };
 use fist_types::filters::SortOrder;
 
-use super::{DB_FILTER, FILTERS, STACK};
+use super::{DB_FILTER, STACK};
 
 thread_local! {
     static CONFIG: OnceCell<GlobalConfig> = const { OnceCell::new() };
@@ -55,17 +55,8 @@ pub fn init(
         }
     }
 
-    // need to handle the patterns listened on by sync_handler
     let sort = pane.sort_order();
-    let visibility = match &pane {
-        FsPane::Nav { vis, .. }
-        | FsPane::Custom { vis, .. }
-        | FsPane::Find { vis, .. }
-        | FsPane::Search { vis, .. } => *vis,
-        _ => Default::default(),
-    };
-    debug!("Initial filters: {sort}, {visibility:?}");
-    FILTERS::set(visibility);
+    debug!("Initial sort: {sort}");
 
     CONFIG.with(|c| c.set(config).ok());
     let _ = DB.set(db_pool);

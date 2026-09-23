@@ -266,7 +266,7 @@ mod tests {
         ));
         assert!(!eval(
             &cond(SelectedCondition::Cursor, true),
-            &[d.clone()],
+            std::slice::from_ref(&d),
             Some(&a),
             false,
             None,
@@ -274,7 +274,7 @@ mod tests {
         ));
         assert!(eval(
             &cond(SelectedCondition::Cursor, false),
-            &[d.clone()],
+            std::slice::from_ref(&d),
             Some(&a),
             false,
             None,
@@ -337,7 +337,7 @@ mod tests {
         ));
         assert!(!eval(
             &cond(SelectedCondition::Selections(2), true),
-            &[a.clone()],
+            std::slice::from_ref(&a),
             None,
             false,
             None,
@@ -361,7 +361,7 @@ mod tests {
         ));
         assert!(!eval(
             &cond(SelectedCondition::Selections(2), false),
-            &[a.clone()],
+            std::slice::from_ref(&a),
             None,
             false,
             None,
@@ -388,7 +388,7 @@ mod tests {
         ));
         assert!(eval(
             &cond(SelectedCondition::Active, true),
-            &[a.clone()],
+            std::slice::from_ref(&a),
             None,
             false,
             None,
@@ -433,7 +433,14 @@ mod tests {
             condition: "type:f".parse().unwrap(),
             strict: false,
         })];
-        assert!(eval(&file_rule, &[a.clone()], None, false, None, None));
+        assert!(eval(
+            &file_rule,
+            std::slice::from_ref(&a),
+            None,
+            false,
+            None,
+            None
+        ));
         assert!(!eval(&file_rule, &two, None, false, None, None));
     }
 }

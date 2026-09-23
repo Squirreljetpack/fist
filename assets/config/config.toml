@@ -31,8 +31,15 @@ show_preview = true
 
 ### SETTINGS ###
 
+[smart_visibility]
+# dot_query_show_hidden = true
+# dot_query_show_ignored = false
+# empty_folders = true
+# git_repo = "auto"
+# ignored_targets = true
+# retain_filetype_filters = false
+
 [fd]
-dot_query_show_hidden = "always"
 
 [rg]
 empty_pattern = "-v ^ *$"

@@ -24,7 +24,7 @@ use crate::{
         item::PathItem,
         pane::FsPane,
         reload::fs_reload,
-        state::{FILTERS, MenuCommandPaths, STACK, STORE, TASKS},
+        state::{MenuCommandPaths, STACK, STORE, TASKS},
     },
     utils::{command::tokio_from_script, formatter::format_path},
 };
@@ -55,7 +55,7 @@ impl FsMatchmaker {
                     );
                     let pane = FsPane::new_custom(
                         STACK::_cwd(),
-                        FILTERS::visibility(),
+                        STACK::visibility(),
                         Some(command),
                         false,
                         fist_types::filters::SortOrder::none,

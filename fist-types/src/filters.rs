@@ -264,86 +264,226 @@ impl Visibility {
     // }
 }
 
-#[derive(Debug, Default, Clone, clap::Args, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(default))]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, clap::Args)]
 pub struct PartialVisibility {
-    /// show hidden files and folders
-    #[arg(
-        short = 'h',
-        num_args = 0..=1,
-        default_missing_value = "true",
-        value_parser = clap::value_parser!(bool),
-    )]
-    pub hidden: Option<bool>,
+    /// Show hidden files and folders
+    #[arg(short = 'h', overrides_with = "no_hidden")]
+    pub hidden: bool,
 
-    /// HIDE ignored files
-    #[arg(
-        short = 'I',
-        num_args = 0..=1,
-        default_missing_value = "true",
-        value_parser = clap::value_parser!(bool),
-    )]
-    pub ignore: Option<bool>,
+    /// Hide hidden files and folders
+    #[arg(short = 'H', overrides_with = "hidden")]
+    pub no_hidden: bool,
 
-    /// show all
-    #[arg(
-        short = 'a',
-        short_alias = 'u',
-        num_args = 0..=1,
-        default_missing_value = "true",
-        value_parser = clap::value_parser!(bool),
-    )]
-    pub all: Option<bool>,
+    /// Show ignored files
+    #[arg(short = 'i', overrides_with = "ignore")]
+    pub no_ignore: bool,
 
-    /// only show directories
-    #[arg(
-        short = 'F',
-        num_args = 0..=1,
-        default_missing_value = "true",
-        value_parser = clap::value_parser!(bool),
-    )]
-    pub dirs: Option<bool>,
+    /// Hide ignored files
+    #[arg(short = 'I', overrides_with = "no_ignore")]
+    pub ignore: bool,
 
-    /// show only files
-    #[arg(
-        short = 'f',
-        num_args = 0..=1,
-        default_missing_value = "true",
-        value_parser = clap::value_parser!(bool),
-    )]
-    pub files: Option<bool>,
+    #[arg(short = 'u', overrides_with = "no_unrestricted")]
+    pub unrestricted: bool,
+
+    #[arg(short = 'U', overrides_with = "unrestricted")]
+    pub no_unrestricted: bool,
+
+    /// Only show directories
+    #[arg(short = 'F', overrides_with = "files")]
+    pub dirs: bool,
+
+    /// Show only files
+    #[arg(short = 'f', overrides_with = "dirs")]
+    pub files: bool,
 
     /// Don't follow symlinks (tui only).
     #[arg(skip)]
     pub no_follow: Option<bool>,
 }
 
+#[cfg(feature = "serde")]
+impl serde::Serialize for PartialVisibility {
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(None)?;
+        if let Some(v) = self.hidden() {
+            map.serialize_entry("hidden", &v)?;
+        }
+        if let Some(v) = self.ignore() {
+            map.serialize_entry("ignore", &v)?;
+        }
+        if let Some(v) = self.unrestricted() {
+            map.serialize_entry("unrestricted", &v)?;
+        }
+        if let Some(v) = self.files() {
+            map.serialize_entry("files", &v)?;
+        }
+        if let Some(nf) = self.no_follow {
+            map.serialize_entry("follow", &!nf)?;
+        }
+        map.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for PartialVisibility {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct Visitor;
+
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = PartialVisibility;
+
+            fn expecting(
+                &self,
+                f: &mut std::fmt::Formatter,
+            ) -> std::fmt::Result {
+                f.write_str("a visibility filter map")
+            }
+
+            fn visit_map<M>(
+                self,
+                mut access: M,
+            ) -> Result<Self::Value, M::Error>
+            where
+                M: serde::de::MapAccess<'de>,
+            {
+                let mut pv = PartialVisibility::default();
+                while let Some(key) = access.next_key::<String>()? {
+                    match key.as_str() {
+                        "hidden" => pv.set_hidden(access.next_value()?),
+                        "ignore" => pv.set_ignore(access.next_value()?),
+                        "unrestricted" => pv.set_unrestricted(access.next_value()?),
+                        "files" => pv.set_files(access.next_value()?),
+                        "follow" => {
+                            let follow: bool = access.next_value()?;
+                            pv.no_follow = Some(!follow);
+                        }
+                        _ => {
+                            return Err(serde::de::Error::unknown_field(&key, FIELDS));
+                        }
+                    }
+                }
+                Ok(pv)
+            }
+        }
+
+        const FIELDS: &[&str] = &["hidden", "ignore", "unrestricted", "files", "follow"];
+        deserializer.deserialize_struct("PartialVisibility", FIELDS, Visitor)
+    }
+}
+
 impl PartialVisibility {
     pub fn is_default(&self) -> bool {
         *self == Self::default()
     }
+
+    pub fn hidden(&self) -> Option<bool> {
+        if self.hidden {
+            Some(true)
+        } else if self.no_hidden {
+            Some(false)
+        } else {
+            None
+        }
+    }
+
+    pub fn ignore(&self) -> Option<bool> {
+        if self.ignore {
+            Some(true)
+        } else if self.no_ignore {
+            Some(false)
+        } else {
+            None
+        }
+    }
+
+    pub fn unrestricted(&self) -> Option<bool> {
+        if self.unrestricted {
+            Some(true)
+        } else if self.no_unrestricted {
+            Some(false)
+        } else {
+            None
+        }
+    }
+
+    pub fn files(&self) -> Option<bool> {
+        if self.files {
+            Some(true)
+        } else if self.dirs {
+            Some(false)
+        } else {
+            None
+        }
+    }
+
+    pub fn set_hidden(
+        &mut self,
+        val: bool,
+    ) {
+        self.hidden = val;
+        self.no_hidden = !val;
+    }
+
+    pub fn set_ignore(
+        &mut self,
+        val: bool,
+    ) {
+        self.ignore = val;
+        self.no_ignore = !val;
+    }
+
+    pub fn set_unrestricted(
+        &mut self,
+        val: bool,
+    ) {
+        self.unrestricted = val;
+        self.no_unrestricted = !val;
+    }
+
+    pub fn set_files(
+        &mut self,
+        val: bool,
+    ) {
+        self.files = val;
+        self.dirs = !val;
+    }
+
     pub fn into_resolved(
         mut self,
         cfg: Option<Self>,
+        smart_git: bool,
     ) -> Visibility {
         let mut vis = Visibility::default();
 
         if self.is_default() {
             if let Some(cfg) = cfg {
                 vis.apply(cfg);
-            } else if super::git::in_git_repo(std::env::current_dir().ok()) {
+            } else if smart_git && super::git::in_git_repo(std::env::current_dir().ok()) {
                 vis.hidden = true;
                 vis.ignore = true;
             };
         } else {
-            if self.hidden.is_none() && self.ignore.is_none() {
+            if self.hidden().is_none() && self.ignore().is_none() {
                 // Config specifies a default cfg (for the pane)
                 if let Some(cfg) = cfg {
-                    self.hidden = cfg.hidden;
-                    self.ignore = cfg.ignore;
+                    if let Some(h) = cfg.hidden() {
+                        self.set_hidden(h);
+                    }
+                    if let Some(i) = cfg.ignore() {
+                        self.set_ignore(i);
+                    }
                 // automatic flag set for git repo
-                } else if super::git::in_git_repo(std::env::current_dir().ok()) {
+                } else if smart_git && super::git::in_git_repo(std::env::current_dir().ok()) {
                     vis.hidden = true;
                     vis.ignore = true;
                 }
@@ -359,20 +499,23 @@ impl Visibility {
         &mut self,
         patch: PartialVisibility,
     ) {
-        if let Some(v) = patch.hidden {
+        if let Some(v) = patch.hidden() {
             self.hidden = v;
         }
-        if let Some(v) = patch.ignore {
+        if let Some(v) = patch.ignore() {
             self.ignore = v;
         }
-        if let Some(v) = patch.all {
+        if let Some(v) = patch.unrestricted() {
             self.all = v;
         }
-        if let Some(v) = patch.dirs {
-            self.dirs = v;
-        }
-        if let Some(v) = patch.files {
-            self.files = v;
+        if let Some(v) = patch.files() {
+            if v {
+                self.files = true;
+                self.dirs = false;
+            } else {
+                self.files = false;
+                self.dirs = true;
+            }
         }
         if let Some(v) = patch.no_follow {
             self.no_follow = v;

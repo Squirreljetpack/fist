@@ -98,7 +98,7 @@ _fs() {
 
     case "${cmd}" in
         fs)
-            opts="-q -v -h -I -a -F -f -A -t -V --override --config --mm-config --dump-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener --sort --no-all --cd --types --transform --reset-visibility --list --help --version :open :o :file :dir :fd :: :custom :c :rg : :tool :t :info"
+            opts="-q -v -h -H -i -I -u -U -F -f -t -V --override --config --mm-config --dump-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener --sort --cd --types --transform --list --help --version :open :o :file :dir :fd :: :custom :c :rg : :tool :t :info"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -144,26 +144,6 @@ _fs() {
                     COMPREPLY=($(compgen -W "name mtime atime size none" -- "${cur}"))
                     return 0
                     ;;
-                -h)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -I)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -a)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -F)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -f)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
                 --types)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
@@ -184,32 +164,12 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:custom)
-            opts="-h -I -a -F -f -q -v --cd --sort --transform --tail-sep --input-sep --no-store --help --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
+            opts="-h -H -i -I -u -U -F -f -q -v --cd --sort --transform --tail-sep --input-sep --no-store --help --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
-                -h)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -I)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -a)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -F)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -f)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
                 --sort)
                     COMPREPLY=($(compgen -W "name mtime atime size none" -- "${cur}"))
                     return 0
@@ -336,7 +296,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:fd)
-            opts="-h -I -a -F -f -A -t -q -v --sort --no-all --cd --types --transform --reset-visibility --list --help --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
+            opts="-h -H -i -I -u -U -F -f -t -q -v --sort --cd --types --transform --list --help --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -344,26 +304,6 @@ _fs() {
             case "${prev}" in
                 --sort)
                     COMPREPLY=($(compgen -W "name mtime atime size none" -- "${cur}"))
-                    return 0
-                    ;;
-                -h)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -I)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -a)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -F)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -f)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
                     return 0
                     ;;
                 --types)
@@ -608,32 +548,12 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:rg)
-            opts="-h -I -a -F -f -p -i -s -S -A -B -C -1 -q -v --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --one-line --fixed-strings --no-fixed-strings --preserve-whitespace --rebase --filtering --no-heading --list --query --no-read --help --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
+            opts="-h -H -i -I -u -U -F -f -p -c -s -S -A -B -C -1 -q -v --sort --path --ignore-case --case-sensitive --smart-case --after-context --before-context --context --one-line --fixed-strings --no-fixed-strings --preserve-whitespace --rebase --filtering --no-heading --list --query --no-read --help --override --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
-                -h)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -I)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -a)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -F)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
-                -f)
-                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
-                    return 0
-                    ;;
                 --sort)
                     COMPREPLY=($(compgen -W "name mtime atime size none" -- "${cur}"))
                     return 0

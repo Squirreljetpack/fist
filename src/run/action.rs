@@ -35,7 +35,7 @@ use crate::{
         register::{ExecutionMode, resolve_target},
         reload::{enter_dir_pane, fs_reload},
         state::{
-            AcceptFlavor, ExecuteHandlerShouldProcessParent, FILTERS, GLOBAL, InPrompt,
+            AcceptFlavor, ExecuteHandlerShouldProcessParent, GLOBAL, InPrompt,
             MENU_ACTIONS, MenuPrompt, STACK, STORE, TASKS, TOAST, ToastFlags, ToastStyle,
             context::ActionContext, lessfilter_cfg, sort,
         },
@@ -107,11 +107,10 @@ pub enum FsAction {
 
     /// Show available actions on the current item(s).
     ShowMenu,
-    /// Toggle directory/file visibility.
-    /// In [`FsPane::Files`], [`FsPane::Folders`], [`FsPane::Launch`], [`FsPane::Rg`], this toggles their sort order.
-    FsToggle,
-    /// Toggle visibility between default and with hidden.
-    ToggleHidden,
+    /// Cycle sort order (in database/stash panes) or directory/file visibility (in other panes).
+    CycleFilter,
+    /// Toggle between frecency and atime sorting (in database panes) or toggle hidden file visibility (in other panes).
+    ToggleFilter,
 
     // file actions
     // ----------------------------------
@@ -273,28 +272,13 @@ pub fn fsaction_aliaser(
                 acs![]
             }
             FsAction::Refilter => {
-                // 1. sync visibility pane <- global
-                let vis_changed = STACK::with_current_mut(|p| {
-                    p.vis_mut().is_some_and(|v| {
-                        let vis = FILTERS::visibility();
-                        let changed = *v != vis;
-                        *v = vis;
-                        changed
-                    })
-                });
-                // deliberately only process one at a time to prevent vis changes from enabling metadata display (since only one signal can be sent before refilter is called anyways)
-                if vis_changed {
-                    // populate re-reads pane sort/vis; fs_reload -> set_sort_in_nucleo applies the mode
+                // db/rg panes
+                // order via SQL/rg, so a reload is required; everything
+                // else fills metadata and dispatches ReSort.
+                if STACK::with_current(FsPane::is_externally_sorted) {
                     fs_reload(state, false, false);
                 } else {
-                    // db/rg panes
-                    // order via SQL/rg, so a reload is required; everything
-                    // else fills metadata and dispatches ReSort.
-                    if STACK::with_current(FsPane::is_externally_sorted) {
-                        fs_reload(state, false, false);
-                    } else {
-                        sort::fill_then_resort(state);
-                    }
+                    sort::fill_then_resort(state);
                 }
                 acs![]
             }
@@ -566,7 +550,7 @@ pub fn fsaction_handler(
             STACK::save_input(content, index);
 
             // pane
-            let pane = FsPane::new_fd(STACK::_cwd(), Default::default(), FILTERS::visibility())
+            let pane = FsPane::new_fd(STACK::_cwd(), Default::default(), STACK::visibility())
                 .set_initial_sort();
 
             // don't push if same pane: changes in filter/vis already should be the ones to responsible for that (todo?)
@@ -658,7 +642,7 @@ pub fn fsaction_handler(
                 let pane = FsPane::new_rg(
                     cwd,
                     Default::default(),
-                    FILTERS::visibility(),
+                    STACK::visibility(),
                     //
                     paths,
                     query,
@@ -1354,43 +1338,77 @@ pub fn fsaction_handler(
             }
         }
         // filters
-        FsAction::FsToggle => {
+        FsAction::CycleFilter => {
             if STACK::with_current(|p| {
                 matches!(
                     p,
-                    FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Stash { .. }
+                    FsPane::Files { .. }
+                        | FsPane::Folders { .. }
+                        | FsPane::Apps { .. }
+                        | FsPane::Stash { .. }
                 )
             }) {
                 STACK::with_current_mut(|p| p.sort_mut().cycle());
+                GLOBAL::send_action(FsAction::Refilter);
             } else {
-                FILTERS::with_mut(|vis| {
-                    (vis.dirs, vis.files) = match (vis.dirs, vis.files) {
-                        (false, false) => (false, true),
-                        (false, true) => (true, false),
-                        (true, false) => (false, false),
-                        (true, true) => {
-                            log::error!("Unexpected toggle dirs state");
-                            (false, false)
-                        }
-                    };
+                let changed = STACK::with_current_mut(|p| {
+                    if let Some(vis) = p.vis_mut() {
+                        (vis.dirs, vis.files) = match (vis.dirs, vis.files) {
+                            (false, false) => (false, true),
+                            (false, true) => (true, false),
+                            (true, false) => (false, false),
+                            (true, true) => {
+                                log::error!("Unexpected toggle dirs state");
+                                (false, false)
+                            }
+                        };
+                        true
+                    } else {
+                        false
+                    }
                 });
+                if changed {
+                    fs_reload(state, false, false);
+                }
             }
-            // anyone who modifies pane sort/vis must immediately follow with Refilter
-            GLOBAL::send_action(FsAction::Refilter);
             refresh_prompt(state);
         }
-        FsAction::ToggleHidden => {
-            FILTERS::with_mut(|vis| {
-                let style = Style::new().add_modifier(Modifier::DIM).italic();
-                if vis.hidden || vis.all() {
-                    vis.set_default();
-                    TOAST::msg(Span::styled("Default filters", style), true);
-                } else {
-                    vis.hidden = true;
-                    TOAST::msg(Span::styled("Showing hidden", style), true);
+        FsAction::ToggleFilter => {
+            if STACK::with_current(|p| {
+                matches!(
+                    p,
+                    FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
+                )
+            }) {
+                STACK::with_current_mut(|p| {
+                    let sort = p.sort_mut();
+                    *sort = match *sort {
+                        SortOrder::atime => SortOrder::none,
+                        _ => SortOrder::atime,
+                    };
+                });
+                GLOBAL::send_action(FsAction::Refilter);
+            } else {
+                let changed = STACK::with_current_mut(|p| {
+                    if let Some(vis) = p.vis_mut() {
+                        let style = Style::new().add_modifier(Modifier::DIM).italic();
+                        if vis.hidden || vis.all() {
+                            vis.set_default();
+                            TOAST::msg(Span::styled("Default filters", style), true);
+                        } else {
+                            vis.hidden = true;
+                            TOAST::msg(Span::styled("Showing hidden", style), true);
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                });
+                if changed {
+                    fs_reload(state, false, false);
                 }
-            });
-            GLOBAL::send_action(FsAction::Refilter);
+            }
+            refresh_prompt(state);
         }
         // ------------------------------------------------------
         // Execute/Accept
@@ -1730,7 +1748,7 @@ enum_from_str_display! {
     Advance, Parent, Find, Search, History, App,
     Undo, Redo,
     ShowOptions, Help, ShowQueue,
-    ShowMenu, FsToggle, ToggleHidden,
+    ShowMenu, CycleFilter, ToggleFilter,
     Move, Copy, CopyPath, New, NewDir, Rename;
 
     tuples:

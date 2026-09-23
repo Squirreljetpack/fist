@@ -56,3 +56,5 @@ tarzst = ["tar", "zst"]
 
 [lints.clippy]
 uninlined_format_args = "allow"
+collapsible_if = "allow"
+result_large_err = "allow"

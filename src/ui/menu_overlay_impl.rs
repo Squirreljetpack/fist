@@ -222,8 +222,7 @@ impl MenuOverlay {
                             Ok(None) => Ok(()),
                             Ok(Some(claim)) => {
                                 claim.rollback();
-                                Err(std::io::Error::new(
-                                    std::io::ErrorKind::Other,
+                                Err(std::io::Error::other(
                                     "cross-device rename requires transfer engine",
                                 ))
                             }
@@ -238,8 +237,7 @@ impl MenuOverlay {
                             Ok(None) => Ok(()),
                             Ok(Some(claim)) => {
                                 claim.rollback();
-                                Err(std::io::Error::new(
-                                    std::io::ErrorKind::Other,
+                                Err(std::io::Error::other(
                                     "cross-device rename requires transfer engine",
                                 ))
                             }
