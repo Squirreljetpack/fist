@@ -120,7 +120,7 @@ cargo install fist
 - `alt-u`: Open queue.
 - `alt-p` : Open options.
 - `ctrl-s`/`alt-h`: Toggle hidden.
-- `ctrl-d`: Toggle contextual visibility.
+- `ctrl-d`: Cycle filter/sort.
 
 ---
 
