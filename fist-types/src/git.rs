@@ -55,5 +55,3 @@ mod tests {
         assert!(!any_path_is_ignored::<&str>([]));
     }
 }
-
-
