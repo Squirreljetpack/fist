@@ -4,7 +4,12 @@
 use std::borrow::Cow;
 use std::path::PathBuf;
 
-use cba::{bait::ResultExt, bath::PathExt, bring::split::join_with_single_quotes, unwrap};
+use cba::{
+    bait::ResultExt,
+    bath::PathExt,
+    bring::split::{join_with_single_quotes, split_on_delimiter_with_doubled_escape},
+    unwrap,
+};
 use fist_types::filters::SortOrder;
 use matchmaker::{
     acs,
@@ -35,9 +40,9 @@ use crate::{
         register::{ExecutionMode, resolve_target},
         reload::{enter_dir_pane, fs_reload},
         state::{
-            AcceptFlavor, ExecuteHandlerShouldProcessParent, GLOBAL, InPrompt,
-            MENU_ACTIONS, MenuPrompt, STACK, STORE, TASKS, TOAST, ToastFlags, ToastStyle,
-            context::ActionContext, lessfilter_cfg, sort,
+            AcceptFlavor, ExecuteHandlerShouldProcessParent, GLOBAL, InPrompt, MENU_ACTIONS,
+            MenuPrompt, STACK, STORE, TASKS, TOAST, ToastFlags, ToastStyle, context::ActionContext,
+            lessfilter_cfg, sort,
         },
     },
     spawn::open_wrapped,
@@ -1809,7 +1814,7 @@ macro_rules! enum_from_str_display {
                                     /* ---------- Manually parsed ---------- */
                                     Jump(paths) => {
                                         if paths.is_empty() {
-                                            write!(f, "Jump(⌂⦀/)")
+                                            write!(f, "Jump(⌂,/)")
                                         } else {
                                             write!(f, "Jump({})", paths
                                             .iter()
@@ -1937,7 +1942,7 @@ macro_rules! enum_from_str_display {
                                     let Some(values) = data else {
                                         return Ok(Self::Jump(vec![]))
                                     };
-                                    let paths = cba::bring::split::split_on_delimiter_with_doubled_escape(values, ',').iter().map(PathBuf::from).collect();
+                                    let paths = split_on_delimiter_with_doubled_escape(values, ',').iter().map(PathBuf::from).collect();
                                     Ok(Self::Jump(paths))
                                 }
                                 n if n.eq_ignore_ascii_case("ExecuteQueue") => {

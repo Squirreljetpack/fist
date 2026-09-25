@@ -175,12 +175,10 @@ async fn handle_rg(
     mut cmd: SearchCommand,
     mut cfg: Config,
 ) -> Result<(), CliError> {
-    let mut vis = cmd
-        .vis
-        .into_resolved(
-            cfg.global.panes.search.default_visibility,
-            cfg.smart_visibility.git_repo != When::Never,
-        );
+    let mut vis = cmd.vis.into_resolved(
+        cfg.global.panes.search.default_visibility,
+        cfg.smart_visibility.git_repo != When::Never,
+    );
 
     if cfg.smart_visibility.ignored_targets && cmd.vis.ignore().is_none() {
         if fist_types::git::any_path_is_ignored(&cmd.paths) {

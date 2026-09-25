@@ -1,9 +1,5 @@
 use cba::{_trace, bring::split::split_whitespace_preserve_single_quotes};
-use fist_types::{
-    When,
-    filters::SortOrder,
-    git::in_git_repo,
-};
+use fist_types::{When, filters::SortOrder, git::in_git_repo};
 use matchmaker::{config::StringOrInt, ui::StatusUI};
 
 use crate::run::state::GLOBAL::db;
@@ -13,8 +9,7 @@ use crate::{
     run::{
         FsPane, query_prompt, selection,
         state::{
-            GLOBAL, LockPromptSetting, STACK, STORE, SmartGitVisibility, TOAST, sort,
-            ui::global_ui,
+            GLOBAL, LockPromptSetting, STACK, STORE, SmartGitVisibility, TOAST, sort, ui::global_ui,
         },
     },
 };
