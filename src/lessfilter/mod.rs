@@ -9,7 +9,7 @@ pub mod file_rule;
 mod helpers;
 pub mod rule_matcher;
 pub use config::*;
-pub use helpers::env_bat_opts;
+pub use helpers::{application_has_icon, env_bat_opts};
 pub mod env;
 pub mod mime_helpers;
 

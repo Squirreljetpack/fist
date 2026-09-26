@@ -96,6 +96,7 @@ complete -c fs -n "__fish_fs_using_subcommand :open" -l output-sep -d 'Separator
 complete -c fs -n "__fish_fs_using_subcommand :open" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :open" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :open" -l list
+complete -c fs -n "__fish_fs_using_subcommand :open" -s o -l simple-ui -d 'Start with a minimal keymap: navigation, selection, accept/quit, preview, and query editing only'
 complete -c fs -n "__fish_fs_using_subcommand :open" -l help -d 'initial query'
 complete -c fs -n "__fish_fs_using_subcommand :open" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :open" -s v -d 'Increase the verbosity level'
@@ -119,6 +120,7 @@ complete -c fs -n "__fish_fs_using_subcommand :o" -l output-sep -d 'Separator pr
 complete -c fs -n "__fish_fs_using_subcommand :o" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :o" -l opener -d 'Program used to open files on accept' -r
 complete -c fs -n "__fish_fs_using_subcommand :o" -l list
+complete -c fs -n "__fish_fs_using_subcommand :o" -s o -l simple-ui -d 'Start with a minimal keymap: navigation, selection, accept/quit, preview, and query editing only'
 complete -c fs -n "__fish_fs_using_subcommand :o" -l help -d 'initial query'
 complete -c fs -n "__fish_fs_using_subcommand :o" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :o" -s v -d 'Increase the verbosity level'

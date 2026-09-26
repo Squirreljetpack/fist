@@ -1,14 +1,13 @@
 ### PANES ###
 [panes.nav]
 show_preview = 60
-lock_prompt = "never"
 
 # ignore_patterns = [ ".DS_Store" ]
 # default_visibility = { hidden = true }
 
 [panes.find]
 show_preview = 60
-# lock_prompt = "auto"
+lock_prompt = "auto"
 
 [panes.search]
 lock_prompt = "auto"
@@ -28,6 +27,9 @@ fs_status_template = '''
 [panes.app]
 preview_layout_index = 3
 show_preview = true
+
+# Only show apps that have icons. Defaults to true on macOS.
+# require_icon = true
 
 ### SETTINGS ###
 
@@ -55,7 +57,7 @@ refind = "Search"
 
 [interface]
 # hide the preview when in the query bar
-hide_preview_when_cursor_disabled = true
+# hide_preview_when_cursor_disabled = true
 # allow_trash_db_items = true
 
 # prompt prefix when in the query bar: https://squirreljetpack.github.io/fist-docs/16-output-templates#the-format-template

@@ -420,6 +420,8 @@ pub struct AppPaneSettings {
     pub preview_layout_index: u8,
     // ----------------------------
     pub app_scan_directories: Vec<PathBuf>,
+    /// Only list apps whose icon file can be resolved. Defaults to true on macOS.
+    pub require_icon: bool,
 }
 
 impl Default for AppPaneSettings {
@@ -431,6 +433,7 @@ impl Default for AppPaneSettings {
             lock_prompt: When::Never,
             preview_layout_index: 0,
             app_scan_directories: Vec::new(),
+            require_icon: cfg!(target_os = "macos"),
         }
     }
 }

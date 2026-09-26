@@ -70,6 +70,8 @@ _arguments "${_arguments_options[@]}" : \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--list[]' \
+'-o[Start with a minimal keymap\: navigation, selection, accept/quit, preview, and query editing only]' \
+'--simple-ui[Start with a minimal keymap\: navigation, selection, accept/quit, preview, and query editing only]' \
 '--help[initial query]' \
 '(-v)*-q[Reduce the verbosity level]' \
 '(-q)*-v[Increase the verbosity level]' \
@@ -91,6 +93,8 @@ _arguments "${_arguments_options[@]}" : \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
 '--list[]' \
+'-o[Start with a minimal keymap\: navigation, selection, accept/quit, preview, and query editing only]' \
+'--simple-ui[Start with a minimal keymap\: navigation, selection, accept/quit, preview, and query editing only]' \
 '--help[initial query]' \
 '(-v)*-q[Reduce the verbosity level]' \
 '(-q)*-v[Increase the verbosity level]' \

@@ -16,6 +16,21 @@ pub fn application_icon_path(path: &Path) -> Option<PathBuf> {
     }
 }
 
+/// Whether an icon file can be resolved for `path` without materializing it.
+/// On macOS this checks the bundle's `.icns`; elsewhere it is equivalent to
+/// [`application_icon_path`].
+pub fn application_has_icon(path: &Path) -> bool {
+    cfg_if::cfg_if! {
+        if #[cfg(target_os = "macos")] {
+            macos_application_icon_file(path).is_some()
+        } else if #[cfg(target_os = "linux")] {
+            linux_application_icon_path(path).is_some()
+        } else {
+            sidecar_icon_path(path).is_some()
+        }
+    }
+}
+
 #[allow(dead_code)]
 fn application_icon_cache_path(path: &Path) -> PathBuf {
     let app_path = path.to_string_lossy();
@@ -37,7 +52,8 @@ fn application_icon_cache_path(path: &Path) -> PathBuf {
 }
 
 #[cfg(target_os = "macos")]
-fn macos_application_icon_path(path: &Path) -> Option<PathBuf> {
+#[cfg(target_os = "macos")]
+fn macos_application_icon_file(path: &Path) -> Option<PathBuf> {
     use std::process::{Command, Stdio};
 
     let info = path.join("Contents").join("Info");
@@ -62,9 +78,14 @@ fn macos_application_icon_path(path: &Path) -> Option<PathBuf> {
     }
 
     let icon_path = path.join("Contents").join("Resources").join(icon_file);
-    if !icon_path.is_file() {
-        return None;
-    }
+    icon_path.is_file().then_some(icon_path)
+}
+
+#[cfg(target_os = "macos")]
+fn macos_application_icon_path(path: &Path) -> Option<PathBuf> {
+    use std::process::{Command, Stdio};
+
+    let icon_path = macos_application_icon_file(path)?;
 
     let cache_path = application_icon_cache_path(path);
     if cache_path.is_file() {
