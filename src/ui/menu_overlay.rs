@@ -826,7 +826,7 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
         frame.render_widget(self.query.make_input(), input);
 
         // Results
-        let (table, width) = self.results.get_table();
+        let (table, width, separator) = self.results.make_table();
         let mut results_area = results;
         if matches!(
             self.results.config.row_connection,
@@ -835,6 +835,16 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
             results_area.width = results_area.width.min(width);
         }
         frame.render_widget(table, results_area);
+
+        // if let Some(separator) = separator {
+        //     let inner = self.results.config.border.inner_of(results_area);
+        //     for &offset in &self.results.separator_offsets {
+        //         if offset < inner.height {
+        //             let row_area = Rect::new(inner.x, inner.y + offset, inner.width, 1);
+        //             frame.render_widget(separator.clone(), row_area);
+        //         }
+        //     }
+        // }
     }
 }
 

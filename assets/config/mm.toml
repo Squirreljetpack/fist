@@ -16,6 +16,8 @@ show = true
 wrap = true
 scroll_wrap = true
 row_connection = "Disjoint"
+# inactive.fg = "LightYellow"
+# inactive_current.fg = "LightYellow"
 
 # default
 [[preview.layout]]

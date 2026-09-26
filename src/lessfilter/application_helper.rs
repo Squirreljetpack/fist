@@ -52,6 +52,35 @@ fn application_icon_cache_path(path: &Path) -> PathBuf {
 }
 
 #[cfg(target_os = "macos")]
+fn macos_extract_icon_appkit(app_path: &Path, cache_path: &Path) -> Option<()> {
+    use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSWorkspace};
+    use objc2_foundation::{NSDictionary, NSString};
+
+    let path_str = app_path.to_str()?;
+    let ns_path = NSString::from_str(path_str);
+    let ws = NSWorkspace::sharedWorkspace();
+    let img = ws.iconForFile(&ns_path);
+    let tiff_data = img.TIFFRepresentation()?;
+    let reps = NSBitmapImageRep::imageRepsWithData(&tiff_data);
+    if reps.is_empty() {
+        return None;
+    }
+    let empty_dict = NSDictionary::new();
+    let png_data = unsafe {
+        NSBitmapImageRep::representationOfImageRepsInArray_usingType_properties(
+            &reps,
+            NSBitmapImageFileType::PNG,
+            &empty_dict,
+        )?
+    };
+
+    if let Some(parent) = cache_path.parent() {
+        std::fs::create_dir_all(parent).ok()?;
+    }
+    std::fs::write(cache_path, png_data.to_vec()).ok()?;
+    Some(())
+}
+
 #[cfg(target_os = "macos")]
 fn macos_application_icon_file(path: &Path) -> Option<PathBuf> {
     use std::process::{Command, Stdio};
@@ -63,22 +92,37 @@ fn macos_application_icon_file(path: &Path) -> Option<PathBuf> {
         .arg("CFBundleIconFile")
         .stderr(Stdio::null())
         .output()
-        .ok()?;
+        .ok();
 
-    if !output.status.success() {
-        return None;
+    if let Some(output) = output {
+        if output.status.success() {
+            let mut icon_file = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !icon_file.is_empty() {
+                if !icon_file.contains('.') {
+                    icon_file.push_str(".icns");
+                }
+                let icon_path = path.join("Contents").join("Resources").join(icon_file);
+                if icon_path.is_file() {
+                    return Some(icon_path);
+                }
+            }
+        }
     }
 
-    let mut icon_file = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if icon_file.is_empty() {
-        return None;
-    }
-    if !icon_file.contains('.') {
-        icon_file.push_str(".icns");
+    // Modern macOS apps bundle icons in Assets.car (e.g. CFBundleIconName = AppIcon)
+    let resources = path.join("Contents").join("Resources");
+    let assets_car = resources.join("Assets.car");
+    if assets_car.is_file() {
+        return Some(assets_car);
     }
 
-    let icon_path = path.join("Contents").join("Resources").join(icon_file);
-    icon_path.is_file().then_some(icon_path)
+    // Default icon fallback file if present
+    let default_icns = resources.join("AppIcon.icns");
+    if default_icns.is_file() {
+        return Some(default_icns);
+    }
+
+    None
 }
 
 #[cfg(target_os = "macos")]
@@ -96,17 +140,29 @@ fn macos_application_icon_path(path: &Path) -> Option<PathBuf> {
         std::fs::create_dir_all(parent).ok()?;
     }
 
-    let status = Command::new("sips")
-        .args(["-s", "format", "png"])
-        .arg(&icon_path)
-        .arg("--out")
-        .arg(&cache_path)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .ok()?;
+    // If it's a standalone .icns, try sips first
+    if icon_path.extension().and_then(|ext| ext.to_str()) == Some("icns") {
+        let status = Command::new("sips")
+            .args(["-s", "format", "png"])
+            .arg(&icon_path)
+            .arg("--out")
+            .arg(&cache_path)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .ok();
 
-    (status.success() && cache_path.is_file()).then_some(cache_path)
+        if status.is_some_and(|s| s.success()) && cache_path.is_file() {
+            return Some(cache_path);
+        }
+    }
+
+    // For Assets.car or if sips failed, extract natively via AppKit
+    if macos_extract_icon_appkit(path, &cache_path).is_some() && cache_path.is_file() {
+        return Some(cache_path);
+    }
+
+    None
 }
 
 #[cfg(target_os = "linux")]
@@ -223,3 +279,4 @@ fn sidecar_icon_path(path: &Path) -> Option<PathBuf> {
 
     None
 }
+
