@@ -1,4 +1,4 @@
-mod binds;
+pub(crate) mod binds;
 mod previewer;
 pub mod query_prompt;
 pub(crate) mod register;

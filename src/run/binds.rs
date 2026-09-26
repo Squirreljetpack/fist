@@ -35,6 +35,67 @@ pub fn default_binds() -> BindMap<FsAction> {
     fs
 }
 
+/// Keep only the low-risk bindings used by `fs :o --simple-ui`: navigation,
+/// selection, accept/quit, preview control, query editing, help, and autojump.
+/// File operations and pane switching are dropped.
+pub fn retain_simple_ui(binds: &mut BindMap<FsAction>) {
+    binds.filter_action(is_simple_ui_action);
+}
+
+fn is_simple_ui_action(a: &Action<FsAction>) -> bool {
+    use Action::*;
+    matches!(
+        a,
+        Up(_)
+            | Down(_)
+            | Pos(_)
+            | HalfPageUp
+            | HalfPageDown
+            | HScroll(_)
+            | VScroll(_)
+            | Select
+            | Deselect
+            | ToggleSelection
+            | CycleSelections
+            | ClearSelections
+            | Accept
+            | Quit(_)
+            | Char(_)
+            | ForwardChar
+            | BackwardChar
+            | ForwardWord
+            | BackwardWord
+            | DeleteChar
+            | DeleteWord
+            | DeleteLineStart
+            | DeleteLineEnd
+            | ClearQuery
+            | ClearQueryRight
+            | ClearQueryLeft
+            | QueryPos(_)
+            | Preview(_)
+            | Help(_)
+            | SetPreview(_)
+            | SwitchPreview(_)
+            | NextPreview
+            | PrevPreview
+            | TogglePreviewWrap
+            | PreviewUp(_)
+            | PreviewDown(_)
+            | PreviewHalfPageUp
+            | PreviewHalfPageDown
+            | PreviewJump
+            | ExpandPreview(_)
+            | ShrinkPreview(_)
+            | PreviewHScroll(_)
+            | PreviewScroll(_)
+            | ToggleWrap
+            | Redraw
+            | Trace(_)
+            | Custom(FsAction::AutoJump(_))
+    )
+}
+
 #[allow(unused)]
 /// mirrors settings in mm.toml
 fn config_as_code() -> BindMap<FsAction> {

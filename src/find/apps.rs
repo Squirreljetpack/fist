@@ -1,8 +1,11 @@
 use crate::{abspath::AbsPath, cli::paths::__home, db::Entry};
 use ignore::WalkBuilder;
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+use crate::lessfilter::application_has_icon;
+
 #[cfg(target_os = "macos")]
-pub fn collect_apps() -> Vec<Entry> {
+pub fn collect_apps(require_icon: bool) -> Vec<Entry> {
     use crate::find::walker::build_overrides;
 
     let roots = [
@@ -29,6 +32,7 @@ pub fn collect_apps() -> Vec<Entry> {
         .filter_map(Result::ok)
         .filter(|e| e.file_type().is_some_and(|t| t.is_dir()))
         .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("app"))
+        .filter(|e| !require_icon || application_has_icon(e.path()))
         .filter_map(|e| {
             let path = e.path();
 
@@ -43,7 +47,7 @@ pub fn collect_apps() -> Vec<Entry> {
 }
 
 #[cfg(target_os = "linux")]
-pub fn collect_apps() -> Vec<Entry> {
+pub fn collect_apps(require_icon: bool) -> Vec<Entry> {
     let dirs = [
         "/usr/share/applications",
         &format!("{}/.local/share/applications", __home().to_string_lossy()),
@@ -65,6 +69,7 @@ pub fn collect_apps() -> Vec<Entry> {
         .build()
         .filter_map(Result::ok)
         .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("desktop"))
+        .filter(|e| !require_icon || application_has_icon(e.path()))
         .filter_map(|e| {
             let path = e.path();
             let content = std::fs::read_to_string(path).ok()?;
@@ -124,7 +129,7 @@ pub fn collect_apps() -> Vec<Entry> {
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-pub fn collect_apps() -> Vec<Entry> {
+pub fn collect_apps(_require_icon: bool) -> Vec<Entry> {
     // todo
     Vec::new()
 }

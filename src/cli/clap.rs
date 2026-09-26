@@ -209,6 +209,11 @@ pub struct OpenCmd {
 
     #[arg(long)]
     pub list: bool,
+
+    /// Start with a minimal keymap: navigation, selection, accept/quit,
+    /// preview, and query editing only.
+    #[arg(short = 'o', long = "simple-ui")]
+    pub simple_ui: bool,
     /// initial query.
     // #[arg(long, default_value_t)]
     // pub query: String,
