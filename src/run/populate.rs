@@ -204,6 +204,7 @@ impl FsPane {
 
                 let _complete = complete.clone();
                 let _cwd = cwd.clone();
+                let _vis = vis;
                 let transform = transform.clone();
                 map_reader(
                     stdout,
@@ -253,7 +254,11 @@ impl FsPane {
                         {
                             GLOBAL::send_watcher(crate::watcher::WatcherMessage::Switch(
                                 _cwd.inner(),
-                                notify::RecursiveMode::Recursive,
+                                crate::watcher::WatchOptions {
+                                    hidden: _vis.hidden,
+                                    ignore: _vis.ignore,
+                                    recursive: true,
+                                },
                             ));
                         }
 

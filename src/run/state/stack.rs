@@ -14,7 +14,7 @@ use crate::{
         FsInjector, FsPane,
         state::{GLOBAL, InitialNoRelative, STORE},
     },
-    watcher::WatcherMessage,
+    watcher::{WatchOptions, WatcherMessage},
 };
 
 thread_local! {
@@ -205,14 +205,20 @@ impl STACK {
 
         let cfg = GLOBAL::cfg().clone();
         Self::with_current(|pane| {
-            let msg = match &pane {
-                FsPane::Nav { cwd, .. } | FsPane::Custom { cwd, .. } => {
-                    WatcherMessage::Switch(cwd.inner(), notify::RecursiveMode::NonRecursive)
+            let msg = match pane {
+                FsPane::Nav { cwd, vis, .. } | FsPane::Custom { cwd, vis, .. } => {
+                    WatcherMessage::Switch(
+                        cwd.inner(),
+                        WatchOptions {
+                            hidden: vis.hidden,
+                            ignore: vis.ignore,
+                            ..Default::default()
+                        },
+                    )
                 }
                 FsPane::Find { .. } | FsPane::Search { .. } => {
-                    // reload on small sizes?
+                    // Callback reloads on small sizes
                     WatcherMessage::Pause
-                    // WatcherMessage::Switch(cwd.inner())
                 }
                 _ => WatcherMessage::Pause,
             };
