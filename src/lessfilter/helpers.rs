@@ -14,7 +14,7 @@ use cba::{StringError, wbog};
 use cba::{bo::MapReaderError, bog::BogOkExt, broc::has, vec_};
 use crossterm::style::Stylize;
 
-pub use super::application_helper::application_icon_path;
+pub use super::application_helper::{application_has_icon, application_icon_path};
 use super::env::line_column;
 use crate::cli::paths::current_exe;
 use crate::config::pager_cfg;

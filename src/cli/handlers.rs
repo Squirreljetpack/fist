@@ -43,6 +43,7 @@ use crate::{
     lessfilter::{self, LessfilterConfig},
     run::{
         FsPane,
+        binds::retain_simple_ui,
         mm_config::{get_mm_binds, get_mm_cfg},
         start,
         state::{InitialNoRelative, InitialPreserveWhitespaceInSearch, STORE},
@@ -92,9 +93,13 @@ async fn handle_open(
     if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
         cfg.global.interface.no_multi_accept = true;
         // the files ride on the app pane; the program picked there opens them
+        let simple_ui = cmd.simple_ui;
         let pane = FsPane::new_apps(cmd.files.into_iter().map(AbsPath::new_unchecked).collect());
 
-        let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
+        let mut mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
+        if simple_ui {
+            retain_simple_ui(&mut mm_cfg.binds);
+        }
 
         start(pane, cfg, mm_cfg, pool, cli).await
     } else {

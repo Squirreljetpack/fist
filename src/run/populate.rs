@@ -497,6 +497,7 @@ impl FsPane {
             }
             Self::Apps { sort, .. } => {
                 let sort = *sort;
+                let require_icon = cfg.panes.app.require_icon;
                 let ret = tokio::spawn(async move {
                     let mut conn = db().get_conn(DbTable::apps).await.elog()?;
                     let entries = GLOBAL::get_db_entries(&mut conn, sort).await?;
@@ -515,7 +516,7 @@ impl FsPane {
                 if !STORE::contains::<RanRecache>() {
                     STORE::set(RanRecache);
                     tokio::spawn(async move {
-                        let mut entries = collect_apps();
+                        let mut entries = collect_apps(require_icon);
                         // initial population in order
                         entries.sort_by(|a, b| a.name.cmp(&b.name));
                         let mut conn = db().get_conn(DbTable::apps).await.elog()?;

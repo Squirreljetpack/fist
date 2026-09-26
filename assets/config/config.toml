@@ -28,6 +28,8 @@ fs_status_template = '''
 [panes.app]
 preview_layout_index = 3
 show_preview = true
+# Only list apps whose icon file can be resolved. Defaults to true on macOS.
+# require_icon = true
 
 ### SETTINGS ###
 
