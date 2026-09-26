@@ -83,7 +83,7 @@ pub const MATCHER_CONFIG: nucleo::Config = const { nucleo::Config::DEFAULT.match
 // -------------------------------------------------------------------------------------------
 
 pub fn get_mm_binds(path: &Path) -> (ResolvedBindMap<FsAction>, HelpDisplayConfig) {
-    let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
+    let mut mm_cfg: MMConfig = load_type_or_default(path, None, |s| toml::from_str(s));
     mm_cfg.binds.extend_from(default_binds());
 
     (mm_cfg.binds.resolve_semantics(&[]), mm_cfg.help)
@@ -93,7 +93,7 @@ pub fn get_mm_cfg(
     path: &Path,
     cfg: &Config,
 ) -> MMConfig {
-    let mut mm_cfg: MMConfig = load_type_or_default(path, |s| toml::from_str(s));
+    let mut mm_cfg: MMConfig = load_type_or_default(path, None, |s| toml::from_str(s));
     mm_cfg.binds.extend_from(default_binds());
 
     // Render display

@@ -368,7 +368,7 @@ async fn handle_default(
     // resolve custom `-t <group>` args against the lessfilter [categories] table
     let types = if cmd.types.iter().any(|t| matches!(t, FileTypeArg::Group(_))) {
         let lcfg: LessfilterConfig =
-            load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
+            load_type_or_default(lessfilter_cfg_path(), None, |s| toml::from_str(s));
         resolve_group_types(&cmd.types, &lcfg)
     } else {
         cmd.types.clone()
@@ -728,7 +728,7 @@ async fn handle_tools(
             let cmd = LessfilterCommand::parse_from(args);
 
             let lcfg: LessfilterConfig =
-                load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
+                load_type_or_default(lessfilter_cfg_path(), None, |s| toml::from_str(s));
 
             let mut handle = if !cmd.diagnose && lcfg.settings.tracked_presets.contains(&cmd.preset)
             {
@@ -907,7 +907,7 @@ async fn handle_tools(
 
             let TypesCommand { .. } = TypesCommand::parse_from(args);
             let lcfg: LessfilterConfig =
-                load_type_or_default(lessfilter_cfg_path(), |s| toml::from_str(s));
+                load_type_or_default(lessfilter_cfg_path(), None, |s| toml::from_str(s));
             display_types_overview(&lcfg.categories);
             Ok(())
         }

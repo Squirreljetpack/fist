@@ -241,8 +241,20 @@ impl Visibility {
             ..Default::default()
         }
     }
-    pub fn include_hidden(&self) -> bool {
-        self.hidden || self.hidden_only
+    pub fn hidden(&self) -> bool {
+        if self.all {
+            true
+        } else {
+            self.hidden || self.hidden_only
+        }
+    }
+
+    pub fn ignore(&self) -> bool {
+        if self.all {
+            false
+        } else {
+            self.ignore
+        }
     }
 
     pub fn validated(mut self) -> Self {
@@ -521,5 +533,39 @@ impl Visibility {
             self.no_follow = v;
         }
         *self = self.validated();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_visibility_hidden_and_ignore_when_all_is_false() {
+        let mut vis = Visibility::DEFAULT;
+        assert!(!vis.hidden());
+        assert!(!vis.ignore());
+
+        vis.hidden = true;
+        vis.ignore = true;
+        assert!(vis.hidden());
+        assert!(vis.ignore());
+
+        // hidden_only should also make hidden() true
+        vis.hidden = false;
+        vis.hidden_only = true;
+        assert!(vis.hidden());
+    }
+
+    #[test]
+    fn test_visibility_hidden_and_ignore_when_all_is_true() {
+        let mut vis = Visibility::DEFAULT;
+        vis.hidden = false;
+        vis.ignore = true;
+        vis.set_all(true);
+
+        assert!(vis.all());
+        assert!(vis.hidden());
+        assert!(!vis.ignore());
     }
 }

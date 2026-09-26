@@ -67,7 +67,7 @@ async fn main() {
     }
 
     // load config
-    let mut cfg: Config = load_type_or_default(&cli.opts.config, |s| toml::from_str(s));
+    let mut cfg: Config = load_type_or_default(&cli.opts.config, None, |s| toml::from_str(s));
     cfg.override_from(&cli.opts);
 
     // menu actions live in their own file (actions.toml + the actions/
