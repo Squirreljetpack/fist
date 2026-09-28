@@ -1,7 +1,7 @@
 # Pager configuration (bat passthrough into minus). See docs/pager.md.
 
 # Bat passthrough args (fs only). Commenting out this line disables bat entirely.
-bat_opts = ["--color=always", "--style=changes"]
+bat_opts = ["--color=always", "--style=rule"]
 
 # Show line numbers in the pager.
 line_numbers = false

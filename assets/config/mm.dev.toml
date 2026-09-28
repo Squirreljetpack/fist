@@ -93,7 +93,7 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 "ctrl-x" = "Move"
 "ctrl-c" = "Copy"
 "ctrl-n" = "New"
-"ctrl-shift-n" = "NewDir"
+"ctrl-shift-n" = "NewFolder"
 "ctrl-y" = "CopyPath"
 "delete" = "Trash"
 "shift-delete" = "Delete"

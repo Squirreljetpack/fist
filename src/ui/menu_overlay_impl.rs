@@ -24,7 +24,7 @@ use super::menu_overlay::MenuOverlay;
 pub enum PromptKind {
     New,
     #[strum(serialize = "New folder")]
-    NewDir,
+    NewFolder,
     Rename,
     #[strum(serialize = "Go to")]
     Goto,
@@ -130,7 +130,7 @@ impl MenuOverlay {
                     }
                 });
             }
-            PromptKind::NewDir => {
+            PromptKind::NewFolder => {
                 let current_item_parent = self.target_parent(state);
                 let input = self.prompt.input.value();
                 let dest = AbsPath::new_unchecked(Path::new(&input).abs(current_item_parent));
