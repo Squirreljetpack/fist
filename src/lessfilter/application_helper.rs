@@ -52,7 +52,10 @@ fn application_icon_cache_path(path: &Path) -> PathBuf {
 }
 
 #[cfg(target_os = "macos")]
-fn macos_extract_icon_appkit(app_path: &Path, cache_path: &Path) -> Option<()> {
+fn macos_extract_icon_appkit(
+    app_path: &Path,
+    cache_path: &Path,
+) -> Option<()> {
     use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSWorkspace};
     use objc2_foundation::{NSDictionary, NSString};
 
@@ -279,4 +282,3 @@ fn sidecar_icon_path(path: &Path) -> Option<PathBuf> {
 
     None
 }
-

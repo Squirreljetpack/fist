@@ -44,7 +44,7 @@ use ratatui::{
     widgets::{Borders, Clear, Padding, Paragraph},
 };
 
-const MAX_ITEM_WIDTH: u16 = 9;
+const MAX_ITEM_WIDTH: u16 = 10;
 
 /// Column headers of the menu's two-column results table.
 const MENU_COLUMNS: [&str; 2] = ["name", "alias"];
@@ -61,6 +61,12 @@ pub struct MenuConfig {
     /// When set, the builtin items get no aliases (custom actions keep their
     /// configured aliases).
     pub no_default_aliases: bool,
+    /// When set, removes Move, Copy, Open, and Trash from the menu.
+    pub compact: bool,
+    /// Minimum menu width.
+    pub min_width: u16,
+    /// Minimum menu height.
+    pub min_height: u16,
     pub results: ResultsConfig,
 }
 
@@ -81,6 +87,9 @@ impl Default for MenuConfig {
         Self {
             border: Err(border),
             no_default_aliases: false,
+            compact: false,
+            min_width: 16,
+            min_height: 12,
             results,
         }
     }
@@ -99,6 +108,7 @@ define_collection_wrapper!(
 #[derive(Clone)]
 pub enum MenuItem {
     New,
+    NewFolder,
     Rename,
     Move,
     Copy,
@@ -120,6 +130,7 @@ impl MenuItem {
     pub fn label(&self) -> &str {
         match self {
             MenuItem::New => "new",
+            MenuItem::NewFolder => "new folder",
             MenuItem::Rename => "rename",
             MenuItem::Move => "move",
             MenuItem::Copy => "copy",
@@ -137,6 +148,7 @@ impl MenuItem {
     pub fn alias(&self) -> Option<&str> {
         match self {
             MenuItem::New => Some("N"),
+            MenuItem::NewFolder => Some("F"),
             MenuItem::Rename => Some("R"),
             MenuItem::Move => Some("M"),
             MenuItem::Copy => Some("C"),
@@ -159,6 +171,7 @@ impl MenuItem {
     ) -> Result<MenuPrompt, bool> {
         match self {
             MenuItem::New => Ok(MenuPrompt::new(PromptKind::New)),
+            MenuItem::NewFolder => Ok(MenuPrompt::new(PromptKind::NewFolder)),
             MenuItem::Rename => Ok(rename_prompt_for(&path)),
             MenuItem::Move => {
                 TOAST::push(ToastStyle::Normal, "Move: ", [short_display(&path)]);
@@ -297,8 +310,9 @@ impl ColumnIndexable for MenuEntry {
     }
 }
 
-pub const MENU_ITEMS: [MenuItem; 10] = [
+pub const MENU_ITEMS: [MenuItem; 11] = [
     MenuItem::New,
+    MenuItem::NewFolder,
     MenuItem::Rename,
     MenuItem::Move,
     MenuItem::Copy,
@@ -491,6 +505,16 @@ impl MenuOverlay {
         // app pane, which lists custom actions instead
         let mut items = if STACK::in_app() {
             Vec::new()
+        } else if self.config.compact {
+            MENU_ITEMS
+                .into_iter()
+                .filter(|item| {
+                    !matches!(
+                        item,
+                        MenuItem::Move | MenuItem::Copy | MenuItem::Open | MenuItem::Trash
+                    )
+                })
+                .collect()
         } else {
             MENU_ITEMS.to_vec()
         };
@@ -720,17 +744,17 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
             [
                 SizeHint {
                     adaptive_percentage: MENU_WIDTH_POINTS,
-                    min: 18,
-                    max: content_width + self.border().width(),
+                    min: self.config.min_width + self.border().width(),
+                    max: (content_width + self.border().width())
+                        .max(self.config.min_width + self.border().width()),
                 },
                 SizeHint {
                     adaptive_percentage: &[],
-                    // 8 item rows, the query line, a blank spacer and the border;
                     // with no actions the overlay shrinks to the message and border
                     min: if self.menu_items.is_empty() {
                         2 + self.border().height()
                     } else {
-                        9 + self.query.height() + self.border().height()
+                        self.config.min_height + self.border().height()
                     },
                     max: 0,
                 },
@@ -982,7 +1006,7 @@ mod tests {
             "hotkey letter capitalized and bold: \n{text}"
         );
         assert!(
-            text.contains("open With"),
+            text.contains("new Folder"),
             "hotkey letter inside the label: \n{text}"
         );
         assert!(
@@ -1049,13 +1073,36 @@ mod tests {
         }
         let _ = render(&mut overlay);
         let text = render(&mut overlay);
-        assert!(text.contains("open with"), "items still listed:\n{text}");
-        assert!(!text.contains('W'), "no builtin aliases rendered:\n{text}");
+        assert!(text.contains("new folder"), "items still listed:\n{text}");
+        assert!(!text.contains('F'), "no builtin aliases rendered:\n{text}");
         let effect = {
             let o = &mut overlay as &mut dyn Overlay<FsAction, PathItem, ()>;
-            o.handle_input('W', &mut mm_state)
+            o.handle_input('F', &mut mm_state)
         };
         assert!(matches!(effect, OverlayEffect::None));
+
+        // with compact enabled, Move, Copy, Open, and Trash are omitted
+        let mut config = full_config();
+        config.compact = true;
+        let mut overlay = MenuOverlay::new(
+            config,
+            crate::ui::prompt_overlay::PromptConfig::default(),
+            crate::menu::MenuActions::default(),
+        );
+        {
+            let o = &mut overlay as &mut dyn Overlay<FsAction, PathItem, ()>;
+            o.on_enable(&UI_AREA, &mut mm_state);
+            o.area(
+                &UI_AREA,
+                &matchmaker::config::OverlayConfig::default().layout,
+            );
+        }
+        let _ = render(&mut overlay);
+        let text = render(&mut overlay);
+        assert!(
+            !text.contains("Move"),
+            "Move removed in compact mode:\n{text}"
+        );
     }
 
     #[test]
@@ -1078,5 +1125,48 @@ mod tests {
 
         let non_existent = AbsPath::new_unchecked(cwd.join("__non_existent_subpath_xyz__"));
         assert_eq!(super::current_dir_suffix(&non_existent), None);
+    }
+
+    #[tokio::test]
+    async fn test_menu_area_size_hints() {
+        let _bind_rx = init_globals();
+        let (mut ui, mut picker, mut footer, mut preview, mut state, tx) = offline_mm_state();
+        let mut mm_state = state.dispatcher(&mut ui, &mut picker, &mut footer, &mut preview, &tx);
+
+        let mut config = full_config();
+        config.min_width = 20;
+        config.min_height = 12;
+        let mut overlay = MenuOverlay::new(
+            config,
+            crate::ui::prompt_overlay::PromptConfig::default(),
+            crate::menu::MenuActions::default(),
+        );
+
+        {
+            let o = &mut overlay as &mut dyn Overlay<FsAction, PathItem, ()>;
+            o.on_enable(&UI_AREA, &mut mm_state);
+            let layout = matchmaker::config::OverlayConfig::default().layout;
+            o.area(&UI_AREA, &layout);
+        }
+
+        // In a large terminal (80x24), width is at least min_width + border.width() (20 + 2 = 22)
+        // and height is min_height + border.height() (12 + 3 = 15)
+        assert!(overlay.area.width >= 22);
+        assert_eq!(overlay.area.height, 15);
+
+        // In a terminal smaller than min width / height, default_area safely clamps to ui_area
+        let small_ui = Rect {
+            x: 0,
+            y: 0,
+            width: 12,
+            height: 8,
+        };
+        {
+            let o = &mut overlay as &mut dyn Overlay<FsAction, PathItem, ()>;
+            let layout = matchmaker::config::OverlayConfig::default().layout;
+            o.area(&small_ui, &layout);
+        }
+        assert!(overlay.area.width <= 12);
+        assert!(overlay.area.height <= 8);
     }
 }

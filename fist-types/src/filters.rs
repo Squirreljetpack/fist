@@ -250,11 +250,7 @@ impl Visibility {
     }
 
     pub fn ignore(&self) -> bool {
-        if self.all {
-            false
-        } else {
-            self.ignore
-        }
+        if self.all { false } else { self.ignore }
     }
 
     pub fn validated(mut self) -> Self {

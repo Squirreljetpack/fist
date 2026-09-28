@@ -129,7 +129,7 @@ pub enum FsAction {
     New,
     /// Create a new directory. Paths are relative to the current item's parent.
     // todo: lowpri: can also add a config option to compute relative to cwd
-    NewDir,
+    NewFolder,
     /// Set an alias for a file or directory.
     SetAlias(String),
     /// Rename a file or directory.
@@ -1534,7 +1534,7 @@ pub fn fsaction_handler(
         // loop, so the current overlay (e.g. the queue's rename editor)
         // gets first crack; when the menu itself is open they are handed
         // back so the menu can trigger the matching item.
-        FsAction::New | FsAction::NewDir | FsAction::Rename | FsAction::SetAlias(_) => {
+        FsAction::New | FsAction::NewFolder | FsAction::Rename | FsAction::SetAlias(_) => {
             if state.overlay_index() == Some(4) {
                 GLOBAL::send_action(a.clone());
                 return;
@@ -1547,10 +1547,10 @@ pub fn fsaction_handler(
                         GLOBAL::send_action(Action::Overlay(4));
                     }
                 }
-                FsAction::NewDir => {
+                FsAction::NewFolder => {
                     // no support for creating outside of nav
                     if state.current_raw().is_some() || STACK::nav_cwd().is_some() {
-                        STORE::set_menu_prompt(Some(MenuPrompt::new(PromptKind::NewDir)));
+                        STORE::set_menu_prompt(Some(MenuPrompt::new(PromptKind::NewFolder)));
                         GLOBAL::send_action(Action::Overlay(4));
                     }
                 }
@@ -1754,7 +1754,7 @@ enum_from_str_display! {
     Undo, Redo,
     ShowOptions, Help, ShowQueue,
     ShowMenu, CycleFilter, ToggleFilter,
-    Move, Copy, CopyPath, New, NewDir, Rename;
+    Move, Copy, CopyPath, New, NewFolder, Rename;
 
     tuples:
     AutoJump, SetAlias, Enqueue,
