@@ -141,7 +141,7 @@ pub(super) fn run_menu_lua_paged(
         };
 
         let feeder = std::thread::spawn(move || {
-            let _ = pager::page_reader(reader, true, bat);
+            let _ = pager::page_reader(reader, true, bat, pager::PagerOpts::default());
         });
 
         let result = execute(&source, paths, "", nav_cwd, None);

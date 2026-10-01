@@ -45,7 +45,13 @@ pub fn run(config: &LizaConfig) -> Result<(), CliError> {
     }
 
     if is_paged_view && io::stdout().is_terminal() {
-        page_reader(Cursor::new(buf), false, None).map_err(CliError::IoError)?;
+        page_reader(
+            Cursor::new(buf),
+            false,
+            None,
+            crate::pager::PagerOpts::default(),
+        )
+        .map_err(CliError::IoError)?;
     } else {
         let mut stdout = io::stdout().lock();
         stdout.write_all(&buf)?;

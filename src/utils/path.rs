@@ -41,6 +41,8 @@ pub fn default_directories() -> Vec<AbsPath> {
     ] {
         dirs.push(AbsPath::new_unchecked(home.join(dir)));
     }
+    #[cfg(target_os = "macos")]
+    dirs.push(AbsPath::new_unchecked("/Volumes"));
 
     #[cfg(target_os = "linux")]
     for dir in [

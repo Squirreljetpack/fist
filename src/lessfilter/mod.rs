@@ -135,7 +135,14 @@ pub fn handle(
                         // in-process render replacing the renderer subprocess:
                         // the singleton-exec optimization is lost for this path.
                         paths.iter().all(|path| {
-                            matches!(pager::render_text(path, env_bat_opts()), Ok(true))
+                            matches!(
+                                pager::render_text(
+                                    path,
+                                    env_bat_opts(),
+                                    pager::PagerOpts::default()
+                                ),
+                                Ok(true)
+                            )
                         })
                     }
                     CommandStrategy::ShowError(ref msg) => {
