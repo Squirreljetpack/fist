@@ -6,9 +6,6 @@ bat_opts = ["--color=always", "--style=rule"]
 # Show line numbers in the pager.
 line_numbers = false
 
-# Start the pager in follow mode (auto-scroll as new output arrives).
-follow = false
-
 # Footer prompt text shown by the pager.
 # prompt = ""
 
@@ -18,3 +15,11 @@ horizontal_scroll = false
 # Smart case search: when enabled, queries with no uppercase characters
 # match case-insensitively; queries containing uppercase stay case-sensitive.
 smart_case = true
+
+# When enabled, appends --style=+changes or --style=-changes to bat args
+# based on whether the file has unstaged git changes.
+smart_changes = true
+
+# Command to run when the pager is given a directory path.
+# {} is replaced with the directory path. Empty list disables this.
+display_directory = ["fs", ":tool", "liza", ":u2", "--", "{}"]

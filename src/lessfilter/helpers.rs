@@ -436,5 +436,11 @@ pub fn extract(path: &Path) -> bool {
     };
 
     // pipe kreuzberg's plain text straight into the in-process pager
-    pager::page_reader(kreuzberg, false, env_bat_opts()).is_ok()
+    pager::page_reader(
+        kreuzberg,
+        false,
+        env_bat_opts(),
+        pager::PagerOpts::default(),
+    )
+    .is_ok()
 }

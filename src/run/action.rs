@@ -15,8 +15,9 @@ use matchmaker::{
     acs,
     action::{Action, Actions},
     message::Interrupt,
-    nucleo::{Color, Modifier, Span, Style},
+    nucleo::{Color, Span, Style},
 };
+use ratatui::style::Stylize;
 use ratatui::text::{Line, Text};
 
 use crate::run::state::GLOBAL::db;
@@ -114,7 +115,7 @@ pub enum FsAction {
     ShowMenu,
     /// Cycle sort order (in database/stash panes) or directory/file visibility (in other panes).
     CycleFilter,
-    /// Toggle between frecency and atime sorting (in database panes) or toggle hidden file visibility (in other panes).
+    /// Toggle between frecency and atime ordering (in database panes) or toggle hidden file visibility (in other panes).
     ToggleFilter,
 
     // file actions
@@ -1353,7 +1354,30 @@ pub fn fsaction_handler(
                         | FsPane::Stash { .. }
                 )
             }) {
-                STACK::with_current_mut(|p| p.sort_mut().cycle());
+                let (sort, db) = STACK::with_current_mut(|p| {
+                    let db = matches!(
+                        p,
+                        FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
+                    );
+                    let sort = p.sort_mut();
+                    sort.cycle();
+                    (*sort, db)
+                });
+                let style = Style::new().fg(Color::Yellow);
+                let label = match (sort, db) {
+                    (SortOrder::none, true) => "frecency",
+                    (SortOrder::atime, true) => "recent",
+                    (SortOrder::size, true) => "count",
+                    (SortOrder::name, true) => "name",
+                    (SortOrder::mtime, true) => "mtime",
+                    (SortOrder::none, false) => "default",
+                    (SortOrder::atime, false) => "atime",
+                    (SortOrder::mtime, false) => "mtime",
+                    (SortOrder::size, false) => "size",
+                    (SortOrder::name, false) => "name",
+                };
+                TOAST::remove("showing: ");
+                TOAST::replace(style, "ordering: ", Span::raw(label).italic());
                 GLOBAL::send_action(FsAction::Refilter);
             } else {
                 let changed = STACK::with_current_mut(|p| {
@@ -1385,24 +1409,39 @@ pub fn fsaction_handler(
                     FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
                 )
             }) {
-                STACK::with_current_mut(|p| {
+                let sort = STACK::with_current_mut(|p| {
                     let sort = p.sort_mut();
                     *sort = match *sort {
                         SortOrder::atime => SortOrder::none,
                         _ => SortOrder::atime,
                     };
+                    *sort
                 });
+                let style = Style::new().fg(Color::Yellow);
+                TOAST::remove("showing: ");
+                match sort {
+                    SortOrder::none => {
+                        TOAST::replace(style, "ordering: ", Span::raw("frecency").italic())
+                    }
+                    SortOrder::atime => {
+                        TOAST::replace(style, "ordering: ", Span::raw("recent").italic())
+                    }
+                    _ => {}
+                };
                 GLOBAL::send_action(FsAction::Refilter);
             } else {
                 let changed = STACK::with_current_mut(|p| {
                     if let Some(vis) = p.vis_mut() {
-                        let style = Style::new().add_modifier(Modifier::DIM).italic();
+                        let style = Style::new().fg(Color::Yellow);
+                        TOAST::remove("ordering: ");
                         if vis.hidden || vis.all() {
                             vis.set_default();
-                            TOAST::msg(Span::styled("Default filters", style), true);
+                            TOAST::replace(style, "showing: ", Span::raw("default").italic())
+                            // TOAST::msg(Span::styled("Default filters", style), true);
                         } else {
                             vis.hidden = true;
-                            TOAST::msg(Span::styled("Showing hidden", style), true);
+                            TOAST::replace(style, "showing: ", Span::raw("hidden").italic())
+                            // TOAST::msg(Span::styled("Showing hidden", style), true);
                         }
                         true
                     } else {

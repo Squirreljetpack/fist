@@ -45,9 +45,10 @@ use crate::{
     run::{
         FsPane,
         populate_rg::{BufItem, MultilineRgParser, flush_rg_buffer, process_rg_line},
-        state::{RanRecache, STORE, ShouldNotAbortOnEmpty, TOAST},
+        state::{RanRecache, STORE, ShouldNotAbortOnEmpty, TOAST, ToastFlags, ToastStyle},
     },
 };
+use matchmaker::nucleo::Span;
 use fist_types::filters::SortOrder;
 
 // todo: when do we need be able to restart after STOP
@@ -503,12 +504,21 @@ impl FsPane {
             Self::Apps { sort, .. } => {
                 let sort = *sort;
                 let require_icon = cfg.panes.app.require_icon;
+                let is_recaching = !STORE::contains::<RanRecache>();
                 let ret = tokio::spawn(async move {
                     let mut conn = db().get_conn(DbTable::apps).await.elog()?;
                     let entries = GLOBAL::get_db_entries(&mut conn, sort).await?;
 
                     if toast_on_empty && entries.is_empty() {
                         TOAST::toast_empty();
+                        if is_recaching {
+                            TOAST::push_with_flag(
+                                ToastStyle::Normal,
+                                "Populating apps, ",
+                                [Span::raw("please wait")],
+                                ToastFlags::empty(),
+                            );
+                        }
                     }
 
                     for e in entries {
@@ -518,7 +528,7 @@ impl FsPane {
 
                     Ok(())
                 });
-                if !STORE::contains::<RanRecache>() {
+                if is_recaching {
                     STORE::set(RanRecache);
                     tokio::spawn(async move {
                         let mut entries = collect_apps(require_icon);

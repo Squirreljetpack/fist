@@ -210,6 +210,19 @@ impl TOAST {
         GLOBAL::send_action(FsAction::set_footer(footer));
     }
 
+    /// Remove any active toast line matching the given prefix.
+    pub fn remove(prefix: &str) {
+        let mut state = TOAST.lock().unwrap();
+        state.retain(|line| line.prefix.content != prefix);
+
+        let footer = if state.is_empty() {
+            None
+        } else {
+            Some(make_toast(&state))
+        };
+        GLOBAL::send_action(FsAction::set_footer(footer));
+    }
+
     /// Push items under a styled prefix group, merging into existing groups if present.
     ///
     /// ### Example:
@@ -606,6 +619,39 @@ mod tests {
                 state[0].flags,
                 ToastFlags::PERSIST_CURSOR | ToastFlags::PERSIST_PANE
             );
+        }
+    }
+
+    #[test]
+    fn test_toast_remove() {
+        let _guard = TEST_LOCK.lock().unwrap();
+        GLOBAL::init_test_senders();
+        {
+            let mut state = TOAST.lock().unwrap();
+            state.clear();
+        }
+
+        TOAST::replace(ToastStyle::Normal, "sorting: ", Span::raw("recent"));
+        TOAST::replace(ToastStyle::Normal, "showing: ", Span::raw("hidden"));
+
+        {
+            let state = TOAST.lock().unwrap();
+            assert_eq!(state.len(), 2);
+        }
+
+        TOAST::remove("sorting: ");
+
+        {
+            let state = TOAST.lock().unwrap();
+            assert_eq!(state.len(), 1);
+            assert_eq!(state[0].prefix.content, "showing: ");
+        }
+
+        TOAST::remove("showing: ");
+
+        {
+            let state = TOAST.lock().unwrap();
+            assert_eq!(state.len(), 0);
         }
     }
 }
