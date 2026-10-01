@@ -193,7 +193,8 @@ pub enum FsAction {
     ResortSizes,
     /// Sync visibility pane ← global, then reload (db/rg/vis change) or fill+resort (sort change).
     Refilter,
-    AcceptPrompt,
+    /// Accept on the prompt cwd: `true` prints, `false` opens.
+    AcceptPrompt(bool),
     Filtering(Option<bool>),
     SetStatus(Option<Line<'static>>),
 
@@ -493,10 +494,9 @@ pub fn fsaction_aliaser(
             }
 
             // Accept (enter) and Print("") (alt-enter) share one arm: the
-            // print-vs-open decision lives in the make_mm accept hook, which
-            // reads the AcceptFlavor flag set here. Non-empty Print payloads
-            // pass through to the interrupt handler untouched. Print is not
-            // intercepted by the prompt mode.
+            // print-vs-open decision for list items lives in the make_mm accept hook
+            // via AcceptFlavor, while prompt interactions dispatch AcceptPrompt(print_flavor).
+            // Non-empty Print payloads pass through to the interrupt handler untouched.
             Action::Accept | Action::Print(_) => {
                 // non-empty Print payloads pass through to the interrupt handler;
                 // overlays own accept keys while open
@@ -504,25 +504,28 @@ pub fn fsaction_aliaser(
                     || state.overlay_index().is_some()
                 {
                     acs![a]
-                } else if in_prompt() && matches!(a, Action::Accept) {
-                    if state.picker_ui.results.cursor_disabled() {
-                        // already locked: accept on the cwd
-                        acs![FsAction::AcceptPrompt]
-                    } else if enter_prompt(state) {
-                        // first accept in the prompt: lock onto the cwd, swallow
-                        acs![]
-                    } else {
-                        acs![a]
-                    }
                 } else {
-                    // alt_accept swaps the two flavors (XOR); apps always open
                     let is_print = matches!(a, Action::Print(_));
                     let print_flavor =
                         (GLOBAL::cfg().interface.alt_accept ^ is_print) && !STACK::in_app();
-                    if print_flavor {
-                        STORE::set(AcceptFlavor);
+
+                    if in_prompt() {
+                        if state.picker_ui.results.cursor_disabled() {
+                            acs![FsAction::AcceptPrompt(print_flavor)]
+                        } else if enter_prompt(state) {
+                            acs![]
+                        } else {
+                            if print_flavor {
+                                STORE::set(AcceptFlavor);
+                            }
+                            acs![Action::Accept]
+                        }
+                    } else {
+                        if print_flavor {
+                            STORE::set(AcceptFlavor);
+                        }
+                        acs![Action::Accept]
                     }
-                    acs![Action::Accept]
                 }
             }
 
@@ -1539,10 +1542,9 @@ pub fn fsaction_handler(
             state.set_interrupt(Interrupt::Execute, key);
         }
 
-        FsAction::AcceptPrompt => {
+        FsAction::AcceptPrompt(is_print) => {
             if let Some(p) = STACK::nav_cwd() {
-                if GLOBAL::cfg().interface.alt_accept {
-                    // same as below
+                if is_print {
                     let s = p.display().to_string();
                     print_handle.push(s);
 
@@ -1564,7 +1566,17 @@ pub fn fsaction_handler(
                     }
                 }
             } else if let Some(cwd) = STACK::cwd() {
-                enter_dir_pane(state, cwd);
+                if is_print {
+                    let s = cwd.display().to_string();
+                    print_handle.push(s);
+
+                    db().bump_path(true, cwd);
+
+                    state.picker_ui.clear_selections();
+                    state.should_quit = true;
+                } else {
+                    enter_dir_pane(state, cwd);
+                }
             }
         }
 
@@ -1877,7 +1889,7 @@ macro_rules! enum_from_str_display {
                                         write!(f, "ClearQueue({selector})")
                                     }
                                 }
-                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | ResortSizes | Refilter | AcceptPrompt | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionSilent(_) | MenuActionExecPaged(_) => Ok(()), // internal
+                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | ResortSizes | Refilter | AcceptPrompt(_) | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionSilent(_) | MenuActionExecPaged(_) => Ok(()), // internal
                                 Lessfilter { preset, paging, .. } => {
                                     if *paging {
                                         write!(f, "LFPaged({preset})")

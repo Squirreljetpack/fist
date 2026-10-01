@@ -23,11 +23,10 @@ $${Z_NAME}() {
       ;;
   esac)" || return
 
-  line="$(printf '%s\n' "$results" | head -n 1)"
-  if [ -d "$line" ]; then
-    cd "$line" || return
+  if [ -d "$results" ]; then
+    cd "$results" || return
   else
-    echo "$line" && line="$(dirname "$line")" && [ -d "$line" ] && cd "$line" || return
+    echo "$results" && line="$(dirname "$results")" && [ -d "$line" ] && cd "$line" || return
   fi
 }
 
@@ -94,12 +93,11 @@ function $${Z_NAME}
     end
     test $status -eq 0; or return
 
-    set -l line "$results[1]"
-    if test -d "$line"
-        cd "$line"; or return
+    if test -d "$results"
+        cd "$results"; or return
     else
-        echo "$line"
-        set -l parent (dirname -- "$line")
+        echo "$results"
+        set -l parent (dirname -- "$results")
         test -d "$parent"; and cd "$parent"; or return
     end
 end
@@ -173,16 +171,16 @@ __fist_dir_widget() {
 __fist_file_widget() {
   emulate -L zsh
   setopt localoptions pipefail
-  local line results
+  local results item
 
-  results="$($${BINARY_PATH} --opener="$${FILEW_CMD}" :: $${FILEW_ARGS})" || { zle push-line && zle accept-line; return 1; }
+  results="$($${BINARY_PATH} --opener="$${FILEW_CMD}" '--output-sep=\0' :: $${FILEW_ARGS})" || { zle push-line && zle accept-line; return 1; }
 
   read -r LBUFFER <<< "$LBUFFER"
-  while IFS= read -r line; do
-    if [ -n "$line" ]; then
-      LBUFFER="${LBUFFER% } '$line' "
+  for item in "${(@0)results}"; do
+    if [ -n "$item" ]; then
+      LBUFFER="${LBUFFER% } '$item' "
     fi
-  done <<< "$results"
+  done
 
   { zle push-line && zle accept-line; }
 }
@@ -190,16 +188,16 @@ __fist_file_widget() {
 __fist_rg_widget() {
   emulate -L zsh
   setopt localoptions pipefail
-  local line results
+  local results item
 
-  results="$($${BINARY_PATH} --opener="$${RGW_CMD}" :rg $${RGW_ARGS})" || { zle push-line && zle accept-line; return 1; }
+  results="$($${BINARY_PATH} --opener="$${RGW_CMD}" '--output-sep=\0' :rg $${RGW_ARGS})" || { zle push-line && zle accept-line; return 1; }
 
   read -r LBUFFER <<< "$LBUFFER"
-  while IFS= read -r line; do
-    if [ -n "$line" ]; then
-      LBUFFER="${LBUFFER% } '$line' "
+  for item in "${(@0)results}"; do
+    if [ -n "$item" ]; then
+      LBUFFER="${LBUFFER% } '$item' "
     fi
-  done <<< "$results"
+  done
 
   { zle push-line && zle accept-line; }
 }
@@ -247,10 +245,8 @@ __fist_dir_widget() {
 }
 
 __fist_file_widget() {
-  local results line
-  results="$($${BINARY_PATH} --opener="$${FILEW_CMD}" :: $${FILEW_ARGS})" || return 1
-
-  while IFS= read -r line; do
+  local line
+  while IFS= read -r -d '' line; do
     if [[ -n "$line" ]]; then
       if [[ -n "$READLINE_LINE" ]]; then
         READLINE_LINE="${READLINE_LINE% } '$line' "
@@ -258,15 +254,13 @@ __fist_file_widget() {
         READLINE_LINE="'$line' "
       fi
     fi
-  done <<< "$results"
+  done < <($${BINARY_PATH} --opener="$${FILEW_CMD}" '--output-sep=\0' :: $${FILEW_ARGS}) || return 1
   READLINE_POINT=${#READLINE_LINE}
 }
 
 __fist_rg_widget() {
-  local results line
-  results="$($${BINARY_PATH} --opener="$${RGW_CMD}" :rg $${RGW_ARGS})" || return 1
-
-  while IFS= read -r line; do
+  local line
+  while IFS= read -r -d '' line; do
     if [[ -n "$line" ]]; then
       if [[ -n "$READLINE_LINE" ]]; then
         READLINE_LINE="${READLINE_LINE% } '$line' "
@@ -274,7 +268,7 @@ __fist_rg_widget() {
         READLINE_LINE="'$line' "
       fi
     fi
-  done <<< "$results"
+  done < <($${BINARY_PATH} --opener="$${RGW_CMD}" '--output-sep=\0' :rg $${RGW_ARGS}) || return 1
   READLINE_POINT=${#READLINE_LINE}
 }
 
@@ -307,22 +301,18 @@ function __fist_dir_widget
 end
 
 function __fist_file_widget
-    set -l results ($${BINARY_PATH} --opener="$${FILEW_CMD}" :: $${FILEW_ARGS})
-    test $status -eq 0; or begin; commandline -f repaint; return 1; end
-
-    for line in $results
+    $${BINARY_PATH} --opener="$${FILEW_CMD}" '--output-sep=\0' :: $${FILEW_ARGS} | while read -z -l line
         test -n "$line"; and commandline -i " '$line' "
     end
+    test $pipestatus[1] -eq 0; or begin; commandline -f repaint; return 1; end
     commandline -f repaint
 end
 
 function __fist_rg_widget
-    set -l results ($${BINARY_PATH} --opener="$${RGW_CMD}" :rg $${RGW_ARGS})
-    test $status -eq 0; or begin; commandline -f repaint; return 1; end
-
-    for line in $results
+    $${BINARY_PATH} --opener="$${RGW_CMD}" '--output-sep=\0' :rg $${RGW_ARGS} | while read -z -l line
         test -n "$line"; and commandline -i " '$line' "
     end
+    test $pipestatus[1] -eq 0; or begin; commandline -f repaint; return 1; end
     commandline -f repaint
 end
 
@@ -355,7 +345,7 @@ def --env $${Z_NAME} [...args: string] {
         return
     }
 
-    let line = ($results | lines | first | str trim)
+    let line = ($results | str trim)
     if ($line | is-empty) {
         return
     }
@@ -446,12 +436,11 @@ def --env __fist_dir_widget [] {
 }
 
 def --env __fist_file_widget [] {
-    let results = (^$${BINARY_PATH} $"--opener=$${FILEW_CMD}" "::" $${FILEW_ARGS} | str trim)
+    let results = (^$${BINARY_PATH} $"--opener=$${FILEW_CMD}" '--output-sep=\0' "::" $${FILEW_ARGS} | str trim)
     if ($results | is-empty) {
         return
     }
-    for line in ($results | lines) {
-        let item = ($line | str trim)
+    for item in ($results | split row (char nul)) {
         if not ($item | is-empty) {
             commandline edit --insert $" '($item)' "
         }
@@ -459,12 +448,11 @@ def --env __fist_file_widget [] {
 }
 
 def --env __fist_rg_widget [] {
-    let results = (^$${BINARY_PATH} $"--opener=$${RGW_CMD}" ":rg" $${RGW_ARGS} | str trim)
+    let results = (^$${BINARY_PATH} $"--opener=$${RGW_CMD}" '--output-sep=\0' ":rg" $${RGW_ARGS} | str trim)
     if ($results | is-empty) {
         return
     }
-    for line in ($results | lines) {
-        let item = ($line | str trim)
+    for item in ($results | split row (char nul)) {
         if not ($item | is-empty) {
             commandline edit --insert $" '($item)' "
         }
