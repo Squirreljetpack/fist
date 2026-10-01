@@ -13,6 +13,7 @@ use std::{
     io::BufRead,
     path::{MAIN_SEPARATOR_STR, Path, PathBuf},
     process::{Command, exit},
+    sync::{Arc, atomic::AtomicBool},
 };
 
 use cba::{
@@ -685,29 +686,225 @@ async fn handle_tools(
             {
                 args.remove(0);
             }
-            let bat = lessfilter::env_bat_opts();
-            let code = match args.as_slice() {
-                // No path: page stdin (empty input pages nothing and exits 0).
-                [] => crate::pager::page_reader(
+
+            // Parse optional leading +OFFSET arg (+N, +Np, +F).
+            let offset_arg: Option<String> = if args
+                .first()
+                .is_some_and(|a| a.to_string_lossy().starts_with('+'))
+            {
+                Some(args.remove(0).to_string_lossy().into_owned())
+            } else {
+                None
+            };
+
+            // Parse -C N / --context N (anywhere in the remaining args).
+            let mut context: Option<usize> = None;
+            let mut i = 0;
+            while i < args.len() {
+                let s = args[i].to_string_lossy();
+                if s == "-C" || s == "--context" {
+                    if let Some(val) = args
+                        .get(i + 1)
+                        .and_then(|v| v.to_string_lossy().parse::<usize>().ok())
+                    {
+                        context = Some(val);
+                        args.drain(i..=i + 1);
+                        continue;
+                    }
+                }
+                i += 1;
+            }
+
+            // Remaining args: at most one file path.
+            if args.len() > 1 {
+                ebog!("fs :tool pager accepts at most one optional path");
+                exit(2);
+            }
+            let file_path: Option<PathBuf> = args.first().map(PathBuf::from);
+
+            // Directory path: delegate to display_directory command.
+            if let Some(ref path) = file_path {
+                if path.is_dir() {
+                    let cmd = crate::config::pager_cfg().display_directory.clone();
+                    if !cmd.is_empty() {
+                        let expanded: Vec<String> = cmd
+                            .iter()
+                            .map(|s| {
+                                if s == "{}" {
+                                    path.to_string_lossy().into_owned()
+                                } else {
+                                    s.clone()
+                                }
+                            })
+                            .collect();
+                        let code = Command::new(&expanded[0])
+                            .args(&expanded[1..])
+                            .status()
+                            .map(|s| s.code().unwrap_or(1))
+                            .unwrap_or(1);
+                        exit(code);
+                    }
+                    // Empty display_directory: fall through to bat (produces its own error).
+                }
+            }
+
+            // Interpret the +OFFSET arg.
+            let mut follow = false;
+            let mut target_line: Option<usize> = None;
+            if let Some(ref offset) = offset_arg {
+                let s = offset.trim_start_matches('+');
+                if s.eq_ignore_ascii_case("f") {
+                    follow = true;
+                } else if let Some(pct_str) = s.strip_suffix(['p', 'P']) {
+                    if let Ok(pct) = pct_str.parse::<usize>() {
+                        if let Some(ref path) = file_path {
+                            let total = crate::pager::count_lines(path).unwrap_or(0);
+                            if total > 0 {
+                                target_line = Some((total * pct / 100).max(1));
+                            }
+                        }
+                    }
+                } else if let Ok(n) = s.parse::<usize>() {
+                    target_line = Some(n);
+                }
+            }
+
+            // Base bat opts (from env / pager config).
+            let mut bat = lessfilter::env_bat_opts();
+
+            // smart_changes: add --style=+changes or --style=-changes based on
+            // whether the file has git changes. Skipped for follow mode.
+            if !follow {
+                if let Some(ref path) = file_path {
+                    if crate::config::pager_cfg().smart_changes {
+                        if let Some(ref mut opts) = bat {
+                            let style = if crate::pager::has_git_changes(path) {
+                                "--style=+changes"
+                            } else {
+                                "--style=-changes"
+                            };
+                            opts.push(style.to_string());
+                        }
+                    }
+                }
+            }
+
+            // Follow mode: no windowing; add --file-name for syntax detection.
+            if follow {
+                let code = if let Some(ref path) = file_path {
+                    // +F with file: live tail via FileTailer.
+                    if let Some(ref mut opts) = bat {
+                        opts.push("--file-name".to_string());
+                        opts.push(path.to_string_lossy().into_owned());
+                    }
+                    let stop = Arc::new(AtomicBool::new(false));
+                    match crate::pager::FileTailer::new(path, stop.clone()) {
+                        Ok(tailer) => crate::pager::page_reader(
+                            tailer,
+                            false,
+                            bat,
+                            crate::pager::PagerOpts {
+                                follow: true,
+                                stop: Some(stop),
+                                ..Default::default()
+                            },
+                        )
+                        .map(|_| 0)
+                        .unwrap_or(1),
+                        Err(e) => {
+                            ebog!("pager: cannot open {}: {e}", path.display());
+                            1
+                        }
+                    }
+                } else {
+                    // +F stdin: auto-scroll only.
+                    crate::pager::page_reader(
+                        std::io::stdin(),
+                        false,
+                        bat.filter(|v| !v.is_empty()),
+                        crate::pager::PagerOpts {
+                            follow: true,
+                            ..Default::default()
+                        },
+                    )
+                    .map(|_| 0)
+                    .unwrap_or(1)
+                };
+                exit(code);
+            }
+
+            // Non-follow: compute bat line-range / highlight args and pager scroll.
+            let (scroll_to, fallback_range, bat_final) = if let Some(n) = target_line {
+                match context {
+                    None => {
+                        // +N: no highlight; non-TTY shows lines N…EOF.
+                        let bat_final = bat.map(|mut opts| {
+                            opts.push("--line-range".to_string());
+                            opts.push(format!("{}:", n));
+                            opts
+                        });
+                        (Some(n.saturating_sub(1)), Some((n, None)), bat_final)
+                    }
+                    Some(0) => {
+                        // +N -C 0: highlight N, whole document, scroll to N.
+                        let bat_final = bat.map(|mut opts| {
+                            opts.push("--highlight-line".to_string());
+                            opts.push(n.to_string());
+                            opts
+                        });
+                        (Some(n.saturating_sub(1)), None, bat_final)
+                    }
+                    Some(c) => {
+                        // +N -C C: highlight N, window [start, end].
+                        let start = n.saturating_sub(c).max(1);
+                        let end = n + c;
+                        let bat_final = bat.map(|mut opts| {
+                            opts.push("--highlight-line".to_string());
+                            opts.push(n.to_string());
+                            opts.push("--line-range".to_string());
+                            opts.push(format!("{}:{}", start, end));
+                            opts
+                        });
+                        (
+                            Some(start.saturating_sub(1)),
+                            Some((start, Some(end))),
+                            bat_final,
+                        )
+                    }
+                }
+            } else {
+                (None, None, bat)
+            };
+
+            let code = match file_path {
+                None => crate::pager::page_reader(
                     std::io::stdin(),
                     false,
-                    bat.filter(|v| !v.is_empty()),
+                    bat_final.filter(|v| !v.is_empty()),
+                    crate::pager::PagerOpts {
+                        scroll_to,
+                        fallback_range,
+                        ..Default::default()
+                    },
                 )
                 .map(|_| 0)
                 .unwrap_or(1),
-                // Single path: render the file; bat opens it directly. Nothing
-                // rendered (the file cannot be opened) is an error: exit 1.
-                [path] => match crate::pager::render_text(Path::new(path), bat) {
+                Some(ref path) => match crate::pager::render_text(
+                    path,
+                    bat_final,
+                    crate::pager::PagerOpts {
+                        scroll_to,
+                        fallback_range,
+                        ..Default::default()
+                    },
+                ) {
                     Ok(true) => 0,
                     Ok(false) | Err(_) => 1,
                 },
-                _ => {
-                    ebog!("fs :tool pager accepts at most one optional path");
-                    2
-                }
             };
             exit(code)
         }
+
         SubTool::Liza { args } => crate::cli::liza::handle(args),
         SubTool::Shell { mut args } => {
             // note: this seems to already be the short path of the exe, not that im complaining

@@ -13,9 +13,6 @@ pub struct PagerConfig {
     /// Show line numbers in the pager.
     pub line_numbers: bool,
 
-    /// Start the pager in follow mode (auto-scroll as new output arrives).
-    pub follow: bool,
-
     /// Footer prompt text shown by the pager.
     pub prompt: Option<String>,
 
@@ -25,6 +22,20 @@ pub struct PagerConfig {
     /// Smart case search: queries with no uppercase characters match case-
     /// insensitively, queries containing uppercase stay case-sensitive.
     pub smart_case: bool,
+
+    /// When true, appends `--style=+changes` or `--style=-changes` to bat args
+    /// based on whether the file has unstaged git changes.
+    pub smart_changes: bool,
+
+    /// Command + args to run when given a directory path.
+    /// `{}` element is replaced with the directory path at invocation time.
+    /// Empty vec disables the branch — directories pass through to bat.
+    pub display_directory: Vec<String>,
+
+    /// Start the pager in follow mode (auto-scroll as new output arrives).
+    /// Set by the `+F` CLI arg, not the config file.
+    #[serde(skip)]
+    pub follow: bool,
 }
 
 impl Default for PagerConfig {
@@ -35,7 +46,16 @@ impl Default for PagerConfig {
             follow: false,
             prompt: None,
             horizontal_scroll: false,
-            smart_case: true, // nonstandard in the terminal but conventional in modern apps
+            smart_case: true,
+            smart_changes: false,
+            display_directory: vec![
+                "fs".into(),
+                ":tool".into(),
+                "liza".into(),
+                ":u2".into(),
+                "--".into(),
+                "{}".into(),
+            ],
         }
     }
 }

@@ -19,6 +19,11 @@ pub(super) fn register_help_handler(
 
         let resolved = resolve_static_preview(&Text::default(), &help_factory, &help_config);
         let ansi_text = text_to_ansi(&resolved);
-        let _ = crate::pager::page_reader(std::io::Cursor::new(ansi_text.into_bytes()), true, None);
+        let _ = crate::pager::page_reader(
+            std::io::Cursor::new(ansi_text.into_bytes()),
+            true,
+            None,
+            crate::pager::PagerOpts::default(),
+        );
     });
 }

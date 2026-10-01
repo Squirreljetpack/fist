@@ -4,10 +4,12 @@ bat_opts = ["--color=always", "--style=changes"]
 
 line_numbers = false
 
-follow = false
-
 # prompt = ""
 
 horizontal_scroll = false
 
 smart_case = false
+
+smart_changes = true
+
+display_directory = ["fs", ":tool", "liza", ":u2", "--", "{}"]
