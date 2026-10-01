@@ -377,7 +377,9 @@ pub fn emit_print(
         display.push_str(output_sep);
         print_handle.push(display);
     } else {
+        use std::io::Write;
         print!("{}{}", display, output_sep);
+        let _ = std::io::stdout().flush();
     }
 }
 

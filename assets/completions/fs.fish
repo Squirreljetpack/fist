@@ -1,6 +1,6 @@
 # Print an optspec for argparse to handle cmd's options that are independent of any subcommand.
 function __fish_fs_global_optspecs
-    string join \n q v override= config= mm-config= dump-config style= fullscreen= lock-prompt= alt-accept output-sep= format= opener= sort= h H i I u U F f cd t/types= transform= list help V/version
+    string join \n q v config= mm-config= dump-config style= fullscreen= lock-prompt= alt-accept output-sep= format= opener= sort= h H i I u U F f cd t/types= transform= list help V/version
 end
 
 function __fish_fs_needs_command
@@ -24,7 +24,6 @@ function __fish_fs_using_subcommand
     contains -- $cmd[1] $argv
 end
 
-complete -c fs -n "__fish_fs_needs_command" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_needs_command" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_needs_command" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_needs_command" -l style -r -f -a "icons\t''
@@ -50,16 +49,16 @@ complete -c fs -n "__fish_fs_needs_command" -s t -l types -d 'restrict search to
 complete -c fs -n "__fish_fs_needs_command" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
 complete -c fs -n "__fish_fs_needs_command" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_needs_command" -s v -d 'Increase the verbosity level'
-complete -c fs -n "__fish_fs_needs_command" -l dump-config -d 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.'
+complete -c fs -n "__fish_fs_needs_command" -l dump-config -d 'If piped, prints the current configuration. Otherwise, writes default settings to disk, skipping existing files'
 complete -c fs -n "__fish_fs_needs_command" -l alt-accept
 complete -c fs -n "__fish_fs_needs_command" -s h -d 'Show hidden files and folders'
 complete -c fs -n "__fish_fs_needs_command" -s H -d 'Hide hidden files and folders'
 complete -c fs -n "__fish_fs_needs_command" -s i -d 'Show ignored files'
 complete -c fs -n "__fish_fs_needs_command" -s I -d 'Hide ignored files'
-complete -c fs -n "__fish_fs_needs_command" -s u
-complete -c fs -n "__fish_fs_needs_command" -s U
+complete -c fs -n "__fish_fs_needs_command" -s u -d 'Show all (unrestricted)'
+complete -c fs -n "__fish_fs_needs_command" -s U -d 'No show all'
 complete -c fs -n "__fish_fs_needs_command" -s F -d 'Only show directories'
-complete -c fs -n "__fish_fs_needs_command" -s f -d 'Show only files'
+complete -c fs -n "__fish_fs_needs_command" -s f -d 'Only show files'
 complete -c fs -n "__fish_fs_needs_command" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_needs_command" -l list
 complete -c fs -n "__fish_fs_needs_command" -l help
@@ -78,7 +77,6 @@ complete -c fs -n "__fish_fs_needs_command" -a ":tool" -d 'Plugins and utilities
 complete -c fs -n "__fish_fs_needs_command" -a ":t" -d 'Plugins and utilities'
 complete -c fs -n "__fish_fs_needs_command" -a ":info" -d 'Stats and database records'
 complete -c fs -n "__fish_fs_using_subcommand :open" -s w -l with -d 'app to open files with' -r
-complete -c fs -n "__fish_fs_using_subcommand :open" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :open" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :open" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :open" -l style -r -f -a "icons\t''
@@ -102,7 +100,6 @@ complete -c fs -n "__fish_fs_using_subcommand :open" -s q -d 'Reduce the verbosi
 complete -c fs -n "__fish_fs_using_subcommand :open" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :open" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :o" -s w -l with -d 'app to open files with' -r
-complete -c fs -n "__fish_fs_using_subcommand :o" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :o" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :o" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :o" -l style -r -f -a "icons\t''
@@ -133,7 +130,6 @@ none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :file" -s l -l list -r -f -a "_\t''
 all\t''"
 complete -c fs -n "__fish_fs_using_subcommand :file" -l query -d 'initial query' -r
-complete -c fs -n "__fish_fs_using_subcommand :file" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :file" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :file" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :file" -l style -r -f -a "icons\t''
@@ -162,7 +158,6 @@ none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -s l -l list -r -f -a "_\t''
 all\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l initial-input -r
-complete -c fs -n "__fish_fs_using_subcommand :dir" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l style -r -f -a "icons\t''
@@ -191,7 +186,6 @@ size\t''
 none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s t -l types -d 'restrict search to certain file types and extensions (`:t types` to list)' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
-complete -c fs -n "__fish_fs_using_subcommand :fd" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l style -r -f -a "icons\t''
@@ -212,10 +206,10 @@ complete -c fs -n "__fish_fs_using_subcommand :fd" -s h -d 'Show hidden files an
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s H -d 'Hide hidden files and folders'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s i -d 'Show ignored files'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s I -d 'Hide ignored files'
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s u
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s U
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s u -d 'Show all (unrestricted)'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s U -d 'No show all'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s F -d 'Only show directories'
-complete -c fs -n "__fish_fs_using_subcommand :fd" -s f -d 'Show only files'
+complete -c fs -n "__fish_fs_using_subcommand :fd" -s f -d 'Only show files'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l list
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l help
@@ -229,7 +223,6 @@ size\t''
 none\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -s t -l types -d 'restrict search to certain file types and extensions (`:t types` to list)' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
-complete -c fs -n "__fish_fs_using_subcommand ::" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand ::" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand ::" -l style -r -f -a "icons\t''
@@ -250,10 +243,10 @@ complete -c fs -n "__fish_fs_using_subcommand ::" -s h -d 'Show hidden files and
 complete -c fs -n "__fish_fs_using_subcommand ::" -s H -d 'Hide hidden files and folders'
 complete -c fs -n "__fish_fs_using_subcommand ::" -s i -d 'Show ignored files'
 complete -c fs -n "__fish_fs_using_subcommand ::" -s I -d 'Hide ignored files'
-complete -c fs -n "__fish_fs_using_subcommand ::" -s u
-complete -c fs -n "__fish_fs_using_subcommand ::" -s U
+complete -c fs -n "__fish_fs_using_subcommand ::" -s u -d 'Show all (unrestricted)'
+complete -c fs -n "__fish_fs_using_subcommand ::" -s U -d 'No show all'
 complete -c fs -n "__fish_fs_using_subcommand ::" -s F -d 'Only show directories'
-complete -c fs -n "__fish_fs_using_subcommand ::" -s f -d 'Show only files'
+complete -c fs -n "__fish_fs_using_subcommand ::" -s f -d 'Only show files'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand ::" -l list
 complete -c fs -n "__fish_fs_using_subcommand ::" -l help
@@ -268,7 +261,6 @@ none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l transform -d 'Lua transform (path, tail) -> (path, display, tail)' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l tail-sep -d 'Delimiter used to split off the input into a (path, tail) pair' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l input-sep -d 'Split the stream on this character instead of newlines' -r
-complete -c fs -n "__fish_fs_using_subcommand :custom" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l style -r -f -a "icons\t''
@@ -289,10 +281,10 @@ complete -c fs -n "__fish_fs_using_subcommand :custom" -s h -d 'Show hidden file
 complete -c fs -n "__fish_fs_using_subcommand :custom" -s H -d 'Hide hidden files and folders'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -s i -d 'Show ignored files'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -s I -d 'Hide ignored files'
-complete -c fs -n "__fish_fs_using_subcommand :custom" -s u
-complete -c fs -n "__fish_fs_using_subcommand :custom" -s U
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s u -d 'Show all (unrestricted)'
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s U -d 'No show all'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -s F -d 'Only show directories'
-complete -c fs -n "__fish_fs_using_subcommand :custom" -s f -d 'Show only files'
+complete -c fs -n "__fish_fs_using_subcommand :custom" -s f -d 'Only show files'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l no-store -d 'Do not store items in memory'
 complete -c fs -n "__fish_fs_using_subcommand :custom" -l help
@@ -307,7 +299,6 @@ none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :c" -l transform -d 'Lua transform (path, tail) -> (path, display, tail)' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l tail-sep -d 'Delimiter used to split off the input into a (path, tail) pair' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l input-sep -d 'Split the stream on this character instead of newlines' -r
-complete -c fs -n "__fish_fs_using_subcommand :c" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :c" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :c" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :c" -l style -r -f -a "icons\t''
@@ -328,10 +319,10 @@ complete -c fs -n "__fish_fs_using_subcommand :c" -s h -d 'Show hidden files and
 complete -c fs -n "__fish_fs_using_subcommand :c" -s H -d 'Hide hidden files and folders'
 complete -c fs -n "__fish_fs_using_subcommand :c" -s i -d 'Show ignored files'
 complete -c fs -n "__fish_fs_using_subcommand :c" -s I -d 'Hide ignored files'
-complete -c fs -n "__fish_fs_using_subcommand :c" -s u
-complete -c fs -n "__fish_fs_using_subcommand :c" -s U
+complete -c fs -n "__fish_fs_using_subcommand :c" -s u -d 'Show all (unrestricted)'
+complete -c fs -n "__fish_fs_using_subcommand :c" -s U -d 'No show all'
 complete -c fs -n "__fish_fs_using_subcommand :c" -s F -d 'Only show directories'
-complete -c fs -n "__fish_fs_using_subcommand :c" -s f -d 'Show only files'
+complete -c fs -n "__fish_fs_using_subcommand :c" -s f -d 'Only show files'
 complete -c fs -n "__fish_fs_using_subcommand :c" -l cd -d 'print the first match'
 complete -c fs -n "__fish_fs_using_subcommand :c" -l no-store -d 'Do not store items in memory'
 complete -c fs -n "__fish_fs_using_subcommand :c" -l help
@@ -350,7 +341,6 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s C -l context -d 'Show NUM 
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l one-line -d 'Display each match on a separate line. Alias: `-1`' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l query -d 'initial query' -r
-complete -c fs -n "__fish_fs_using_subcommand :rg" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :rg" -l style -r -f -a "icons\t''
@@ -371,10 +361,10 @@ complete -c fs -n "__fish_fs_using_subcommand :rg" -s h -d 'Show hidden files an
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s H -d 'Hide hidden files and folders'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s i -d 'Show ignored files'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s I -d 'Hide ignored files'
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s u
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s U
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s u -d 'Show all (unrestricted)'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s U -d 'No show all'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s F -d 'Only show directories'
-complete -c fs -n "__fish_fs_using_subcommand :rg" -s f -d 'Show only files'
+complete -c fs -n "__fish_fs_using_subcommand :rg" -s f -d 'Only show files'
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s c -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :rg" -s S -l smart-case
@@ -402,7 +392,6 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s C -l context -d 'Show NUM li
 complete -c fs -n "__fish_fs_using_subcommand :" -l one-line -d 'Display each match on a separate line. Alias: `-1`' -r -f -a "true\t''
 false\t''"
 complete -c fs -n "__fish_fs_using_subcommand :" -l query -d 'initial query' -r
-complete -c fs -n "__fish_fs_using_subcommand :" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :" -l style -r -f -a "icons\t''
@@ -423,10 +412,10 @@ complete -c fs -n "__fish_fs_using_subcommand :" -s h -d 'Show hidden files and 
 complete -c fs -n "__fish_fs_using_subcommand :" -s H -d 'Hide hidden files and folders'
 complete -c fs -n "__fish_fs_using_subcommand :" -s i -d 'Show ignored files'
 complete -c fs -n "__fish_fs_using_subcommand :" -s I -d 'Hide ignored files'
-complete -c fs -n "__fish_fs_using_subcommand :" -s u
-complete -c fs -n "__fish_fs_using_subcommand :" -s U
+complete -c fs -n "__fish_fs_using_subcommand :" -s u -d 'Show all (unrestricted)'
+complete -c fs -n "__fish_fs_using_subcommand :" -s U -d 'No show all'
 complete -c fs -n "__fish_fs_using_subcommand :" -s F -d 'Only show directories'
-complete -c fs -n "__fish_fs_using_subcommand :" -s f -d 'Show only files'
+complete -c fs -n "__fish_fs_using_subcommand :" -s f -d 'Only show files'
 complete -c fs -n "__fish_fs_using_subcommand :" -s c -l ignore-case
 complete -c fs -n "__fish_fs_using_subcommand :" -s s -l case-sensitive
 complete -c fs -n "__fish_fs_using_subcommand :" -s S -l smart-case
@@ -442,7 +431,6 @@ complete -c fs -n "__fish_fs_using_subcommand :" -l help
 complete -c fs -n "__fish_fs_using_subcommand :" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l style -r -f -a "icons\t''
@@ -475,7 +463,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcomm
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -a "diskspace" -d 'Disk usage: compute directory sizes concurrently and print them'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -a "check" -d 'Validate configuration and scripts; exits non-zero on errors'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -a "showerror" -d 'Display an error message and wait for keypress'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l style -r -f -a "icons\t''
@@ -495,7 +482,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l style -r -f -a "icons\t''
@@ -515,7 +501,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from liza" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l style -r -f -a "icons\t''
@@ -535,7 +520,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from shell" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l style -r -f -a "icons\t''
@@ -555,7 +539,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from lessfilter" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l style -r -f -a "icons\t''
@@ -575,7 +558,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from pager" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l style -r -f -a "icons\t''
@@ -595,7 +577,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from bump" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l style -r -f -a "icons\t''
@@ -615,7 +596,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from trash" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -l style -r -f -a "icons\t''
@@ -635,7 +615,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showbinds" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l style -r -f -a "icons\t''
@@ -655,7 +634,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from types" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l style -r -f -a "icons\t''
@@ -675,7 +653,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from diskspace" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -l style -r -f -a "icons\t''
@@ -695,7 +672,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from check" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l style -r -f -a "icons\t''
@@ -715,7 +691,6 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -l style -r -f -a "icons\t''
@@ -748,7 +723,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -a "diskspace" -d 'Disk usage: compute directory sizes concurrently and print them'
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -a "check" -d 'Validate configuration and scripts; exits non-zero on errors'
 complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror" -a "showerror" -d 'Display an error message and wait for keypress'
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l style -r -f -a "icons\t''
@@ -768,7 +742,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l style -r -f -a "icons\t''
@@ -788,7 +761,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from liza" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l style -r -f -a "icons\t''
@@ -808,7 +780,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from shell" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l style -r -f -a "icons\t''
@@ -828,7 +799,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from lessfilter" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l style -r -f -a "icons\t''
@@ -848,7 +818,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from pager" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l style -r -f -a "icons\t''
@@ -868,7 +837,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from bump" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l style -r -f -a "icons\t''
@@ -888,7 +856,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from trash" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -l style -r -f -a "icons\t''
@@ -908,7 +875,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showbinds" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l style -r -f -a "icons\t''
@@ -928,7 +894,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from types" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l style -r -f -a "icons\t''
@@ -948,7 +913,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from diskspace" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -l style -r -f -a "icons\t''
@@ -968,7 +932,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from check" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l style -r -f -a "icons\t''
@@ -994,7 +957,6 @@ atime\t''
 size\t''
 none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :info" -s l -l limit -d 'maximum history entries to display' -r
-complete -c fs -n "__fish_fs_using_subcommand :info" -l override -d 'config override' -r
 complete -c fs -n "__fish_fs_using_subcommand :info" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :info" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :info" -l style -r -f -a "icons\t''

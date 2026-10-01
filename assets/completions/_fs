@@ -15,7 +15,6 @@ _fs() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -30,16 +29,16 @@ _fs() {
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
 '(-v)*-q[Reduce the verbosity level]' \
 '(-q)*-v[Increase the verbosity level]' \
-'--dump-config[Dump the main config and any other missing configuration files to default locations\: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.]' \
+'--dump-config[If piped, prints the current configuration. Otherwise, writes default settings to disk, skipping existing files]' \
 '--alt-accept[]' \
 '-h[Show hidden files and folders]' \
 '-H[Hide hidden files and folders]' \
 '-i[Show ignored files]' \
 '-I[Hide ignored files]' \
-'-u[]' \
-'-U[]' \
+'-u[Show all (unrestricted)]' \
+'-U[No show all]' \
 '-F[Only show directories]' \
-'-f[Show only files]' \
+'-f[Only show files]' \
 '--cd[print the first match]' \
 '--list[]' \
 '--help[]' \
@@ -60,7 +59,6 @@ _fs() {
 _arguments "${_arguments_options[@]}" : \
 '-w+[app to open files with]:PROG:_default' \
 '--with=[app to open files with]:PROG:_default' \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -83,7 +81,6 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-w+[app to open files with]:PROG:_default' \
 '--with=[app to open files with]:PROG:_default' \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -108,7 +105,6 @@ _arguments "${_arguments_options[@]}" : \
 '-l+[]::LIST:(_ all)' \
 '--list=[]::LIST:(_ all)' \
 '--query=[initial query]:QUERY:_default' \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -129,7 +125,6 @@ _arguments "${_arguments_options[@]}" : \
 '-l+[]::LIST:(_ all)' \
 '--list=[]::LIST:(_ all)' \
 '--initial-input=[]:INITIAL_INPUT:_default' \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -152,7 +147,6 @@ _arguments "${_arguments_options[@]}" : \
 '*-t+[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -165,10 +159,10 @@ _arguments "${_arguments_options[@]}" : \
 '-H[Hide hidden files and folders]' \
 '-i[Show ignored files]' \
 '-I[Hide ignored files]' \
-'-u[]' \
-'-U[]' \
+'-u[Show all (unrestricted)]' \
+'-U[No show all]' \
 '-F[Only show directories]' \
-'-f[Show only files]' \
+'-f[Only show files]' \
 '--cd[print the first match]' \
 '--list[]' \
 '--help[]' \
@@ -184,7 +178,6 @@ _arguments "${_arguments_options[@]}" : \
 '*-t+[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '*--types=[restrict search to certain file types and extensions (\`\:t types\` to list)]:TYPES:_default' \
 '--transform=[Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @]:TRANSFORM:_default' \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -197,10 +190,10 @@ _arguments "${_arguments_options[@]}" : \
 '-H[Hide hidden files and folders]' \
 '-i[Show ignored files]' \
 '-I[Hide ignored files]' \
-'-u[]' \
-'-U[]' \
+'-u[Show all (unrestricted)]' \
+'-U[No show all]' \
 '-F[Only show directories]' \
-'-f[Show only files]' \
+'-f[Only show files]' \
 '--cd[print the first match]' \
 '--list[]' \
 '--help[]' \
@@ -216,7 +209,6 @@ _arguments "${_arguments_options[@]}" : \
 '--transform=[Lua transform (path, tail) -> (path, display, tail)]:TRANSFORM:_default' \
 '--tail-sep=[Delimiter used to split off the input into a (path, tail) pair]:TAIL_SEP:_default' \
 '--input-sep=[Split the stream on this character instead of newlines]:INPUT_SEP:_default' \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -229,10 +221,10 @@ _arguments "${_arguments_options[@]}" : \
 '-H[Hide hidden files and folders]' \
 '-i[Show ignored files]' \
 '-I[Hide ignored files]' \
-'-u[]' \
-'-U[]' \
+'-u[Show all (unrestricted)]' \
+'-U[No show all]' \
 '-F[Only show directories]' \
-'-f[Show only files]' \
+'-f[Only show files]' \
 '--cd[print the first match]' \
 '--no-store[Do not store items in memory]' \
 '--help[]' \
@@ -248,7 +240,6 @@ _arguments "${_arguments_options[@]}" : \
 '--transform=[Lua transform (path, tail) -> (path, display, tail)]:TRANSFORM:_default' \
 '--tail-sep=[Delimiter used to split off the input into a (path, tail) pair]:TAIL_SEP:_default' \
 '--input-sep=[Split the stream on this character instead of newlines]:INPUT_SEP:_default' \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -261,10 +252,10 @@ _arguments "${_arguments_options[@]}" : \
 '-H[Hide hidden files and folders]' \
 '-i[Show ignored files]' \
 '-I[Hide ignored files]' \
-'-u[]' \
-'-U[]' \
+'-u[Show all (unrestricted)]' \
+'-U[No show all]' \
 '-F[Only show directories]' \
-'-f[Show only files]' \
+'-f[Only show files]' \
 '--cd[print the first match]' \
 '--no-store[Do not store items in memory]' \
 '--help[]' \
@@ -287,7 +278,6 @@ _arguments "${_arguments_options[@]}" : \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
 '--one-line=[Display each match on a separate line. Alias\: \`-1\`]:ONE_LINE:(true false)' \
 '--query=[initial query]:QUERY:_default' \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -300,10 +290,10 @@ _arguments "${_arguments_options[@]}" : \
 '-H[Hide hidden files and folders]' \
 '-i[Show ignored files]' \
 '-I[Hide ignored files]' \
-'-u[]' \
-'-U[]' \
+'-u[Show all (unrestricted)]' \
+'-U[No show all]' \
 '-F[Only show directories]' \
-'-f[Show only files]' \
+'-f[Only show files]' \
 '-c[]' \
 '--ignore-case[]' \
 '-s[]' \
@@ -339,7 +329,6 @@ _arguments "${_arguments_options[@]}" : \
 '--context=[Show NUM lines before and after each match]:NUM:_default' \
 '--one-line=[Display each match on a separate line. Alias\: \`-1\`]:ONE_LINE:(true false)' \
 '--query=[initial query]:QUERY:_default' \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -352,10 +341,10 @@ _arguments "${_arguments_options[@]}" : \
 '-H[Hide hidden files and folders]' \
 '-i[Show ignored files]' \
 '-I[Hide ignored files]' \
-'-u[]' \
-'-U[]' \
+'-u[Show all (unrestricted)]' \
+'-U[No show all]' \
 '-F[Only show directories]' \
-'-f[Show only files]' \
+'-f[Only show files]' \
 '-c[]' \
 '--ignore-case[]' \
 '-s[]' \
@@ -380,7 +369,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (:tool)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -406,7 +394,6 @@ _arguments "${_arguments_options[@]}" : \
         case $line[2] in
             (colors)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -422,7 +409,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (liza)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -439,7 +425,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (shell)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -456,7 +441,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (lessfilter)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -473,7 +457,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (pager)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -490,7 +473,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (bump)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -507,7 +489,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (trash)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -524,7 +505,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (showbinds)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -540,7 +520,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (types)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -557,7 +536,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (diskspace)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -574,7 +552,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (check)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -590,7 +567,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (showerror)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -611,7 +587,6 @@ esac
 ;;
 (:t)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -637,7 +612,6 @@ _arguments "${_arguments_options[@]}" : \
         case $line[2] in
             (colors)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -653,7 +627,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (liza)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -670,7 +643,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (shell)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -687,7 +659,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (lessfilter)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -704,7 +675,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (pager)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -721,7 +691,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (bump)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -738,7 +707,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (trash)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -755,7 +723,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (showbinds)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -771,7 +738,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (types)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -788,7 +754,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (diskspace)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -805,7 +770,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (check)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -821,7 +785,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (showerror)
 _arguments "${_arguments_options[@]}" : \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -845,7 +808,6 @@ _arguments "${_arguments_options[@]}" : \
 '--sort=[history sort order]:SORT:(name mtime atime size none)' \
 '-l+[maximum history entries to display]:LIMIT:_default' \
 '--limit=[maximum history entries to display]:LIMIT:_default' \
-'--override=[config override]:PATH:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \

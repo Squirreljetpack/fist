@@ -290,9 +290,11 @@ pub struct PartialVisibility {
     #[arg(short = 'I', overrides_with = "no_ignore")]
     pub ignore: bool,
 
+    /// Show all (unrestricted)
     #[arg(short = 'u', overrides_with = "no_unrestricted")]
     pub unrestricted: bool,
 
+    /// No show all
     #[arg(short = 'U', overrides_with = "unrestricted")]
     pub no_unrestricted: bool,
 
@@ -300,7 +302,7 @@ pub struct PartialVisibility {
     #[arg(short = 'F', overrides_with = "files")]
     pub dirs: bool,
 
-    /// Show only files
+    /// Only show files
     #[arg(short = 'f', overrides_with = "dirs")]
     pub files: bool,
 

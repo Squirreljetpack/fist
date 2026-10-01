@@ -21,7 +21,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
 
     $completions = @(switch ($command) {
         'fs' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -36,16 +35,16 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
             [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
-            [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'Dump the main config and any other missing configuration files to default locations: If the output was detected to have been redirected, this prints the main configuration. Otherwise, this will OVERWRITE your main config.')
+            [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'If piped, prints the current configuration. Otherwise, writes default settings to disk, skipping existing files')
             [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Show hidden files and folders')
             [CompletionResult]::new('-H', '-H ', [CompletionResultType]::ParameterName, 'Hide hidden files and folders')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Show ignored files')
             [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'Hide ignored files')
-            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'u')
-            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'U')
+            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'Show all (unrestricted)')
+            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'No show all')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'Only show directories')
-            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Show only files')
+            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Only show files')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
@@ -69,7 +68,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
         'fs;:open' {
             [CompletionResult]::new('-w', '-w', [CompletionResultType]::ParameterName, 'app to open files with')
             [CompletionResult]::new('--with', '--with', [CompletionResultType]::ParameterName, 'app to open files with')
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -90,7 +88,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
         'fs;:o' {
             [CompletionResult]::new('-w', '-w', [CompletionResultType]::ParameterName, 'app to open files with')
             [CompletionResult]::new('--with', '--with', [CompletionResultType]::ParameterName, 'app to open files with')
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -113,7 +110,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'l')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--query', '--query', [CompletionResultType]::ParameterName, 'initial query')
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -133,7 +129,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'l')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--initial-input', '--initial-input', [CompletionResultType]::ParameterName, 'initial-input')
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -154,7 +149,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (`:t types` to list)')
             [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (`:t types` to list)')
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -167,10 +161,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-H', '-H ', [CompletionResultType]::ParameterName, 'Hide hidden files and folders')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Show ignored files')
             [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'Hide ignored files')
-            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'u')
-            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'U')
+            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'Show all (unrestricted)')
+            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'No show all')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'Only show directories')
-            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Show only files')
+            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Only show files')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
@@ -184,7 +178,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-t', '-t', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (`:t types` to list)')
             [CompletionResult]::new('--types', '--types', [CompletionResultType]::ParameterName, 'restrict search to certain file types and extensions (`:t types` to list)')
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @')
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -197,10 +190,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-H', '-H ', [CompletionResultType]::ParameterName, 'Hide hidden files and folders')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Show ignored files')
             [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'Hide ignored files')
-            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'u')
-            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'U')
+            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'Show all (unrestricted)')
+            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'No show all')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'Only show directories')
-            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Show only files')
+            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Only show files')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'list')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
@@ -214,7 +207,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail)')
             [CompletionResult]::new('--tail-sep', '--tail-sep', [CompletionResultType]::ParameterName, 'Delimiter used to split off the input into a (path, tail) pair')
             [CompletionResult]::new('--input-sep', '--input-sep', [CompletionResultType]::ParameterName, 'Split the stream on this character instead of newlines')
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -227,10 +219,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-H', '-H ', [CompletionResultType]::ParameterName, 'Hide hidden files and folders')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Show ignored files')
             [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'Hide ignored files')
-            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'u')
-            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'U')
+            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'Show all (unrestricted)')
+            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'No show all')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'Only show directories')
-            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Show only files')
+            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Only show files')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--no-store', '--no-store', [CompletionResultType]::ParameterName, 'Do not store items in memory')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
@@ -244,7 +236,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--transform', '--transform', [CompletionResultType]::ParameterName, 'Lua transform (path, tail) -> (path, display, tail)')
             [CompletionResult]::new('--tail-sep', '--tail-sep', [CompletionResultType]::ParameterName, 'Delimiter used to split off the input into a (path, tail) pair')
             [CompletionResult]::new('--input-sep', '--input-sep', [CompletionResultType]::ParameterName, 'Split the stream on this character instead of newlines')
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -257,10 +248,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-H', '-H ', [CompletionResultType]::ParameterName, 'Hide hidden files and folders')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Show ignored files')
             [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'Hide ignored files')
-            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'u')
-            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'U')
+            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'Show all (unrestricted)')
+            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'No show all')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'Only show directories')
-            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Show only files')
+            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Only show files')
             [CompletionResult]::new('--cd', '--cd', [CompletionResultType]::ParameterName, 'print the first match')
             [CompletionResult]::new('--no-store', '--no-store', [CompletionResultType]::ParameterName, 'Do not store items in memory')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'help')
@@ -281,7 +272,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--context', '--context', [CompletionResultType]::ParameterName, 'Show NUM lines before and after each match')
             [CompletionResult]::new('--one-line', '--one-line', [CompletionResultType]::ParameterName, 'Display each match on a separate line. Alias: `-1`')
             [CompletionResult]::new('--query', '--query', [CompletionResultType]::ParameterName, 'initial query')
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -294,10 +284,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-H', '-H ', [CompletionResultType]::ParameterName, 'Hide hidden files and folders')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Show ignored files')
             [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'Hide ignored files')
-            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'u')
-            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'U')
+            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'Show all (unrestricted)')
+            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'No show all')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'Only show directories')
-            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Show only files')
+            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Only show files')
             [CompletionResult]::new('-c', '-c', [CompletionResultType]::ParameterName, 'c')
             [CompletionResult]::new('--ignore-case', '--ignore-case', [CompletionResultType]::ParameterName, 'ignore-case')
             [CompletionResult]::new('-s', '-s', [CompletionResultType]::ParameterName, 's')
@@ -331,7 +321,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--context', '--context', [CompletionResultType]::ParameterName, 'Show NUM lines before and after each match')
             [CompletionResult]::new('--one-line', '--one-line', [CompletionResultType]::ParameterName, 'Display each match on a separate line. Alias: `-1`')
             [CompletionResult]::new('--query', '--query', [CompletionResultType]::ParameterName, 'initial query')
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -344,10 +333,10 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('-H', '-H ', [CompletionResultType]::ParameterName, 'Hide hidden files and folders')
             [CompletionResult]::new('-i', '-i', [CompletionResultType]::ParameterName, 'Show ignored files')
             [CompletionResult]::new('-I', '-I ', [CompletionResultType]::ParameterName, 'Hide ignored files')
-            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'u')
-            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'U')
+            [CompletionResult]::new('-u', '-u', [CompletionResultType]::ParameterName, 'Show all (unrestricted)')
+            [CompletionResult]::new('-U', '-U ', [CompletionResultType]::ParameterName, 'No show all')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'Only show directories')
-            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Show only files')
+            [CompletionResult]::new('-f', '-f', [CompletionResultType]::ParameterName, 'Only show files')
             [CompletionResult]::new('-c', '-c', [CompletionResultType]::ParameterName, 'c')
             [CompletionResult]::new('--ignore-case', '--ignore-case', [CompletionResultType]::ParameterName, 'ignore-case')
             [CompletionResult]::new('-s', '-s', [CompletionResultType]::ParameterName, 's')
@@ -370,7 +359,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -398,7 +386,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -426,7 +413,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;colors' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -441,7 +427,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;colors' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -456,7 +441,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;liza' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -471,7 +455,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;liza' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -486,7 +469,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;shell' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -501,7 +483,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;shell' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -516,7 +497,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;lessfilter' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -531,7 +511,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;lessfilter' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -546,7 +525,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;pager' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -561,7 +539,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;pager' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -576,7 +553,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;bump' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -591,7 +567,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;bump' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -606,7 +581,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;trash' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -621,7 +595,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;trash' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -636,7 +609,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;showbinds' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -651,7 +623,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;showbinds' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -666,7 +637,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;types' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -681,7 +651,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;types' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -696,7 +665,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;diskspace' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -711,7 +679,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;diskspace' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -726,7 +693,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;check' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -741,7 +707,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;check' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -756,7 +721,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;showerror' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -771,7 +735,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;showerror' {
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -789,7 +752,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('--sort', '--sort', [CompletionResultType]::ParameterName, 'history sort order')
             [CompletionResult]::new('-l', '-l', [CompletionResultType]::ParameterName, 'maximum history entries to display')
             [CompletionResult]::new('--limit', '--limit', [CompletionResultType]::ParameterName, 'maximum history entries to display')
-            [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'config override')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')

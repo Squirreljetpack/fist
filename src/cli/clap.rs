@@ -76,9 +76,6 @@ pub struct CliOpts {
     #[arg(short, global = true, conflicts_with = "quiet", action = ArgAction::Count)]
     pub verbose: u8,
 
-    /// config override
-    #[arg(long = "override", global = true, value_name = "PATH")]
-    pub config_override: Option<String>,
     /// config path
     #[arg(
         long,
@@ -96,13 +93,9 @@ pub struct CliOpts {
     )]
     pub mm_config: PathBuf,
 
-    #[arg(
-        long,
-        help = r#"Dump the main config and any other missing configuration
-files to default locations:
-If the output was detected to have been redirected, this prints the main configuration.
-Otherwise, this will OVERWRITE your main config."#
-    )]
+    /// If piped, prints the current configuration.
+    /// Otherwise, writes default settings to disk, skipping existing files.
+    #[arg(long)]
     pub dump_config: bool,
 
     #[arg(long, global = true, default_value_t)]
@@ -131,7 +124,7 @@ Otherwise, this will OVERWRITE your main config."#
 #[derive(Debug, Args, Default, Clone)]
 pub struct OutputOpts {
     /// Separator printed after each result.
-    #[arg(long, alias = "os", global = true)]
+    #[arg(long, alias = "os", global = true, value_parser = parse_separator)]
     pub output_sep: Option<String>,
     /// Output template for printed results.
     #[arg(long, global = true)]

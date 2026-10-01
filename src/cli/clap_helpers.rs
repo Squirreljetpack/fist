@@ -1,3 +1,4 @@
+use cba::bring::consume_escaped;
 use clap::{Args, ValueEnum};
 
 use fist_types::When;
@@ -83,4 +84,17 @@ pub enum ListMode {
     #[value(name = "_")]
     Default,
     All,
+}
+
+pub fn parse_separator(s: &str) -> Result<String, std::convert::Infallible> {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            consume_escaped(&mut chars, &mut out);
+            continue;
+        }
+        out.push(c);
+    }
+    Ok(out)
 }
