@@ -26,7 +26,8 @@ impl Default for PanesSettings {
 /// Pane-specific settings
 pub struct PanesConfig {
     pub app: AppPaneSettings,
-    pub history: HistoryPaneSettings,
+    pub files: HistoryPaneSettings,
+    pub dirs: HistoryPaneSettings,
     pub nav: NavPaneSettings,
     pub find: FindPaneSettings,
     pub search: SearchPaneSettings,
@@ -43,7 +44,10 @@ impl Default for PanesConfig {
             app: AppPaneSettings {
                 ..Default::default()
             },
-            history: HistoryPaneSettings {
+            files: HistoryPaneSettings {
+                ..Default::default()
+            },
+            dirs: HistoryPaneSettings {
                 ..Default::default()
             },
             nav: NavPaneSettings::default(),
@@ -448,7 +452,8 @@ impl PanesConfig {
         match pane {
             FsPane::Custom { .. } => self.custom.prompt.clone(),
             FsPane::Find { .. } => self.find.prompt.clone(),
-            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.prompt.clone(),
+            FsPane::Files { .. } => self.files.prompt.clone(),
+            FsPane::Folders { .. } => self.dirs.prompt.clone(),
             FsPane::Apps { .. } => self.app.prompt.clone(),
             FsPane::Nav { .. } => self.nav.prompt.clone(),
             FsPane::Search { .. } => self.search.prompt.clone(),
@@ -468,7 +473,8 @@ impl PanesConfig {
         match pane {
             FsPane::Custom { .. } => self.custom.prompt_style,
             FsPane::Find { .. } => self.find.prompt_style,
-            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.prompt_style,
+            FsPane::Files { .. } => self.files.prompt_style,
+            FsPane::Folders { .. } => self.dirs.prompt_style,
             FsPane::Apps { .. } => self.app.prompt_style,
             FsPane::Nav { .. } => self.nav.prompt_style,
             FsPane::Search { .. } => self.search.prompt_style,
@@ -483,7 +489,8 @@ impl PanesConfig {
         match pane {
             FsPane::Custom { .. } => self.custom.lock_prompt,
             FsPane::Find { .. } => self.find.lock_prompt,
-            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.lock_prompt,
+            FsPane::Files { .. } => self.files.lock_prompt,
+            FsPane::Folders { .. } => self.dirs.lock_prompt,
             FsPane::Apps { .. } => self.app.lock_prompt,
             FsPane::Nav { .. } => self.nav.lock_prompt,
             FsPane::Search { .. } => self.search.lock_prompt,
@@ -498,7 +505,8 @@ impl PanesConfig {
         match pane {
             FsPane::Custom { .. } => self.custom.show_preview,
             FsPane::Find { .. } => self.find.show_preview,
-            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.show_preview,
+            FsPane::Files { .. } => self.files.show_preview,
+            FsPane::Folders { .. } => self.dirs.show_preview,
             FsPane::Apps { .. } => self.app.show_preview,
             FsPane::Nav { .. } => self.nav.show_preview,
             FsPane::Search { .. } => self.search.show_preview,
@@ -542,7 +550,8 @@ impl PanesConfig {
         match pane {
             FsPane::Custom { .. } => self.custom.preview_layout_index,
             FsPane::Find { .. } => self.find.preview_layout_index,
-            FsPane::Files { .. } | FsPane::Folders { .. } => self.history.preview_layout_index,
+            FsPane::Files { .. } => self.files.preview_layout_index,
+            FsPane::Folders { .. } => self.dirs.preview_layout_index,
             FsPane::Apps { .. } => self.app.preview_layout_index,
             FsPane::Nav { .. } => self.nav.preview_layout_index,
             FsPane::Search { .. } => self.search.preview_layout_index,

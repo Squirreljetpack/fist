@@ -262,7 +262,7 @@ impl OptionsOverlay {
             };
             bold_indices(label, [0], self.item_style())
         } else if vis.hidden {
-            bold_indices("hidden (files: H)", [0, 15], self.item_style())
+            bold_indices("hidden (H)", [0, 8], self.item_style())
         } else {
             bold_indices("hidden", [0], self.item_style())
         };
@@ -270,13 +270,15 @@ impl OptionsOverlay {
         let dirs_label = if STACK::in_rg() {
             Default::default()
         } else {
-            if vis.files {
-                (
-                    bold_indices("files (D)", [7], self.item_style()),
-                    Some(vis.files),
-                )
+            if vis.dirs {
+                (bold_indices("Dirs", [0], self.item_style()), Some(true))
+            } else if vis.files {
+                (bold_indices("Files", [0], self.item_style()), Some(true))
             } else {
-                (bold_indices("Dirs", [0], self.item_style()), Some(vis.dirs))
+                (
+                    bold_indices("Dirs/Files", [0, 5], self.item_style()),
+                    Some(false),
+                )
             }
         };
         let ret = vec![
@@ -451,23 +453,21 @@ impl OptionsOverlay {
                         match y {
                             0 => {
                                 (vis.hidden, vis.hidden_only) = if vis.hidden_only {
-                                    vis.files = false;
                                     (false, false)
                                 } else if vis.hidden {
-                                    if !vis.dirs {
-                                        vis.files = true;
-                                    }
                                     (false, true)
                                 } else {
                                     (true, false)
-                                }
+                                };
                             }
                             1 => vis.ignore = !vis.ignore,
                             2 => {
                                 if vis.files {
-                                    vis.files = !vis.files;
+                                    vis.files = false;
+                                } else if vis.dirs {
+                                    vis.dirs = false;
                                 } else {
-                                    vis.dirs = !vis.dirs
+                                    vis.dirs = true;
                                 }
                             }
                             3 => vis.toggle_all(),
@@ -720,11 +720,12 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
             }
 
             // visibility toggles
-            'h' | 'H' | 'I' | 'd' | 'D' | 'a' if self.pane_lens[0] > 0 => {
+            'h' | 'H' | 'I' | 'd' | 'D' | 'F' | 'a' if self.pane_lens[0] > 0 => {
+                let in_rg = STACK::in_rg();
                 reload = STACK::with_current_mut(|p| {
                     if let Some(vis) = p.vis_mut() {
                         let before = *vis;
-                        if !matches!(c, 'D' | 'a') {
+                        if !matches!(c, 'D' | 'F' | 'a') {
                             vis.set_all(false);
                         }
                         match c {
@@ -732,17 +733,21 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
                             'a' => vis.toggle_all(),
                             'h' => (vis.hidden, vis.hidden_only) = (!vis.hidden, false),
                             'H' => {
-                                if !vis.dirs {
-                                    vis.files = true;
-                                }
-                                (vis.hidden, vis.hidden_only) = (false, !vis.hidden_only)
+                                (vis.hidden, vis.hidden_only) = (false, !vis.hidden_only);
                             }
                             'd' | 'D' => {
-                                if !STACK::in_rg() {
+                                if !in_rg {
+                                    vis.dirs = !vis.dirs;
+                                    if vis.dirs {
+                                        vis.files = false;
+                                    }
+                                }
+                            }
+                            'F' => {
+                                if !in_rg {
+                                    vis.files = !vis.files;
                                     if vis.files {
-                                        vis.files = !vis.files
-                                    } else {
-                                        vis.dirs = !vis.dirs
+                                        vis.dirs = false;
                                     }
                                 }
                             }

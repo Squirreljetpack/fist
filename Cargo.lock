@@ -2526,8 +2526,6 @@ dependencies = [
 [[package]]
 name = "matchmaker-nucleo"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fb633451a668dcb6e90ec25da1fceed90c4d1332fddba1bcbc5f557177a682a"
 dependencies = [
  "log",
  "memchr",

@@ -31,6 +31,14 @@ show_preview = true
 # Only show apps that have icons. Defaults to true on macOS.
 # require_icon = true
 
+# [panes.files]
+# prompt = "F: "
+# prompt_style = { fg = "LightYellow" }
+
+# [panes.dirs]
+# prompt = "D: "
+# prompt_style = { fg = "LightYellow" }
+
 ### SETTINGS ###
 
 [smart_visibility]
