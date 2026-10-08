@@ -30,13 +30,19 @@ pub fn refresh_prompt(state: &mut MMState<'_>) {
             state.picker_ui.query.set_prompt(None);
         };
     } else {
-        let vis = STACK::visibility();
-        if vis.dirs && !vis.files {
+        let vis = STACK::with_current(|p| p.vis());
+        if let Some(vis) = vis
+            && vis.dirs
+            && !vis.files
+        {
             state
                 .picker_ui
                 .query
                 .set_prompt_line(Line::styled("d: ", prompt_main_style()));
-        } else if vis.files && !vis.dirs {
+        } else if let Some(vis) = vis
+            && vis.files
+            && !vis.dirs
+        {
             state
                 .picker_ui
                 .query

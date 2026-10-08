@@ -347,7 +347,7 @@ pub async fn start(
 
     // clean up per-process unzip storage once transfers have stopped
     let mut cleanup = tokio::task::spawn_blocking(unzip::shutdown);
-    let warn_deadline = tokio::time::sleep(std::time::Duration::from_millis(400));
+    let warn_deadline = tokio::time::sleep(std::time::Duration::from_millis(1000));
     tokio::pin!(warn_deadline);
 
     tokio::select! {
@@ -355,7 +355,7 @@ pub async fn start(
             let _ = res;
         }
         _ = &mut warn_deadline => {
-            wbog!("...cleaning up temporary directories");
+            wbog!("shutdown delayed cleaning up temporary directories");
             let _ = cleanup.await;
         }
     }
