@@ -20,6 +20,7 @@ macro_rules! arr {
     };
 }
 
+/// Strips a trailing `--no-heading` from an argument list.
 pub fn strip_arg<U: AsRef<std::ffi::OsStr>>(args: &mut Vec<U>) -> bool {
     let mut found = false;
     let mut past_double_dash = false;

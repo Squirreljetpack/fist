@@ -1,0 +1,26 @@
+Fist — Queue
+============
+
+The queue holds pending and running transfers and extractions. Rows run on
+the shared copy engine; Enter dispatches a row, Delete cancels a running
+row or removes a finished one.
+
+Keys
+----
+| action | bind | description |
+|--------|------|-------------|
+| Up(1) | | move up |
+| Down(1) | | move down |
+| ToggleSelection | | (un)select the highlighted row |
+| Accept | | execute the selected or highlighted row(s) |
+| Delete | | cancel or remove the highlighted row |
+| Trash | | cancel or remove the highlighted row |
+| ShowMenu | | edit the source path of the highlighted row |
+| Rename | | edit the destination of the highlighted row |
+| Undo | | previous kind filter |
+| Redo | | next kind filter |
+| Help | | show this document |
+| Quit(1) | | close the queue |
+
+Press q to close the queue. A running extract row cannot be edited; Delete
+cancels it instead.

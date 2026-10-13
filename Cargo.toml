@@ -59,6 +59,7 @@ unicode-width = "^0.2.2"
 # standard
 ahash = "0.8.12"
 anyhow = "1.0.101"
+arc-swap = "1"
 arrayvec = { version = "0.7.6", features = ["serde"] }
 base64 = "0.22.1"
 bitflags = "2.11"

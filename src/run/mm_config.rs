@@ -18,8 +18,8 @@ use crate::{
     config::Config,
     lessfilter::Preset,
     ui::{
-        confirm_overlay::ConfirmConfig, menu_overlay::MenuConfig, options_overlay::OptionsConfig,
-        prompt_overlay::PromptConfig, queue_overlay::QueueConfig,
+        confirm_overlay::ConfirmConfig, menu_overlay::MenuConfig, mount_overlay::MountConfig,
+        options_overlay::OptionsConfig, prompt_overlay::PromptConfig, queue_overlay::QueueConfig,
     },
 };
 use fist_types::When;
@@ -60,6 +60,9 @@ pub struct MMConfig {
     pub menu: MenuConfig,
     #[serde(default)]
     pub confirm: ConfirmConfig,
+    /// Volume picker overlay (query line over the mounted volumes)
+    #[serde(default)]
+    pub mount: MountConfig,
 
     // --- other ---
     #[serde(default)]
@@ -189,6 +192,12 @@ pub fn get_mm_cfg(
         }
         full.apply(p);
         mm_cfg.confirm.border = Ok(full)
+    }
+
+    if let Err(p) = mm_cfg.mount.border {
+        let mut full = mm_cfg.overlay.border.clone();
+        full.apply(p);
+        mm_cfg.mount.border = Ok(full)
     }
 
     _dbg!(&mm_cfg);

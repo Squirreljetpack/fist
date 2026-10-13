@@ -1,0 +1,23 @@
+Fist — Menu
+===========
+
+The menu lists the actions available for the item under the cursor (or the
+current directory when the cursor is parked in the query bar).
+
+Type to filter the list, or type an item's alias letter to run that item
+immediately. Custom items from actions.toml appear after the builtins.
+
+Keys
+----
+| action | bind | description |
+|--------|------|-------------|
+| ShowMenu | | close the menu |
+| Accept | | run the highlighted item |
+| Up(1) | | move up |
+| Down(1) | | move down |
+| Help | | show this document |
+| Quit(1) | | close the menu |
+
+While the query bar is focused the usual query editing actions apply
+(BackwardChar, ForwardChar, DeleteWord, ClearQuery, ...), exactly as in the
+main picker.

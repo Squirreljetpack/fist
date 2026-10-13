@@ -28,6 +28,8 @@ pub enum PromptKind {
     Rename,
     #[strum(serialize = "Go to")]
     Goto,
+    #[strum(serialize = "Extract to")]
+    Extract,
     #[strum(serialize = "Set alias")]
     SetAlias,
 }
@@ -47,6 +49,14 @@ pub fn rename_prompt_for(path: &AbsPath) -> MenuPrompt {
         initial: filename,
         cursor,
     }
+}
+
+/// The extract prompt for `path`: the input is prepopulated with the
+/// archive's sibling directory named after its stem (`foo.tar.gz` ->
+/// `foo.tar`), so accepting immediately extracts beside the archive.
+pub fn extract_prompt_for(path: &AbsPath) -> MenuPrompt {
+    let dest = path._parent().join(path.file_stem().unwrap_or_default());
+    MenuPrompt::new(PromptKind::Extract).initial(dest.to_string_lossy())
 }
 
 /// If the process's current working directory is inside `path` (or equals
@@ -306,6 +316,22 @@ impl MenuOverlay {
                         false,
                     );
                 }
+            }
+            PromptKind::Extract => {
+                let input = self.prompt.input.value();
+                if input.trim().is_empty() {
+                    return OverlayEffect::None;
+                }
+                let source = self.target_path(state);
+                let dest = AbsPath::new_unchecked(Path::new(&input).abs(self.target_parent(state)));
+                let label = short_display(&source);
+
+                TASKS::spawn("extract", async move {
+                    if let Err(e) = crate::unzip::extract_to(&source, dest.as_path()) {
+                        log::error!("Failed to extract {}: {e}", source.to_string_lossy());
+                        TOAST::push(ToastStyle::Error, "Failed to extract: ", [label]);
+                    }
+                });
             }
             PromptKind::SetAlias => {
                 let path = self.target_path(state);

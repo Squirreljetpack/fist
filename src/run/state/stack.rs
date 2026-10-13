@@ -1,7 +1,7 @@
 #![allow(clippy::upper_case_acronyms)]
 #![allow(unused_variables)]
 
-use std::{cell::RefCell, mem::discriminant, sync::RwLock};
+use std::{cell::RefCell, mem::discriminant, path::Path, sync::RwLock};
 
 use log::{self};
 use matchmaker::SSS;
@@ -297,6 +297,47 @@ impl STACK {
         })
     }
 
+    /// Drop every pane listing a directory inside `prefix`, so panes do not
+    /// outlive a volume that is about to be unmounted. The pane the user is on
+    /// is kept while it survives, and the stack never ends up empty.
+    /// Returns how many panes were removed.
+    pub fn remove_within(prefix: &Path) -> usize {
+        STACK.with(|cell| {
+            let Self { stack, index } = &mut *cell.borrow_mut();
+            let current = *index;
+
+            let mut drop = Vec::new();
+            for (i, pane) in stack.iter().enumerate() {
+                if pane.cwd().is_some_and(|cwd| cwd.starts_with(prefix)) {
+                    drop.push(i);
+                }
+            }
+            // the stack is never empty: the current pane stays as the
+            // placeholder the caller navigates away from
+            if drop.len() == stack.len() {
+                drop.retain(|&i| i != current);
+            }
+
+            let mut kept = Vec::with_capacity(stack.len() - drop.len());
+            let mut new_index = 0;
+            for (i, pane) in stack.drain(..).enumerate() {
+                if drop.contains(&i) {
+                    log::debug!("Dropped pane at {i} (inside {})", prefix.display());
+                    continue;
+                }
+                if i <= current {
+                    new_index = kept.len();
+                }
+                kept.push(pane);
+            }
+
+            let removed = drop.len();
+            *stack = kept;
+            *index = new_index;
+            removed
+        })
+    }
+
     // don't save index for rg and find because order is not guaranteed
     /// Note that because state is saved on update (and initialization) for [`FsPane::Search`] (see [`crate::run::reload::fs_reload`]), rg is omitted here
     // todo: lowpri: configurable save
@@ -444,5 +485,51 @@ mod tests {
         assert!(STACK::stack_prev());
         // Apps pane should look back and see vis1
         assert_eq!(STACK::visibility(), vis1);
+    }
+
+    fn nav(dir: &str) -> FsPane {
+        FsPane::new_nav(
+            AbsPath::new_unchecked(Path::new(dir)),
+            Visibility::DEFAULT,
+            Default::default(),
+        )
+    }
+
+    #[test]
+    fn remove_within_drops_panes_inside_a_volume() {
+        let volume = Path::new("/volumes/foo");
+
+        STACK::init(nav("/home"));
+        STACK::push(nav("/volumes/foo"));
+        STACK::push(nav("/volumes/foo/sub"));
+        STACK::push(nav("/tmp"));
+
+        // panes inside are dropped, the current pane and its position stay
+        assert_eq!(STACK::remove_within(volume), 2);
+        assert_eq!(STACK::len(), 2);
+        assert_eq!(
+            STACK::nav_cwd(),
+            Some(AbsPath::new_unchecked(Path::new("/tmp")))
+        );
+        assert!(STACK::is_last());
+
+        // a current pane inside is dropped too: the nearest pane below it takes over
+        STACK::push(nav("/volumes/foo/other"));
+        assert_eq!(STACK::remove_within(volume), 1);
+        assert_eq!(STACK::len(), 2);
+        assert_eq!(
+            STACK::nav_cwd(),
+            Some(AbsPath::new_unchecked(Path::new("/tmp")))
+        );
+
+        // the whole stack inside: one pane survives
+        STACK::init(nav("/volumes/foo"));
+        STACK::push(nav("/volumes/foo/sub"));
+        assert_eq!(STACK::remove_within(volume), 1);
+        assert_eq!(STACK::len(), 1);
+        assert_eq!(
+            STACK::nav_cwd(),
+            Some(AbsPath::new_unchecked(Path::new("/volumes/foo/sub")))
+        );
     }
 }

@@ -197,9 +197,9 @@ pub struct InterfaceConfig {
     pub allow_trash_db_items: bool,
     /// Hide the preview while the cursor is disabled (locked onto the cwd).
     pub hide_preview_when_cursor_disabled: bool,
-    /// When false, Parent inside an archive's extraction workdir leaves the
-    /// archive (going to the directory that contains it) instead of
-    /// exposing the internal unzip storage dir.
+    /// When false, Parent inside a preview extraction leaves the archive
+    /// (going to the directory that contains it) instead of exposing the
+    /// per-process extraction root.
     pub allow_enter_unzip_directory: bool,
     /// Sorting stability for the match list of sorted panes: how tolerant
     /// the order is to score changes between reloads. Higher keeps the

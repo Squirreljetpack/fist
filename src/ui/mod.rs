@@ -4,6 +4,7 @@ pub mod confirm_overlay;
 pub mod input;
 pub mod menu_overlay;
 mod menu_overlay_impl;
+pub mod mount_overlay;
 pub mod options_overlay;
 pub mod prompt_overlay;
 pub mod queue_overlay;

@@ -9,6 +9,7 @@ pub mod fs;
 pub mod lessfilter;
 pub mod lua;
 pub mod menu;
+pub mod mount;
 pub mod pager;
 pub mod run;
 pub mod spawn;

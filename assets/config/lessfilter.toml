@@ -103,7 +103,7 @@ info = [
 # opener
 # Note: Directory, Text, Image, Metadata, Application all defer to fs: open in this preset and the next
 open = [
-    [["Open"], ["*"]]
+    [["Open"], ["*"]],
 ]
 
 alternate = [

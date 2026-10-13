@@ -1,9 +1,10 @@
 mod execute;
 mod handlers;
-mod help;
+pub mod help;
 use execute::*;
 pub use execute::{ExecutionMode, resolve_target};
 pub use handlers::{paste_handler, query_handler, sync_handler};
+pub use help::{OverlayHelp, request_overlay_help};
 
 use std::{ffi::OsString, process::Stdio};
 
@@ -36,8 +37,11 @@ impl FsMatchmaker {
         &mut self,
         help_factory: matchmaker::HelpFactory,
         help_config: matchmaker::config::HelpDisplayConfig,
+        binds: std::sync::Arc<
+            arc_swap::ArcSwap<matchmaker::binds::ResolvedBindMap<crate::run::FsAction>>,
+        >,
     ) {
-        help::register_help_handler(self, help_factory, help_config);
+        help::register_help_handler(self, help_factory, help_config, binds);
     }
 
     pub fn register_reload_handler(&mut self) {

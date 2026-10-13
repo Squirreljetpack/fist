@@ -1,6 +1,6 @@
 use std::{borrow::Cow, ffi::OsString, sync::Arc};
 
-use cba::{_trace, bog::BogOkExt, prints, wbog};
+use cba::{_trace, bog::BogOkExt, prints};
 use fist_types::filters::SortOrder;
 use matchmaker::{
     Either, MatchError, Matchmaker, PickOptions,
@@ -22,6 +22,7 @@ use crate::{
     db::{DbTable, Pool},
     display::{display_epoch, human_size},
     errors::CliError,
+    mount,
     run::{
         action::{fsaction_aliaser, fsaction_handler},
         item::PathItem,
@@ -40,6 +41,7 @@ use crate::{
     ui::{
         confirm_overlay::ConfirmOverlay,
         menu_overlay::MenuOverlay,
+        mount_overlay::MountOverlay,
         options_overlay::OptionsOverlay,
         queue_overlay::{AppOverlay, QueueOverlay},
     },
@@ -215,6 +217,7 @@ pub async fn start(
         prompt,
         menu,
         confirm,
+        mount,
         tui,
         overlay,
         help,
@@ -262,9 +265,11 @@ pub async fn start(
             move |config| matchmaker::binds::display_help(&binds_ptr.load(), config)
         }),
     );
+    let help_binds = binds_ptr.clone();
     mm.register_help_handler(
         Box::new(move |config| matchmaker::binds::display_help(&binds_ptr.load(), config)),
         help,
+        help_binds,
     );
 
     let mut context = ActionContext::new(print_handle.clone());
@@ -305,7 +310,8 @@ pub async fn start(
                 .get()
                 .expect("MENU_ACTIONS must be set before start")
                 .clone(),
-        ));
+        ))
+        .overlay(MountOverlay::new(mount));
 
     let render_tx = builder.render_tx();
 
@@ -339,26 +345,24 @@ pub async fn start(
     // print before errors
     print_handle.map_to_vec(|s| prints!(s));
 
-    // stop in-flight extractions under TASKS so any delay is surfaced to the user
-    TASKS::spawn_blocking("stopping background transfers", || {
+    // Stop in-flight transfers under TASKS so any delay is surfaced to the
+    // user. The cleanup task waits for them, then ejects this process's
+    // mounts and removes the extraction root; both tasks are tracked, so the
+    // warn/max deadline (and its logging) covers a detach that bogs down.
+    let (transfers_done_tx, transfers_done_rx) = tokio::sync::oneshot::channel::<()>();
+    TASKS::spawn_blocking("stopping background transfers", move || {
         crate::run::queue::shutdown(std::time::Duration::from_secs(3));
+        let _ = transfers_done_tx.send(());
     });
+    TASKS::spawn_blocking(
+        "ejecting volumes and cleaning temporary directories",
+        move || {
+            let _ = transfers_done_rx.blocking_recv();
+            unzip::shutdown();
+            mount::shutdown();
+        },
+    );
     TASKS::shutdown(400, 10, 3000).await;
-
-    // clean up per-process unzip storage once transfers have stopped
-    let mut cleanup = tokio::task::spawn_blocking(unzip::shutdown);
-    let warn_deadline = tokio::time::sleep(std::time::Duration::from_millis(1000));
-    tokio::pin!(warn_deadline);
-
-    tokio::select! {
-        res = &mut cleanup => {
-            let _ = res;
-        }
-        _ = &mut warn_deadline => {
-            wbog!("shutdown delayed cleaning up temporary directories");
-            let _ = cleanup.await;
-        }
-    }
     // In the app pane, the picked program opens the pane's pending files
     // (fs :open, the OpenWith menu action); elsewhere the picked lines are
     // paths to open.

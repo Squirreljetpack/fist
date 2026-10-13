@@ -1,0 +1,18 @@
+Fist — Options
+==============
+
+The options overlay edits the visibility, sort, and pane settings of the
+current pane. Left/Right switch panes, Up/Down move within one, Enter
+toggles the highlighted option.
+
+Keys
+----
+| action | bind | description |
+|--------|------|-------------|
+| Parent | | previous pane (the left arrow) |
+| Advance | | next pane (the right arrow) |
+| Up(1) | | move up |
+| Down(1) | | move down |
+| Accept | | toggle the highlighted option |
+| Help | | show this document |
+| Quit(1) | | close the options |

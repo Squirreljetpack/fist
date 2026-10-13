@@ -655,6 +655,10 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
         action: &Action<FsAction>,
         _state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
+        if let Action::Custom(FsAction::Help) = action {
+            crate::run::register::request_overlay_help(crate::run::register::OverlayHelp::Queue);
+            return OverlayEffect::Disable;
+        }
         self.state.handle_action(action)
     }
 

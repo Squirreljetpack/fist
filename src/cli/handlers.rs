@@ -680,8 +680,9 @@ async fn handle_tools(
         }
         SubTool::Pager { args } => {
             // Split options and positional arguments by the first `--` disambiguator if present.
-            let (mut opt_args, pos_args) = if let Some(dash_dash_pos) =
-                args.iter().position(|a| a.as_os_str() == std::ffi::OsStr::new("--"))
+            let (mut opt_args, pos_args) = if let Some(dash_dash_pos) = args
+                .iter()
+                .position(|a| a.as_os_str() == std::ffi::OsStr::new("--"))
             {
                 let opts = args[..dash_dash_pos].to_vec();
                 let pos = args[dash_dash_pos + 1..].to_vec();

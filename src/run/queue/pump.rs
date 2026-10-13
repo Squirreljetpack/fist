@@ -10,6 +10,7 @@
 //! how many ticks observe them.
 
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::thread;
 use std::time::Duration;
@@ -193,10 +194,8 @@ fn finalize(
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .push(item.clone());
     if item.kind == "extract" {
+        register_extraction(item, target);
         if target == QueueItemState::CompleteErr {
-            // mark the skeleton so re-entry reports failure instead of
-            // silently showing partial files, plus a transient notice
-            mark_skeleton_failed(item);
             TOAST::notice(ToastStyle::Error, "Extraction failed");
         }
         // retire the persistent toast pushed when entering the archive
@@ -206,13 +205,27 @@ fn finalize(
     }
 }
 
-/// Writes the `.failed` marker into the extraction's skeleton dir (the
-/// workdir's parent). Best effort.
-fn mark_skeleton_failed(item: &QueueItem) {
-    let Some(marker_dir) = std::path::Path::new(item.data.as_os_str()).parent() else {
+/// Record the finished extraction in the mount registry: that is what makes it
+/// enterable (and visible in the mounts picker) once its contents are settled.
+/// `data` carries the destination directory. The per-process extraction root
+/// is removed as a whole on exit, so no row claims cleanup.
+fn register_extraction(
+    item: &QueueItem,
+    target: QueueItemState,
+) {
+    let Some(source) = item.src.first() else {
         return;
     };
-    let _ = std::fs::write(marker_dir.join(".failed"), b"");
+    let status = if target == QueueItemState::CompleteOk {
+        crate::mount::MountStatus::Success
+    } else {
+        crate::mount::MountStatus::Failed
+    };
+    crate::mount::MountRegistry::register(crate::mount::MountRow::extraction(
+        source.inner(),
+        PathBuf::from(item.data.as_os_str()),
+        status,
+    ));
 }
 
 fn percent_u8(snap: &fist_copy::TaskSnapshot) -> u8 {

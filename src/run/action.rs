@@ -30,6 +30,7 @@ use crate::{
     db::DbTable,
     lessfilter::Preset,
     menu::{MenuEvaluationContext, MenuStrategy},
+    mount,
     run::{
         item::short_display,
         pane::FsPane,
@@ -79,6 +80,8 @@ pub enum FsAction {
     /// # Note
     /// The char is emitted instead of jumping if the index is in the prompt.
     Jump(Vec<PathBuf>),
+    /// Unmount the volume the given path is mounted from, leaving it first.
+    Unmount(PathBuf),
     /// Enter app launching pane. No-op when already in an app pane.
     App,
 
@@ -95,6 +98,8 @@ pub enum FsAction {
     Help,
     /// Display the queue overlay (the app view while in the app pane).
     ShowQueue,
+    /// Display the volume picker for a just-mounted image file.
+    ShowMounts,
     /// Clear the queued operations selected by a queue-kind selector;
     /// `true` skips the confirmation.
     ClearQueue(QueueSelector, bool),
@@ -371,6 +376,7 @@ pub fn fsaction_aliaser(
             //  ------------- Overlay aliases --------------
             FsAction::ShowQueue
             | FsAction::ShowOptions
+            | FsAction::ShowMounts
             | FsAction::Confirm
             | FsAction::ShowMenu
                 if state.overlay_index().is_some() =>
@@ -383,6 +389,11 @@ pub fn fsaction_aliaser(
             }
             FsAction::ShowOptions => {
                 acs![Action::Overlay(2)]
+            }
+            FsAction::ShowMounts => {
+                // the volumes of a just-mounted image (or of an image that was
+                // already mounted), so one of them can be entered
+                acs![Action::Overlay(5)]
             }
             FsAction::Confirm => {
                 acs![Action::Overlay(3)]
@@ -749,6 +760,29 @@ pub fn fsaction_handler(
                 );
             }
         }
+        FsAction::Unmount(mount_point) => {
+            // panes inside the volume would outlive it, and the watcher follows
+            // the pane: drop them, then leave for the stack's cwd
+            STACK::remove_within(&mount_point);
+
+            let target = STACK::_cwd();
+            let target = if target.starts_with(&mount_point) {
+                // every pane was inside it, so there is nothing to return to
+                AbsPath::new_unchecked(__home())
+            } else {
+                target
+            };
+
+            if STACK::cwd().as_ref() != Some(&target) {
+                enter_dir_pane(state, target);
+            }
+
+            TASKS::spawn_blocking("unmount image", move || {
+                if let Err(err) = mount::unmount(&mount_point) {
+                    TOAST::notice(ToastStyle::Error, format!("Failed to unmount: {err}"));
+                }
+            });
+        }
         FsAction::Parent => {
             // If Nav, go to the parent of the cwd, otherwise go to the parent of the current item
 
@@ -758,30 +792,9 @@ pub fn fsaction_handler(
                 unwrap!(state.current_raw().map(|x| x.path.clone()))
             };
 
-            // Archive exit: while the unzip dir is off-limits (the
-            // default), Parent from an archive's extraction workdir
-            // (`<unzip>/<encoded>--<ts>/<name>`) jumps straight to the
-            // directory containing the archive instead of exposing the
-            // internal skeleton layout
-            let in_archive_workdir = current
-                .parent()
-                .and_then(|p| p.parent())
-                .is_some_and(|p| p == unzip::root());
-            if !GLOBAL::cfg().interface.allow_enter_unzip_directory && in_archive_workdir {
-                let Some(encoded) = current.parent().and_then(|p| p.file_name()) else {
-                    TOAST::notice(
-                        ToastStyle::Error,
-                        format!("Failed to leave archive: {}", short_display(&current)),
-                    );
-                    return;
-                };
-                let Some(archive) = unzip::recover_archive(&encoded.to_string_lossy()) else {
-                    TOAST::notice(
-                        ToastStyle::Error,
-                        format!("Failed to resolve archive for {}", short_display(&current)),
-                    );
-                    return;
-                };
+            if !GLOBAL::cfg().interface.allow_enter_unzip_directory
+                && let Some(archive) = mount::MountRegistry::source_of(current.as_path())
+            {
                 current = AbsPath::new_unchecked(archive);
             }
 
@@ -810,39 +823,54 @@ pub fn fsaction_handler(
                     db().bump_path(false, item.path.clone());
                 }
 
-                // enter archives through a temp extraction skeleton
-                if item.path.is_file() && unzip::supported(item.path.as_path()) {
-                    let archive_path = item.path.clone();
-                    match unzip::init(&archive_path) {
-                        // the persistent "Extracting" toast comes from the
-                        // pump watcher's discovery
-                        unzip::Entered::Extracting(skeleton) => {
-                            enter_dir_pane(state, skeleton);
+                if item.path.is_file() {
+                    // a file this process already materialized navigates into
+                    // its destination instead of mounting again
+                    match mount::MountRegistry::rows_for(item.path.as_path()).as_slice() {
+                        [] => {}
+                        [row] => {
+                            if row.status == mount::MountStatus::Failed {
+                                TOAST::push(
+                                    ToastStyle::Warning,
+                                    "Entering: ",
+                                    [Span::raw("failed extraction")],
+                                );
+                            }
+                            enter_dir_pane(state, AbsPath::new_unchecked(row.dest.clone()));
                             return;
                         }
-                        unzip::Entered::Complete(skeleton) => {
-                            enter_dir_pane(state, skeleton);
-                            TOAST::msg("Entering archive", true);
+                        _ => {
+                            GLOBAL::send_action(FsAction::ShowMounts);
                             return;
                         }
-                        unzip::Entered::Failed(skeleton) => {
-                            enter_dir_pane(state, skeleton);
-                            TOAST::msg(
-                                Span::styled("Entering failed archive", ToastStyle::Warning),
-                                true,
-                            );
-                            return;
-                        }
-                        unzip::Entered::None => {
-                            TOAST::notice(
+                    }
+
+                    // images and archives are mounted into navigable
+                    // directories
+                    if let Some(strategy) = mount::MountStrategy::detect(item.path.as_path()) {
+                        match strategy.mount(&item.path) {
+                            Ok(Some(dest)) => {
+                                enter_dir_pane(state, dest.clone());
+                                // a preview extraction fills in entry by
+                                // entry: keep the watcher on it through the
+                                // event storm
+                                if strategy == mount::MountStrategy::Extract {
+                                    unzip::must_watch(dest.as_path());
+                                }
+                            }
+                            // in flight, or several destinations: the
+                            // strategy has reported it and the picker shows
+                            // the result
+                            Ok(None) => {}
+                            Err(err) => TOAST::notice(
                                 ToastStyle::Error,
                                 format!(
-                                    "Failed to enter archive: {}",
-                                    short_display(&archive_path)
+                                    "Failed to mount {}: {err}",
+                                    short_display(&item.path).content
                                 ),
-                            );
-                            return;
+                            ),
                         }
+                        return;
                     }
                 }
 
@@ -1460,6 +1488,13 @@ pub fn fsaction_handler(
         // ------------------------------------------------------
         // Execute/Accept
         FsAction::Help => {
+            // an overlay's help request carries its document through STORE:
+            // the overlay closed itself and re-queued this action
+            if let Some(document) = STORE::take::<crate::run::register::OverlayHelp>() {
+                state.discriminant_payload = Some(document.discriminant());
+                state.set_interrupt(Interrupt::Execute, String::new());
+                return;
+            }
             if STACK::in_app() {
                 return;
             }
@@ -1803,7 +1838,7 @@ enum_from_str_display! {
     units:
     Advance, Parent, Find, Search, History, App,
     Undo, Redo,
-    ShowOptions, Help, ShowQueue,
+    ShowOptions, Help, ShowQueue, ShowMounts,
     ShowMenu, CycleFilter, ToggleFilter,
     Move, Copy, CopyPath, New, NewFolder, Rename;
 
@@ -1889,7 +1924,7 @@ macro_rules! enum_from_str_display {
                                         write!(f, "ClearQueue({selector})")
                                     }
                                 }
-                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | ResortSizes | Refilter | AcceptPrompt(_) | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionSilent(_) | MenuActionExecPaged(_) => Ok(()), // internal
+                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | ResortSizes | Refilter | AcceptPrompt(_) | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionSilent(_) | MenuActionExecPaged(_) | Unmount(_) => Ok(()), // internal
                                 Lessfilter { preset, paging, .. } => {
                                     if *paging {
                                         write!(f, "LFPaged({preset})")

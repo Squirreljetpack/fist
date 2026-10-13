@@ -118,6 +118,9 @@ pub enum MenuItem {
     Delete,
     Open,
     OpenWith,
+    Extract,
+    Unmount,
+    Mounts,
     Custom {
         name: String,
         action: String,
@@ -140,6 +143,9 @@ impl MenuItem {
             MenuItem::Delete => "delete",
             MenuItem::Open => "open",
             MenuItem::OpenWith => "open with",
+            MenuItem::Extract => "extract",
+            MenuItem::Unmount => "unmount",
+            MenuItem::Mounts => "show mounts",
             MenuItem::Custom { name, .. } => name,
         }
     }
@@ -156,6 +162,9 @@ impl MenuItem {
             MenuItem::Delete => Some("D"),
             MenuItem::Open => Some("O"),
             MenuItem::OpenWith => Some("W"),
+            MenuItem::Extract => Some("E"),
+            MenuItem::Unmount => None,
+            MenuItem::Mounts => None,
             MenuItem::Symlink => None,
             MenuItem::Goto => None,
             MenuItem::Custom { alias, .. } => alias.as_deref(),
@@ -219,6 +228,19 @@ impl MenuItem {
                     open_wrapped(conn, None, &[path_clone.inner().into()], true).await?;
                     anyhow::Ok(())
                 });
+                Err(false)
+            }
+            MenuItem::Extract => Ok(extract_prompt_for(&path)),
+            MenuItem::Unmount => {
+                if let Some(mount_point) = crate::mount::unmountable(path.as_path()) {
+                    GLOBAL::send_action(FsAction::Unmount(mount_point));
+                }
+                Err(false)
+            }
+            MenuItem::Mounts => {
+                // queued so it is handled after the menu has closed; the
+                // mounts picker itself disables on its own action
+                GLOBAL::send_action(FsAction::ShowMounts);
                 Err(false)
             }
             MenuItem::OpenWith => {
@@ -310,7 +332,7 @@ impl ColumnIndexable for MenuEntry {
     }
 }
 
-pub const MENU_ITEMS: [MenuItem; 11] = [
+pub const MENU_ITEMS: [MenuItem; 14] = [
     MenuItem::New,
     MenuItem::NewFolder,
     MenuItem::Rename,
@@ -320,6 +342,9 @@ pub const MENU_ITEMS: [MenuItem; 11] = [
     MenuItem::Delete,
     MenuItem::Open,
     MenuItem::OpenWith,
+    MenuItem::Extract,
+    MenuItem::Unmount,
+    MenuItem::Mounts,
     MenuItem::Symlink,
     MenuItem::Goto,
 ];
@@ -518,6 +543,25 @@ impl MenuOverlay {
         } else {
             MENU_ITEMS.to_vec()
         };
+        // extraction acts on the lone cursor item, unmounting on the volume the
+        // cursor is in
+        let extractable = ctx.selected.is_empty()
+            && !ctx.cursor_disabled
+            && ctx
+                .cursor
+                .as_ref()
+                .is_some_and(|p| crate::unzip::supported(p.as_path()));
+        let unmountable = ctx
+            .cursor
+            .as_ref()
+            .is_some_and(|p| crate::mount::unmountable(p.as_path()).is_some());
+        let has_mounts = !crate::mount::MountRegistry::is_empty();
+        items.retain(|item| match item {
+            MenuItem::Extract => extractable,
+            MenuItem::Unmount => unmountable,
+            MenuItem::Mounts => has_mounts,
+            _ => true,
+        });
         for (key, action) in self.actions.iter() {
             if ctx.is_applicable(action) {
                 items.push(MenuItem::Custom {
@@ -663,6 +707,13 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
         action: &Action<FsAction>,
         state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
+        // help is available even while a prompt is open; opening it closes
+        // the menu (the pager is requested by re-queued help)
+        if let Action::Custom(FsAction::Help) = action {
+            crate::run::register::request_overlay_help(crate::run::register::OverlayHelp::Menu);
+            return OverlayEffect::Disable;
+        }
+
         if let Some(p) = self.prompt_kind {
             // defer to prompt
             match self.prompt.handle_action_(action) {

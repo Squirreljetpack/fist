@@ -1,0 +1,24 @@
+Fist — Mounts
+=============
+
+The mounts picker lists every directory this process made navigable —
+mounted volumes and extractions — most recent first, with the image or
+archive path in the source column.
+
+Enter visits the highlighted entry. Delete (or shift-delete) unmounts the
+highlighted volume, or stops tracking the extraction (preview directories
+are removed with the per-process extraction root on exit, destinations
+chosen through the extract menu are left alone). An entry whose directory
+is gone is reported and dropped from the registry.
+
+Keys
+----
+| action | bind | description |
+|--------|------|-------------|
+| Up(1) | | move up |
+| Down(1) | | move down |
+| Accept | | visit the highlighted entry |
+| Trash | | unmount the volume, or forget the extraction |
+| Delete | | unmount the volume, or forget the extraction |
+| Help | | show this document |
+| Quit(1) | | close the picker |

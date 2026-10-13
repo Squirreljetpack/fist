@@ -48,8 +48,8 @@ use crate::{
         state::{RanRecache, STORE, ShouldNotAbortOnEmpty, TOAST, ToastFlags, ToastStyle},
     },
 };
-use matchmaker::nucleo::Span;
 use fist_types::filters::SortOrder;
+use matchmaker::nucleo::Span;
 
 // todo: when do we need be able to restart after STOP
 // todo: lowpri: this is like 1.2 slower than pure fd? Accept input is a bit sluggish? Cache to reduce disk reads?

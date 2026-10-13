@@ -818,6 +818,10 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
         action: &Action<FsAction>,
         _state: &mut MMState<'_, PathItem, ()>,
     ) -> OverlayEffect {
+        if let Action::Custom(FsAction::Help) = action {
+            crate::run::register::request_overlay_help(crate::run::register::OverlayHelp::Options);
+            return OverlayEffect::Disable;
+        }
         self.handle_action_nav(action)
     }
 

@@ -1,6 +1,6 @@
 use std::{
     ffi::OsString,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, atomic::AtomicBool},
 };
 
@@ -367,6 +367,22 @@ impl FsPane {
             FsPane::Apps { .. } => "apps",
             FsPane::Stash { .. } => "stash",
             FsPane::Nav { .. } => "nav",
+        }
+    }
+
+    /// The directory this pane lists, when it lists one.
+    #[inline]
+    pub fn cwd(&self) -> Option<&Path> {
+        match self {
+            FsPane::Nav { cwd, .. }
+            | FsPane::Custom { cwd, .. }
+            | FsPane::Find { cwd, .. }
+            | FsPane::Search { cwd, .. } => Some(cwd.as_ref()),
+
+            FsPane::Files { .. }
+            | FsPane::Folders { .. }
+            | FsPane::Apps { .. }
+            | FsPane::Stash { .. } => None,
         }
     }
 
