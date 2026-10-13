@@ -145,6 +145,9 @@ pub struct GlobalConfig {
 pub struct QueueConfig {
     pub copy: fist_copy::TransferParams,
     pub r#move: fist_copy::TransferParams,
+    /// Keep completed rows in the queue overlay after it closes. When
+    /// false (default), completed shared rows are cleared on close.
+    pub clear_completed_on_close: bool,
 }
 
 /// Miscellaneous and Tool specific options.

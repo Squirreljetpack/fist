@@ -617,7 +617,9 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
 
     fn on_disable(&mut self) {
         GLOBAL::send_bind(BindDirective::OverrideTickrate(None));
-        QUEUE::clear_completed_shared();
+        if !GLOBAL::cfg().queue.clear_completed_on_close {
+            QUEUE::clear_completed_shared();
+        }
     }
 
     fn handle_input(

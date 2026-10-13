@@ -61,6 +61,10 @@ empty_pattern = "-v ^ *$"
 [history]
 refind = "Search"
 
+[queue]
+# Keep completed queue rows after closing the queue overlay (default: false)
+# clear_completed_on_close = true
+
 ### MISC ###
 
 [interface]
