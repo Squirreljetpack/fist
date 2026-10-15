@@ -33,6 +33,11 @@ border = { type = "Plain", padding = 1 }
 [query]
 border = { type = "Rounded", sides = "ALL", color = "blue" }
 
+[prompt]
+# characters kept between the cursor and the left edge of prompt bars
+# (New, NewFolder, Rename, Goto, Extract, SetAlias)
+# scroll_padding_left = 3
+
 [binds]
 # Prompt-mode overrides: see mm.toml
 "prompt^^shift-left" = "Parent"

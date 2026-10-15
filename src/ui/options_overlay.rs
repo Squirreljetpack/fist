@@ -464,10 +464,8 @@ impl OptionsOverlay {
                             2 => {
                                 if vis.files {
                                     vis.files = false;
-                                } else if vis.dirs {
-                                    vis.dirs = false;
                                 } else {
-                                    vis.dirs = true;
+                                    vis.dirs = !vis.dirs;
                                 }
                             }
                             3 => vis.toggle_all(),

@@ -18,6 +18,7 @@ pub use super::application_helper::{application_has_icon, application_icon_path}
 use super::env::line_column;
 use crate::cli::paths::current_exe;
 use crate::config::pager_cfg;
+use crate::lessfilter::action::CommandStrategy;
 use crate::lessfilter::mime_helpers::{detect_encoding, is_native};
 use crate::pager;
 
@@ -207,27 +208,34 @@ fn infer_chafa_format() -> &'static str {
     })
 }
 
+/// Image preview for a file: a native `<MM_IMAGE>` header when the output is
+/// captured (a matchmaker preview) and chafa when stdout is a terminal. `max_w`
+/// bounds the rendered width in columns.
 pub fn image_viewer(
     path: &Path,
     max_w: Option<u8>,
-) -> Vec<OsString> {
-    let mut args = vec_![: "chafa", "-f", infer_chafa_format()];
+) -> CommandStrategy {
+    if !atty::is(atty::Stream::Stdout) {
+        #[cfg(any(feature = "image-defaults", feature = "image-all"))]
+        {
+            // A bounded width fills that many columns, the height following the
+            // aspect ratio (and scrolling when it overflows the pane).
+            let options = max_w.map(|max_w| format!("hfit=fill:{max_w} vfit=crop"));
+            return CommandStrategy::Image(path.to_path_buf(), options);
+        }
+    }
 
+    let mut args = vec_![: "chafa", "-f", infer_chafa_format()];
     if let Some(w) = max_w {
-        // Read lines from env
         let terminal_lines = env::var("LINES")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(24);
-
-        // Apply both width and height bounds so it doesn't overflow vertically
         args.push(format!("--size={}x{}", w, terminal_lines).into());
     }
-
-    args.push("--scale=max".into()); // default
+    args.push("--scale=max".into());
     args.push(path.into());
-
-    args
+    CommandStrategy::from(args)
 }
 
 pub fn infer_visual(path: &Path) -> Vec<OsString> {

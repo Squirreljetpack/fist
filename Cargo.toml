@@ -154,7 +154,7 @@ partial = [
     "matchmaker-partial-macros/partial",
 ]
 
-image-defaults = ["image/png", "image/jpeg"]
+image-defaults = ["image/png", "image/jpeg", "matchmaker-lib/image"]
 image-all = [
     "image/png",
     "image/jpeg",
@@ -163,6 +163,7 @@ image-all = [
     "image/ico",
     "image/tiff",
     "image/webp",
+    "matchmaker-lib/image-all",
 ]
 
 file-format = ["dep:file-format"]

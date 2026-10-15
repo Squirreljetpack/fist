@@ -17,6 +17,7 @@ use arrayvec::ArrayVec;
 use cba::bog::BogUnwrapExt;
 use cba::{_trace, ebog, unwrap};
 use cba::{bog::BogOkExt, broc::CommandExt};
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -145,6 +146,20 @@ pub fn handle(
                             )
                         })
                     }
+                    CommandStrategy::Image(p, options) => {
+                        // The declared byte count delimits the path, so the path may
+                        // contain any byte (newlines included).
+                        let bytes = p.as_os_str().as_encoded_bytes();
+                        let header = match options.as_deref() {
+                            Some(options) => format!("\x1e<MM_IMAGE:{}> {options}\n", bytes.len()),
+                            None => format!("\x1e<MM_IMAGE:{}>\n", bytes.len()),
+                        };
+                        let mut out = std::io::stdout();
+                        out.write_all(header.as_bytes()).is_ok()
+                            && out.write_all(bytes).is_ok()
+                            && out.flush().is_ok()
+                    }
+
                     CommandStrategy::ShowError(ref msg) => {
                         crate::utils::prompt::show_error(&[msg.as_str()]);
                         true
@@ -264,6 +279,10 @@ fn run_diagnose(
                                 CommandStrategy::ShowError(msg) => {
                                     format!("<showerror \"{msg}\">")
                                 }
+                                CommandStrategy::Image(p, _) => {
+                                    format!("<image {}>", p.display())
+                                }
+
                                 CommandStrategy::None => "<none>".to_string(),
 
                                 CommandStrategy::Prog(prog, args) => std::iter::once(prog)

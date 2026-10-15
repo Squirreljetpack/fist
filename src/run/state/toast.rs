@@ -195,7 +195,7 @@ impl TOAST {
         state.retain_mut(|line| {
             if line.prefix.content == prefix {
                 if let ToastContent::List(items) = &mut line.content {
-                    items.retain(|i| i != item);
+                    items.retain(|i| i.content != item.content);
                     return !items.is_empty();
                 }
             }

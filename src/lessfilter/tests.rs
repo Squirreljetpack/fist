@@ -5,6 +5,7 @@ use std::path::Path;
 use super::{action::*, file_rule::*, *};
 use crate::abspath::AbsPath;
 use crate::cli::paths::current_exe;
+use crate::lessfilter::helpers::image_viewer;
 use crate::lessfilter::rule_matcher::Test;
 use cba::vec_;
 use fist_types::FileCategory;
@@ -133,16 +134,14 @@ fn test_image_file_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert!(matches!(&progs.0[0], CommandStrategy::Prog(prog, _) if prog == "chafa"));
+    assert_eq!(progs.0[0], image_viewer(&path, None));
 
     // Test extended preset for multiple commands
     let extended_action = best_action(&cfg, Preset::Extended, &path).unwrap();
     let extended_progs = extended_action.to_progs(&path, Preset::Extended);
     assert_eq!(extended_progs.0.len(), 3);
     assert_eq!(extended_progs.0[0], CommandStrategy::Header); // header
-    assert!(
-        matches!(&extended_progs.0[1], CommandStrategy::Prog(prog, _) if prog == "chafa") // image viewer
-    );
+    assert_eq!(extended_progs.0[1], image_viewer(&path, None)); // image viewer
     assert_eq!(extended_progs.0[2], CommandStrategy::Metadata(path.clone())); // metadata
 }
 

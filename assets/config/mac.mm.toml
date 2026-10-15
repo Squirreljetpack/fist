@@ -54,6 +54,19 @@ max = 20
 wrap = true
 scroll_wrap = true
 
+# How `<MM_IMAGE>` preview output is rendered (values are the defaults).
+[preview.image]
+# protocol = "auto" # auto|characters|sixel|kitty|iterm2|none
+# horizontal_fit = "contain" # contain[:cells]|fill[:cells]|crop
+# vertical_fit = "crop"
+# filter = "triangle" # nearest|triangle|catmull-rom|gaussian|lanczos3
+# scroll = 0
+
+# Preview command handling.
+[previewer]
+# parse `<MM_IMAGE>` headers in preview command output
+# images = true
+
 [overlay]
 border = { type = "Rounded", color = "darkGrey", padding = 1 }
 
@@ -62,6 +75,11 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 # word movement stops at these characters in addition to whitespace
 word_boundaries = ['.', '/']
 reset_cursor_on_query_change = true
+
+[prompt]
+# characters kept between the cursor and the left edge of prompt bars
+# (New, NewFolder, Rename, Goto, Extract, SetAlias)
+# scroll_padding_left = 3
 
 [binds]
 # Prompt locking: Arrow keys navigate when unlocked, and move cursor when locked

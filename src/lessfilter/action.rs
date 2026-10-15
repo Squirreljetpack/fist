@@ -61,6 +61,9 @@ impl<'de> Deserialize<'de> for Action {
 pub enum CommandStrategy {
     /// Render [PathBuf] through the in-process pager (bat + minus).
     Pager(PathBuf),
+    /// Print the `<MM_IMAGE>` header for [PathBuf], with optional header options
+    /// (e.g. `hfit=fill:16`): the previewer loads it natively.
+    Image(PathBuf, Option<String>),
     /// Show the app header in-process.
     Header,
     /// Show metadata for [PathBuf] in-process.
@@ -180,14 +183,10 @@ impl Action {
             },
             Action::Image => match preset {
                 Preset::Preview | Preset::Display => {
-                    (arr![image_viewer(path, None).into()], [true, false, false])
+                    (arr![image_viewer(path, None)], [true, false, false])
                 }
                 Preset::Extended => (
-                    arr![
-                        Header,
-                        image_viewer(path, None).into(),
-                        Metadata(path.into())
-                    ],
+                    arr![Header, image_viewer(path, None), Metadata(path.into())],
                     [true, false, false],
                 ),
                 Preset::Info => (arr![Header, Metadata(path.into())], [true, false, false]),
@@ -207,24 +206,20 @@ impl Action {
                 match preset {
                     Preset::Preview | Preset::Display => {
                         // fallback to directory display if no icon found
-                        let ac = if let Some(icon) = display_path {
-                            image_viewer(icon, Some(16))
-                        } else {
-                            application_fallback(path)
+                        let ac = match display_path {
+                            Some(icon) => image_viewer(icon, Some(16)),
+                            None => application_fallback(path).into(),
                         };
-                        (arr![ac.into()], [false, false, false])
+                        (arr![ac], [false, false, false])
                     }
                     Preset::Extended => {
-                        let ac = if let Some(icon) = display_path {
-                            image_viewer(icon, Some(16))
-                        } else {
-                            application_fallback(path)
+                        let ac = match display_path {
+                            Some(icon) => image_viewer(icon, Some(16)),
+                            None => application_fallback(path).into(),
                         };
 
-                        (
-                            arr![Header, ac.into(), Metadata(path.into())],
-                            [true, false, true],
-                        )
+                        // todo: move header to before once we figure out how to support that
+                        (arr![ac, Header, Metadata(path.into())], [true, false, true])
                     }
                     Preset::Info => (arr![Header, Metadata(path.into())], [true, false, true]),
                     Preset::Edit => (

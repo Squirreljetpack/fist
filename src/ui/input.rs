@@ -8,7 +8,8 @@ use ratatui::text::Span;
 #[serde(default, deny_unknown_fields)]
 pub struct InputWidgetConfig {
     pub border: BorderSetting,
-    pub scroll_padding: usize,
+    /// Characters kept between the cursor and the left edge of the bar.
+    pub scroll_padding_left: usize,
     pub style: StyleSetting,
     /// Word movement stops at these characters in addition to whitespace.
     pub word_boundaries: Vec<char>,
@@ -17,7 +18,7 @@ pub struct InputWidgetConfig {
 impl Default for InputWidgetConfig {
     fn default() -> Self {
         Self {
-            scroll_padding: 3, // easier to see when editing cells
+            scroll_padding_left: 3, // easier to see when editing cells
             border: Default::default(),
             style: Default::default(),
             // lowpri: figure out a way to configure this
@@ -103,6 +104,6 @@ impl InputWidget {
     pub fn scroll_to_cursor(&mut self) {
         self.inner
             .state
-            .scroll_to_cursor(self.config.scroll_padding);
+            .scroll_to_cursor(self.config.scroll_padding_left);
     }
 }

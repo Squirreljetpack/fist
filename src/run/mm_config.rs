@@ -3,8 +3,8 @@ use matchmaker::{
     binds::{BindMap, BindMapExt, ResolvedBindMap},
     collections::HiddenColumns,
     config::{
-        DisplayConfig, HelpDisplayConfig, OverlayConfig, Percentage, PreviewSetting, RenderConfig,
-        RowConnectionStyle, TerminalConfig, TerminalLayoutSettings,
+        DisplayConfig, HelpDisplayConfig, OverlayConfig, Percentage, PreviewSetting,
+        PreviewerConfig, RenderConfig, RowConnectionStyle, TerminalConfig, TerminalLayoutSettings,
     },
     nucleo::nucleo,
 };
@@ -63,6 +63,10 @@ pub struct MMConfig {
     /// Volume picker overlay (query line over the mounted volumes)
     #[serde(default)]
     pub mount: MountConfig,
+
+    /// Preview command handling (`<MM_IMAGE>` parsing, shell, debounce, ...)
+    #[serde(default)]
+    pub previewer: PreviewerConfig,
 
     // --- other ---
     #[serde(default)]

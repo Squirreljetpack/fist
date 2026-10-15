@@ -6,7 +6,7 @@ use cba::env_vars;
 use log::warn;
 use matchmaker::{
     AttachmentFormatter,
-    config::{HelpDisplayConfig, PreviewerConfig},
+    config::{HelpDisplayConfig, ImageProtocol, PreviewerConfig},
     message::Event,
     nucleo::Text,
     preview::previewer::{PreviewMessage, Previewer},
@@ -17,10 +17,16 @@ use matchmaker::{
 /// The Previewer can be connected to [`Matchmaker`] using [`PickOptions::previewer`]
 pub fn make_previewer(
     mm: &mut FsMatchmaker,
-    previewer_config: PreviewerConfig,
+    mut previewer_config: PreviewerConfig,
     formatter: AttachmentFormatter<PathItem, ()>,
     help_factory: Box<dyn Fn(&HelpDisplayConfig) -> Text<'static> + Send + Sync>,
 ) -> Previewer {
+    // A parser with no picker to draw into would turn `<MM_IMAGE>` output into raw
+    // bytes, so header parsing follows the protocol setting.
+    if mm.render_config.preview.image.protocol == ImageProtocol::None {
+        previewer_config.images = false;
+    }
+
     // initialize previewer
     let (previewer, tx) = Previewer::new(previewer_config.clone());
     let preview_tx = tx.clone();

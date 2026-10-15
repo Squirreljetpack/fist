@@ -4,7 +4,7 @@ use cba::{_trace, bog::BogOkExt, prints};
 use fist_types::filters::SortOrder;
 use matchmaker::{
     Either, MatchError, Matchmaker, PickOptions,
-    config::{PreviewerConfig, RenderConfig, TerminalConfig, UiConfig},
+    config::{RenderConfig, TerminalConfig, UiConfig},
     event::EventLoop,
     message::Event,
     nucleo::{Column, Text, Worker, injector::WorkerInjector},
@@ -209,6 +209,7 @@ pub async fn start(
 
     // init configs
     let MMConfig {
+        previewer,
         render,
         binds,
         queue,
@@ -258,7 +259,7 @@ pub async fn start(
     let binds_ptr = event_loop.get_binds_ptr();
     let previewer = make_previewer(
         &mut mm,
-        PreviewerConfig::default(),
+        previewer,
         formatter,
         Box::new({
             let binds_ptr = binds_ptr.clone();
