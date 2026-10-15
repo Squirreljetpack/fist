@@ -154,7 +154,7 @@ partial = [
     "matchmaker-partial-macros/partial",
 ]
 
-image-defaults = ["image/png", "image/jpeg", "matchmaker-lib/image"]
+image-defaults = ["image/png", "image/jpeg", "matchmaker-lib/image", "matchmaker-lib/image-svg"]
 image-all = [
     "image/png",
     "image/jpeg",

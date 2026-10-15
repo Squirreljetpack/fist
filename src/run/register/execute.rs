@@ -332,7 +332,7 @@ pub(super) fn collect_exec_env(
             }
         };
         if let Some(p) = state.preview_ui.as_ref() {
-            vars.push(("SCROLL_LINE".to_string(), p.offset().to_string()));
+            vars.push(("SCROLL_LINE".to_string(), p.text_offset().to_string()));
         }
     }
     let preview_cmd = format_path(state.preview_payload(), path);

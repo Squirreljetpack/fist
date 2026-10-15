@@ -8,7 +8,9 @@ use serde::{Deserialize, Deserializer};
 use crate::arr;
 use crate::cli::paths::current_exe;
 use crate::lessfilter::Preset;
-use crate::lessfilter::helpers::{application_icon_path, image_viewer, infer_editor, infer_visual};
+use crate::lessfilter::helpers::{
+    application_icon_path, image_viewer, infer_editor, infer_visual, with_header_lines,
+};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, serde::Serialize)]
 #[serde(untagged)]
@@ -214,12 +216,11 @@ impl Action {
                     }
                     Preset::Extended => {
                         let ac = match display_path {
-                            Some(icon) => image_viewer(icon, Some(16)),
+                            Some(icon) => with_header_lines(image_viewer(icon, Some(16)), 1),
                             None => application_fallback(path).into(),
                         };
 
-                        // todo: move header to before once we figure out how to support that
-                        (arr![ac, Header, Metadata(path.into())], [true, false, true])
+                        (arr![Header, ac, Metadata(path.into())], [true, false, true])
                     }
                     Preset::Info => (arr![Header, Metadata(path.into())], [true, false, true]),
                     Preset::Edit => (

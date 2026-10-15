@@ -4,29 +4,48 @@ use cba::bog::BogOkExt;
 
 use crate::cli::paths::tmp_dir;
 
+#[cfg(target_os = "linux")]
+use super::xdg_icon;
+
+/// Path of the icon to preview for `path`: the first resolvable candidate the
+/// image preview pipeline can decode. Formats it cannot read (xpm, icns) are
+/// skipped in favour of lower-priority candidates, so `None` means the
+/// caller should fall back to a text preview instead of an empty pane.
 pub fn application_icon_path(path: &Path) -> Option<PathBuf> {
+    application_icon_candidates(path)
+        .into_iter()
+        .find(|candidate| previewable_image(candidate))
+}
+
+/// Candidate icons for `path`, most preferred first.
+fn application_icon_candidates(path: &Path) -> Vec<PathBuf> {
     cfg_if::cfg_if! {
         if #[cfg(target_os = "macos")] {
-            macos_application_icon_path(path)
+            macos_application_icon_path(path).into_iter().collect()
         } else if #[cfg(target_os = "linux")] {
-            linux_application_icon_path(path)
+            linux_application_icon_candidates(path)
         } else {
-            sidecar_icon_path(path)
+            sidecar_icon_candidates(path)
         }
     }
 }
 
+/// Whether `path` names an image the preview pipeline can show, svg included.
+fn previewable_image(path: &Path) -> bool {
+    matchmaker::preview::image::PreviewFormat::from_path(path).is_some()
+}
+
 /// Whether an icon file can be resolved for `path` without materializing it.
-/// On macOS this checks the bundle's `.icns`; elsewhere it is equivalent to
-/// [`application_icon_path`].
+/// On macOS this checks the bundle's `.icns`; elsewhere it reports whether any
+/// candidate exists, whether or not the preview pipeline can decode it.
 pub fn application_has_icon(path: &Path) -> bool {
     cfg_if::cfg_if! {
         if #[cfg(target_os = "macos")] {
             macos_application_icon_file(path).is_some()
         } else if #[cfg(target_os = "linux")] {
-            linux_application_icon_path(path).is_some()
+            !linux_application_icon_candidates(path).is_empty()
         } else {
-            sidecar_icon_path(path).is_some()
+            !sidecar_icon_candidates(path).is_empty()
         }
     }
 }
@@ -169,116 +188,47 @@ fn macos_application_icon_path(path: &Path) -> Option<PathBuf> {
 }
 
 #[cfg(target_os = "linux")]
-fn linux_application_icon_path(path: &Path) -> Option<PathBuf> {
+fn linux_application_icon_candidates(path: &Path) -> Vec<PathBuf> {
     if path
         .file_name()
         .and_then(|name| name.to_str())
         .is_some_and(|name| name.ends_with(".AppImage"))
     {
-        return sidecar_icon_path(path);
+        return sidecar_icon_candidates(path);
     }
 
-    let icon = desktop_icon_name(path)?;
-    let icon_path = PathBuf::from(&icon);
-    if icon_path.is_absolute() && icon_path.is_file() {
-        return Some(icon_path);
-    }
-    if icon_path.components().count() > 1 && icon_path.is_file() {
-        return Some(icon_path);
-    }
-
-    resolve_xdg_icon(&icon).or_else(|| sidecar_icon_path(path))
-}
-
-#[cfg(target_os = "linux")]
-fn desktop_icon_name(path: &Path) -> Option<String> {
-    let content = std::fs::read_to_string(path).ok()?;
-    let mut in_entry = false;
-
-    for line in content.lines() {
-        let line = line.trim();
-        if line.starts_with('[') {
-            if in_entry && line.ends_with(']') {
-                break;
+    let mut candidates = Vec::new();
+    if let Some(icon) = xdg_icon::desktop_icon_name(path) {
+        let icon_path = Path::new(&icon);
+        if icon_path.is_absolute() {
+            if icon_path.is_file() {
+                candidates.push(icon_path.to_path_buf());
             }
-            in_entry = line == "[Desktop Entry]";
-            continue;
-        }
-
-        if in_entry {
-            if let Some(icon) = line.strip_prefix("Icon=") {
-                let icon = icon.trim();
-                if !icon.is_empty() {
-                    return Some(icon.to_string());
+        } else if icon_path.components().count() > 1 {
+            // A relative path resolves against the desktop file's directory,
+            // falling back to the process directory.
+            if let Some(parent) = path.parent() {
+                let relative = parent.join(icon_path);
+                if relative.is_file() {
+                    candidates.push(relative);
                 }
             }
-        }
-    }
-
-    None
-}
-
-#[cfg(target_os = "linux")]
-fn resolve_xdg_icon(icon: &str) -> Option<PathBuf> {
-    let icon = icon.strip_suffix(".png").unwrap_or(icon);
-    let icon = icon.strip_suffix(".svg").unwrap_or(icon);
-    let icon = icon.strip_suffix(".xpm").unwrap_or(icon);
-
-    let mut roots = Vec::new();
-    if let Some(data_home) = std::env::var_os("XDG_DATA_HOME") {
-        roots.push(PathBuf::from(data_home));
-    } else if let Some(home) = dirs::home_dir() {
-        roots.push(home.join(".local").join("share"));
-    }
-
-    if let Some(data_dirs) = std::env::var_os("XDG_DATA_DIRS") {
-        roots.extend(std::env::split_paths(&data_dirs));
-    } else {
-        roots.push(PathBuf::from("/usr/local/share"));
-        roots.push(PathBuf::from("/usr/share"));
-    }
-
-    let exts = ["png", "svg", "xpm"];
-    let sizes = [
-        "512x512", "256x256", "128x128", "96x96", "64x64", "48x48", "32x32", "scalable",
-    ];
-
-    for root in &roots {
-        for ext in exts {
-            let candidate = root.join("pixmaps").join(format!("{icon}.{ext}"));
-            if candidate.is_file() {
-                return Some(candidate);
+            if icon_path.is_file() {
+                candidates.push(icon_path.to_path_buf());
             }
         }
-
-        for theme in ["hicolor", "Adwaita"] {
-            for size in sizes {
-                for ext in exts {
-                    let candidate = root
-                        .join("icons")
-                        .join(theme)
-                        .join(size)
-                        .join("apps")
-                        .join(format!("{icon}.{ext}"));
-                    if candidate.is_file() {
-                        return Some(candidate);
-                    }
-                }
-            }
-        }
+        candidates.extend(xdg_icon::resolve(&icon));
     }
-
-    None
+    candidates.extend(sidecar_icon_candidates(path));
+    candidates
 }
 
 #[cfg(any(target_os = "windows", not(any(target_os = "macos"))))]
-fn sidecar_icon_path(path: &Path) -> Option<PathBuf> {
-    for ext in ["png", "svg", "xpm", "ico"] {
-        let candidate = path.with_extension(ext);
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-    }
-
-    None
+#[cfg(not(target_os = "macos"))]
+fn sidecar_icon_candidates(path: &Path) -> Vec<PathBuf> {
+    ["png", "svg", "xpm", "ico"]
+        .into_iter()
+        .map(|extension| path.with_extension(extension))
+        .filter(|candidate| candidate.is_file())
+        .collect()
 }

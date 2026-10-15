@@ -237,6 +237,23 @@ pub fn image_viewer(
     args.push(path.into());
     CommandStrategy::from(args)
 }
+/// Attach `header_lines` to an image request so the text lines emitted before it
+/// stay above the image when it is panned.
+pub fn with_header_lines(
+    strategy: CommandStrategy,
+    header_lines: u8,
+) -> CommandStrategy {
+    match strategy {
+        CommandStrategy::Image(path, options) => {
+            let options = match options {
+                Some(options) => format!("{options} header_lines={header_lines}"),
+                None => format!("header_lines={header_lines}"),
+            };
+            CommandStrategy::Image(path, Some(options))
+        }
+        other => other,
+    }
+}
 
 pub fn infer_visual(path: &Path) -> Vec<OsString> {
     VISUAL.with(|cell| {
