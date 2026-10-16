@@ -76,7 +76,6 @@ complete -c fs -n "__fish_fs_needs_command" -a ":" -d 'Full text search'
 complete -c fs -n "__fish_fs_needs_command" -a ":tool" -d 'Plugins and utilities'
 complete -c fs -n "__fish_fs_needs_command" -a ":t" -d 'Plugins and utilities'
 complete -c fs -n "__fish_fs_needs_command" -a ":info" -d 'Stats and database records'
-complete -c fs -n "__fish_fs_using_subcommand :open" -s w -l with -d 'app to open files with' -r
 complete -c fs -n "__fish_fs_using_subcommand :open" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :open" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :open" -l style -r -f -a "icons\t''
@@ -99,7 +98,6 @@ complete -c fs -n "__fish_fs_using_subcommand :open" -l help -d 'initial query'
 complete -c fs -n "__fish_fs_using_subcommand :open" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :open" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :open" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :o" -s w -l with -d 'app to open files with' -r
 complete -c fs -n "__fish_fs_using_subcommand :o" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :o" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :o" -l style -r -f -a "icons\t''

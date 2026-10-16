@@ -66,8 +66,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:open' {
-            [CompletionResult]::new('-w', '-w', [CompletionResultType]::ParameterName, 'app to open files with')
-            [CompletionResult]::new('--with', '--with', [CompletionResultType]::ParameterName, 'app to open files with')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -86,8 +84,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:o' {
-            [CompletionResult]::new('-w', '-w', [CompletionResultType]::ParameterName, 'app to open files with')
-            [CompletionResult]::new('--with', '--with', [CompletionResultType]::ParameterName, 'app to open files with')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')

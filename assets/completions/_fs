@@ -57,8 +57,6 @@ _fs() {
         case $line[3] in
             (:open)
 _arguments "${_arguments_options[@]}" : \
-'-w+[app to open files with]:PROG:_default' \
-'--with=[app to open files with]:PROG:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -79,8 +77,6 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (:o)
 _arguments "${_arguments_options[@]}" : \
-'-w+[app to open files with]:PROG:_default' \
-'--with=[app to open files with]:PROG:_default' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \

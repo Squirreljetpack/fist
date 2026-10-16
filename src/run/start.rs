@@ -402,13 +402,14 @@ pub async fn start(
                     .map(|p| OsString::from(p.path.inner()))
                     .collect();
                 let conn = db().get_conn(DbTable::apps).await?;
-                let prog = output.opener.as_ref().and_then(Program::from_os_string);
+                let (opener, detach) = output.opener_parts();
+                let prog = opener.and_then(Program::from_os_string);
                 if prog.is_some() {
                     crate::spawn::init_spawn_with(Vec::new()); // if opener is set explicitly, ignore spawn_with
                 }
 
                 // the default is the same behavior as fs :open, which also called by fs :tool lessfilter open
-                open_wrapped(conn, prog, &files, false).await?;
+                open_wrapped(conn, prog, &files, detach).await?;
                 Ok(())
             }
             Err(MatchError::Abort(i)) => std::process::exit(i),

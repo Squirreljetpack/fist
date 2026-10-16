@@ -466,20 +466,12 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:open)
-            opts="-w -o -q -v --with --list --simple-ui --help --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
+            opts="-o -q -v --list --simple-ui --help --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
-                --with)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -w)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
                 --config)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0

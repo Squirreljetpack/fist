@@ -11,11 +11,12 @@ pub use program::*;
 // -----------
 use crate::db::{Connection, DbTable};
 use crate::errors::CliError;
+use crate::utils::command::command_log_stderr;
 
 /// # note
 /// Relative paths are resolved relative to the initial cwd.
 /// detach is usually specified iff fs is not exiting afterward.
-/// todo: lowpri: option to silence stderr/stdout even when !detach?
+/// todo: lowpri: option to silence stdout even when !detach?
 pub async fn open_wrapped(
     mut conn: Connection,
     prog: Option<Program>,
@@ -30,6 +31,10 @@ pub async fn open_wrapped(
             if detach {
                 c.spawn_detached().map(|_| {})
             } else {
+                // `-v` leaves the child's stderr on the terminal for debugging
+                if let Some(stderr) = command_log_stderr() {
+                    c.stderr(stderr);
+                }
                 c._spawn()
                     .and_then(|mut child| (child.wait_for_code() == 0).then_some(()))
             }

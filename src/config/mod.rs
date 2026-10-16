@@ -389,6 +389,10 @@ impl Config {
     pub fn tools_log_path(&self) -> PathBuf {
         self.state_dir.join(format!("{BINARY_FULL}.tools.log"))
     }
+    /// Log file for the stderr of spawned commands.
+    pub fn command_log_path(&self) -> PathBuf {
+        self.state_dir.join(format!("{BINARY_FULL}.commands.log"))
+    }
 
     pub fn check_dirs_or_exit(&self) {
         let dirs = [&self.state_dir, &self.cache_dir];

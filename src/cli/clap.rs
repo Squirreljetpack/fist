@@ -134,17 +134,36 @@ pub struct OutputOpts {
     pub opener: Option<String>,
 }
 
+/// Prefix on `--opener` marking the opener as detached.
+const DETACH_PREFIX: char = '!';
+
+impl OutputOpts {
+    /// Opener program override, with a leading [`DETACH_PREFIX`] stripped off,
+    /// paired with whether the opener should be spawned detached.
+    pub fn opener_parts(&self) -> (Option<&str>, bool) {
+        let Some(opener) = self.opener.as_deref() else {
+            return (None, false);
+        };
+        let detach = opener.starts_with(DETACH_PREFIX);
+        let opener = opener.strip_prefix(DETACH_PREFIX).unwrap_or(opener);
+        (Some(opener).filter(|o| !o.trim().is_empty()), detach)
+    }
+}
+
+/// Verbosity level used when neither `-v`/`-q` nor `FS_VERBOSITY` is given.
+pub const DEFAULT_VERBOSITY: u8 = 4;
+
 impl CliOpts {
-    /// Resolved verbosity level: the default of 4 shifted by `-v`/`-q`,
+    /// Resolved verbosity level: [`DEFAULT_VERBOSITY`] shifted by `-v`/`-q`,
     /// or `FS_VERBOSITY` when neither flag is given.
     pub fn verbosity(&self) -> u8 {
         if self.quiet == 0 && self.verbose == 0 {
             std::env::var("FS_VERBOSITY")
                 .ok()
                 .and_then(|env| env.parse::<u8>().ok())
-                .unwrap_or(4)
+                .unwrap_or(DEFAULT_VERBOSITY)
         } else {
-            (4 + self.verbose).saturating_sub(self.quiet)
+            (DEFAULT_VERBOSITY + self.verbose).saturating_sub(self.quiet)
         }
     }
 }
@@ -194,9 +213,6 @@ pub struct InfoCmd {
 /// Launch apps and files
 #[derive(Debug, Parser, Default, Clone)]
 pub struct OpenCmd {
-    /// app to open files with.
-    #[clap(short = 'w', long, value_name = "PROG")]
-    pub with: Option<OsString>,
     /// files to open.
     pub files: Vec<OsString>,
 

@@ -112,7 +112,10 @@ impl Action {
                         | Action::Application
                 ) {
                     return (
-                        arr![Prog(current_exe().into(), vec_![: ":open", "--", path])],
+                        arr![Prog(
+                            current_exe().into(),
+                            vec_![: "-q", ":open", "--", path]
+                        )],
                         [true, false, false],
                     );
                 }
@@ -193,7 +196,10 @@ impl Action {
                 ),
                 Preset::Info => (arr![Header, Metadata(path.into())], [true, false, false]),
                 Preset::Edit => (
-                    arr![Prog(current_exe().into(), vec_![: ":open", "--", path])],
+                    arr![Prog(
+                        current_exe().into(),
+                        vec_![: "-q", ":open", "--", path]
+                    )],
                     [true, false, false],
                 ),
                 Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
@@ -224,7 +230,10 @@ impl Action {
                     }
                     Preset::Info => (arr![Header, Metadata(path.into())], [true, false, true]),
                     Preset::Edit => (
-                        arr![Prog(current_exe().into(), vec_![: ":open", "--", path])],
+                        arr![Prog(
+                            current_exe().into(),
+                            vec_![: "-q", ":open", "--", path]
+                        )],
                         [false, false, false],
                     ),
                     Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
@@ -261,7 +270,10 @@ impl Action {
             },
 
             Action::Open => (
-                arr![Prog(current_exe().into(), vec_![: ":open", "--", path])],
+                arr![Prog(
+                    current_exe().into(),
+                    vec_![: "-q", ":open", "--", path]
+                )],
                 [false, false, false],
             ),
             Action::Header => (arr![Header], [true, false, false]),

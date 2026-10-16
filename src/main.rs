@@ -1,4 +1,9 @@
-use std::{fs::OpenOptions, io::Write, path::PathBuf, process::exit};
+use std::{
+    fs::OpenOptions,
+    io::Write,
+    path::{Path, PathBuf},
+    process::exit,
+};
 
 use cba::{
     _dbg, _ibog,
@@ -9,7 +14,7 @@ use cba::{
 };
 use fist::{
     cli::{
-        Cli, SubCmd, ToolsCmd,
+        Cli, DEFAULT_VERBOSITY, SubCmd, ToolsCmd,
         handlers::handle_subcommand,
         paths::{BINARY_FULL, actions_dir, actions_path, lessfilter_cfg_path, pager_cfg_path},
     },
@@ -17,6 +22,7 @@ use fist::{
     errors::CliError,
     menu::MenuActions,
     run::state::MENU_ACTIONS,
+    utils::command::COMMAND_LOG_PATH,
 };
 use matchmaker::MatchError;
 
@@ -101,7 +107,7 @@ async fn main() {
     } else {
         (cfg.log_path(), cfg.misc.append_mode_logging)
     };
-    init_logger(verbosity, log_path, append);
+    init_logger(verbosity, log_path, append, &cfg.command_log_path());
 
     _dbg!(&cfg);
     match handle_subcommand(cli, cfg).await {
@@ -130,10 +136,16 @@ fn init_logger(
     verbosity: u8,
     log_path: PathBuf,
     append: bool,
+    command_log_path: &Path,
 ) {
     // init bogger
     bog::init_bogger(true, true);
     bog::init_filter(verbosity);
+
+    // spawned commands log their stderr unless `-v`/`-q` keeps it on the terminal
+    if verbosity != DEFAULT_VERBOSITY + 1 && verbosity != DEFAULT_VERBOSITY - 1 {
+        *COMMAND_LOG_PATH.lock().unwrap() = Some(command_log_path.to_path_buf());
+    }
 
     // init levels from `RUST_LOG`
     let mut builder = env_logger::Builder::from_default_env();

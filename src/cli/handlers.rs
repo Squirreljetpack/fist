@@ -90,8 +90,8 @@ async fn handle_open(
 ) -> Result<(), CliError> {
     let pool = Pool::new_from_cfg(&cfg).await?;
 
-    // fs :o or fs :o --with= files
-    if cmd.files.is_empty() || cmd.with.as_ref().is_some_and(|s| s.is_empty()) {
+    // fs :o without files opens the app pane
+    if cmd.files.is_empty() {
         cfg.global.interface.no_multi_accept = true;
         // the files ride on the app pane; the program picked there opens them
         let simple_ui = cmd.simple_ui;
@@ -106,12 +106,14 @@ async fn handle_open(
     } else {
         let conn = pool.get_conn(DbTable::apps).await?;
 
-        let prog = cmd.with.and_then(Program::from_os_string);
+        let (opener, detach) = cli.output.opener_parts();
+        let prog = opener.and_then(Program::from_os_string);
         if prog.is_none() {
             crate::spawn::init_spawn_with(cfg.misc.spawn_with);
         }
 
-        open_wrapped(conn, prog, &cmd.files, false).await
+        // a detached opener survives fs exiting
+        open_wrapped(conn, prog, &cmd.files, detach).await
     }
 }
 

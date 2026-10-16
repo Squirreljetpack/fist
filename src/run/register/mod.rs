@@ -27,7 +27,10 @@ use crate::{
         reload::fs_reload,
         state::{MenuCommandPaths, STACK, STORE, TASKS},
     },
-    utils::{command::tokio_from_script, formatter::format_path},
+    utils::{
+        command::{command_log_stderr, tokio_from_script},
+        formatter::format_path,
+    },
 };
 
 #[ext(MMExt)]
@@ -133,6 +136,11 @@ impl FsMatchmaker {
             let mut builder = build_exec_command(mode, &cmd, cwd, vars).unwrap();
             if bat.is_some() {
                 builder.env("PG_RAW", "true");
+            }
+            // Tty children own the terminal; the other resuming modes log
+            // stderr so stray output cannot corrupt the restored TUI.
+            if matches!(mode, ExecutionMode::Normal | ExecutionMode::Paged) {
+                builder.stderr(command_log_stderr().unwrap_or(Stdio::null()));
             }
             let Some(child) = builder._spawn() else {
                 return;
