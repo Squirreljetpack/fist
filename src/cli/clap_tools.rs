@@ -72,8 +72,12 @@ pub struct LessfilterCommand {
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub paths: Vec<PathBuf>,
 
-    #[arg(long, action = ArgAction::SetTrue)]
-    pub no_exec: bool,
+    /// Whether to record the visited file in the history database.
+    /// `--record=true` records regardless of `tracked_presets`; `--record=false`
+    /// leaves it to the caller (the TUI records successful runs itself);
+    /// omitted, the preset's membership in `tracked_presets` decides.
+    #[arg(long, action = clap::ArgAction::Set)]
+    pub record: Option<bool>,
 
     /// Print the detected file data, the winning rule with its score, and
     /// the commands that would run — without executing anything.

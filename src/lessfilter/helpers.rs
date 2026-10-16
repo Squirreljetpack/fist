@@ -255,12 +255,13 @@ pub fn with_header_lines(
     }
 }
 
-pub fn infer_visual(path: &Path) -> Vec<OsString> {
-    VISUAL.with(|cell| {
+pub fn infer_visual(path: &Path) -> CommandStrategy {
+    let words = VISUAL.with(|cell| {
         cell.get_or_init(|| {
             if let Ok(v) = env::var("FS_VISUAL") {
                 if !v.is_empty()
                     && let Ok(words) = shell_words::split(&v)
+                    && !words.is_empty()
                 {
                     return words;
                 }
@@ -269,24 +270,30 @@ pub fn infer_visual(path: &Path) -> Vec<OsString> {
             if let Ok(v) = env::var("VISUAL") {
                 if !v.is_empty()
                     && let Ok(words) = shell_words::split(&v)
+                    && !words.is_empty()
                 {
                     return words;
                 }
             }
 
-            // use our default opener
-            vec_!["fs", ":open", "--"]
+            Vec::new()
         })
-        .iter()
-        .map(OsString::from)
-        .chain(std::iter::once(path.into()))
-        .collect()
-    })
+        .clone()
+    });
+
+    if words.is_empty() {
+        // use our default opener
+        return CommandStrategy::SystemOpen;
+    }
+
+    let mut cmd: Vec<OsString> = words.into_iter().map(OsString::from).collect();
+    cmd.push(path.into());
+    CommandStrategy::from(cmd)
 }
 
 // ---------------------- EDITOR -----------------------------
 
-pub fn infer_editor(path: &Path) -> Vec<OsString> {
+pub fn infer_editor(path: &Path) -> CommandStrategy {
     // get base_cmd
     let mut base_cmd: Vec<String> = if let Ok(v) = env::var("FS_EDITOR") {
         shell_words::split(&v).unwrap_or_default()
@@ -300,7 +307,8 @@ pub fn infer_editor(path: &Path) -> Vec<OsString> {
             Vec::new()
         }
     } else {
-        vec!["fs".into(), ":open".into()]
+        // no editor configured: hand the file to the system opener
+        return CommandStrategy::SystemOpen;
     };
     if base_cmd.is_empty() {
         base_cmd = vec![if cfg!(windows) { "notepad" } else { "nano" }.into()]
@@ -437,7 +445,7 @@ pub fn infer_editor(path: &Path) -> Vec<OsString> {
         cmd.push(path.into());
     }
 
-    cmd
+    CommandStrategy::from(cmd)
 }
 
 // ---------------- EXTRACT -----------------

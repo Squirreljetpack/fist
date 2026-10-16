@@ -39,7 +39,7 @@ use crate::{
     config::Config,
     db::{DbTable, Pool, zoxide::RetryStrat},
     display::{display_entries, display_types_overview},
-    errors::{CliError, DbError},
+    errors::CliError,
     find::fd::{last_query_starts_with_dot, resolve_group_types},
     lessfilter::{self, LessfilterConfig},
     run::{
@@ -50,7 +50,7 @@ use crate::{
         state::{InitialNoRelative, InitialPreserveWhitespaceInSearch, STORE},
     },
     shell::print_shell,
-    spawn::{Program, open_wrapped},
+    spawn::{Program, init_spawn_with, open_wrapped},
     utils::{
         colors::display_ratatui_styles,
         formatter::format_path,
@@ -104,16 +104,16 @@ async fn handle_open(
 
         start(pane, cfg, mm_cfg, pool, cli).await
     } else {
-        let conn = pool.get_conn(DbTable::apps).await?;
-
         let (opener, detach) = cli.output.opener_parts();
         let prog = opener.and_then(Program::from_os_string);
         if prog.is_none() {
-            crate::spawn::init_spawn_with(cfg.misc.spawn_with);
+            init_spawn_with(cfg.misc.spawn_with);
         }
 
+        let conn = pool.get_conn(DbTable::apps).await?;
+
         // a detached opener survives fs exiting
-        open_wrapped(conn, prog, &cmd.files, detach).await
+        open_wrapped(Some(conn), prog, &cmd.files, detach).await
     }
 }
 
@@ -996,34 +996,7 @@ async fn handle_tools(
             let lcfg: LessfilterConfig =
                 load_type_or_default(lessfilter_cfg_path(), None, |s| toml::from_str(s));
 
-            let mut handle = if !cmd.diagnose && lcfg.settings.tracked_presets.contains(&cmd.preset)
-            {
-                let paths = cmd
-                    .paths
-                    .clone()
-                    .into_iter()
-                    .filter_map(|path| path.exists().then_some(AbsPath::new(path)));
-
-                Some(tokio::spawn(async move {
-                    let pool = Pool::new_from_cfg(&cfg).await?;
-                    let mut conn = pool.get_conn(DbTable::files).await?;
-                    conn.push_files_and_folders(paths).await?;
-                    Ok::<_, DbError>(())
-                }))
-            } else {
-                None
-            };
-            if !cmd.no_exec
-                && let Some(h) = handle.take()
-            {
-                let _ = h.await;
-            };
-
-            let code = lessfilter::handle(cmd, lcfg);
-
-            if let Some(h) = handle {
-                let _ = h.await;
-            };
+            let code = lessfilter::handle(cmd, lcfg, &cfg).await;
 
             exit(code)
         }

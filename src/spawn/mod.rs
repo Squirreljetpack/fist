@@ -13,15 +13,16 @@ use crate::db::{Connection, DbTable};
 use crate::errors::CliError;
 use crate::utils::command::command_log_stderr;
 
+/// Open some files, then record the visit through `conn` when one is given.
+///
 /// # note
 /// Relative paths are resolved relative to the initial cwd.
 /// detach is usually specified iff fs is not exiting afterward.
 /// todo: lowpri: option to silence stdout even when !detach?
 pub async fn open_wrapped(
-    mut conn: Connection,
+    conn: Option<Connection>,
     prog: Option<Program>,
     files: &[OsString],
-    // true when not executing or when opening app
     detach: bool,
 ) -> Result<(), CliError> {
     // todo: better errors
@@ -41,24 +42,14 @@ pub async fn open_wrapped(
         })
         .ok_or(CliError::Handled)?;
 
-    if let Some(prog) = prog {
-        let path = prog.path();
-        conn.switch_table(DbTable::apps);
-        conn.bump_path(path, 1).await._wbog_(format!(
-            "Failed to record {}",
-            prog.path().to_string_lossy()
-        ));
+    if let Some(conn) = conn {
+        bump_after_open(conn, prog, files).await;
     }
-
-    if !files.is_empty() {
-        conn.push_files_and_folders(files.iter().map(AbsPath::new))
-            .await
-            ._wbog_("Failed to record files");
-    }
-
     Ok(())
 }
 
+/// Record an open in the history database: a program bumps the apps table,
+/// plain files/folders go into history.
 pub async fn bump_after_open(
     mut conn: Connection,
     prog: Option<Program>,

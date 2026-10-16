@@ -406,8 +406,8 @@ pub fn fsaction_aliaser(
                 acs![Action::Overlay(4)]
             }
             FsAction::LessfilterPreview(preset, header) => {
-                let target_cmd = preset.to_command_string(header);
-                let main_cmd = Preset::Preview.to_command_string(When::Auto);
+                let target_cmd = preset.to_command_string(header, true);
+                let main_cmd = Preset::Preview.to_command_string(When::Auto, true);
 
                 if !state.preview_visible() {
                     acs![Action::Preview(target_cmd)]
@@ -523,8 +523,9 @@ pub fn fsaction_aliaser(
                     if in_prompt() {
                         if state.picker_ui.results.cursor_disabled() {
                             acs![FsAction::AcceptPrompt(print_flavor)]
-                        } else if enter_prompt(state) {
-                            acs![]
+//                        } else if enter_prompt(state) {
+// intermediate transition in_prompt -> cursor_disabled seems unnecessary
+//                            acs![]
                         } else {
                             if print_flavor {
                                 STORE::set(AcceptFlavor);
@@ -818,10 +819,13 @@ pub fn fsaction_handler(
                 // pane
                 enter_dir_pane(state, item.path.clone())
             } else if item.path.exists() {
-                // record
-                if item.path.is_file() {
-                    db().bump_path(false, item.path.clone());
-                }
+                // Mounting or navigating away from the file counts as a visit;
+                // the edit fallback records through lessfilter's tracked preset.
+                let record_source = || {
+                    if item.path.is_file() {
+                        db().bump_path(false, item.path.clone());
+                    }
+                };
 
                 if item.path.is_file() {
                     // a file this process already materialized navigates into
@@ -829,6 +833,7 @@ pub fn fsaction_handler(
                     match mount::MountRegistry::rows_for(item.path.as_path()).as_slice() {
                         [] => {}
                         [row] => {
+                            record_source();
                             if row.status == mount::MountStatus::Failed {
                                 TOAST::push(
                                     ToastStyle::Warning,
@@ -840,6 +845,7 @@ pub fn fsaction_handler(
                             return;
                         }
                         _ => {
+                            record_source();
                             GLOBAL::send_action(FsAction::ShowMounts);
                             return;
                         }
@@ -848,6 +854,7 @@ pub fn fsaction_handler(
                     // images and archives are mounted into navigable
                     // directories
                     if let Some(strategy) = mount::MountStrategy::detect(item.path.as_path()) {
+                        record_source();
                         match strategy.mount(&item.path) {
                             Ok(Some(dest)) => {
                                 enter_dir_pane(state, dest.clone());
@@ -1523,7 +1530,7 @@ pub fn fsaction_handler(
                 STORE::set(ExecuteHandlerShouldProcessParent {});
             }
 
-            let template = preset.to_command_string(header);
+            let template = preset.to_command_string(header, false);
 
             if paging {
                 state.discriminant_payload = Some(ExecutionMode::Paged.discriminant());
@@ -1592,7 +1599,7 @@ pub fn fsaction_handler(
                     let path = p.inner().into();
                     TASKS::spawn("open", async move {
                         let conn = unwrap!(db().get_conn(crate::db::DbTable::dirs).await.ok());
-                        open_wrapped(conn, None, &[path], true).await._elog();
+                        open_wrapped(Some(conn), None, &[path], true).await._elog();
                     });
 
                     // this one is conditional unlike the rest
@@ -1601,7 +1608,8 @@ pub fn fsaction_handler(
                     }
                 }
             } else if let Some(cwd) = STACK::cwd() {
-                if is_print {
+                // explicitly requested the alternate accept
+                if is_print && !GLOBAL::cfg().interface.alt_accept {
                     let s = cwd.display().to_string();
                     print_handle.push(s);
 
@@ -1609,9 +1617,9 @@ pub fn fsaction_handler(
 
                     state.picker_ui.clear_selections();
                     state.should_quit = true;
-                } else {
-                    enter_dir_pane(state, cwd);
+                    return
                 }
+                enter_dir_pane(state, cwd);
             }
         }
 

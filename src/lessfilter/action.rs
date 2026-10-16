@@ -72,6 +72,8 @@ pub enum CommandStrategy {
     Metadata(PathBuf),
     /// Show an error message and wait for keypress in-process.
     ShowError(String),
+    /// Open the handled paths with the system opener in-process.
+    SystemOpen,
     /// Spawn the given program with args.
     Prog(OsString, Vec<OsString>),
     /// No program to spawn (empty command line).
@@ -97,7 +99,7 @@ impl Action {
         path: &Path,
         preset: Preset,
     ) -> (ArrayVec<CommandStrategy, 5>, [bool; 3]) {
-        use CommandStrategy::{Header, Metadata, Pager, Prog, ShowError};
+        use CommandStrategy::{Header, Metadata, Pager, Prog, ShowError, SystemOpen};
 
         match preset {
             Preset::Default => return Default::default(), // do nothing, should be unreachable
@@ -111,13 +113,7 @@ impl Action {
                         | Action::Metadata
                         | Action::Application
                 ) {
-                    return (
-                        arr![Prog(
-                            current_exe().into(),
-                            vec_![: "-q", ":open", "--", path]
-                        )],
-                        [true, false, false],
-                    );
+                    return (arr![SystemOpen], [true, false, false]);
                 }
             }
             _ => {}
@@ -156,7 +152,7 @@ impl Action {
                     )],
                     [true, false, true],
                 ),
-                Preset::Edit => (arr![infer_visual(path).into()], [true, false, true]),
+                Preset::Edit => (arr![infer_visual(path)], [true, false, true]),
                 Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
                     unreachable!()
                 }
@@ -180,7 +176,7 @@ impl Action {
                     ],
                     [true, false, false],
                 ),
-                Preset::Edit => (arr![infer_editor(path).into()], [true, true, false]),
+                Preset::Edit => (arr![infer_editor(path)], [true, true, false]),
 
                 Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
                     unreachable!()
@@ -195,13 +191,7 @@ impl Action {
                     [true, false, false],
                 ),
                 Preset::Info => (arr![Header, Metadata(path.into())], [true, false, false]),
-                Preset::Edit => (
-                    arr![Prog(
-                        current_exe().into(),
-                        vec_![: "-q", ":open", "--", path]
-                    )],
-                    [true, false, false],
-                ),
+                Preset::Edit => (arr![SystemOpen], [true, false, false]),
                 Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
                     unreachable!()
                 }
@@ -229,13 +219,7 @@ impl Action {
                         (arr![Header, ac, Metadata(path.into())], [true, false, true])
                     }
                     Preset::Info => (arr![Header, Metadata(path.into())], [true, false, true]),
-                    Preset::Edit => (
-                        arr![Prog(
-                            current_exe().into(),
-                            vec_![: "-q", ":open", "--", path]
-                        )],
-                        [false, false, false],
-                    ),
+                    Preset::Edit => (arr![SystemOpen], [false, false, false]),
                     Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
                         unreachable!()
                     }
@@ -269,13 +253,7 @@ impl Action {
                 _ => (arr![Metadata(path.into())], [true, false, true]),
             },
 
-            Action::Open => (
-                arr![Prog(
-                    current_exe().into(),
-                    vec_![: "-q", ":open", "--", path]
-                )],
-                [false, false, false],
-            ),
+            Action::Open => (arr![SystemOpen], [false, false, false]),
             Action::Header => (arr![Header], [true, false, false]),
             Action::Custom(_) => unreachable!(),
             Action::Extract => unreachable!(),

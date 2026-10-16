@@ -107,7 +107,12 @@ async fn main() {
     } else {
         (cfg.log_path(), cfg.misc.append_mode_logging)
     };
-    init_logger(verbosity, log_path, append, &cfg.command_log_path());
+    init_logger(
+        verbosity,
+        log_path,
+        append,
+        command_log_path(&cli, &cfg).as_deref(),
+    );
 
     _dbg!(&cfg);
     match handle_subcommand(cli, cfg).await {
@@ -132,18 +137,41 @@ async fn main() {
     }
 }
 
+/// Spawned commands log their stderr to the command log, except in the
+/// lessfilter tool: it opens apps in-process and would truncate the log while
+/// the live TUI is still writing to it.
+fn command_log_path(
+    cli: &Cli,
+    cfg: &Config,
+) -> Option<PathBuf> {
+    if matches!(
+        cli.subcommand,
+        SubCmd::Tools(ToolsCmd {
+            tool: Some(fist::cli::SubTool::Lessfilter { .. }),
+            ..
+        })
+    ) {
+        return None;
+    }
+
+    Some(cfg.command_log_path())
+}
+
 fn init_logger(
     verbosity: u8,
     log_path: PathBuf,
     append: bool,
-    command_log_path: &Path,
+    command_log_path: Option<&Path>,
 ) {
     // init bogger
     bog::init_bogger(true, true);
     bog::init_filter(verbosity);
 
     // spawned commands log their stderr unless `-v`/`-q` keeps it on the terminal
-    if verbosity != DEFAULT_VERBOSITY + 1 && verbosity != DEFAULT_VERBOSITY - 1 {
+    if let Some(command_log_path) = command_log_path
+        && verbosity != DEFAULT_VERBOSITY + 1
+        && verbosity != DEFAULT_VERBOSITY - 1
+    {
         *COMMAND_LOG_PATH.lock().unwrap() = Some(command_log_path.to_path_buf());
     }
 

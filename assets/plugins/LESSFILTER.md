@@ -21,26 +21,26 @@ If the request is ambiguous, clarify which preset is meant ("preview" usually me
 
 ## Presets and where they are used
 
-| Preset                    | Used by                                                            |
-| ------------------------- | ------------------------------------------------------------------ |
-| `default`                 | Merged (appended) into every other preset at dispatch time         |
-| `preview`                 | The preview pane (`?`, the default right-hand preview)             |
-| `display`                 | Terminal display; the `l` shell alias                              |
-| `extended`                | Verbose/interactive terminal display; `la` alias; `alt-l` maximize |
-| `info`                    | Metadata/raw info; `ll` alias; the informative preview (`alt-/`)   |
-| `open`                    | System open (`fs :open` defers here)                               |
-| `edit`                    | The `n` alias and the in-app Advance action on files               |
-| `alternate`, `alternate2` | Free slots for user binds (`alt-8` pages `alternate` by default)   |
+| Preset                    | Used by                                                                  |
+| ------------------------- | ------------------------------------------------------------------------ |
+| `default`                 | Merged (appended) into every other preset at dispatch time               |
+| `preview`                 | The preview pane (`?`, the default right-hand preview)                   |
+| `display`                 | Terminal display; the `l` shell alias                                    |
+| `extended`                | Verbose/interactive terminal display; `la` alias; `alt-l` maximize       |
+| `info`                    | Metadata/raw info; `ll` alias; the informative preview (`alt-/`)         |
+| `open`                    | System open (in-process); the other presets' standard actions defer here |
+| `edit`                    | The `n` alias and the in-app Advance action on files                     |
+| `alternate`, `alternate2` | Free slots for user binds (`alt-8` pages `alternate` by default)         |
 
 Invoke any preset directly while testing:
 
 ```sh
-fs :tool lessfilter <preset> [--header=true|false] [--no-exec] [--arg X]... PATH...
+fs :tool lessfilter <preset> [--header=true|false] [--record=true|false] [--arg X]... PATH...
 ```
 
 Preset name aliases: `p` review, `d` display, `x` extended, `i` info, `o` open, `e` edit.
 
-The setting `tracked_presets` (default: edit, alternate, extended) lists presets whose invocations record the visited file into the history database — add a preset there if running it should count as "opening" the file.
+The setting `tracked_presets` (default: edit, alternate, extended, open) lists presets whose invocations record the visited file into the history database — add a preset there if running it should count as "opening" the file. Recording happens once a rule matches, and rules that open files record through this same visit. Pass `--record=true` to record regardless of `tracked_presets`, or `--record=false` when the caller records the visit itself (the Lessfilter action of the TUI records files depending on the exit code of the command that run).
 
 ## File layout
 
@@ -153,7 +153,7 @@ Keep templates single-purpose; multi-step pipelines belong in a script reference
 1. Reproduce first: `fs :tool lessfilter --diagnose <preset> <path>` prints mime/kind/filetype/perms, the winning rule with its score breakdown, and the exact commands. Most bugs are visible here without executing anything.
 2. Add the narrowest rule that fixes the case, in the right preset (or `default` if it should apply everywhere).
 3. Score deliberately: prefer `have:` requirements for tool-dependent actions so systems without the tool fall through cleanly.
-4. Verify with `--no-exec` (resolve and report, don't run), then run the preset directly, then check inside the TUI (`?` for preview, `alt-/` info, `alt-l` extended).
+4. Verify with `--diagnose` (resolve and report without running), then run the preset directly, then check inside the TUI (`?` for preview, `alt-/` info, `alt-l` extended).
 5. Remember paged output honors `PG_RAW`, `PG_FLAGS`, `PG_LANG`, `PG_FILENAME`, and `HIGHLIGHT_LINE` environment variables when testing rendering.
 
 ## Common failure modes

@@ -227,7 +227,7 @@ impl Default for InterfaceConfig {
             alt_accept: false,
             no_multi_accept: false,
             always_paste: false,
-            advance_command: Preset::Edit.to_command_string(When::Auto),
+            advance_command: Preset::Edit.to_command_string(When::Auto, false),
             cwd_prompt: "{} ".into(),
             toast_on_empty: true,
             autojump_advance: false,

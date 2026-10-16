@@ -385,7 +385,7 @@ pub async fn start(
 
                 let prog = Program::from_scanned_path(prog.path.clone(), cmd);
 
-                open_wrapped(conn, Some(prog), &files, true).await?;
+                open_wrapped(Some(conn), Some(prog), &files, true).await?;
                 Ok(())
             }
             Ok(_) => Ok(()),
@@ -409,7 +409,7 @@ pub async fn start(
                 }
 
                 // the default is the same behavior as fs :open, which also called by fs :tool lessfilter open
-                open_wrapped(conn, prog, &files, detach).await?;
+                open_wrapped(Some(conn), prog, &files, detach).await?;
                 Ok(())
             }
             Err(MatchError::Abort(i)) => std::process::exit(i),

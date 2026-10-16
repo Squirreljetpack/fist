@@ -225,7 +225,7 @@ impl MenuItem {
                 let path_clone = path;
                 tokio::spawn(async move {
                     let conn = db().get_conn(crate::db::DbTable::dirs).await?;
-                    open_wrapped(conn, None, &[path_clone.inner().into()], true).await?;
+                    open_wrapped(Some(conn), None, &[path_clone.inner().into()], true).await?;
                     anyhow::Ok(())
                 });
                 Err(false)
@@ -334,7 +334,6 @@ impl ColumnIndexable for MenuEntry {
 
 pub const MENU_ITEMS: [MenuItem; 14] = [
     MenuItem::New,
-    MenuItem::NewFolder,
     MenuItem::Rename,
     MenuItem::Move,
     MenuItem::Copy,
@@ -345,6 +344,7 @@ pub const MENU_ITEMS: [MenuItem; 14] = [
     MenuItem::Extract,
     MenuItem::Unmount,
     MenuItem::Mounts,
+    MenuItem::NewFolder,
     MenuItem::Symlink,
     MenuItem::Goto,
 ];

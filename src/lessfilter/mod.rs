@@ -16,17 +16,23 @@ pub mod env;
 pub mod mime_helpers;
 
 use arrayvec::ArrayVec;
+use cba::bait::ResultExt;
 use cba::bog::BogUnwrapExt;
 use cba::{_trace, ebog, unwrap};
 use cba::{bog::BogOkExt, broc::CommandExt};
+use std::ffi::OsString;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 
 use crate::cli::clap_tools::LessfilterCommand;
+use crate::config::Config;
+use crate::db::{DbTable, Pool};
+use crate::errors::{CliError, DbError};
 use crate::lessfilter::env::line_column;
 use crate::lessfilter::helpers::{extract, show_header, show_simple_metadata};
 use crate::pager;
+use crate::spawn::{init_spawn_with, open_wrapped};
 use crate::utils::formatter::format_path;
 use crate::{
     abspath::AbsPath,
@@ -42,17 +48,18 @@ use crate::{
 
 // this runs multiple commands, so it's more convenient for execute and preview to re-invoke this through :tools,
 // ..although image protocols may necessitate adjustments
-pub fn handle(
+pub async fn handle(
     LessfilterCommand {
         preset,
         header,
         paths,
         mut args,
-        no_exec,
+        record,
         tty,
         diagnose,
     }: LessfilterCommand,
     mut cfg: LessfilterConfig,
+    app_cfg: &Config,
 ) -> i32 {
     if paths.is_empty() {
         return 2;
@@ -85,6 +92,19 @@ pub fn handle(
         return 2;
     }
 
+    let mut ctx = OpenCtx {
+        cfg: app_cfg,
+        pool: None,
+    };
+
+    // An explicit `--record` overrides the preset-based policy: `true` records
+    // regardless of `tracked_presets`, `false` suppresses recording for callers
+    // that record the visit themselves. When omitted, a tracked preset records
+    // the matched paths as a visit.
+    if record.unwrap_or_else(|| cfg.settings.tracked_presets.contains(&preset)) {
+        let _ = ctx.record_visit(&paths).await._elog();
+    }
+
     // show header
     if header == Some(true) {
         show_header(path);
@@ -107,7 +127,7 @@ pub fn handle(
             let mut cmd = Command::from_script(&script, &[]).with_args(args.drain(..));
             log::trace!("spawning custom: {script}");
 
-            if !no_exec && i == rl {
+            if i == rl {
                 cmd._exec();
             }
 
@@ -166,11 +186,16 @@ pub fn handle(
                         crate::utils::prompt::show_error(&[msg.as_str()]);
                         true
                     }
+                    CommandStrategy::SystemOpen => {
+                        let files: Vec<OsString> =
+                            paths.iter().map(|p| p.as_path().into()).collect();
+                        ctx.open(&files).await._elog().is_some()
+                    }
                     // an empty command line renders nothing; not a failure
                     CommandStrategy::None => true,
 
                     CommandStrategy::Prog(prog, args) => {
-                        if !no_exec && Some(pi) == pl && i == rl {
+                        if Some(pi) == pl && i == rl {
                             let mut cmd = Command::new(prog);
                             cmd.args(args).args(&paths[1..])._exec();
                         }
@@ -209,6 +234,41 @@ pub fn handle(
     }
 
     if any_file_succeeded { 0 } else { 1 }
+}
+
+/// Lazily connected database handle for recording a tracked-preset visit.
+struct OpenCtx<'a> {
+    cfg: &'a Config,
+    pool: Option<Pool>,
+}
+
+impl OpenCtx<'_> {
+    async fn pool(&mut self) -> Result<&Pool, DbError> {
+        if self.pool.is_none() {
+            self.pool = Some(Pool::new_from_cfg(self.cfg).await?);
+        }
+        Ok(self.pool.as_ref().expect("pool initialized above"))
+    }
+
+    async fn record_visit(
+        &mut self,
+        paths: &[PathBuf],
+    ) -> Result<(), DbError> {
+        let pool = self.pool().await?;
+        let mut conn = pool.get_conn(DbTable::files).await?;
+        conn.push_files_and_folders(paths.iter().cloned().map(AbsPath::new))
+            .await
+    }
+
+    /// Open files with the system opener. The visit is recorded by the tracked
+    /// preset or by the calling process, so the opener runs without a connection.
+    async fn open(
+        &self,
+        files: &[OsString],
+    ) -> Result<(), CliError> {
+        init_spawn_with(self.cfg.misc.spawn_with.clone());
+        open_wrapped(None, None, files, false).await
+    }
 }
 
 /// `--diagnose`: for each path, print the detected file data, the winning
@@ -283,6 +343,10 @@ fn run_diagnose(
                                 }
                                 CommandStrategy::Image(p, _) => {
                                     format!("<image {}>", p.display())
+                                }
+
+                                CommandStrategy::SystemOpen => {
+                                    format!("<open {}>", path.display())
                                 }
 
                                 CommandStrategy::None => "<none>".to_string(),

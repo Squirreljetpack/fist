@@ -144,7 +144,7 @@ pub fn get_mm_cfg(
     preview.initial.index = None;
     preview.initial.percentage = Percentage::new(70);
 
-    let command = Preset::Preview.to_command_string(When::Auto);
+    let command = Preset::Preview.to_command_string(When::Auto, true);
     if preview.layout.is_empty() {
         preview.layout = vec![PreviewSetting {
             command,

@@ -8,7 +8,7 @@ use crate::cli::paths::current_exe;
 use crate::lessfilter::helpers::image_viewer;
 use crate::lessfilter::rule_matcher::Test;
 use cba::vec_;
-use fist_types::FileCategory;
+use fist_types::{FileCategory, When};
 use tempfile::tempdir;
 
 const TEST_CONFIG: &str = "src/lessfilter/tests/lessfilter.toml";
@@ -55,6 +55,44 @@ fn write_zip(path: &Path) {
 // ---------------------------------------------------------------
 // config-driven matching (lessfilter.toml, infer = "infer" mode)
 // ---------------------------------------------------------------
+
+#[test]
+fn standard_actions_defer_to_a_system_open() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("note.txt");
+
+    // the open preset hands every standard action to the system opener
+    for action in [
+        Action::Text,
+        Action::Directory,
+        Action::Image,
+        Action::Metadata,
+    ] {
+        let progs = action.to_progs(&path, Preset::Open);
+        assert_eq!(progs.0.as_slice(), &[CommandStrategy::SystemOpen]);
+    }
+    assert_eq!(
+        Action::Text.to_progs(&path, Preset::Open).1,
+        [true, false, false]
+    );
+
+    // as does the explicit Open action in every other preset
+    let progs = Action::Open.to_progs(&path, Preset::Edit);
+    assert_eq!(progs.0.as_slice(), &[CommandStrategy::SystemOpen]);
+}
+
+#[test]
+fn command_string_records_unless_the_caller_does() {
+    let by_lessfilter = Preset::Edit.to_command_string(When::Auto, true);
+    assert!(by_lessfilter.contains(":tool lessfilter"));
+    assert!(by_lessfilter.contains(" edit {}"));
+    assert!(!by_lessfilter.contains("--record"));
+
+    // the TUI records the visit itself, so its templates opt out
+    let by_caller = Preset::Edit.to_command_string(When::Never, false);
+    assert!(by_caller.contains("--header=false"));
+    assert!(by_caller.contains("--record=false edit {}"));
+}
 
 #[test]
 fn test_config_loading() {

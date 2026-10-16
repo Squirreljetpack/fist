@@ -41,9 +41,9 @@ pub enum Preset {
     /// Metadata/raw info.
     Info,
     #[clap(alias = "o")]
-    /// System open.
+    /// System open (opens in-process).
     ///
-    /// (By deferring to fs :open)
+    /// The other presets' standard actions defer here.
     Open,
     /// Alternate (custom) open
     Alternate,
@@ -59,17 +59,23 @@ pub enum Preset {
 }
 
 impl Preset {
+    /// The shell command that runs this preset through the `lessfilter` tool.
+    ///
+    /// `record` is false when the caller records the visit itself, which tells
+    /// lessfilter to leave the history database alone (`--record=false`).
     pub fn to_command_string(
         self,
         header: When,
+        record: bool,
     ) -> String {
         let header = match header {
             When::Always => "--header=true",
             When::Never => "--header=false",
             When::Auto => "",
         };
+        let record = if record { "" } else { "--record=false " };
         format!(
-            "'{}' :tool lessfilter {header} {self} {{}}",
+            "'{}' :tool lessfilter {header} {record}{self} {{}}",
             current_exe().to_str().unwrap_or(BINARY_SHORT),
         )
     }
@@ -103,6 +109,9 @@ pub struct LessfilterSettings {
     /// This has to do with how a single action can sometimes be multiple command-line programs. This stops execution when any fail -- do not set.
     #[serde(skip)]
     pub early_exit: bool,
+    /// Presets whose invocations record the visited file into the history
+    /// database. Opens record through this visit, so `open` is listed by
+    /// default; `preview` never records.
     pub tracked_presets: Vec<Preset>,
     pub run: RunSettings,
 }
@@ -126,7 +135,12 @@ impl Default for LessfilterSettings {
         Self {
             infer: Default::default(),
             early_exit: false,
-            tracked_presets: vec![Preset::Edit, Preset::Alternate, Preset::Extended],
+            tracked_presets: vec![
+                Preset::Edit,
+                Preset::Alternate,
+                Preset::Extended,
+                Preset::Open,
+            ],
             run: Default::default(),
         }
     }
