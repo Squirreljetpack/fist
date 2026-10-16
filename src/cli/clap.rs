@@ -234,8 +234,8 @@ pub struct OpenCmd {
 #[derive(Debug, Parser, Default, Clone)]
 pub struct DirsCmd {
     /// history sort order.
-    #[arg(long, default_value_t)]
-    pub sort: SortOrder,
+    #[arg(long)]
+    pub sort: Option<SortOrder>,
 
     #[arg(
         short,
@@ -263,8 +263,8 @@ pub struct DirsCmd {
 #[derive(Debug, Parser, Default, Clone)]
 pub struct FilesCmd {
     /// history sort order.
-    #[arg(long, default_value_t)]
-    pub sort: SortOrder,
+    #[arg(long)]
+    pub sort: Option<SortOrder>,
     #[arg(
         short,
         long,

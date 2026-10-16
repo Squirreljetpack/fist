@@ -291,37 +291,43 @@ impl FsPane {
         }
     }
 
-    /// Sets the initial sort order for a new Nav, Find, Search, or Stash pane.
+    /// Sets the initial sort order for a new pane.
     ///
-    /// - Coming from Apps/History or when the previous pane was on default sort (`HideMetadata.is_some()`):
-    ///   applies the pane's configured default sort, setting `HideMetadata` if on default sort.
+    /// - Coming from or entering Apps/History, or when the previous pane was on
+    ///   default sort (`HideMetadata.is_some()`): applies the pane's configured
+    ///   default sort, setting `HideMetadata`.
     /// - When the previous pane had actively engaged/unhidden sort (`HideMetadata.is_none()`):
     ///   inherits the current sort order (if supported by this pane), keeping `HideMetadata` unhidden.
     pub fn set_initial_sort(mut self) -> Self {
-        let from_app_or_history = STACK::with_current(|p| {
-            matches!(
-                p,
-                FsPane::Apps { .. } | FsPane::Files { .. } | FsPane::Folders { .. }
-            )
-        });
+        let from_app_or_history = STACK::with_current(FsPane::is_app_or_history);
 
         let default_sort = GLOBAL::cfg().panes.default_sort(&self).unwrap_or_default();
 
-        let new_sort = if from_app_or_history || STORE::contains::<HideMetadata>() {
-            STORE::set(HideMetadata);
-            default_sort
-        } else {
-            let current_sort = sort::get_sort().order;
-            if self.sort_options().contains(&current_sort) {
-                current_sort
-            } else {
+        let new_sort =
+            if from_app_or_history || self.is_app_or_history() || STORE::contains::<HideMetadata>()
+            {
                 STORE::set(HideMetadata);
                 default_sort
-            }
-        };
+            } else {
+                let current_sort = sort::get_sort().order;
+                if self.sort_options().contains(&current_sort) {
+                    current_sort
+                } else {
+                    STORE::set(HideMetadata);
+                    default_sort
+                }
+            };
 
         *self.sort_mut() = new_sort;
         self
+    }
+
+    /// Whether this pane draws from the app/history databases.
+    fn is_app_or_history(&self) -> bool {
+        matches!(
+            self,
+            FsPane::Apps { .. } | FsPane::Files { .. } | FsPane::Folders { .. }
+        )
     }
 
     #[inline]

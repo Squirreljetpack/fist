@@ -171,7 +171,10 @@ async fn handle_files(
         sort: SortOrder::none,
         input: (cmd.query, 0),
     }
-    .sort(cmd.sort)?;
+    .sort(
+        cmd.sort
+            .unwrap_or(cfg.global.panes.files.default_sort.unwrap_or_default()),
+    )?;
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
     let pool = Pool::new_from_cfg(&cfg).await?;
@@ -315,7 +318,14 @@ async fn handle_dirs(
         }
         let db_filter = cfg.history.clone().with_keywords(cmd.query.clone());
 
-        return super::list::dirs_list(&mut conn, cmd.sort, &db_filter, all, &cli.output).await;
+        return super::list::dirs_list(
+            &mut conn,
+            cmd.sort.unwrap_or_default(),
+            &db_filter,
+            all,
+            &cli.output,
+        )
+        .await;
     }
 
     let input = if !cmd.initial_input.is_empty() {
@@ -329,7 +339,10 @@ async fn handle_dirs(
         sort: SortOrder::none,
         input,
     }
-    .sort(cmd.sort)?;
+    .sort(
+        cmd.sort
+            .unwrap_or(cfg.global.panes.dirs.default_sort.unwrap_or_default()),
+    )?;
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
     start(pane, cfg, mm_cfg, pool, cli).await
@@ -429,7 +442,7 @@ async fn handle_default(
                         });
 
                         let cmd = DirsCmd {
-                            sort,
+                            sort: Some(sort),
                             cd: true,
                             query: kw,
                             ..Default::default()

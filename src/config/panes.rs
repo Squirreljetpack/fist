@@ -118,6 +118,8 @@ pub struct FindPaneSettings {
     /// Default visibility.
     /// - When None: show hidden files and hide ignored files when inside a git repository and the inverse otherwise
     pub default_visibility: Option<PartialVisibility>,
+    /// Initial sort when entering this pane.
+    pub default_sort: Option<SortOrder>,
     /// If the number of items added is less than this threshold, enable the directory watcher to auto-refresh the pane on changes.
     pub max_refresh_items_threshold: usize,
     /// If the execution time is less than this threshold (in milliseconds), enable the directory watcher to auto-refresh the pane on changes.
@@ -134,6 +136,7 @@ impl Default for FindPaneSettings {
             lock_prompt: When::Never,
             preview_layout_index: 0,
             default_visibility: None,
+            default_sort: None,
             max_refresh_items_threshold: 20000,
             max_refresh_execution_time_threshold: std::time::Duration::from_millis(400), // a generous default threshold to be sure it's working
         }
@@ -155,11 +158,11 @@ pub struct SearchPaneSettings {
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
     // ----------------------------
-    /// Initial visibility when entering the rg pane.
+    /// Initial visibility when entering this pane.
     ///
     /// - When None: show hidden files and hide ignored files when inside a git repository and the inverse otherwise
     pub default_visibility: Option<PartialVisibility>,
-    /// Initial sort entering the rg pane.
+    /// Initial sort order when entering this pane.
     pub default_sort: Option<SortOrder>,
     #[serde(alias = "no_heading")]
     /// Whether to display each match on a seperate line. This can be overridden with the --one-line command line option.
@@ -211,6 +214,7 @@ pub struct NavPaneSettings {
     pub preview_layout_index: u8,
 
     // ----------------------------
+    /// Initial sort order when entering this pane.
     pub default_sort: Option<SortOrder>,
     /// Default visibility.
     /// - When None: show hidden files and hide ignored files when inside a git repository and the inverse otherwise
@@ -250,6 +254,8 @@ pub struct HistoryPaneSettings {
     pub lock_prompt: When,
     /// Default preview layout index for this pane
     pub preview_layout_index: u8,
+    /// Initial sort order when entering this pane.
+    pub default_sort: Option<SortOrder>,
 }
 
 impl Default for HistoryPaneSettings {
@@ -260,6 +266,7 @@ impl Default for HistoryPaneSettings {
             show_preview: None,
             lock_prompt: When::Never,
             preview_layout_index: 0,
+            default_sort: None,
         }
     }
 }
@@ -539,6 +546,9 @@ impl PanesConfig {
             // todo: lowpri: maybe we aggregate more than just apps later, and add visibility
             FsPane::Nav { .. } => self.nav.default_sort,
             FsPane::Search { .. } => self.search.default_sort,
+            FsPane::Find { .. } => self.search.default_sort,
+            FsPane::Files { .. } => self.files.default_sort,
+            FsPane::Folders { .. } => self.dirs.default_sort,
             _ => None,
         }
     }

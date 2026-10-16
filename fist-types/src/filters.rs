@@ -19,6 +19,7 @@ pub enum SortOrder {
     atime,
     size,
     #[default]
+    #[cfg_attr(feature = "serde", serde(alias = "frecency"))]
     none,
 }
 

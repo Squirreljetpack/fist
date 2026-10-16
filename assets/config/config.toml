@@ -31,11 +31,13 @@ show_preview = true
 # Only show apps that have icons. Defaults to true on macOS.
 # require_icon = true
 
-# [panes.files]
+[panes.files]
+default_sort = "atime"
 # prompt = "F: "
 # prompt_style = { fg = "LightYellow" }
 
-# [panes.dirs]
+[panes.dirs]
+default_sort = "frecency"
 # prompt = "D: "
 # prompt_style = { fg = "LightYellow" }
 
