@@ -523,9 +523,9 @@ pub fn fsaction_aliaser(
                     if in_prompt() {
                         if state.picker_ui.results.cursor_disabled() {
                             acs![FsAction::AcceptPrompt(print_flavor)]
-//                        } else if enter_prompt(state) {
-// intermediate transition in_prompt -> cursor_disabled seems unnecessary
-//                            acs![]
+                        //                        } else if enter_prompt(state) {
+                        // intermediate transition in_prompt -> cursor_disabled seems unnecessary
+                        //                            acs![]
                         } else {
                             if print_flavor {
                                 STORE::set(AcceptFlavor);
@@ -1429,6 +1429,16 @@ pub fn fsaction_handler(
                                 (false, false)
                             }
                         };
+                        let style = Style::new().fg(Color::Yellow);
+                        TOAST::remove("ordering: ");
+                        let label = if vis.dirs {
+                            "dirs"
+                        } else if vis.files {
+                            "files"
+                        } else {
+                            "all"
+                        };
+                        TOAST::replace(style, "showing: ", Span::raw(label).italic());
                         true
                     } else {
                         false
@@ -1441,7 +1451,23 @@ pub fn fsaction_handler(
             refresh_prompt(state);
         }
         FsAction::ToggleFilter => {
-            if STACK::with_current(|p| {
+            if STACK::with_current(|p| matches!(p, FsPane::Search { .. })) {
+                let fixed = STACK::with_current_mut(|p| {
+                    let FsPane::Search { fixed_strings, .. } = p else {
+                        return false;
+                    };
+                    *fixed_strings = !*fixed_strings;
+                    *fixed_strings
+                });
+                let style = Style::new().fg(Color::Yellow);
+                TOAST::remove("ordering: ");
+                TOAST::replace(
+                    style,
+                    "pattern: ",
+                    Span::raw(if fixed { "fixed" } else { "regex" }).italic(),
+                );
+                GLOBAL::send_action(FsAction::Refilter);
+            } else if STACK::with_current(|p| {
                 matches!(
                     p,
                     FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
@@ -1617,7 +1643,7 @@ pub fn fsaction_handler(
 
                     state.picker_ui.clear_selections();
                     state.should_quit = true;
-                    return
+                    return;
                 }
                 enter_dir_pane(state, cwd);
             }

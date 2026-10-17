@@ -399,9 +399,7 @@ pub struct DefaultCommand {
     // its neat that this works: using -- passes to fd only if paths has entries which is exactly what we want
     pub fd: Vec<OsString>,
 
-    /// Lua transform (path, tail) -> (path, display, tail).
-    /// Missing display/tail keep the current values; a missing path omits the entry.
-    /// Accepts a file when prefixed with @.
+    /// Lua transform (path, tail) -> (path?, display?, tail?)
     #[arg(long)]
     pub transform: Option<String>,
 

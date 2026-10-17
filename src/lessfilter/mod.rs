@@ -317,7 +317,7 @@ fn run_diagnose(
                 for (score_part, rule_part) in rule {
                     prints!(format!("    {}", score_part.format(rule_part)));
                 }
-                prints!(format!("  actions:"));
+                prints!("  actions:".to_string());
                 for action in entry.rule.iter() {
                     let commands = if let Action::Custom(s) = action {
                         let Some(template) = cfg.actions.get(s) else {
@@ -364,7 +364,7 @@ fn run_diagnose(
                     }
                 }
             }
-            None => prints!(format!("  no rule matched")),
+            None => prints!("  no rule matched".to_string()),
         }
 
         prints!("");

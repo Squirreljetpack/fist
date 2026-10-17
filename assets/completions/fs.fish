@@ -46,7 +46,7 @@ atime\t''
 size\t''
 none\t''"
 complete -c fs -n "__fish_fs_needs_command" -s t -l types -d 'restrict search to certain file types and extensions (`:t types` to list)' -r
-complete -c fs -n "__fish_fs_needs_command" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
+complete -c fs -n "__fish_fs_needs_command" -l transform -d 'Lua transform (path, tail) -> (path?, display?, tail?)' -r
 complete -c fs -n "__fish_fs_needs_command" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_needs_command" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_needs_command" -l dump-config -d 'If piped, prints the current configuration. Otherwise, writes default settings to disk, skipping existing files'
@@ -183,7 +183,7 @@ atime\t''
 size\t''
 none\t''"
 complete -c fs -n "__fish_fs_using_subcommand :fd" -s t -l types -d 'restrict search to certain file types and extensions (`:t types` to list)' -r
-complete -c fs -n "__fish_fs_using_subcommand :fd" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
+complete -c fs -n "__fish_fs_using_subcommand :fd" -l transform -d 'Lua transform (path, tail) -> (path?, display?, tail?)' -r
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :fd" -l style -r -f -a "icons\t''
@@ -220,7 +220,7 @@ atime\t''
 size\t''
 none\t''"
 complete -c fs -n "__fish_fs_using_subcommand ::" -s t -l types -d 'restrict search to certain file types and extensions (`:t types` to list)' -r
-complete -c fs -n "__fish_fs_using_subcommand ::" -l transform -d 'Lua transform (path, tail) -> (path, display, tail). Missing display/tail keep the current values; a missing path omits the entry. Accepts a file when prefixed with @' -r
+complete -c fs -n "__fish_fs_using_subcommand ::" -l transform -d 'Lua transform (path, tail) -> (path?, display?, tail?)' -r
 complete -c fs -n "__fish_fs_using_subcommand ::" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand ::" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand ::" -l style -r -f -a "icons\t''
