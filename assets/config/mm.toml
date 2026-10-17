@@ -13,6 +13,7 @@ mouse_events = true
 show = true
 
 [results]
+delay_clear = true
 wrap = true
 scroll_wrap = true
 row_connection = "Disjoint"

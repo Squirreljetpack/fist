@@ -33,6 +33,9 @@ border = { type = "Plain", padding = 1 }
 [query]
 border = { type = "Rounded", sides = "ALL", color = "blue" }
 
+[results]
+delay_clear = true
+
 [prompt]
 # characters kept between the cursor and the left edge of prompt bars
 # (New, NewFolder, Rename, Goto, Extract, SetAlias)
