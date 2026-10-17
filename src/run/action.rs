@@ -209,7 +209,7 @@ pub enum FsAction {
     LockPrompt(Option<bool>),
     /// Jump and accept;
     /// 0 jumps to menu.
-    AutoJump(u8),
+    JumpOrAccept(u8),
 }
 // print, accept
 
@@ -420,7 +420,7 @@ pub fn fsaction_aliaser(
             // FsAction::Category => {
             //     acs![Action::Overlay(3)]
             // }
-            FsAction::AutoJump(digit) => {
+            FsAction::JumpOrAccept(digit) => {
                 if state.overlay_index().is_some()
                 // in overlay
                 {
@@ -442,7 +442,7 @@ pub fn fsaction_aliaser(
                 } else if (digit - 1) as u32 == state.picker_ui.results.index()
                 // not in prompt + on pos => accept
                 {
-                    let accept: Action<FsAction> = if GLOBAL::cfg().interface.autojump_advance {
+                    let accept: Action<FsAction> = if GLOBAL::cfg().interface.jump_or_advance {
                         FsAction::Advance.into()
                     } else {
                         if GLOBAL::cfg().interface.alt_accept && !STACK::in_app() {
@@ -1877,7 +1877,7 @@ enum_from_str_display! {
     Move, Copy, CopyPath, New, NewFolder, Rename;
 
     tuples:
-    AutoJump, SetAlias, Enqueue,
+    JumpOrAccept, SetAlias, Enqueue,
     ExecPaged = ExecutePaged, ExecTTY = ExecuteTTY, ExecDetached = ExecuteDetached, ExecSilent = ExecuteSilent, CopyCommand, CopyCommandAsync;
 
     defaults:

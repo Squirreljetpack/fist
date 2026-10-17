@@ -131,8 +131,7 @@ cargo install fist
 - `ctrl-l`: Maximize preview.
 - `alt-l`: Maximize [extended](#lessfilter) preview.
 - `/` and `~`: Jump to home
-- `ctrl-[1-9]`: Autojump to item
-- `ctrl-0`: Autojump to prompt
+- `ctrl-[0-9]`: JumpOrAccept
 
 For a full list of binds, press `alt-h` within the app[^binds].
 

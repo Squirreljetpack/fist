@@ -217,8 +217,8 @@ pub struct InterfaceConfig {
     pub cwd_prompt: String,
     /// Display a toast when current directory has no entries.
     pub toast_on_empty: bool,
-    /// If [AutoJump](`crate::run::FsAction::AutoJump`) should accept or advance
-    pub autojump_advance: bool,
+    /// If [JumpOrAccept](`crate::run::FsAction::JumpOrAccept`) should accept or advance
+    pub jump_or_advance: bool,
 }
 
 impl Default for InterfaceConfig {
@@ -230,7 +230,7 @@ impl Default for InterfaceConfig {
             advance_command: Preset::Edit.to_command_string(When::Auto, false),
             cwd_prompt: "{} ".into(),
             toast_on_empty: true,
-            autojump_advance: false,
+            jump_or_advance: false,
             allow_trash_db_items: false,
             hide_preview_when_cursor_disabled: false,
             allow_enter_unzip_directory: false,

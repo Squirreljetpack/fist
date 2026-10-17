@@ -137,15 +137,15 @@ border = { type = "Rounded", sides = "ALL", color = "blue" }
 # open a shell in the current directory
 "ctrl-esc" = "Execute($SHELL)" # (requires keyboard enhancement)
 
-### Autojump
-"ctrl-0" = "AutoJump(0)"
+### JumpOrAccept
+"ctrl-0" = "JumpOrAccept(0)"
 "alt-space" = "LockPrompt" # toggles the prompt (None = toggle)
-"ctrl-1" = "AutoJump(1)"
-"ctrl-2" = "AutoJump(2)"
-"ctrl-3" = "AutoJump(3)"
-"ctrl-4" = "AutoJump(4)"
-"ctrl-5" = "AutoJump(5)"
-"ctrl-6" = "AutoJump(6)"
-"ctrl-7" = "AutoJump(7)"
-"ctrl-8" = "AutoJump(8)"
-"ctrl-9" = "AutoJump(9)"
+"ctrl-1" = "JumpOrAccept(1)"
+"ctrl-2" = "JumpOrAccept(2)"
+"ctrl-3" = "JumpOrAccept(3)"
+"ctrl-4" = "JumpOrAccept(4)"
+"ctrl-5" = "JumpOrAccept(5)"
+"ctrl-6" = "JumpOrAccept(6)"
+"ctrl-7" = "JumpOrAccept(7)"
+"ctrl-8" = "JumpOrAccept(8)"
+"ctrl-9" = "JumpOrAccept(9)"

@@ -131,7 +131,7 @@ pub fn in_prompt() -> bool {
 }
 
 /// Prompt entry for a "cursor-disabling pathway" (Up/Down past the ends,
-/// first Accept, AutoJump(0)): enters the prompt and locks the active item
+/// first Accept, JumpOrAccept(0)): enters the prompt and locks the active item
 /// onto the cwd — actions then apply to the cwd. Returns `false` (and does
 /// nothing) when there is no cwd to point at — Apps panes — in which case
 /// the caller passes the triggering key through. Unlike [`lock_prompt`]

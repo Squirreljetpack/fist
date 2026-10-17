@@ -36,7 +36,7 @@ pub fn default_binds() -> BindMap<FsAction> {
 }
 
 /// Keep only the low-risk bindings used by `fs :o --simple-ui`: navigation,
-/// selection, accept/quit, preview control, query editing, help, and autojump.
+/// selection, accept/quit, preview control, query editing, help, and JumpOrAccept.
 /// File operations and pane switching are dropped.
 pub fn retain_simple_ui(binds: &mut BindMap<FsAction>) {
     binds.filter_action(is_simple_ui_action);
@@ -92,7 +92,7 @@ fn is_simple_ui_action(a: &Action<FsAction>) -> bool {
             | ToggleWrap
             | Redraw
             | Trace(_)
-            | Custom(FsAction::AutoJump(_))
+            | Custom(FsAction::JumpOrAccept(_))
     )
 }
 
@@ -155,17 +155,17 @@ fn config_as_code() -> BindMap<FsAction> {
         // ----------------------------------
         key!(alt-space) => FsAction::LockPrompt(None), // None toggles the prompt
 
-        // Autojump
+        // JumpOrAccept
         // --------------------------------
-        key!(ctrl-0), key!(ctrl-enter) => FsAction::AutoJump(0),
-        key!(ctrl-1) => FsAction::AutoJump(1),
-        key!(ctrl-2) => FsAction::AutoJump(2),
-        key!(ctrl-3) => FsAction::AutoJump(3),
-        key!(ctrl-4) => FsAction::AutoJump(4),
-        key!(ctrl-5) => FsAction::AutoJump(5),
-        key!(ctrl-6) => FsAction::AutoJump(6),
-        key!(ctrl-7) => FsAction::AutoJump(7),
-        key!(ctrl-8) => FsAction::AutoJump(8),
-        key!(ctrl-9) => FsAction::AutoJump(9),
+        key!(ctrl-0), key!(ctrl-enter) => FsAction::JumpOrAccept(0),
+        key!(ctrl-1) => FsAction::JumpOrAccept(1),
+        key!(ctrl-2) => FsAction::JumpOrAccept(2),
+        key!(ctrl-3) => FsAction::JumpOrAccept(3),
+        key!(ctrl-4) => FsAction::JumpOrAccept(4),
+        key!(ctrl-5) => FsAction::JumpOrAccept(5),
+        key!(ctrl-6) => FsAction::JumpOrAccept(6),
+        key!(ctrl-7) => FsAction::JumpOrAccept(7),
+        key!(ctrl-8) => FsAction::JumpOrAccept(8),
+        key!(ctrl-9) => FsAction::JumpOrAccept(9),
     )
 }
