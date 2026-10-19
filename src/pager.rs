@@ -80,15 +80,17 @@ impl FileTailer {
         let (tx, rx) = mpsc::channel::<()>();
 
         // Watch the parent directory NonRecursively; filter events to our
-        // file in the callback.
-        let watch_path = path.to_path_buf();
+        // file in the callback. FSEvents reports events as real paths, so
+        // resolve symlinks before both registering and comparing.
+        let watch_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        let callback_path = watch_path.clone();
         let _watcher: Option<Box<dyn notify::Watcher + Send>> =
             match notify::RecommendedWatcher::new(
                 move |res: notify::Result<Event>| {
                     if let Ok(ev) = res {
                         use notify::EventKind::*;
                         if matches!(ev.kind, Modify(_) | Create(_))
-                            && ev.paths.iter().any(|p| p == &watch_path)
+                            && ev.paths.iter().any(|p| p == &callback_path)
                         {
                             let _ = tx.send(());
                         }
@@ -97,7 +99,7 @@ impl FileTailer {
                 NotifyConfig::default(),
             ) {
                 Ok(mut w) => {
-                    let dir = path.parent().unwrap_or(path);
+                    let dir = watch_path.parent().unwrap_or(&watch_path);
                     if w.watch(dir, RecursiveMode::NonRecursive).is_ok() {
                         Some(Box::new(w))
                     } else {

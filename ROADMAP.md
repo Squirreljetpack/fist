@@ -22,3 +22,6 @@ option to toast on command completion (false default)
 # lowpri
 
 smarter determination for when to clear the dirsizecache: not too often so that entering + return doesn't need to recompute say ~, and also not too aggresive so that invalidation occurs at a sensible time
+
+# Categories
+Unify classifiers

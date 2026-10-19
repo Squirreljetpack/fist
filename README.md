@@ -153,7 +153,7 @@ Once inside, you can navigate and re-enter from other panes by pressing the `lef
 >
 > The following describes what is probably the least straightforward feature of F:st. Hopefully, it will make more sense when you start to use it. If not, the behavior comes from a block of bind definitions in [`mm.toml`](#configuration)[^customization-philosophy] that you can delete to disable.
 
-F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. Unfortunately, because the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions necessarily have to be rebound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in query-reliant panes like [`Find`](#find) or [`Search`](#search), the query bar locks when entering these panes: indicated by a blue border around your prompt. When the prompt is locked, the `Accept` action is intercepted, and the `left`/`right` and `shift-left`/`right` keys switch roles, so that `left`/`right` reverts to only moving the caret in your query.
+F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. Unfortunately, because the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions end up bound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in query-reliant panes like [`Find`](#find) or [`Search`](#search), the query bar locks when entering these panes: indicated by a blue border around your prompt. When the prompt is locked,  the `left`/`right` and `shift-left`/`right` keys switch roles, so that `left`/`right` reverts to only moving the caret in your query.
 On macos, `cmd+delete` also returns to `DeleteWord` instead of `Trash`.
 
 The locked state can also be entered by *entering the prompt* -- pressing up at the first result, (or down at the last with `results.cycle`). Note that `in_prompt` ⇒ `locked_prompt`: in this state, the prompt displays your current directory, and all actions apply to that instead. To exit the prompt, just press up or down again. To toggle *the locked state*, you can press `alt-space`[^prompt-lock] -- but this is not often necessary.
@@ -206,7 +206,8 @@ This pane operates in a query and a filter mode, which can be switched between w
 >
 > When the active item is `advance`/`executed` on, the matched line and column are saved in the environment variables `HIGHLIGHT_LINE` and `HIGHLIGHT_COLUMN`. If your `$EDITOR` is supported, the `Lessfilter::Edit` action (which `advance` dispatches to) automatically opens the file to the corresponding position (you can also configure this manually).
 
-<img src=".README.assets/search-pane.png" alt="Search pane" style="width: 700px;" />
+
+<img src=".README.assets/image-20261017161525991.png" alt="image-20261017161525991" style="width: 700px;" />
 
 [^mode-switch]: To switch to filtering the second column, type `%` (i.e. `path_filter % context_filter`).
 
@@ -491,20 +492,20 @@ fs exposes several of the more generally useful functionalities it uses internal
 [^zoxide]: f:ist uses an improved implementation by default I adopted after seeing [this project](https://github.com/jghub/ze/tree/master), although the simple [zoxide](https://github.com/ajeetdsouza/zoxide) implementation can be enabled by disabling lambda:
 
     **Event clock**: zoxide score decay is coupled to wall-clock time. The problem is that after any extended period of inactivity, all scores decay toward zero, and the first directories visited on return immediately dominate the ranking regardless of prior history. f:ist replaces wall-clock time with an event clock: each cd action advances the clock by one tick. The clock stands still during inactive periods and no score decay occurs during such periods.
-
+    
     **Scoring**: Items are sorted by score. In zoxide, the score is computed as count * recency bucket. f:ist replaces this with a monoexponential decay kernel. The decay rate is controlled by `lambda` (default `8e-3`, equating to a half-life of about 87 actions).
-
+    
     **Unified database**: f:ist maintains a single SQLite database tracking files, directories, and applications together.
-
+    
     **Pruning**: Pruning happens automatically and lazily once db exceeds a certain size. For more information, see `fs :tool bump --help`.
-
+    
     **Interactive fallback**: When no match is found, or when the top result is the current directory, f:ist can be configured to start an interactive search interface instead of failing.
 
 # Configuration
 
 Configuration is presently only documented in the source files: [Main Config](./src/config/mod.rs), [Panes](./src/config/panes.rs), [Styling](./src/config/styles.rs), [Miscellaneous UI](./src/config/ui.rs), [Lessfilter](./src/lessfilter/config.rs), [Lessfilter](./src/lessfilter/config.rs), [Matchmaker Config](./src/run/mm_config.rs)[^mm-config].
 
-[^mm-config]: For more information on this one, you can refer to the matchmaker documentation [here](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/src/config.rs).
+For more information on this one, you can refer to the matchmaker documentation [here](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/src/config.rs).
 
 # Additional
 

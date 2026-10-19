@@ -66,6 +66,7 @@ preview = [
 
 # the 'n' alias, and the `Advance` action in the ui
 edit = [
+    [["Text"], ["1|type:text"]],
     [["Open"], ["1|cat:document", "1|cat:spreadsheet", "1|cat:email", "1|cat:academic"]],
 ]
 

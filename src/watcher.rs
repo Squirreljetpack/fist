@@ -38,6 +38,20 @@ pub struct WatchOptions {
     pub recursive: bool,
 }
 
+/// Path that `notify` should actually register.
+///
+/// macOS `FSEvents` (the `RecommendedWatcher` backend) canonicalizes the
+/// watched path for event matching but hands the original path to the OS
+/// stream, and the OS reports events under real paths. Registering a path
+/// that contains a symlink therefore never matches the link target's events.
+/// Resolve it first; the same resolved path is used as the filter and
+/// gitignore root so event paths line up. This also matches the directory
+/// walker: the `ignore` crate canonicalizes its search root when building
+/// parent `.gitignore` matchers, so both ends filter against real paths.
+fn watch_root(path: PathBuf) -> PathBuf {
+    path.canonicalize().unwrap_or(path)
+}
+
 pub fn build_gitignore(root: &Path) -> Gitignore {
     let mut builder = GitignoreBuilder::new(root);
     let mut curr = Some(root);
@@ -75,9 +89,13 @@ fn is_path_ignored(
     }
     if options.ignore {
         if let Some(gi) = gitignore {
-            if gi
-                .matched_path_or_any_parents(path, path.is_dir())
-                .is_ignore()
+            // `matched_path_or_any_parents` panics on paths outside the
+            // matcher root; event paths are canonical, so only match the
+            // ones that sit under the watched root.
+            if path.starts_with(root)
+                && gi
+                    .matched_path_or_any_parents(path, path.is_dir())
+                    .is_ignore()
             {
                 return true;
             }
@@ -225,13 +243,14 @@ impl FsWatcher {
                         let Some(msg) = msg else { break };
                         match msg {
                             WatcherMessage::MustWatch(path) => {
-                                self.must_watch = Some(path);
+                                self.must_watch = Some(watch_root(path));
                                 throttled = false;
                                 pending_reload = false;
                                 events.clear();
                                 resume_timer.as_mut().reset(far_future());
                             }
                             WatcherMessage::Switch(new_path, options) => {
+                                let new_path = watch_root(new_path);
                                 let same_path = self.current_path.as_ref() == Some(&new_path);
                                 let recursive_mode = if self
                                     .must_watch
@@ -646,6 +665,8 @@ mod tests {
 
         let test_root = std::env::temp_dir().join("fist_test_watcher_filter");
         let _ = std::fs::create_dir_all(&test_root);
+        // the watcher stores the canonical root; build event paths under it
+        let test_root = test_root.canonicalize().unwrap_or(test_root);
         let gitignore = test_root.join(".gitignore");
         std::fs::write(&gitignore, "target/\n*.tmp\n").unwrap();
 
