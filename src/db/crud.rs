@@ -202,6 +202,10 @@ impl Connection {
         entry: &Entry,
         count: i32,
     ) -> Result<(), DbError> {
+        if count > 0 && self.entry_excluded(entry) {
+            return Ok(());
+        }
+
         trace!("Bumping {}", entry.path.display());
 
         if let Some(lambda) = self.lambda {
@@ -281,6 +285,10 @@ impl Connection {
             .await?;
         Ok(())
     }
+
+    /// Raw table access: every row when `end` is 0, otherwise the `start..end`
+    /// window, ordered by `sort_by`. Applies no filtering, so callers that
+    /// display the rows filter them themselves.
 
     pub async fn get_entries_range(
         &mut self,
@@ -558,5 +566,38 @@ mod tests {
         assert!(e.atime >= old_atime);
         // score should remain 1.0 (atime mode doesn't touch it beyond default)
         assert!((e.score - 1.0).abs() < 1e-6);
+    }
+
+    #[tokio::test]
+    async fn test_excluded_paths_are_not_bumped() {
+        let exclude = zoxide::compile_exclude(&["/test_excluded/*".to_string()]);
+
+        let pool = Pool::new("sqlite::memory:", None)
+            .await
+            .unwrap()
+            .with_exclude(exclude);
+        let mut conn = pool.get_conn(DbTable::files).await.unwrap();
+
+        // 1. Positive bump of an excluded path should be skipped (not inserted)
+        let excluded_path = AbsPath::new("/test_excluded/secret.txt");
+        conn.bump_path(excluded_path.clone(), 1).await.unwrap();
+        assert!(conn.get_entry(&excluded_path).await.unwrap().is_none());
+
+        // 2. Positive bump of a non-excluded path should be recorded
+        let normal_path = AbsPath::new("/normal/file.txt");
+        conn.bump_path(normal_path.clone(), 1).await.unwrap();
+        assert!(conn.get_entry(&normal_path).await.unwrap().is_some());
+
+        // 3. Pre-existing excluded entry should not have count increased by positive bump
+        let pre_entry = Entry::new("secret", excluded_path.clone());
+        conn.set_entry(&pre_entry).await.unwrap();
+        conn.bump_path(excluded_path.clone(), 1).await.unwrap();
+        let e = conn.get_entry(&excluded_path).await.unwrap().unwrap();
+        assert_eq!(e.count, 1); // unchanged, bump was skipped
+
+        // 4. bump_entry directly with count > 0 is also skipped
+        conn.bump_entry(&e, 5).await.unwrap();
+        let e2 = conn.get_entry(&excluded_path).await.unwrap().unwrap();
+        assert_eq!(e2.count, 1);
     }
 }

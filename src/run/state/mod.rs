@@ -48,6 +48,7 @@ mod tests {
         let pool = Pool {
             pool: sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
             lambda: None,
+            exclude: None,
         };
         let pane = FsPane::Nav {
             cwd: crate::abspath::AbsPath::new("/tmp"),

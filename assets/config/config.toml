@@ -62,6 +62,9 @@ empty_pattern = "-v ^ *$"
 
 [history]
 refind = "Search"
+# Paths matching these globs are not recorded in history. Patterns match the
+# whole path, so add /* to cover everything beneath a directory.
+# exclude = ["~/ignore_exact", "/logs/secret/*"]
 
 [queue]
 # Keep completed queue rows after closing the queue overlay (default: false)

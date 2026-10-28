@@ -143,11 +143,17 @@ impl Connection {
                 if let Some(p) = canonical {
                     entry.cmd = p.into()
                 }
+                if count > 0 && self.entry_excluded(&entry) {
+                    return Ok(());
+                }
                 self.set_entry(&entry).await
             }
         }
     }
 
+    /// Table access for display: drops the entries rejected by
+    /// `config.filter`. For [`SortOrder::none`] only, it prunes the table once
+    /// the count before the filter exceeds `config.prune_max`.
     pub async fn get_entries(
         &mut self,
         sort: SortOrder,
@@ -155,7 +161,6 @@ impl Connection {
         table: DbTable,
     ) -> Result<Vec<Entry>, DbError> {
         let mut entries = self.get_entries_range(0, 0, sort).await.elog()?;
-        entries.retain(|e| config.filter(e, table));
 
         if matches!(sort, SortOrder::none) && entries.len() > config.prune_max {
             self.prune_tail(&entries, config.prune_max, config.prune_min)
@@ -164,6 +169,7 @@ impl Connection {
             entries.truncate(config.prune_min);
         }
 
+        entries.retain(|e| config.filter(e, table));
         Ok(entries)
     }
 

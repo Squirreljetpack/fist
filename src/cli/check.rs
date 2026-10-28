@@ -107,7 +107,16 @@ fn check(
     //    the app silently falls back to its defaults in that case
     if config.is_file() {
         match read_parse::<Config>(config) {
-            Ok(_) => {}
+            Ok(cfg) => {
+                for pattern in &cfg.history.exclude {
+                    let normalized = crate::db::zoxide::normalize_pattern(pattern);
+                    if let Err(e) = globset::Glob::new(&normalized) {
+                        r.error(format!(
+                            "invalid history.exclude glob '{pattern}' ({normalized}): {e}"
+                        ));
+                    }
+                }
+            }
             Err(e) => r.error(e),
         }
     } else {

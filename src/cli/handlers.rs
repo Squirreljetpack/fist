@@ -1056,19 +1056,11 @@ async fn handle_tools(
             }
             // silent errors
             if !paths.is_empty() {
+                let mut conn = Pool::new_from_cfg(&cfg)
+                    .await?
+                    .get_conn(DbTable::dirs)
+                    .await?;
                 let mut entry_queue = Vec::with_capacity(paths.len());
-
-                // don't bump exclusions, but do remove them
-                let exclude = if count != 0 {
-                    use globset::{Glob, GlobSetBuilder};
-                    let mut builder = GlobSetBuilder::new();
-                    for pattern in &cfg.history.exclude {
-                        builder.add(Glob::new(pattern).prefix("Error in cfg.history.exclude")?);
-                    }
-                    Some(builder.build().prefix("Error in cfg.history.exclude")?)
-                } else {
-                    None
-                };
 
                 for path in paths {
                     if !path.exists() {
@@ -1076,16 +1068,12 @@ async fn handle_tools(
                         return Err(CliError::Handled);
                     }
                     let path = AbsPath::new_canonical(path);
-                    if exclude.as_ref().is_some_and(|e| e.is_match(&path)) {
+                    // don't bump exclusions, but do remove them
+                    if count != 0 && conn.is_excluded(&path) {
                         continue;
                     }
                     entry_queue.push(path)
                 }
-
-                let mut conn = Pool::new_from_cfg(&cfg)
-                    .await?
-                    .get_conn(DbTable::dirs)
-                    .await?;
 
                 if count == 0 {
                     let (dirs, files): (Vec<_>, Vec<_>) =
@@ -1124,9 +1112,8 @@ async fn handle_tools(
 
                 let mut to_remove = Vec::new();
 
-                let db_filter = cfg.history.clone();
                 let entries = conn
-                    .get_entries(SortOrder::mtime, &db_filter, table)
+                    .get_entries(SortOrder::mtime, &cfg.history, table)
                     .await
                     .__ebog();
 
@@ -1137,6 +1124,7 @@ async fn handle_tools(
                         if count == 0 {
                             to_remove.push(e.path.clone());
                         } else {
+                            // `bump_entry` skips entries matching an exclude pattern
                             conn.bump_entry(&e, count).await._wlog();
                         }
                     }

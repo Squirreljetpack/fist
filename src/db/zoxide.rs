@@ -28,7 +28,8 @@ pub struct HistoryConfig {
     #[serde(skip)]
     keywords: Vec<String>,
     // --- maintenence / bump ---
-    /// Ignore files matching these globs
+    /// Paths matching these globs are kept out of history: they are never
+    /// inserted and never bumped.
     pub exclude: Vec<String>,
 
     /// Maximum entries before pruning. When the total count exceeds this,
@@ -76,6 +77,84 @@ impl Default for HistoryConfig {
             base_dir: Default::default(),
         }
     }
+}
+
+/// Tilde-expands `pattern` and canonicalizes the complete directory components
+/// preceding its first glob metacharacter, so patterns line up with the
+/// canonical paths recorded in the database.
+pub fn normalize_pattern(pattern: &str) -> String {
+    const SEPARATORS: [char; 2] = ['/', '\\'];
+
+    let expanded = crate::utils::path::expand_tilde(pattern);
+    let split = expanded
+        .find(['*', '?', '[', '{'])
+        .unwrap_or(expanded.len());
+    let (head, tail) = expanded.split_at(split);
+    let cut = head.rfind(SEPARATORS).map_or(0, |i| i + 1);
+    if cut == 0 {
+        return expanded;
+    }
+
+    let (dir, partial) = head.split_at(cut);
+    let Ok(canonical) = Path::new(dir).canonicalize() else {
+        return expanded;
+    };
+
+    let mut out = canonical.to_string_lossy().into_owned();
+    if !(partial.is_empty() && tail.is_empty()) && !out.ends_with(SEPARATORS) {
+        out.push(std::path::MAIN_SEPARATOR);
+    }
+    out.push_str(partial);
+    out.push_str(tail);
+    out
+}
+
+/// Compiles exclude patterns into a single matcher. Patterns are normalized
+/// with [`normalize_pattern`]; invalid patterns are logged and skipped.
+pub fn compile_exclude(patterns: &[String]) -> Option<std::sync::Arc<globset::GlobSet>> {
+    let mut builder = globset::GlobSetBuilder::new();
+    let mut count = 0;
+    for pattern in patterns {
+        let normalized = normalize_pattern(pattern);
+        match globset::Glob::new(&normalized) {
+            Ok(glob) => {
+                builder.add(glob);
+                count += 1;
+            }
+            Err(e) => log::warn!("Invalid exclude glob '{pattern}' ({normalized}): {e}"),
+        }
+    }
+    if count == 0 {
+        return None;
+    }
+    match builder.build() {
+        Ok(set) => Some(std::sync::Arc::new(set)),
+        Err(e) => {
+            log::warn!("Failed to build exclude globset: {e}");
+            None
+        }
+    }
+}
+
+/// Does `path` match the compiled exclude matcher?
+pub fn is_excluded(
+    exclude: Option<&globset::GlobSet>,
+    path: &Path,
+) -> bool {
+    exclude.is_some_and(|m| m.is_match(path))
+}
+
+/// An entry is excluded when its stored path, or the canonical path recorded
+/// in `cmd`, matches.
+pub fn entry_excluded(
+    exclude: Option<&globset::GlobSet>,
+    entry: &Entry,
+) -> bool {
+    is_excluded(exclude, &entry.path)
+        || entry
+            .cmd
+            .as_maybe_realpath()
+            .is_some_and(|p| is_excluded(exclude, p))
 }
 
 #[derive(Default, Copy, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -459,5 +538,81 @@ impl Connection {
 
         // Remove entries
         self.remove_entries(&to_remove).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn matcher(patterns: &[String]) -> Option<std::sync::Arc<globset::GlobSet>> {
+        compile_exclude(patterns)
+    }
+
+    #[test]
+    fn test_normalize_pattern() {
+        if let Some(home) = dirs::home_dir().and_then(|h| h.canonicalize().ok()) {
+            let home = home.to_string_lossy();
+            assert_eq!(normalize_pattern("~/t/*"), format!("{home}/t/*"));
+            assert_eq!(normalize_pattern("~{,/**}"), format!("{home}{{,/**}}"));
+        }
+        assert_eq!(normalize_pattern("/var/log/*"), "/var/log/*");
+        assert_eq!(normalize_pattern("*.rs"), "*.rs");
+    }
+
+    #[test]
+    fn test_exclude_matching() {
+        let tmp = std::env::temp_dir();
+        let tmp = tmp.canonicalize().unwrap_or(tmp);
+        let tmp = tmp.to_string_lossy().to_string();
+
+        let m = matcher(&[
+            format!("{tmp}/ignore_exact"),
+            format!("{tmp}/ignore_tree/*"),
+        ])
+        .expect("matcher");
+
+        // no wildcard: exact match only
+        assert!(is_excluded(
+            Some(&m),
+            Path::new(&format!("{tmp}/ignore_exact"))
+        ));
+        assert!(!is_excluded(
+            Some(&m),
+            Path::new(&format!("{tmp}/ignore_exact/child"))
+        ));
+
+        // `*` spans separators under globset's default options
+        assert!(is_excluded(
+            Some(&m),
+            Path::new(&format!("{tmp}/ignore_tree/a/b/c"))
+        ));
+        assert!(!is_excluded(
+            Some(&m),
+            Path::new(&format!("{tmp}/other/file"))
+        ));
+
+        assert!(!is_excluded(None, Path::new("/anything")));
+        assert!(matcher(&[]).is_none());
+    }
+
+    #[test]
+    fn test_entry_excluded_consults_cmd() {
+        let tmp = std::env::temp_dir();
+        let tmp = tmp.canonicalize().unwrap_or(tmp);
+        let tmp = tmp.to_string_lossy().to_string();
+
+        let m = matcher(&[format!("{tmp}/ignore/*")]).expect("matcher");
+
+        let mut entry = Entry::new(
+            "leaf",
+            AbsPath::new_unchecked(format!("{tmp}/logical/leaf")),
+        );
+        entry.cmd = PathBuf::from(format!("{tmp}/ignore/leaf")).into();
+        assert!(entry_excluded(Some(&m), &entry));
+
+        let plain = Entry::new("leaf", AbsPath::new_unchecked(format!("{tmp}/ok/leaf")));
+        assert!(!entry_excluded(Some(&m), &plain));
     }
 }

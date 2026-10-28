@@ -14,6 +14,7 @@ pub struct Pool {
     pub pool: SqlitePool,
     /// EMS decay constant. `None` for wall-clock atime mode, `Some(λ)` for EMS tick scoring.
     pub lambda: Option<f64>,
+    pub exclude: Option<std::sync::Arc<globset::GlobSet>>,
 }
 
 pub struct Connection {
@@ -22,6 +23,7 @@ pub struct Connection {
     pub table: DbTable,
     /// EMS decay constant. `None` for wall-clock atime mode, `Some(λ)` for EMS tick scoring.
     pub lambda: Option<f64>,
+    pub exclude: Option<std::sync::Arc<globset::GlobSet>>,
 }
 
 #[allow(non_camel_case_types)]
@@ -38,7 +40,9 @@ impl Pool {
     pub async fn new_from_cfg(cfg: &crate::config::Config) -> Result<Self, DbError> {
         let path = cfg.db_path();
         let existed = path.exists();
-        let pool = Pool::new(&path, cfg.history.lambda).await?;
+        let pool = Pool::new(&path, cfg.history.lambda)
+            .await?
+            .with_exclude(super::zoxide::compile_exclude(&cfg.history.exclude));
 
         // Seed default directories only if this is a fresh database
         if !existed {
@@ -46,6 +50,14 @@ impl Pool {
         }
 
         Ok(pool)
+    }
+
+    pub fn with_exclude(
+        mut self,
+        exclude: Option<std::sync::Arc<globset::GlobSet>>,
+    ) -> Self {
+        self.exclude = exclude;
+        self
     }
 
     /// Seed the database with default system directories.
@@ -97,7 +109,11 @@ impl Pool {
         let options: SqliteConnectOptions = url.parse()?;
         let pool = SqlitePoolOptions::new().connect_with(options).await?;
 
-        let ret = Self { pool, lambda };
+        let ret = Self {
+            pool,
+            lambda,
+            exclude: None,
+        };
         ret.init_tables().await?;
         Ok(ret)
     }
@@ -148,9 +164,28 @@ impl Pool {
             conn,
             table,
             lambda: self.lambda,
+            exclude: self.exclude.clone(),
         };
 
         log::trace!("db connected");
         Ok(ret)
+    }
+}
+
+impl Connection {
+    /// Does `path` match the compiled exclude matcher?
+    pub fn is_excluded(
+        &self,
+        path: &std::path::Path,
+    ) -> bool {
+        super::zoxide::is_excluded(self.exclude.as_deref(), path)
+    }
+
+    /// Is this entry excluded?
+    pub fn entry_excluded(
+        &self,
+        entry: &super::Entry,
+    ) -> bool {
+        super::zoxide::entry_excluded(self.exclude.as_deref(), entry)
     }
 }
