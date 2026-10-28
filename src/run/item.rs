@@ -94,15 +94,24 @@ impl PathItem {
         }
     }
 
-    /// Col-1 sort/filter key: the `tail[1]` display override when set, else the raw path
-    /// string (the unstyled equivalent of what `render()` shows — no icons/colors).
-    pub fn display_name(&self) -> String {
+    /// Col-1 match/filter key: the `tail[1]` display override when set, else the
+    /// clean, icon-free path string shown by [`Self::render`].
+    pub fn match_name(&self) -> Cow<'_, str> {
         if let Ok([_, o]) = &self.tail {
             if !o.is_empty() {
-                return o.clone();
+                return Cow::Borrowed(o.as_str());
             }
         }
-        self.render().to_string()
+
+        let cwd = render_path();
+        match display_path(
+            &global_ui().path,
+            &self.path,
+            cwd.as_ref().map(|p| p.as_ref()),
+        ) {
+            Cow::Borrowed(path) => path.to_string_lossy(),
+            Cow::Owned(path) => Cow::Owned(path.to_string_lossy().into_owned()),
+        }
     }
 
     /// Col-1 sort key: tries the `tail[1]` display override first when non-empty,
@@ -160,19 +169,14 @@ fn render(
     render_with(&global_ui().path, path, cwd)
 }
 
-/// Pure rendering logic, given the display config.
-///
-/// `cwd: None` (no render path — initial pane) disables relative display:
-/// `path.relative` never triggers and paths render absolute.
-fn render_with(
+/// The clean path shown in the UI and scored by the matcher, before
+/// icons/colors are added.
+fn display_path<'a>(
     cfg: &PathDisplayConfig,
-    mut path: &Path,
+    mut path: &'a Path,
     cwd: Option<&Path>,
-) -> Text<'static> {
-    let full_path = path;
-    let relative = cfg.relative;
-
-    if relative
+) -> Cow<'a, Path> {
+    if cfg.relative
         && let Some(cwd) = cwd
         && let Ok(stripped) = path.strip_prefix(cwd)
     {
@@ -183,46 +187,38 @@ fn render_with(
         }
     }
 
-    // collapse home to ~
-    let path = if cfg.collapse_home
+    if cfg.collapse_home
         && let Ok(stripped) = path.strip_prefix(__home())
     {
-        if stripped.is_empty() {
-            return {
-                if cfg.dir_colors {
-                    let style = Style::default().fg(Color::LightBlue);
-                    if cfg.dir_icons && cfg.icon_colors {
-                        Text::from(Line::from(vec![
-                            Span::styled(Icons::HOME.to_string(), style),
-                            Span::raw(" ~"),
-                        ]))
-                    } else {
-                        let ret = if cfg.dir_icons {
-                            format!("{} ~", Icons::HOME)
-                        } else {
-                            "~".to_string()
-                        };
-                        Text::from(Span::styled(ret, style))
-                    }
-                } else {
-                    let ret = if cfg.dir_icons {
-                        format!("{} ~", Icons::HOME)
-                    } else {
-                        "~".to_string()
-                    };
-                    Text::from(ret)
-                }
-            };
+        return if stripped.is_empty() {
+            Cow::Borrowed(Path::new("~"))
         } else {
-            PathBuf::from("~").join(stripped)
-        }
-    } else {
-        path.to_owned()
-    };
+            Cow::Owned(PathBuf::from("~").join(stripped))
+        };
+    }
+
+    Cow::Borrowed(path)
+}
+
+/// Pure rendering logic, given the display config.
+///
+/// `cwd: None` (no render path — initial pane) disables relative display:
+/// `path.relative` never triggers and paths render absolute.
+fn render_with(
+    cfg: &PathDisplayConfig,
+    path: &Path,
+    cwd: Option<&Path>,
+) -> Text<'static> {
+    let full_path = path;
+    let path = display_path(cfg, path, cwd);
 
     match full_path.is_dir() {
         true => {
-            let icon = icon_for_file(full_path);
+            let icon = if path.as_ref() == Path::new("~") {
+                Icons::HOME
+            } else {
+                icon_for_file(full_path)
+            };
             let path_str = path.to_string_lossy();
             let style = if cfg.dir_colors {
                 let style = if full_path.is_symlink() {
@@ -265,7 +261,7 @@ fn render_with(
             let icon = icon_for_file(full_path);
             let path_str = path.to_string_lossy();
             let style = if cfg.file_colors {
-                let mut style = FileCategory::get(&path)
+                let mut style = FileCategory::get(path.as_ref())
                     .map(|c| cfg.file_styles.style(&c))
                     .unwrap_or_default();
 
@@ -331,7 +327,7 @@ mod tests {
     use std::path::Path;
     use std::sync::Once;
 
-    /// `render()`/`display_name()` read the global UI config; initialize it once
+    /// `render()`/`match_name()` read the global UI config; initialize it once
     /// (OnceLock set is one-shot — per-test swaps are impossible).
     static INIT_GLOBAL_UI: Once = Once::new();
     fn init_global_ui_once() {
@@ -457,7 +453,7 @@ mod tests {
     }
 
     #[test]
-    fn test_display_name_relative() {
+    fn test_match_name_relative() {
         init_global_ui_once();
         let cwd = __cwd();
         // render() reads the global render path (set per populate) — point it
@@ -465,10 +461,15 @@ mod tests {
         set_render_path(Some(AbsPath::new_unchecked(cwd)));
         let path_in_cwd = cwd.join(".cargo");
         let item = PathItem::new(path_in_cwd, cwd);
-        assert_eq!(item.display_name(), item.render().to_string());
+        assert_eq!(item.match_name(), ".cargo");
+        assert!(
+            item.render()
+                .to_string()
+                .ends_with(item.match_name().as_ref())
+        );
         assert!(
             !item
-                .display_name()
+                .match_name()
                 .contains(&cwd.to_string_lossy().to_string())
         );
     }

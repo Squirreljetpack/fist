@@ -70,13 +70,13 @@ fn make_mm(
                 }
                 item.render()
             })
-            .with_raw(|item: &PathItem, _d: &()| Cow::Owned(item.display_name())),
-            Column::new("", |item: &PathItem, _| format_tail(item)).with_raw(
-                |item: &PathItem, _d: &()| match &item.tail {
+            .with_raw(|item: &PathItem, _d: &()| item.match_name()),
+            Column::new("", |item: &PathItem, _| format_tail(item))
+                .with_raw(|item: &PathItem, _d: &()| match &item.tail {
                     Ok([s, _]) => Cow::Borrowed(s.as_str()),
                     Err(t) => Cow::Owned(t.to_string()),
-                },
-            ),
+                })
+                .highlight_if(|item: &PathItem, _: &()| !tail_shows_metadata(item)),
             Column::new("3", |item: &PathItem, _d: &()| {
                 // rg panes only: there the sort is none and metadata holds the packed loc
                 if sort::order_is_none() && item.value() != u64::MAX {
@@ -162,18 +162,23 @@ fn make_mm(
 /// sort reads the [`fist_size::DirSizeCache`] directly, so the display must
 /// too ([`sort::size_of`]): `None` = dir not computed yet → blank; `Some(0)`
 /// = genuinely empty file/dir → "0 B".
-fn format_tail(item: &PathItem) -> Text<'static> {
+/// Whether the second column is showing sort metadata instead of its filter
+/// text. In that state the displayed cell is not the injected tail, so it must
+/// not receive match highlights.
+fn tail_shows_metadata(item: &PathItem) -> bool {
     let order = sort::get_sort().order;
-    // gated on an empty tail so the filter string (always the tail) can never
-    // mismatch the display
-    let show_value = matches!(
+    matches!(
         order,
         SortOrder::mtime | SortOrder::atime | SortOrder::size
     ) && matches!(&item.tail, Ok([s, _]) if s.is_empty())
         // a fresh sort override hides the metadata override until the
         // first explicit re-sort (ReSort takes the marker)
-        && STORE::get::<HideMetadata>().is_none();
-    if show_value {
+        && STORE::get::<HideMetadata>().is_none()
+}
+
+fn format_tail(item: &PathItem) -> Text<'static> {
+    let order = sort::get_sort().order;
+    if tail_shows_metadata(item) {
         return match order {
             SortOrder::mtime | SortOrder::atime => {
                 let v = item.value();
