@@ -460,7 +460,7 @@ pub fn fsaction_aliaser(
         _ => match a {
             // these can technically be more
             Action::Up(i) => {
-                TOAST::clear();
+                TOAST::clear_sustained();
 
                 if state.overlay_index().is_some() {
                     acs![a]
@@ -482,7 +482,7 @@ pub fn fsaction_aliaser(
                 }
             }
             Action::Down(i) => {
-                TOAST::clear();
+                TOAST::clear_sustained();
 
                 if state.overlay_index().is_some() {
                     acs![a]
@@ -834,14 +834,17 @@ pub fn fsaction_handler(
                         [] => {}
                         [row] => {
                             record_source();
-                            if row.status == mount::MountStatus::Failed {
+                            let failed = row.status == mount::MountStatus::Failed;
+                            enter_dir_pane(state, AbsPath::new_unchecked(row.dest.clone()));
+                            if failed {
+                                // after the switch: entering a pane clears the
+                                // toasts of the one left
                                 TOAST::push(
                                     ToastStyle::Warning,
                                     "Entering: ",
                                     [Span::raw("failed extraction")],
                                 );
                             }
-                            enter_dir_pane(state, AbsPath::new_unchecked(row.dest.clone()));
                             return;
                         }
                         _ => {
@@ -910,7 +913,12 @@ pub fn fsaction_handler(
             };
             if !items.is_empty() {
                 QUEUE::enqueue("move".into(), items);
-                TOAST::push(ToastStyle::Normal, "Move: ", toast_vec);
+                TOAST::push_with_flag(
+                    ToastStyle::Normal,
+                    "Move: ",
+                    toast_vec,
+                    ToastFlags::SUSTAINED,
+                );
                 copy_files(cb_vec, false);
             };
         }
@@ -934,7 +942,12 @@ pub fn fsaction_handler(
             };
             if !items.is_empty() {
                 QUEUE::enqueue("copy".into(), items);
-                TOAST::push(ToastStyle::Normal, "Copied: ", toast_vec);
+                TOAST::push_with_flag(
+                    ToastStyle::Normal,
+                    "Copied: ",
+                    toast_vec,
+                    ToastFlags::SUSTAINED,
+                );
                 copy_files(cb_vec, false);
             };
         }
@@ -1208,7 +1221,7 @@ pub fn fsaction_handler(
                         ToastStyle::Info,
                         "Deleting: ",
                         items.iter().map(|p| short_display(p)),
-                        ToastFlags::PERSIST_CURSOR | ToastFlags::PERSIST_PANE,
+                        ToastFlags::PERSIST,
                     );
                 }
 

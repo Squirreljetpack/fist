@@ -16,15 +16,16 @@
 //! ```
 //!
 //! ### Persistence:
-//! - **Categorized / Grouped Toasts** ([`TOAST::push`], [`TOAST::pair`], [`TOAST::notice`])
-//!   carry [`ToastFlags::PERSIST_PANE`]: they survive pane switches
-//!   ([`TOAST::clear_msgs`]) but are dropped by cursor movement ([`TOAST::clear`]).
-//! - **Ad-hoc / Un-prefixed Messages** ([`TOAST::msg`], [`TOAST::toast_empty`],
-//!   [`TOAST::push_skipped`]) carry no flags: [`TOAST::clear`] and
-//!   [`TOAST::clear_msgs`] discard them, and `TOAST::msg(..., replace = true)`
-//!   evicts them before showing the latest status line.
-//! - [`TOAST::push_with_flag`] can also set [`ToastFlags::PERSIST_CURSOR`] so a
-//!   toast survives cursor movement until it is explicitly removed ([`TOAST::pop`]).
+//! [`TOAST::clear`] runs on pane switches and drops every transient toast,
+//! including the per-pane indicators (`ordering: `, `showing: `, `pattern: `).
+//! Results of a finished file operation (`Copied: `, `Move: `, `New: `) carry
+//! [`ToastFlags::SUSTAINED`] so they outlive the switch; moving the cursor
+//! acknowledges them ([`TOAST::clear_sustained`], which drops them along with
+//! the transient lines). In-flight operation progress (the `"Deleting: "`,
+//! `"Extracting: "` and `"Mounting: "` lists) carries [`ToastFlags::PERSIST`],
+//! survives both, and is retired explicitly with [`TOAST::pop`] or
+//! [`TOAST::remove`]. `TOAST::msg(..., replace = true)` evicts only plain
+//! status lines, keeping sustained results and progress.
 //!
 //! The prefix styles are configurable per [`ToastStyle`] level through the UI config
 //! (`[styles.toast]`, see [`crate::config::ui::StyleConfig::toast`]).
@@ -96,13 +97,16 @@ pub enum ToastContent {
 }
 
 bitflags! {
-    /// Which clear operations a toast line survives.
+    /// Which clears a toast line outlives.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct ToastFlags: u8 {
-        /// Survives [`TOAST::clear`] (cursor movement).
-        const PERSIST_CURSOR = 1 << 0;
-        /// Survives [`TOAST::clear_msgs`] (pane switches).
-        const PERSIST_PANE = 1 << 1;
+        /// Survives pane switches ([`TOAST::clear`]), dropped by cursor
+        /// movement ([`TOAST::clear_sustained`]). Carried by the results of a
+        /// finished file operation: `"Copied: "`, `"Move: "`, `"New: "`.
+        const SUSTAINED = 1 << 0;
+        /// Survives every clear: in-flight operation progress, retired
+        /// explicitly by [`TOAST::pop`] or [`TOAST::remove`].
+        const PERSIST = 1 << 1;
     }
 }
 
@@ -157,10 +161,16 @@ static TOAST: Mutex<Vec<ToastLine>> = Mutex::new(Vec::new());
 pub struct TOAST {}
 
 impl TOAST {
-    /// Remove all active toasts and clear the footer display completely.
+    /// Pane switch: drop every transient toast (per-pane indicators, plain
+    /// status lines), keep results of finished file operations
+    /// ([`ToastFlags::SUSTAINED`]) and in-flight progress
+    /// ([`ToastFlags::PERSIST`]).
     pub fn clear() {
         let mut state = TOAST.lock().unwrap();
-        state.retain(|line| line.flags.contains(ToastFlags::PERSIST_CURSOR));
+        state.retain(|line| {
+            line.flags
+                .intersects(ToastFlags::SUSTAINED | ToastFlags::PERSIST)
+        });
         debug!("Cleared toasts: {state:?}");
         let footer = if state.is_empty() {
             None
@@ -170,14 +180,11 @@ impl TOAST {
         GLOBAL::send_action(FsAction::set_footer(footer));
     }
 
-    /// Clear all transient messages while preserving toasts carrying
-    /// [`ToastFlags::PERSIST_PANE`] (grouped copy/delete lists, notices, and
-    /// other categorized toasts).
-    pub fn clear_msgs() {
+    /// Cursor movement: drop transient toasts and the results of finished file
+    /// operations ([`ToastFlags::SUSTAINED`]), keep in-flight progress.
+    pub fn clear_sustained() {
         let mut state = TOAST.lock().unwrap();
-
-        state.retain(|line| line.flags.contains(ToastFlags::PERSIST_PANE));
-
+        state.retain(|line| line.flags.contains(ToastFlags::PERSIST));
         let footer = if state.is_empty() {
             None
         } else {
@@ -235,7 +242,7 @@ impl TOAST {
         prefix: impl Into<std::borrow::Cow<'static, str>>,
         items: impl IntoIterator<Item = Span<'static>>,
     ) {
-        Self::push_with_flag(style, prefix, items, ToastFlags::PERSIST_PANE);
+        Self::push_with_flag(style, prefix, items, ToastFlags::empty());
     }
 
     /// Push a pair of items with an arrow separator (`A → B`), labeled by a prefix.
@@ -255,7 +262,7 @@ impl TOAST {
         state.push(ToastLine {
             prefix: prefix_span,
             content: ToastContent::Pair(from, to),
-            flags: ToastFlags::PERSIST_PANE,
+            flags: ToastFlags::empty(),
         });
 
         let toast = make_toast(&state);
@@ -278,7 +285,7 @@ impl TOAST {
         state.push(ToastLine {
             prefix: prefix_span,
             content: ToastContent::Line(msg.into().into()),
-            flags: ToastFlags::PERSIST_PANE,
+            flags: ToastFlags::empty(),
         });
 
         let toast = make_toast(&state);
@@ -287,30 +294,44 @@ impl TOAST {
 
     /// Push a toast line, replacing any existing toast with matching prefix.
     ///
-    /// If an active toast already has the same `prefix`, its prefix, content,
-    /// and flags are replaced in-place, preserving its position in the toast list.
+    /// If an active toast already has the same `prefix`, its prefix and content
+    /// are replaced in-place, preserving its position in the toast list.
     /// Otherwise, a new toast line is appended.
     pub fn replace(
         style: impl Into<Style>,
         prefix: impl Into<std::borrow::Cow<'static, str>>,
         line: impl Into<Line<'static>>,
     ) {
-        Self::replace_with_flag(style, prefix, line, ToastFlags::PERSIST_PANE);
-    }
+        let mut state = TOAST.lock().unwrap();
+        let prefix_cow = prefix.into();
+        let prefix_span = Span::styled(prefix_cow.clone(), style.into());
+        let new_line = line.into();
 
-    /// Push an un-prefixed toast line, replacing any existing toast whose line content starts with `match_prefix`.
-    pub fn replace_msg(
-        match_prefix: &str,
-        line: impl Into<Line<'static>>,
-    ) {
-        Self::replace_msg_with_flag(match_prefix, line, ToastFlags::PERSIST_PANE);
+        if let Some(existing) = state
+            .iter_mut()
+            .find(|line| line.prefix.content == prefix_cow)
+        {
+            existing.prefix = prefix_span;
+            existing.content = ToastContent::Line(new_line);
+            existing.flags = ToastFlags::empty();
+        } else {
+            state.push(ToastLine {
+                prefix: prefix_span,
+                content: ToastContent::Line(new_line),
+                flags: ToastFlags::empty(),
+            });
+        }
+
+        let toast = make_toast(&state);
+        GLOBAL::send_action(FsAction::set_footer(toast));
     }
 
     /// Push an un-prefixed raw message line.
     ///
-    /// When `replace` is `true`, all other transient lines (carrying no
-    /// [`ToastFlags`]) are evicted first so only the latest status message is
-    /// displayed.
+    /// When `replace` is `true`, all other plain status lines are evicted first
+    /// so only the latest status message is displayed; results
+    /// ([`ToastFlags::SUSTAINED`]) and progress ([`ToastFlags::PERSIST`])
+    /// stay.
     pub fn msg(
         line: impl Into<Line<'static>>,
         replace: bool,
@@ -318,7 +339,10 @@ impl TOAST {
         let mut state = TOAST.lock().unwrap();
 
         if replace {
-            state.retain(|line| line.flags.contains(ToastFlags::PERSIST_PANE));
+            state.retain(|line| {
+                line.flags
+                    .intersects(ToastFlags::SUSTAINED | ToastFlags::PERSIST)
+            });
         }
 
         let prefix_span = Span::raw("");
@@ -402,9 +426,9 @@ impl TOAST {
 
     /// Push a grouped list toast with explicit clear-behavior flags.
     ///
-    /// [`TOAST::push`] defers to this with [`ToastFlags::PERSIST_PANE`]; callers
-    /// that must also survive cursor movement (e.g. in-progress operations
-    /// like archive extraction) add [`ToastFlags::PERSIST_CURSOR`].
+    /// [`TOAST::push`] defers to this with no flags; callers tracking an
+    /// in-flight operation (e.g. archive extraction) pass
+    /// [`ToastFlags::PERSIST`] so the list outlives cursor and pane changes.
     pub fn push_with_flag(
         style: ToastStyle,
         prefix: impl Into<std::borrow::Cow<'static, str>>,
@@ -439,68 +463,6 @@ impl TOAST {
         let toast = make_toast(&state);
         GLOBAL::send_action(FsAction::set_footer(toast));
     }
-
-    /// Push a replaceable toast line with explicit clear-behavior flags.
-    pub fn replace_with_flag(
-        style: impl Into<Style>,
-        prefix: impl Into<std::borrow::Cow<'static, str>>,
-        line: impl Into<Line<'static>>,
-        flags: ToastFlags,
-    ) {
-        let mut state = TOAST.lock().unwrap();
-        let prefix_cow = prefix.into();
-        let prefix_span = Span::styled(prefix_cow.clone(), style.into());
-        let new_line = line.into();
-
-        if let Some(existing) = state
-            .iter_mut()
-            .find(|line| line.prefix.content == prefix_cow)
-        {
-            existing.prefix = prefix_span;
-            existing.content = ToastContent::Line(new_line);
-            existing.flags = flags;
-        } else {
-            state.push(ToastLine {
-                prefix: prefix_span,
-                content: ToastContent::Line(new_line),
-                flags,
-            });
-        }
-
-        let toast = make_toast(&state);
-        GLOBAL::send_action(FsAction::set_footer(toast));
-    }
-
-    /// Push a replaceable un-prefixed toast line with explicit clear-behavior flags.
-    pub fn replace_msg_with_flag(
-        match_prefix: &str,
-        line: impl Into<Line<'static>>,
-        flags: ToastFlags,
-    ) {
-        let mut state = TOAST.lock().unwrap();
-        let new_line = line.into();
-
-        if let Some(existing) = state.iter_mut().find(|l| {
-            matches!(
-                &l.content,
-                ToastContent::Line(line)
-                    if line.spans.first().is_some_and(|s| s.content.starts_with(match_prefix))
-            )
-        }) {
-            existing.prefix = Span::raw("");
-            existing.content = ToastContent::Line(new_line);
-            existing.flags = flags;
-        } else {
-            state.push(ToastLine {
-                prefix: Span::raw(""),
-                content: ToastContent::Line(new_line),
-                flags,
-            });
-        }
-
-        let toast = make_toast(&state);
-        GLOBAL::send_action(FsAction::set_footer(toast));
-    }
 }
 
 #[cfg(test)]
@@ -525,17 +487,14 @@ mod tests {
             ToastStyle::Info,
             "Extracting: ",
             [Span::raw("archive1.zip"), Span::raw("archive2.zip")],
-            ToastFlags::PERSIST_CURSOR | ToastFlags::PERSIST_PANE,
+            ToastFlags::PERSIST,
         );
 
         {
             let state = TOAST.lock().unwrap();
             assert_eq!(state.len(), 1);
             assert_eq!(state[0].prefix.content, "Extracting: ");
-            assert_eq!(
-                state[0].flags,
-                ToastFlags::PERSIST_CURSOR | ToastFlags::PERSIST_PANE
-            );
+            assert_eq!(state[0].flags, ToastFlags::PERSIST);
             if let ToastContent::List(items) = &state[0].content {
                 assert_eq!(items.len(), 2);
             } else {
@@ -565,32 +524,6 @@ mod tests {
     }
 
     #[test]
-    fn test_toast_clear_msgs_preserves_prefixed() {
-        let _guard = TEST_LOCK.lock().unwrap();
-        GLOBAL::init_test_senders();
-        {
-            let mut state = TOAST.lock().unwrap();
-            state.clear();
-        }
-
-        TOAST::push(ToastStyle::Info, "Extracting: ", [Span::raw("test.zip")]);
-        TOAST::msg(Span::styled("Entering archive", ToastStyle::Info), false);
-
-        {
-            let state = TOAST.lock().unwrap();
-            assert_eq!(state.len(), 2);
-        }
-
-        TOAST::clear_msgs();
-
-        {
-            let state = TOAST.lock().unwrap();
-            assert_eq!(state.len(), 1);
-            assert_eq!(state[0].prefix.content, "Extracting: ");
-        }
-    }
-
-    #[test]
     fn test_push_with_flag_survives_clear() {
         let _guard = TEST_LOCK.lock().unwrap();
         GLOBAL::init_test_senders();
@@ -599,26 +532,21 @@ mod tests {
             state.clear();
         }
 
-        // a plain grouped toast is dropped by cursor movement
         TOAST::push(ToastStyle::Success, "Copied: ", [Span::raw("a.rs")]);
-        // a flagged toast survives it
         TOAST::push_with_flag(
             ToastStyle::Info,
             "Extracting: ",
             [Span::raw("b.zip")],
-            ToastFlags::PERSIST_CURSOR | ToastFlags::PERSIST_PANE,
+            ToastFlags::PERSIST,
         );
 
-        TOAST::clear();
+        TOAST::clear_sustained();
 
         {
             let state = TOAST.lock().unwrap();
             assert_eq!(state.len(), 1);
             assert_eq!(state[0].prefix.content, "Extracting: ");
-            assert_eq!(
-                state[0].flags,
-                ToastFlags::PERSIST_CURSOR | ToastFlags::PERSIST_PANE
-            );
+            assert_eq!(state[0].flags, ToastFlags::PERSIST);
         }
     }
 

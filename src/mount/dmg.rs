@@ -16,7 +16,7 @@ use crate::{
     run::{
         action::FsAction,
         item::short_display,
-        state::{GLOBAL, TASKS, TOAST, ToastStyle},
+        state::{GLOBAL, TASKS, TOAST, ToastFlags, ToastStyle},
     },
 };
 
@@ -73,7 +73,13 @@ fn submit(source: &Path) -> Result<(), String> {
     }
 
     let label = short_display(source);
-    TOAST::push(ToastStyle::Info, "Mounting: ", [label.clone()]);
+    // in-flight mount: survives pane switches until the spawn below retires it
+    TOAST::push_with_flag(
+        ToastStyle::Info,
+        "Mounting: ",
+        [label.clone()],
+        ToastFlags::PERSIST,
+    );
 
     let owned = source.to_path_buf();
     TASKS::spawn_blocking("mount image", move || {

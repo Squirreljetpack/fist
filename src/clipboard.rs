@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::run::item::short_display;
-use crate::run::state::{GLOBAL, TASKS, TOAST, ToastStyle};
+use crate::run::state::{GLOBAL, TASKS, TOAST, ToastFlags, ToastStyle};
 use crate::utils::osc52;
 
 /// Holds the local arboard handle (if active) and configuration options.
@@ -72,7 +72,12 @@ fn report_osc52(
     match result {
         Ok(()) => {
             if toast {
-                TOAST::push(ToastStyle::Success, "Copied: ", spans);
+                TOAST::push_with_flag(
+                    ToastStyle::Success,
+                    "Copied: ",
+                    spans,
+                    ToastFlags::SUSTAINED,
+                );
             }
             // the sequence bypassed the TUI stream: repaint
             GLOBAL::send_mm(RenderCommand::Redraw);
@@ -156,7 +161,12 @@ pub fn copy_texts(
                     TOAST::push(ToastStyle::Error, "Failed to copy: ", failed);
                 }
                 if toast && !success.is_empty() {
-                    TOAST::push(ToastStyle::Success, "Copied: ", success);
+                    TOAST::push_with_flag(
+                        ToastStyle::Success,
+                        "Copied: ",
+                        success,
+                        ToastFlags::SUSTAINED,
+                    );
                 }
             }
             None => {
@@ -201,7 +211,12 @@ pub fn copy_paths_as_text(
                     TOAST::push(ToastStyle::Error, "Failed to copy: ", failed);
                 }
                 if toast && !success.is_empty() {
-                    TOAST::push(ToastStyle::Success, "Copied: ", success);
+                    TOAST::push_with_flag(
+                        ToastStyle::Success,
+                        "Copied: ",
+                        success,
+                        ToastFlags::SUSTAINED,
+                    );
                 }
             }
             None => {
@@ -273,7 +288,12 @@ pub fn copy_files(
                     TOAST::push(ToastStyle::Error, "Failed to copy: ", failed);
                 }
                 if toast && !success.is_empty() {
-                    TOAST::push(ToastStyle::Success, "Copied: ", success);
+                    TOAST::push_with_flag(
+                        ToastStyle::Success,
+                        "Copied: ",
+                        success,
+                        ToastFlags::SUSTAINED,
+                    );
                 }
             }
             None => {
@@ -309,7 +329,12 @@ pub fn copy_text(
                 match result {
                     Ok(_) => {
                         if toast {
-                            TOAST::push(ToastStyle::Success, "Copied: ", [span]);
+                            TOAST::push_with_flag(
+                                ToastStyle::Success,
+                                "Copied: ",
+                                [span],
+                                ToastFlags::SUSTAINED,
+                            );
                         }
                     }
                     Err(e) => {

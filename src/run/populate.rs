@@ -45,7 +45,7 @@ use crate::{
     run::{
         FsPane,
         populate_rg::{BufItem, MultilineRgParser, flush_rg_buffer, process_rg_line},
-        state::{RanRecache, STORE, ShouldNotAbortOnEmpty, TOAST, ToastFlags, ToastStyle},
+        state::{RanRecache, STORE, ShouldNotAbortOnEmpty, TOAST, ToastStyle},
     },
 };
 use fist_types::filters::SortOrder;
@@ -512,11 +512,10 @@ impl FsPane {
                     if toast_on_empty && entries.is_empty() {
                         TOAST::toast_empty();
                         if is_recaching {
-                            TOAST::push_with_flag(
+                            TOAST::push(
                                 ToastStyle::Normal,
                                 "Populating apps, ",
                                 [Span::raw("please wait")],
-                                ToastFlags::empty(),
                             );
                         }
                     }

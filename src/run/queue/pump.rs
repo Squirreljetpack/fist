@@ -151,7 +151,7 @@ fn discover(
                     ToastStyle::Info,
                     "Extracting: ",
                     [short_display(first)],
-                    ToastFlags::PERSIST_CURSOR | ToastFlags::PERSIST_PANE,
+                    ToastFlags::PERSIST,
                 );
             }
             seen.insert(id, item.clone());

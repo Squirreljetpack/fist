@@ -13,7 +13,8 @@ use crate::{
         queue::QUEUE,
         reload::fs_reload,
         state::{
-            GLOBAL, MenuCommandPaths, MenuPrompt, STACK, STORE, TOAST, ToastStyle, lessfilter_cfg,
+            GLOBAL, MenuCommandPaths, MenuPrompt, STACK, STORE, TOAST, ToastFlags, ToastStyle,
+            lessfilter_cfg,
         },
     },
     spawn::open_wrapped,
@@ -183,12 +184,22 @@ impl MenuItem {
             MenuItem::NewFolder => Ok(MenuPrompt::new(PromptKind::NewFolder)),
             MenuItem::Rename => Ok(rename_prompt_for(&path)),
             MenuItem::Move => {
-                TOAST::push(ToastStyle::Normal, "Move: ", [short_display(&path)]);
+                TOAST::push_with_flag(
+                    ToastStyle::Normal,
+                    "Move: ",
+                    [short_display(&path)],
+                    ToastFlags::SUSTAINED,
+                );
                 QUEUE::enqueue("move".into(), vec![path]);
                 Err(false)
             }
             MenuItem::Copy => {
-                TOAST::push(ToastStyle::Normal, "Copied: ", [short_display(&path)]);
+                TOAST::push_with_flag(
+                    ToastStyle::Normal,
+                    "Copied: ",
+                    [short_display(&path)],
+                    ToastFlags::SUSTAINED,
+                );
                 QUEUE::enqueue("copy".into(), vec![path]);
                 Err(false)
             }
@@ -491,17 +502,15 @@ impl MenuOverlay {
                 selected
             };
 
-            TOAST::push(
-                ToastStyle::Normal,
-                "Opening: ",
-                files.iter().map(|p| short_display(p)),
-            );
+            let displays: Vec<_> = files.iter().map(|p| short_display(p)).collect();
 
             // save input, then switch to the app pane and reload
             let (content, index) = state.get_content_and_index();
             STACK::save_input(content, index);
             STACK::push(FsPane::new_apps(files));
             fs_reload(state, true, false);
+            // after the switch: entering a pane clears the toasts of the one left
+            TOAST::push(ToastStyle::Normal, "Opening: ", displays);
             return OverlayEffect::Disable;
         }
 

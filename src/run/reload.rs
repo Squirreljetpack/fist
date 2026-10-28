@@ -8,9 +8,7 @@ use crate::{
     aliases::MMState,
     run::{
         FsPane, query_prompt, selection,
-        state::{
-            GLOBAL, LockPromptSetting, STACK, STORE, SmartGitVisibility, TOAST, sort, ui::global_ui,
-        },
+        state::{GLOBAL, LockPromptSetting, STACK, STORE, SmartGitVisibility, sort, ui::global_ui},
     },
 };
 
@@ -33,7 +31,6 @@ pub fn enter_dir_pane(
 
     // always clear selections
     state.picker_ui.clear_selections();
-    TOAST::clear_msgs();
 
     // start pane
     let old = STACK::nav_cwd();
@@ -232,11 +229,6 @@ pub fn fs_post_reload_new(state: &mut MMState<'_>) {
         .query
         .set(STACK::with_current(FsPane::get_input), u16::MAX);
     state.picker_ui.clear_selections();
-    TOAST::clear_msgs();
-
-    if STACK::in_app() {
-        TOAST::clear();
-    }
 
     fs_post_reload(state);
 }

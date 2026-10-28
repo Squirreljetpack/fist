@@ -12,7 +12,7 @@ use crate::{
     abspath::AbsPath,
     run::{
         FsInjector, FsPane,
-        state::{GLOBAL, InitialNoRelative, STORE},
+        state::{GLOBAL, InitialNoRelative, STORE, TOAST},
     },
     watcher::{WatchOptions, WatcherMessage},
 };
@@ -69,7 +69,7 @@ impl STACK {
     }
 
     pub fn push(pane: FsPane) -> bool {
-        STACK.with(|cell| {
+        let same = STACK.with(|cell| {
             let Self { stack, index } = &mut *cell.borrow_mut();
             stack.truncate(*index + 1);
 
@@ -81,11 +81,13 @@ impl STACK {
             stack.push(pane);
 
             same
-        })
+        });
+        TOAST::clear();
+        same
     }
 
     pub fn stack_prev() -> bool {
-        STACK.with(|cell| {
+        let moved = STACK.with(|cell| {
             let Self { index, .. } = &mut *cell.borrow_mut();
             if *index > 0 {
                 *index -= 1;
@@ -93,11 +95,15 @@ impl STACK {
             } else {
                 false
             }
-        })
+        });
+        if moved {
+            TOAST::clear();
+        }
+        moved
     }
 
     pub fn stack_next() -> bool {
-        STACK.with(|cell| {
+        let moved = STACK.with(|cell| {
             let Self { stack, index, .. } = &mut *cell.borrow_mut();
             if *index < stack.len() - 1 {
                 *index += 1;
@@ -105,7 +111,11 @@ impl STACK {
             } else {
                 false
             }
-        })
+        });
+        if moved {
+            TOAST::clear();
+        }
+        moved
     }
 
     /// returns true if newly entering history pane
@@ -132,6 +142,8 @@ impl STACK {
                 !matches!(stack[*index], FsPane::Folders { .. }),
             ))
         }) else {
+            // toggled between the two history panes in place
+            TOAST::clear();
             return false;
         };
 
@@ -148,6 +160,7 @@ impl STACK {
             stack.push(pane);
         });
 
+        TOAST::clear();
         ret
     }
 
@@ -172,6 +185,7 @@ impl STACK {
         if !different_type {
             // update current in place
             Self::with_current_mut(|p| *p = pane);
+            TOAST::clear();
         } else {
             STACK::push(pane);
         }

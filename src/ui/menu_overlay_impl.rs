@@ -6,7 +6,7 @@ use crate::{
     run::{
         FsAction,
         item::{PathItem, short_display},
-        state::{GLOBAL, MenuPrompt, STACK, TASKS, TOAST, ToastStyle},
+        state::{GLOBAL, MenuPrompt, STACK, TASKS, TOAST, ToastFlags, ToastStyle},
     },
 };
 
@@ -126,7 +126,12 @@ impl MenuOverlay {
                     };
                     match claimed {
                         Ok(()) => {
-                            TOAST::push(ToastStyle::Success, "New: ", [short_display(dest_path)]);
+                            TOAST::push_with_flag(
+                                ToastStyle::Success,
+                                "New: ",
+                                [short_display(dest_path)],
+                                ToastFlags::SUSTAINED,
+                            );
                         }
                         Err(cba_claim::ClaimError::Taken) => TOAST::push_skipped(),
                         Err(e) => {
@@ -152,7 +157,12 @@ impl MenuOverlay {
                     match cba_claim::reserve_dir_all(&dest, cba_claim::ClaimPolicy::default()) {
                         Ok(reserved) => {
                             if let Some(path) = reserved.into_path() {
-                                TOAST::push(ToastStyle::Success, "New: ", [short_display(&path)]);
+                                TOAST::push_with_flag(
+                                    ToastStyle::Success,
+                                    "New: ",
+                                    [short_display(&path)],
+                                    ToastFlags::SUSTAINED,
+                                );
                                 if cd {
                                     GLOBAL::send_action(FsAction::Jump(vec![path]));
                                 }
