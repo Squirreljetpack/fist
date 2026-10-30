@@ -22,9 +22,18 @@ pub(crate) fn list(source: &Path) -> io::Result<Vec<ArchiveEntry>> {
     let archive = open(source)?;
     Ok(archive
         .file_names()
-        .map(|name| ArchiveEntry {
-            is_dir: name.ends_with('/') || name.ends_with('\\'),
-            path: name.trim_end_matches(['/', '\\']).into(),
+        .map(|name| match name {
+            Ok(name) => ArchiveEntry {
+                is_dir: name.ends_with('/') || name.ends_with('\\'),
+                path: name.trim_end_matches(['/', '\\']).into(),
+            },
+            Err(e) => {
+                log::warn!("zip: undecodable entry name: {e}");
+                ArchiveEntry {
+                    is_dir: false,
+                    path: Default::default(),
+                }
+            }
         })
         .collect())
 }
@@ -66,7 +75,7 @@ pub(crate) fn extract(
             }
         };
         let Some(rel) = enclosed(&entry) else {
-            log::warn!("zip: skipping unsafe entry {:?}", entry.name());
+            log::warn!("zip: skipping unsafe entry {:?}", entry.name().ok());
             ctx.entry_skipped();
             continue;
         };

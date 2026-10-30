@@ -45,16 +45,17 @@ pub fn call_transform(
     let path = path.to_string_lossy();
     let vals = f.call::<MultiValue>((path.as_ref(), tail))?;
     let mut it = vals.into_iter();
-    let path = it
-        .next()
-        .and_then(|v| v.as_str().as_deref().map(str::to_owned));
-    let display = it
-        .next()
-        .and_then(|v| v.as_str().as_deref().map(str::to_owned));
-    let tail = it
-        .next()
-        .and_then(|v| v.as_str().as_deref().map(str::to_owned));
+    let path = it.next().and_then(owned_str);
+    let display = it.next().and_then(owned_str);
+    let tail = it.next().and_then(owned_str);
     Ok((path, display, tail))
+}
+
+/// Extracts an owned `String` from a Lua return value; non-strings yield `None`.
+fn owned_str(v: mlua::Value) -> Option<String> {
+    v.as_string()
+        .and_then(|s| s.to_str().ok())
+        .map(|s| s.to_owned())
 }
 
 /// Load (2.2 `@file` syntax) and compile a script; bad scripts are dropped

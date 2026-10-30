@@ -29,7 +29,7 @@ pub fn display_entries(
     let mut table = Table::new();
 
     // Style
-    table.load_preset(UTF8_FULL);
+    table.load_style(UTF8_FULL);
     table.set_content_arrangement(ContentArrangement::Dynamic);
 
     // Header row

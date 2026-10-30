@@ -8,7 +8,7 @@ description = "Data structure for computing file size trees"
 
 [dependencies]
 crossbeam-channel = "0.5"
-dashmap = "5.5"
+dashmap = "6.2"
 rayon = "1.8"
 
 [dev-dependencies]
