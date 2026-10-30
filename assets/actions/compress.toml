@@ -74,10 +74,12 @@ local function parent(p) return p:match("^(.*)/") or "." end
 local src_dir = parent(paths[1])
 local out_dir = dst ~= "" and dst or src_dir
 local archive = out_dir .. "/" .. base(paths[1]) .. ".7z"
+-- Absolute paths let one archive hold selections from different directories.
+-- 7z stores the basenames, not the temporary directory prefixes.
 local names = {}
-for _, p in ipairs(paths) do names[#names + 1] = shq("./" .. base(p)) end
+for _, p in ipairs(paths) do names[#names + 1] = shq(p) end
 local ok, how, code = os.execute(
-  "cd " .. shq(src_dir) .. " && 7z a -bd " .. shq(archive) .. " " .. table.concat(names, " "))
+  "7z a -bd " .. shq(archive) .. " " .. table.concat(names, " "))
 if not ok then error("7z failed: " .. tostring(code)) end
 toast_push("success", "Compressed: ", base(archive))
 """

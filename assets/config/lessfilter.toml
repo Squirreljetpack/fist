@@ -60,6 +60,10 @@ default = [
 
 # f:st's preview
 preview = [
+    # SVG is text, so the default Text rule would otherwise win; the normal
+    # preview renders it as an image, while the Extended preset keeps the
+    # source-text pager.
+    [["Image"], ["1|ext:svg"]],
     [["Application"], ["application"]],
     [["sqlite"], ["application/vnd.sqlite3", "have:sqlite3"]],
 ]
@@ -80,6 +84,8 @@ display = [
 
 # the 'la' alias
 extended = [
+    # Keep the SVG source text in the paged extended preset.
+    [["Text"], ["1|ext:svg"]],
     # [ [ "rainfrog" ], [ "application/vnd.sqlite3" ] ],
     # [ ["fx"], [ ".yml", ".json", ".jsonl", ".yaml", ".jsonh" ] ],
 ]

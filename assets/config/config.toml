@@ -10,7 +10,9 @@ show_preview = 60
 lock_prompt = "auto"
 
 [panes.search]
-lock_prompt = "auto"
+# Entering the Search pane leaves the query bar unlocked; the query is
+# typed explicitly after the pane opens.
+lock_prompt = "never"
 show_preview = 20
 preview_layout_index = 1
 
@@ -33,12 +35,12 @@ show_preview = true
 
 [panes.files]
 default_sort = "atime"
-# prompt = "F: "
+prompt = "◷> "
 # prompt_style = { fg = "LightYellow" }
 
 [panes.dirs]
 default_sort = "frecency"
-# prompt = "D: "
+prompt = "◷> "
 # prompt_style = { fg = "LightYellow" }
 
 ### SETTINGS ###
