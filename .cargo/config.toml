@@ -1,0 +1,7 @@
+[env]
+# clang defaults the deployment target to the build host's SDK, so a newer
+# macOS runner image would silently raise the floor of the shipped binaries.
+MACOSX_DEPLOYMENT_TARGET = "14.0"
+LIBSQLITE3_FLAGS = "-DSQLITE_ENABLE_MATH_FUNCTIONS=1"
+CXXFLAGS_aarch64_apple_darwin = "-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1"
+CXXFLAGS_x86_64_apple_darwin = "-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1"

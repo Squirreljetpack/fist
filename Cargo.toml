@@ -16,7 +16,8 @@ repository = "https://github.com/Squirreljetpack/fist"
 
 [workspace.dependencies]
 cli_boilerplate_automation = { version = "0.*", features = ["bring", "serde", "claim"] }
-fist-types = { version = "0.0.*", path = "fist-types" }
+fist-types = { version = "0.*", path = "fist-types" }
+
 phf = { version = "0.14", features = ["macros", "phf_macros"] }
 strum = { version = "0.28", features = ["strum_macros"] }
 strum_macros = "0.28"
@@ -39,8 +40,9 @@ description = "Fist: Interactive Search Tool"
 
 [dependencies]
 cli_boilerplate_automation = { workspace = true }
-fist-size = { version = "0.0.4", path = "fist-size" }
 fist-types = { workspace = true, features = ["serde", "file-format"] }
+fist-size = { version = "0.*", path = "fist-size" }
+fist-copy = { version = "0.*", path = "fist-copy" }
 matchmaker-lib = { version = "0.*", features = ["bracketed-paste"] }
 matchmaker-partial = { version = "0.*", optional = true }
 nucleo = { package = "matchmaker-nucleo", version = "0.1.*" }
@@ -84,7 +86,6 @@ toml = "1.1"
 
 # filesystem
 arboard = { version = "3.6.1", features = ["wayland-data-control"] }
-fist-copy = { version = "0.0.4", path = "fist-copy" }
 image = { version = "0.25.9", default-features = false, features = [] }
 notify = "8.2.0"
 trash = "5.2.5"
