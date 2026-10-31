@@ -212,33 +212,20 @@ pub fn expand_follow(
     queue.into_iter().collect()
 }
 
-/// Splits a prompt input into a file or a directory target: `Err` holds an
-/// absolute directory (input ended with a separator), `Ok` holds an
-/// absolute file. Relative inputs resolve against `cwd`.
-pub fn auto_dest(
-    dest: impl AsRef<OsStr>,
-    cwd: &Path,
-) -> Result<AbsPath, AbsPath> {
-    let dest = dest.as_ref();
-    let abs = AbsPath::new_unchecked(Path::new(dest).abs(cwd));
-    if dest.to_string_lossy().ends_with(std::path::MAIN_SEPARATOR) {
-        Err(abs)
-    } else {
-        Ok(abs)
-    }
-}
-
 /// The destination path a transfer implies: `dst` used as-is when it names
 /// a file, else `dst/src_file_name` (also when `dst` is empty or ends in a
-/// separator). Pure inference — collision decisions belong to the engine's
-/// conflict strategy at write time.
+/// separator). Intent is read from the raw `dst` before it is resolved
+/// against `base`, since normalization drops a trailing separator. Pure
+/// inference — collision decisions belong to the engine's conflict strategy
+/// at write time.
 pub fn desired_path(
     src: &Path,
     dst: &OsStr,
+    base: &Path,
 ) -> PathBuf {
-    let put_into = dst.is_empty() || dst.to_string_lossy().ends_with(std::path::MAIN_SEPARATOR);
-    let dst_path = Path::new(dst).normalize();
-    if put_into || dst_path.file_name().is_none() {
+    let into_dir = dst.is_empty() || dst.ends_in_separator();
+    let dst_path = Path::new(dst).abs(base);
+    if into_dir || dst_path.file_name().is_none() {
         match src.file_name() {
             Some(name) => dst_path.join(name),
             None => dst_path,
@@ -589,5 +576,57 @@ mod tests {
         }
         assert_eq!(expand_tilde("/var/log/*"), "/var/log/*");
         assert_eq!(expand_tilde("*.rs"), "*.rs");
+    }
+
+    // -----------------------------------------------------------------------
+    // desired_path
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn desired_path_trailing_separator_pastes_into_directory() {
+        assert_eq!(
+            desired_path(
+                Path::new("/tmp/src/source.toml"),
+                OsStr::new("../a/"),
+                Path::new("/tmp/cwd")
+            ),
+            PathBuf::from("/tmp/a/source.toml")
+        );
+    }
+
+    #[test]
+    fn desired_path_exact_name_is_the_destination() {
+        assert_eq!(
+            desired_path(
+                Path::new("/tmp/src/source.toml"),
+                OsStr::new("../a"),
+                Path::new("/tmp/cwd")
+            ),
+            PathBuf::from("/tmp/a")
+        );
+    }
+
+    #[test]
+    fn desired_path_empty_uses_the_base() {
+        assert_eq!(
+            desired_path(
+                Path::new("/tmp/src/source.toml"),
+                OsStr::new(""),
+                Path::new("/tmp/cwd")
+            ),
+            PathBuf::from("/tmp/cwd/source.toml")
+        );
+    }
+
+    #[test]
+    fn desired_path_absolute_destination_replaces_the_base() {
+        assert_eq!(
+            desired_path(
+                Path::new("/tmp/src/source.toml"),
+                OsStr::new("/tmp/a/"),
+                Path::new("/tmp/cwd")
+            ),
+            PathBuf::from("/tmp/a/source.toml")
+        );
     }
 }

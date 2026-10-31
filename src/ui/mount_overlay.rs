@@ -470,14 +470,6 @@ impl Overlay<FsAction, PathItem, ()> for MountOverlay {
         frame.render_widget(self.query.make_input(), input);
 
         // Results
-        let (table, width, _separator) = self.results.make_table();
-        let mut results_area = results;
-        if matches!(
-            self.results.config.row_connection,
-            RowConnectionStyle::Capped
-        ) {
-            results_area.width = results_area.width.min(width);
-        }
-        frame.render_widget(table, results_area);
+        self.results.render(frame, results);
     }
 }

@@ -12,7 +12,7 @@
 
 use super::*;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
 use cba::bs::symlink;
@@ -166,27 +166,23 @@ pub(crate) fn is_identity_transfer(
         .is_some_and(|p| p.as_os_str() == dest.as_os_str())
 }
 
-/// Resolves a transfer's concrete destination. An explicit `data` is used
-/// as-is (absolute) or resolved against `nav`; empty `data` means "into
-/// `nav`" and requires it — without one the row stays pending. The source
-/// file name is appended when the result names a directory.
+/// Resolves a transfer's concrete destination: `data` names the target path
+/// when it names a file, else the directory to paste the source into (empty
+/// `data`, or one ending in a separator). It is resolved against `nav`, or
+/// the process cwd when there is none. Empty `data` without `nav` cannot be
+/// resolved, so the row stays pending.
 pub(crate) fn transfer_dest(
     item: &QueueItem,
     nav: Option<&AbsPath>,
 ) -> Option<PathBuf> {
-    let base: PathBuf = match (item.data.is_empty(), nav) {
-        (true, Some(nav)) => {
-            let mut d = nav.as_os_str().to_owned();
-            d.push(std::path::MAIN_SEPARATOR_STR);
-            d.into()
-        }
-        (_, Some(nav)) => item.data.abs(nav),
-        (false, None) => item.data.clone().into(),
-        (true, None) => return None,
-    };
+    if item.data.is_empty() && nav.is_none() {
+        return None;
+    }
+    let base = nav.map_or(Path::new(""), |nav| nav.as_path());
     Some(crate::utils::path::desired_path(
         &item.src[0],
-        base.as_os_str(),
+        &item.data,
+        base,
     ))
 }
 
@@ -294,6 +290,25 @@ mod tests {
 
         // remove only our rows: sibling tests own theirs
         QUEUE_STATE.lock().unwrap().shared.clear();
+    }
+
+    /// A destination typed with a trailing separator names a directory to
+    /// paste into, so the source file name is appended (the directory itself
+    /// is created by the engine when missing).
+    #[test]
+    fn trailing_separator_destination_pastes_into_directory() {
+        let src = PathBuf::from("/tmp/src/source.toml");
+        let item = QueueItem {
+            kind: "copy".into(),
+            src: vec![AbsPath::new_unchecked(&src)],
+            data: "../a/".into(),
+            status: QueueItemStatus::new(&src),
+        };
+        let nav = AbsPath::new_unchecked("/tmp/nav");
+        assert_eq!(
+            transfer_dest(&item, Some(&nav)),
+            Some(PathBuf::from("/tmp/a/source.toml"))
+        );
     }
 
     /// Extraction rows are created started, run on the engine, and

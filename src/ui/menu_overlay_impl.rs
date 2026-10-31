@@ -107,39 +107,36 @@ impl MenuOverlay {
             PromptKind::New => {
                 let current_item_parent = self.target_parent(state);
                 let input = self.prompt.input.value();
-                let dest = crate::utils::path::auto_dest(&input, &current_item_parent); // replaced if input is absolute
+                let into_dir = Path::new(&input).ends_in_separator();
+                let dest = AbsPath::new_unchecked(Path::new(&input).abs(&current_item_parent));
 
                 TASKS::spawn("create", async move {
                     // parents first, then an exclusive claim: an existing
                     // name is reported as skipped instead of truncated or
                     // silently merged
-                    let claimed = match &dest {
-                        Ok(file) => {
-                            cba_claim::reserve_file_all(file, cba_claim::ClaimPolicy::Strict)
-                                .map(|_| ())
-                        }
-                        Err(dir) => cba_claim::reserve_dir_all(dir, cba_claim::ClaimPolicy::Strict)
-                            .map(|_| ()),
+                    let reserved = if into_dir {
+                        cba_claim::reserve_dir_all(&dest, cba_claim::ClaimPolicy::Strict)
+                            .map(|_| ())
+                    } else {
+                        cba_claim::reserve_file_all(&dest, cba_claim::ClaimPolicy::Strict)
+                            .map(|_| ())
                     };
-                    let dest_path = match &dest {
-                        Ok(p) | Err(p) => p,
-                    };
-                    match claimed {
+                    match reserved {
                         Ok(()) => {
                             TOAST::push_with_flag(
                                 ToastStyle::Success,
                                 "New: ",
-                                [short_display(dest_path)],
+                                [short_display(&dest)],
                                 ToastFlags::SUSTAINED,
                             );
                         }
                         Err(cba_claim::ClaimError::Taken) => TOAST::push_skipped(),
                         Err(e) => {
-                            log::error!("Failed to create {dest_path:?}: {e:?}");
+                            log::error!("Failed to create {dest:?}: {e:?}");
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Failed to create: ",
-                                [short_display(dest_path)],
+                                [short_display(&dest)],
                             );
                         }
                     }
@@ -149,7 +146,7 @@ impl MenuOverlay {
                 let current_item_parent = self.target_parent(state);
                 let input = self.prompt.input.value();
                 let dest = AbsPath::new_unchecked(Path::new(&input).abs(current_item_parent));
-                let cd = input.ends_with(std::path::MAIN_SEPARATOR);
+                let cd = Path::new(&input).ends_in_separator();
 
                 TASKS::spawn("mkdir", async move {
                     // parents first, then an atomic claim on the final name:
