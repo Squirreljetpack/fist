@@ -231,6 +231,11 @@ __fist_dir_widget() {
 
   if [[ -d "$line" ]]; then
     cd "$line" || return 1
+    # bash has no widget that accepts a line (zsh uses `zle push-line &&
+    # zle accept-line`), so readline would redraw the stale prompt. Aborting
+    # an empty pending line makes it draw a fresh prompt for the new
+    # directory; a line with text is left untouched.
+    [[ -n "$READLINE_LINE" ]] || kill -INT $$
   elif [[ -f "$line" ]]; then
     dir="$(dirname -- "$line")" && [[ -d "$dir" ]] && cd "$dir" && {
       local base="$(basename -- "$line")"

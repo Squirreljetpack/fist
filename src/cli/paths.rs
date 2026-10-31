@@ -1,6 +1,6 @@
 use cba::{
     bath::find_root,
-    bog::{BogOkExt, BogUnwrapExt},
+    bog::{BogOkExt, BogUnwrapExt, wbog},
     ebog, expr_as_path_fn,
 };
 use std::{
@@ -97,8 +97,8 @@ fn cwd() -> PathBuf {
                         break;
                     }
                 }
-                eprintln!(
-                    "Warning: current_dir() failed, using closest existing parent of PWD: {}",
+                wbog!(
+                    "current_dir() failed, starting in closest existing parent: {}",
                     path.display()
                 );
                 path
