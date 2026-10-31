@@ -42,7 +42,7 @@ use crate::{
         register::{ExecutionMode, resolve_target},
         reload::{enter_dir_pane, fs_reload},
         state::{
-            AcceptFlavor, ExecuteHandlerShouldProcessParent, GLOBAL, InPrompt, MENU_ACTIONS,
+            AcceptAsPrint, ExecuteHandlerShouldProcessParent, GLOBAL, InPrompt, MENU_ACTIONS,
             MenuPrompt, STACK, STORE, TASKS, TOAST, ToastFlags, ToastStyle, context::ActionContext,
             lessfilter_cfg, sort,
         },
@@ -446,7 +446,7 @@ pub fn fsaction_aliaser(
                         FsAction::Advance.into()
                     } else {
                         if GLOBAL::cfg().interface.alt_accept && !STACK::in_app() {
-                            STORE::set(AcceptFlavor);
+                            STORE::set(AcceptAsPrint);
                         }
                         Action::Accept
                     };
@@ -506,7 +506,7 @@ pub fn fsaction_aliaser(
 
             // Accept (enter) and Print("") (alt-enter) share one arm: the
             // print-vs-open decision for list items lives in the make_mm accept hook
-            // via AcceptFlavor, while prompt interactions dispatch AcceptPrompt(print_flavor).
+            // via AcceptAsPrint, while prompt interactions dispatch AcceptPrompt(print_flavor).
             // Non-empty Print payloads pass through to the interrupt handler untouched.
             Action::Accept | Action::Print(_) => {
                 // non-empty Print payloads pass through to the interrupt handler;
@@ -528,13 +528,13 @@ pub fn fsaction_aliaser(
                         //                            acs![]
                         } else {
                             if print_flavor {
-                                STORE::set(AcceptFlavor);
+                                STORE::set(AcceptAsPrint);
                             }
                             acs![Action::Accept]
                         }
                     } else {
                         if print_flavor {
-                            STORE::set(AcceptFlavor);
+                            STORE::set(AcceptAsPrint);
                         }
                         acs![Action::Accept]
                     }

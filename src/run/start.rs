@@ -33,7 +33,7 @@ use crate::{
         register::{MMExt, emit_print, paste_handler, path_formatter, query_handler, sync_handler},
         reload::fs_post_reload_new,
         state::{
-            AcceptFlavor, DB_FILTER, GLOBAL, HideMetadata, LockPromptSetting, MENU_ACTIONS, STACK,
+            AcceptAsPrint, DB_FILTER, GLOBAL, HideMetadata, LockPromptSetting, MENU_ACTIONS, STACK,
             STORE, SmartGitVisibility, TASKS, context::ActionContext, sort, ui::global_ui_init,
         },
     },
@@ -95,7 +95,7 @@ fn make_mm(
     let injector = worker.injector();
 
     // One closure owns the entire accept decision (matchmaker-cli mm.output
-    // pattern): the aliaser sets AcceptFlavor when the keypress resolves to
+    // pattern): the aliaser sets AcceptAsPrint when the keypress resolves to
     // the print flavor; the hook then emits the selection and returns nothing
     // for the opener/apps to consume. Open flavor = selected-or-current
     // clones, consumption unchanged. Runs on the render thread after
@@ -104,14 +104,13 @@ fn make_mm(
     let hook_template = template.clone();
     let hook_sep = separator.clone();
     let mut mm = Matchmaker::new(worker, move |state: &mut MMState<'_>| {
-        if STORE::take::<AcceptFlavor>().is_some() {
-            // respect no_multi_accept when this was aliased from Accept
-            let items: Vec<PathItem> =
-                if GLOBAL::cfg().interface.alt_accept && GLOBAL::cfg().interface.no_multi_accept {
-                    state.current_raw().cloned().into_iter().collect()
-                } else {
-                    state.map_selected_to_vec(|_, it| it.clone())
-                };
+        if STORE::take::<AcceptAsPrint>().is_some() {
+            // the sink consumes a single item (`:d --cd` prints one path)
+            let items: Vec<PathItem> = if GLOBAL::cfg().interface.no_multi_print {
+                state.current_raw().cloned().into_iter().collect()
+            } else {
+                state.map_selected_to_vec(|_, it| it.clone())
+            };
             for item in &items {
                 db().bump_path(item.path.is_dir(), item.path.clone());
                 emit_print(&hook_handle, item, hook_template.as_deref(), &hook_sep);

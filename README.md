@@ -334,7 +334,7 @@ f:ist comes with several secondary subcommands for reference and utilitary purpo
 
 Supports **Zsh**, **Bash** (4.3+), **Fish**, **Nushell**, and standard **POSIX** shells (`sh`, `dash`, `ash`, `ksh`).
 
-The output of `fs :tool shell` will, when sourced, provide the jump, nav, open, and interactive line-editor widget functions:
+The output of `fs :tool shell` will, when sourced, provide the jump, nav, history-open, and interactive line-editor widget functions:
 
 The jump function (`z`) is a replacement for `cd`, except that incomplete queries are matched to a most likely destination drawn from the unified f:ist database. This behavior is inspired by zoxide[^zoxide].
 
@@ -349,6 +349,10 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 >
 > One final change from zoxide is the introduction of the `history.refind` setting in the [config](#configuration).
 > When no match is found, or when the top result is the current directory, this setting causes the the interactive interface to be started.
+
+The open function (`Z`) brings a similar functionality to files, [opening][^lessfilter_edit] matches from your file history (open directories with a trailing `.`).
+
+[^lessfilter_edit]: using the [lessfilter edit](#lessfilter) preset.
 
 The line-editor widget functions push your selected paths onto your command line. By default, `shift-left` binds to recursive directory search, `shift-right` binds to recursive file search. There is also a full-text search widget bound to `shift-down`: the default action opens your editor at the match, but you can still push paths using `alt-enter`.
 
@@ -373,7 +377,6 @@ Including the `--aliases` flag will add a few simple alias definitions into the 
 - `ll`: lessfilter (info preset)
 - `n`: edit (lessfilter with edit preset)
 - `o`: [open](#app)
-- `zf`: recent files history
 
 For speed and safety, it is recommended pass your actual shell through to `--shell`[^shell-cache].
 

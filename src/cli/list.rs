@@ -21,7 +21,7 @@ use super::{OutputOpts, clap_helpers::ListMode, handlers::print};
 use crate::{
     cli::paths::__cwd,
     config::Config,
-    db::{Connection, zoxide::HistoryConfig},
+    db::{Connection, DbTable, zoxide::HistoryConfig},
     errors::CliError,
     find::{fd::build_fd_args, metadata, rg::build_rg_args, walker::list_dir},
 };
@@ -239,12 +239,13 @@ pub fn rg_list(
     Ok(())
 }
 
-/// db-backed directory listing (`fs :d --list`): rows are already ordered by
-/// the query (`sort`), so this only formats and prints them.
+/// db-backed listing (`fs :d --list`, `fs :file --list`): rows are already
+/// ordered by the query (`sort`), so this only formats and prints them.
 ///
 /// Non-UTF8 paths are skipped unless `mode` is [`ListMode::All`].
-pub async fn dirs_list(
+pub async fn db_list(
     conn: &mut Connection,
+    table: DbTable,
     sort: SortOrder,
     db_filter: &HistoryConfig,
     mode: ListMode,
@@ -253,10 +254,7 @@ pub async fn dirs_list(
     let (template, sep) = output_parts(output);
     let all = matches!(mode, ListMode::All);
 
-    for e in conn
-        .get_entries(sort, db_filter, crate::db::DbTable::dirs)
-        .await?
-    {
+    for e in conn.get_entries(sort, db_filter, table).await? {
         match e.path.to_str() {
             Some(_) => print(&e.path, &template, &sep),
             None => {

@@ -189,8 +189,9 @@ pub struct InterfaceConfig {
     pub advance_command: String,
     /// If true, the functions of the Accept and Print actions will be swapped.
     pub alt_accept: bool,
-    /// Disables multi-accept.
-    pub no_multi_accept: bool,
+    /// If true, a print emits the current item instead of the selection; a sink
+    /// that consumes paths one at a time sets this.
+    pub no_multi_print: bool,
     /// When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
     /// Whether the Trash action operates on the underlying items in the
@@ -225,7 +226,7 @@ impl Default for InterfaceConfig {
     fn default() -> Self {
         Self {
             alt_accept: false,
-            no_multi_accept: false,
+            no_multi_print: false,
             always_paste: false,
             advance_command: Preset::Edit.to_command_string(When::Auto, false),
             cwd_prompt: "{} ".into(),
@@ -252,8 +253,6 @@ pub struct FdConfig {
     /// Arguments added to every fd command
     pub base_args: Vec<String>,
 
-    /// When no path is given to fs, such as using `fs [pattern]`, whether to search in `$HOME` or the current directory.
-    pub default_search_in_home: bool,
     /// Enabling this will hide ignored files when a pattern but no path is given to fs, such as using `fs [pattern]`, provided that ignore was not explicitly specified to the cli.
     pub default_search_ignore: bool,
     //  ---------------- Experimental/Nonstandard ---------------

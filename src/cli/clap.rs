@@ -246,7 +246,8 @@ pub struct DirsCmd {
     )]
     pub list: Option<ListMode>,
 
-    /// print the first match.
+    /// resolve the query before opening the interface: accept the best match
+    /// (printed, or opened with `--opener`), falling through when nothing matches.
     #[arg(long)]
     pub cd: bool,
 
@@ -273,6 +274,11 @@ pub struct FilesCmd {
         default_missing_value = "_"
     )]
     pub list: Option<ListMode>,
+
+    /// resolve the query before opening the interface: accept the best match
+    /// (printed, or opened with `--opener`), falling through when nothing matches.
+    #[arg(long)]
+    pub cd: bool,
 
     /// initial query.
     #[arg(long, default_value_t)]

@@ -144,6 +144,7 @@ always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :file" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :file" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :file" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :file" -l cd -d 'resolve the query before opening the interface: accept the best match (printed, or opened with `--opener`), falling through when nothing matches'
 complete -c fs -n "__fish_fs_using_subcommand :file" -l help
 complete -c fs -n "__fish_fs_using_subcommand :file" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :file" -s v -d 'Increase the verbosity level'
@@ -172,7 +173,7 @@ always\t''"
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l output-sep -d 'Separator printed after each result' -r
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l format -d 'Output template for printed results' -r
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l opener -d 'Program used to open files on accept' -r
-complete -c fs -n "__fish_fs_using_subcommand :dir" -l cd -d 'print the first match'
+complete -c fs -n "__fish_fs_using_subcommand :dir" -l cd -d 'resolve the query before opening the interface: accept the best match (printed, or opened with `--opener`), falling through when nothing matches'
 complete -c fs -n "__fish_fs_using_subcommand :dir" -l help
 complete -c fs -n "__fish_fs_using_subcommand :dir" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :dir" -s v -d 'Increase the verbosity level'

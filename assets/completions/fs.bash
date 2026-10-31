@@ -346,7 +346,7 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:file)
-            opts="-l -q -v --sort --list --query --help --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
+            opts="-l -q -v --sort --list --cd --query --help --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -19,9 +19,12 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("--sort atime --style=colors"))]
     pub z_dir_args: String,
 
-    /// Name for open function.
-    #[arg(long, default_value_t = String::from("zz"))]
+    /// Name for the history open function.
+    #[arg(long, default_value_t = String::from("Z"))]
     pub open_name: String,
+    /// Arguments passed to the history panes opened by the open function
+    #[arg(long, default_value_t = String::from("--sort=atime"))]
+    pub open_args: String,
     /// Command used by open function
     #[arg(long, default_value_t = default_open_cmd())]
     pub open_cmd: String,
@@ -44,7 +47,7 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("-F --style=colors --lock-prompt=never -u"))]
     pub dir_widget_args: String,
     /// Arguments passed to `fs ::` when file widget is invoked
-    #[arg(long, default_value_t = String::from("--alt-accept -f --style=icon-colors --lock-prompt=never -- .."))]
+    #[arg(long, default_value_t = String::from("--alt-accept -f --style=icon-colors --lock-prompt=never -- ."))]
     pub file_widget_args: String,
     /// Arguments passed to `fs :` when rg widget is invoked
     #[arg(long, default_value_t = String::from("-1 --fullscreen --style=colors --preserve-whitespace"))]

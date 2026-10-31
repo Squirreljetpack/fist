@@ -2,7 +2,7 @@
 $${Z_NAME}() {
   if [ "$#" -eq 1 ] && [ -d "$1" ]; then
     case "$1" in
-      "." | "./" | "..") ;;
+      "." | "./") ;;
       *)
         cd "$1"
         return
@@ -10,23 +10,24 @@ $${Z_NAME}() {
     esac
   fi
 
-  unset last
-  if [ "$#" -gt 0 ]; then
-    eval last=\${$#}
-  fi
+  unset __fist_last
+  __fist_last=
+  for __fist_arg do
+    __fist_last="$__fist_arg"
+  done
 
-  results="$(case "$last" in
-    "." | "..") $${BINARY_PATH} :: $${Z_DOT_ARGS} --cd -- "$@" ;;
+  __fist_results="$(case "$__fist_last" in
+    ".") $${BINARY_PATH} :: $${Z_DOT_ARGS} --cd -- "$@" ;;
     "./") $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd -- "$@" ;;
     *)
       $${BINARY_PATH} :dir $${Z_DIR_ARGS} --cd --initial-input="$FS_INITIAL_INPUT" -- "$@"
       ;;
   esac)" || return
 
-  if [ -d "$results" ]; then
-    cd "$results" || return
+  if [ -d "$__fist_results" ]; then
+    cd "$__fist_results" || return
   else
-    echo "$results" && line="$(dirname "$results")" && [ -d "$line" ] && cd "$line" || return
+    echo "$__fist_results" && __fist_line="$(dirname "$__fist_results")" && [ -d "$__fist_line" ] && cd "$__fist_line" || return
   fi
 }
 
@@ -36,33 +37,26 @@ $${NAV_NAME}() {
 }
 
 $${OPEN_NAME}() {
-  if [ "$#" -eq 0 ]; then
-    $${BINARY_PATH} :t bump .
-    $${OPEN_CMD} .
-  elif [ -e "$1" ] && { [ "$#" -ne 1 ] || [ "$1" != "." ] && [ "$1" != "./" ]; } then
-    $${BINARY_PATH} :t bump -- "$@"
-    $${OPEN_CMD} "$@"
-  else
-    i=0 len=$#
-    for last; do
-      if [ $((i+=1)) = 1 ]; then set --; fi
-      if [ "$i" = "$len" ]; then break; fi
-      set -- "$@" "$last"
-    done
+  # rotate the last word to the front so it can be inspected
+  __fist_i=0
+  while [ $((__fist_i+=1)) -lt $# ]; do
+    set -- "$@" "$1"
+    shift
+  done
 
-    # treat arguments as keywords, browse/open best match
-    case "$last" in
-      ".")
-         $${BINARY_PATH} --opener="$${OPEN_CMD}" :: $${Z_DOT_ARGS} "${@}" .
-      ;;
-      "./")
-         $${BINARY_PATH} --opener="$${OPEN_CMD}" :: $${Z_SLASH_ARGS} "${@}" .
-      ;;
-      *)
-        $${Z_NAME} "$@" "$last" && $${OPEN_CMD} .
-      ;;
-    esac
-  fi
+  case "${1-}" in
+    # a trailing `.` word switches to the dirs table
+    ".")
+      shift
+      $${BINARY_PATH} :dir $${OPEN_ARGS} --cd --opener="$${OPEN_CMD}" -- "$@"
+    ;;
+    *)
+      # one more step restores the original order for the query
+      set -- "$@" "$1"
+      shift
+      $${BINARY_PATH} :file $${OPEN_ARGS} --cd --opener="$${OPEN_CMD}" --query="$*"
+    ;;
+  esac
 }
 #:
 
@@ -70,35 +64,35 @@ $${OPEN_NAME}() {
 function $${Z_NAME}
     if test (count $argv) -eq 1 -a -d "$argv[1]"
         switch "$argv[1]"
-            case "." "./" ".."
+            case "." "./"
             case "*"
                 cd "$argv[1]"
                 return
         end
     end
 
-    set -l last
+    set -l __fist_last
     if test (count $argv) -gt 0
-        set last "$argv[-1]"
+        set __fist_last "$argv[-1]"
     end
 
-    set -l results
-    switch "$last"
-        case "." ".."
-            set results ($${BINARY_PATH} :: $${Z_DOT_ARGS} --cd -- $argv)
+    set -l __fist_results
+    switch "$__fist_last"
+        case "."
+            set __fist_results ($${BINARY_PATH} :: $${Z_DOT_ARGS} --cd -- $argv)
         case "./"
-            set results ($${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd -- $argv)
+            set __fist_results ($${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd -- $argv)
         case "*"
-            set results ($${BINARY_PATH} :dir $${Z_DIR_ARGS} --cd --initial-input="$FS_INITIAL_INPUT" -- $argv)
+            set __fist_results ($${BINARY_PATH} :dir $${Z_DIR_ARGS} --cd --initial-input="$FS_INITIAL_INPUT" -- $argv)
     end
     test $status -eq 0; or return
 
-    if test -d "$results"
-        cd "$results"; or return
+    if test -d "$__fist_results"
+        cd "$__fist_results"; or return
     else
-        echo "$results"
-        set -l parent (dirname -- "$results")
-        test -d "$parent"; and cd "$parent"; or return
+        echo "$__fist_results"
+        set -l __fist_parent (dirname -- "$__fist_results")
+        test -d "$__fist_parent"; and cd "$__fist_parent"; or return
     end
 end
 
@@ -112,28 +106,14 @@ function $${NAV_NAME}
 end
 
 function $${OPEN_NAME}
-    if test (count $argv) -eq 0
-        $${BINARY_PATH} :t bump .
-        $${OPEN_CMD} .
-    else if test -e "$argv[1]" -a \( (count $argv) -ne 1 -o \( "$argv[1]" != "." -a "$argv[1]" != "./" \) \)
-        $${BINARY_PATH} :t bump -- $argv
-        $${OPEN_CMD} $argv
-    else
-        set -l all_args $argv
-        set -l last "$all_args[-1]"
-        set -l rest
-        if test (count $all_args) -gt 1
-            set rest $all_args[1..-2]
-        end
-
-        switch "$last"
-            case "."
-                $${BINARY_PATH} --opener="$${OPEN_CMD}" :: $${Z_DOT_ARGS} $rest .
-            case "./"
-                $${BINARY_PATH} --opener="$${OPEN_CMD}" :: $${Z_SLASH_ARGS} $rest .
-            case "*"
-                $${Z_NAME} $all_args; and $${OPEN_CMD} .
-        end
+    set -l __fist_q (string join " " -- $argv)
+    # a trailing `.` word switches to the dirs table
+    switch "$__fist_q"
+        case "." "* ."
+            set -e argv[-1]
+            $${BINARY_PATH} :dir $${OPEN_ARGS} --cd --opener="$${OPEN_CMD}" -- $argv
+        case "*"
+            $${BINARY_PATH} :file $${OPEN_ARGS} --cd --opener="$${OPEN_CMD}" --query="$__fist_q"
     end
 end
 #:
@@ -151,17 +131,17 @@ fi
 
 __fist_dir_widget() {
   emulate -L zsh
-  local line dir
+  local __fist_line __fist_dir
 
-  $${BINARY_PATH} :: $${DIRW_ARGS} --cd -- .. | {
-    read -r line
-    [ -n "$line" ] || { zle push-line && zle accept-line; return 1; }
-    if [ -d "$line" ]; then
-      cd "$line"
-    elif [ -f "$line" ]; then
+  $${BINARY_PATH} :: $${DIRW_ARGS} --cd -- . | {
+    read -r __fist_line
+    [ -n "$__fist_line" ] || { zle push-line && zle accept-line; return 1; }
+    if [ -d "$__fist_line" ]; then
+      cd "$__fist_line"
+    elif [ -f "$__fist_line" ]; then
       read -r LBUFFER <<< "$LBUFFER"
-      dir="$(dirname -- "$line")" && [ -d "$dir" ] && cd "$dir" &&
-      LBUFFER="${LBUFFER% } '${line:t}' " ||
+      __fist_dir="$(dirname -- "$__fist_line")" && [ -d "$__fist_dir" ] && cd "$__fist_dir" &&
+      LBUFFER="${LBUFFER% } '${__fist_line:t}' " ||
       { zle push-line && zle accept-line; return 1; }
     fi
     { zle push-line && zle accept-line; }
@@ -171,14 +151,14 @@ __fist_dir_widget() {
 __fist_file_widget() {
   emulate -L zsh
   setopt localoptions pipefail
-  local results item
+  local __fist_results __fist_item
 
-  results="$($${BINARY_PATH} --opener="$${FILEW_CMD}" '--output-sep=\0' :: $${FILEW_ARGS})" || { zle push-line && zle accept-line; return 1; }
+  __fist_results="$($${BINARY_PATH} --opener="$${FILEW_CMD}" '--output-sep=\0' :: $${FILEW_ARGS})" || { zle push-line && zle accept-line; return 1; }
 
   read -r LBUFFER <<< "$LBUFFER"
-  for item in "${(@0)results}"; do
-    if [ -n "$item" ]; then
-      LBUFFER="${LBUFFER% } '$item' "
+  for __fist_item in "${(@0)__fist_results}"; do
+    if [ -n "$__fist_item" ]; then
+      LBUFFER="${LBUFFER% } '$__fist_item' "
     fi
   done
 
@@ -188,14 +168,14 @@ __fist_file_widget() {
 __fist_rg_widget() {
   emulate -L zsh
   setopt localoptions pipefail
-  local results item
+  local __fist_results __fist_item
 
-  results="$($${BINARY_PATH} --opener="$${RGW_CMD}" '--output-sep=\0' :rg $${RGW_ARGS})" || { zle push-line && zle accept-line; return 1; }
+  __fist_results="$($${BINARY_PATH} --opener="$${RGW_CMD}" '--output-sep=\0' :rg $${RGW_ARGS})" || { zle push-line && zle accept-line; return 1; }
 
   read -r LBUFFER <<< "$LBUFFER"
-  for item in "${(@0)results}"; do
-    if [ -n "$item" ]; then
-      LBUFFER="${LBUFFER% } '$item' "
+  for __fist_item in "${(@0)__fist_results}"; do
+    if [ -n "$__fist_item" ]; then
+      LBUFFER="${LBUFFER% } '$__fist_item' "
     fi
   done
 
@@ -225,24 +205,24 @@ __fist_jump_hook() {
 [[ "$PROMPT_COMMAND" != *__fist_jump_hook* ]] && PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }__fist_jump_hook"
 
 __fist_dir_widget() {
-  local line dir
-  line="$($${BINARY_PATH} :: $${DIRW_ARGS} --cd -- ..)" || return 1
-  [[ -n "$line" ]] || return 1
+  local __fist_line __fist_dir
+  __fist_line="$($${BINARY_PATH} :: $${DIRW_ARGS} --cd -- .)" || return 1
+  [[ -n "$__fist_line" ]] || return 1
 
-  if [[ -d "$line" ]]; then
-    cd "$line" || return 1
+  if [[ -d "$__fist_line" ]]; then
+    cd "$__fist_line" || return 1
     # bash has no widget that accepts a line (zsh uses `zle push-line &&
     # zle accept-line`), so readline would redraw the stale prompt. Aborting
     # an empty pending line makes it draw a fresh prompt for the new
     # directory; a line with text is left untouched.
     [[ -n "$READLINE_LINE" ]] || kill -INT $$
-  elif [[ -f "$line" ]]; then
-    dir="$(dirname -- "$line")" && [[ -d "$dir" ]] && cd "$dir" && {
-      local base="$(basename -- "$line")"
+  elif [[ -f "$__fist_line" ]]; then
+    __fist_dir="$(dirname -- "$__fist_line")" && [[ -d "$__fist_dir" ]] && cd "$__fist_dir" && {
+      local __fist_base="$(basename -- "$__fist_line")"
       if [[ -n "$READLINE_LINE" ]]; then
-        READLINE_LINE="${READLINE_LINE% } '$base' "
+        READLINE_LINE="${READLINE_LINE% } '$__fist_base' "
       else
-        READLINE_LINE="'$base' "
+        READLINE_LINE="'$__fist_base' "
       fi
       READLINE_POINT=${#READLINE_LINE}
     }
@@ -250,13 +230,13 @@ __fist_dir_widget() {
 }
 
 __fist_file_widget() {
-  local line
-  while IFS= read -r -d '' line; do
-    if [[ -n "$line" ]]; then
+  local __fist_line
+  while IFS= read -r -d '' __fist_line; do
+    if [[ -n "$__fist_line" ]]; then
       if [[ -n "$READLINE_LINE" ]]; then
-        READLINE_LINE="${READLINE_LINE% } '$line' "
+        READLINE_LINE="${READLINE_LINE% } '$__fist_line' "
       else
-        READLINE_LINE="'$line' "
+        READLINE_LINE="'$__fist_line' "
       fi
     fi
   done < <($${BINARY_PATH} --opener="$${FILEW_CMD}" '--output-sep=\0' :: $${FILEW_ARGS}) || return 1
@@ -264,13 +244,13 @@ __fist_file_widget() {
 }
 
 __fist_rg_widget() {
-  local line
-  while IFS= read -r -d '' line; do
-    if [[ -n "$line" ]]; then
+  local __fist_line
+  while IFS= read -r -d '' __fist_line; do
+    if [[ -n "$__fist_line" ]]; then
       if [[ -n "$READLINE_LINE" ]]; then
-        READLINE_LINE="${READLINE_LINE% } '$line' "
+        READLINE_LINE="${READLINE_LINE% } '$__fist_line' "
       else
-        READLINE_LINE="'$line' "
+        READLINE_LINE="'$__fist_line' "
       fi
     fi
   done < <($${BINARY_PATH} --opener="$${RGW_CMD}" '--output-sep=\0' :rg $${RGW_ARGS}) || return 1
@@ -290,32 +270,32 @@ function __fist_jump_hook --on-variable PWD
 end
 
 function __fist_dir_widget
-    set -l line ($${BINARY_PATH} :: $${DIRW_ARGS} --cd -- ..)
+    set -l __fist_line ($${BINARY_PATH} :: $${DIRW_ARGS} --cd -- .)
     test $status -eq 0; or begin; commandline -f repaint; return 1; end
-    test -n "$line"; or begin; commandline -f repaint; return 1; end
+    test -n "$__fist_line"; or begin; commandline -f repaint; return 1; end
 
-    if test -d "$line"
-        cd "$line"
-    else if test -f "$line"
-        set -l dir (dirname -- "$line")
-        test -d "$dir"; and cd "$dir"
-        set -l base (basename -- "$line")
-        commandline -i " '$base' "
+    if test -d "$__fist_line"
+        cd "$__fist_line"
+    else if test -f "$__fist_line"
+        set -l __fist_dir (dirname -- "$__fist_line")
+        test -d "$__fist_dir"; and cd "$__fist_dir"
+        set -l __fist_base (basename -- "$__fist_line")
+        commandline -i " '$__fist_base' "
     end
     commandline -f repaint
 end
 
 function __fist_file_widget
-    $${BINARY_PATH} --opener="$${FILEW_CMD}" '--output-sep=\0' :: $${FILEW_ARGS} | while read -z -l line
-        test -n "$line"; and commandline -i " '$line' "
+    $${BINARY_PATH} --opener="$${FILEW_CMD}" '--output-sep=\0' :: $${FILEW_ARGS} | while read -z -l __fist_line
+        test -n "$__fist_line"; and commandline -i " '$__fist_line' "
     end
     test $pipestatus[1] -eq 0; or begin; commandline -f repaint; return 1; end
     commandline -f repaint
 end
 
 function __fist_rg_widget
-    $${BINARY_PATH} --opener="$${RGW_CMD}" '--output-sep=\0' :rg $${RGW_ARGS} | while read -z -l line
-        test -n "$line"; and commandline -i " '$line' "
+    $${BINARY_PATH} --opener="$${RGW_CMD}" '--output-sep=\0' :rg $${RGW_ARGS} | while read -z -l __fist_line
+        test -n "$__fist_line"; and commandline -i " '$__fist_line' "
     end
     test $pipestatus[1] -eq 0; or begin; commandline -f repaint; return 1; end
     commandline -f repaint
@@ -328,40 +308,40 @@ test -n '$${RGW_BIND}'; and bind '$${RGW_BIND}' __fist_rg_widget
 
 #: nu,nushell
 def --env $${Z_NAME} [...args: string] {
-    let count = ($args | length)
-    if $count == 1 and ($args.0 | path exists) and (($args.0 | path type) == "dir") {
-        if $args.0 != "." and $args.0 != "./" and $args.0 != ".." {
+    let __fist_count = ($args | length)
+    if $__fist_count == 1 and ($args.0 | path exists) and (($args.0 | path type) == "dir") {
+        if $args.0 != "." and $args.0 != "./" {
             cd $args.0
             return
         }
     }
 
-    let last = if $count > 0 { $args | last } else { "" }
-    let results = if $last == "." or $last == ".." {
+    let __fist_last = if $__fist_count > 0 { $args | last } else { "" }
+    let __fist_results = if $__fist_last == "." {
         ^$${BINARY_PATH} "::" $${Z_DOT_ARGS} --cd -- ...$args
-    } else if $last == "./" {
+    } else if $__fist_last == "./" {
         ^$${BINARY_PATH} "::" $${Z_SLASH_ARGS} --cd -- ...$args
     } else {
         let init_input = ($env.FS_INITIAL_INPUT? | default "")
         ^$${BINARY_PATH} ":dir" $${Z_DIR_ARGS} --cd $"--initial-input=($init_input)" -- ...$args
     }
 
-    if ($results | is-empty) {
+    if ($__fist_results | is-empty) {
         return
     }
 
-    let line = ($results | str trim)
-    if ($line | is-empty) {
+    let __fist_line = ($__fist_results | str trim)
+    if ($__fist_line | is-empty) {
         return
     }
 
-    if ($line | path exists) and (($line | path type) == "dir") {
-        cd $line
+    if ($__fist_line | path exists) and (($__fist_line | path type) == "dir") {
+        cd $__fist_line
     } else {
-        print $line
-        let parent = ($line | path dirname)
-        if ($parent | path exists) and (($parent | path type) == "dir") {
-            cd $parent
+        print $__fist_line
+        let __fist_parent = ($__fist_line | path dirname)
+        if ($__fist_parent | path exists) and (($__fist_parent | path type) == "dir") {
+            cd $__fist_parent
         }
     }
 }
@@ -377,30 +357,14 @@ def --env $${NAV_NAME} [...args: string] {
     }
 }
 
-def --env $${OPEN_NAME} [...args: string] {
-    let count = ($args | length)
-    if $count == 0 {
-        ^$${BINARY_PATH} ":t" bump .
-        $${OPEN_CMD} .
-    } else if ($args.0 | path exists) and ($count != 1 or ($args.0 != "." and $args.0 != "./")) {
-        ^$${BINARY_PATH} ":t" bump -- ...$args
-        $${OPEN_CMD} ...$args
+def $${OPEN_NAME} [...args: string] {
+    let __fist_q = ($args | str join " ")
+    # a trailing `.` word switches to the dirs table
+    if $__fist_q == "." or ($__fist_q ends-with " .") {
+        let __fist_rest = ($args | slice 0..<-1)
+        ^$${BINARY_PATH} ":dir" $${OPEN_ARGS} "--cd" $"--opener=$${OPEN_CMD}" -- ...$__fist_rest
     } else {
-        let last = ($args | last)
-        let rest = ($args | drop 1)
-
-        match $last {
-            "." => {
-                ^$${BINARY_PATH} $"--opener=$${OPEN_CMD}" "::" $${Z_DOT_ARGS} ...$rest .
-            },
-            "./" => {
-                ^$${BINARY_PATH} $"--opener=$${OPEN_CMD}" "::" $${Z_SLASH_ARGS} ...$rest .
-            },
-            _ => {
-                $${Z_NAME} ...$args
-                $${OPEN_CMD} .
-            }
-        }
+        ^$${BINARY_PATH} ":file" $${OPEN_ARGS} "--cd" $"--opener=$${OPEN_CMD}" $"--query=($__fist_q)"
     }
 }
 
@@ -418,48 +382,48 @@ export-env {
     if not $__fist_hooked {
         $env.config.hooks.env_change.PWD = ($env.config.hooks.env_change.PWD | append {
             __fist_hook: true,
-            code: {|_, dir| ^$${BINARY_PATH} ":tool" bump $dir }
+            code: {|_, __fist_dir| ^$${BINARY_PATH} ":tool" bump $__fist_dir }
         })
     }
 }
 
 def --env __fist_dir_widget [] {
-    let line = (^$${BINARY_PATH} "::" $${DIRW_ARGS} --cd -- .. | str trim)
-    if ($line | is-empty) {
+    let __fist_line = (^$${BINARY_PATH} "::" $${DIRW_ARGS} --cd -- . | str trim)
+    if ($__fist_line | is-empty) {
         return
     }
-    if ($line | path exists) and (($line | path type) == "dir") {
-        cd $line
-    } else if ($line | path exists) and (($line | path type) == "file") {
-        let parent = ($line | path dirname)
-        if ($parent | path exists) and (($parent | path type) == "dir") {
-            cd $parent
+    if ($__fist_line | path exists) and (($__fist_line | path type) == "dir") {
+        cd $__fist_line
+    } else if ($__fist_line | path exists) and (($__fist_line | path type) == "file") {
+        let __fist_parent = ($__fist_line | path dirname)
+        if ($__fist_parent | path exists) and (($__fist_parent | path type) == "dir") {
+            cd $__fist_parent
         }
-        let base = ($line | path basename)
-        commandline edit --insert $" '($base)' "
+        let __fist_base = ($__fist_line | path basename)
+        commandline edit --insert $" '($__fist_base)' "
     }
 }
 
 def --env __fist_file_widget [] {
-    let results = (^$${BINARY_PATH} $"--opener=$${FILEW_CMD}" '--output-sep=\0' "::" $${FILEW_ARGS} | str trim)
-    if ($results | is-empty) {
+    let __fist_results = (^$${BINARY_PATH} $"--opener=$${FILEW_CMD}" '--output-sep=\0' "::" $${FILEW_ARGS} | str trim)
+    if ($__fist_results | is-empty) {
         return
     }
-    for item in ($results | split row (char nul)) {
-        if not ($item | is-empty) {
-            commandline edit --insert $" '($item)' "
+    for __fist_item in ($__fist_results | split row (char nul)) {
+        if not ($__fist_item | is-empty) {
+            commandline edit --insert $" '($__fist_item)' "
         }
     }
 }
 
 def --env __fist_rg_widget [] {
-    let results = (^$${BINARY_PATH} $"--opener=$${RGW_CMD}" '--output-sep=\0' ":rg" $${RGW_ARGS} | str trim)
-    if ($results | is-empty) {
+    let __fist_results = (^$${BINARY_PATH} $"--opener=$${RGW_CMD}" '--output-sep=\0' ":rg" $${RGW_ARGS} | str trim)
+    if ($__fist_results | is-empty) {
         return
     }
-    for item in ($results | split row (char nul)) {
-        if not ($item | is-empty) {
-            commandline edit --insert $" '($item)' "
+    for __fist_item in ($__fist_results | split row (char nul)) {
+        if not ($__fist_item | is-empty) {
+            commandline edit --insert $" '($__fist_item)' "
         }
     }
 }

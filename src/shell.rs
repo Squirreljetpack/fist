@@ -130,6 +130,7 @@ pub fn generate_shell(
         z_slash_args,
         z_dir_args,
         open_name,
+        open_args,
         open_cmd,
         dir_widget_bind,
         file_widget_bind,
@@ -181,6 +182,7 @@ pub fn generate_shell(
         .replace("$${Z_DIR_ARGS}", z_dir_args)
         //
         .replace("$${OPEN_NAME}", open_name)
+        .replace("$${OPEN_ARGS}", open_args)
         .replace("$${OPEN_CMD}", open_cmd)
         //
         .replace("$${DIRW_BIND}", dir_bind)

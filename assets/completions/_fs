@@ -109,6 +109,7 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
+'--cd[resolve the query before opening the interface\: accept the best match (printed, or opened with \`--opener\`), falling through when nothing matches]' \
 '--help[]' \
 '(-v)*-q[Reduce the verbosity level]' \
 '(-q)*-v[Increase the verbosity level]' \
@@ -129,7 +130,7 @@ _arguments "${_arguments_options[@]}" : \
 '--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
 '--format=[Output template for printed results]:FORMAT:_default' \
 '--opener=[Program used to open files on accept]:OPENER:_default' \
-'--cd[print the first match]' \
+'--cd[resolve the query before opening the interface\: accept the best match (printed, or opened with \`--opener\`), falling through when nothing matches]' \
 '--help[]' \
 '(-v)*-q[Reduce the verbosity level]' \
 '(-q)*-v[Increase the verbosity level]' \

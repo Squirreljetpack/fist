@@ -1,10 +1,5 @@
 //! CLI command handlers
-use cba::{
-    bait::{MaybeExt, TransformExt},
-    bath::PathExt,
-    broc::CommandExt,
-    ibog, wbog,
-};
+use cba::{bait::MaybeExt, bath::PathExt, broc::CommandExt, ibog, wbog};
 use clap::Parser;
 use globset::GlobBuilder;
 use std::{
@@ -29,7 +24,7 @@ use super::{
     clap_tools::*,
     mm_::mm_get,
     paths::{
-        __cwd, __home, actions_dir, actions_path, config_path, current_exe, lessfilter_cfg_path,
+        __cwd, actions_dir, actions_path, config_path, current_exe, lessfilter_cfg_path,
         mm_cfg_path,
     },
 };
@@ -37,7 +32,10 @@ use crate::{
     abspath::AbsPath,
     cli::{SubTool, clap_helpers::ListMode},
     config::Config,
-    db::{DbTable, Pool, zoxide::RetryStrat},
+    db::{
+        Connection, DbTable, Pool,
+        zoxide::{HistoryConfig, RetryStrat},
+    },
     display::{display_entries, display_types_overview},
     errors::CliError,
     find::fd::{last_query_starts_with_dot, resolve_group_types},
@@ -92,7 +90,7 @@ async fn handle_open(
 
     // fs :o without files opens the app pane
     if cmd.files.is_empty() {
-        cfg.global.interface.no_multi_accept = true;
+        cfg.global.interface.no_multi_print = true;
         // the files ride on the app pane; the program picked there opens them
         let simple_ui = cmd.simple_ui;
         let pane = FsPane::new_apps(cmd.files.into_iter().map(AbsPath::new_unchecked).collect());
@@ -161,12 +159,102 @@ async fn handle_info(
     Ok(())
 }
 
-// Need:
+/// Split a joined query into zoxide keywords.
+fn keywords(query: &str) -> Vec<String> {
+    query.split_whitespace().map(str::to_owned).collect()
+}
+
+/// Point the pane's accept keys at its sink, returning the opener and whether it
+/// is detached. A stdout sink is consumed by the caller, so accepting prints; an
+/// opener consumes the selection directly, so accepting opens.
+fn sink_accept(
+    cli: &CliOpts,
+    cfg: &mut Config,
+) -> (Option<Program>, bool) {
+    let (opener, detach) = cli.output.opener_parts();
+    let prog = opener.and_then(Program::from_os_string);
+    cfg.global.interface.alt_accept = prog.is_none();
+    cfg.global.interface.no_multi_print = prog.is_none();
+    (prog, detach)
+}
+
+/// Accept the best match for `db_filter` without opening the interface by running
+/// `prog` on it.
+///
+/// Returns false when nothing matched, leaving the caller to open the interface.
+async fn accept_best(
+    conn: Connection,
+    table: DbTable,
+    db_filter: &HistoryConfig,
+    prog: Program,
+    detach: bool,
+) -> Result<bool, CliError> {
+    let Some(path) = conn.return_best_by_frecency(db_filter, table).await else {
+        return Ok(false);
+    };
+    // the resolve already bumped the entry
+    open_wrapped(None, Some(prog), &[path.to_os_string()], detach).await?;
+    Ok(true)
+}
+
 async fn handle_files(
     cli: CliOpts,
     cmd: FilesCmd,
-    cfg: Config,
+    mut cfg: Config,
 ) -> Result<(), CliError> {
+    if cmd.cd && cmd.list.is_some() {
+        return Err(CliError::ConflictingFlags("cd", "list"));
+    }
+    let pool = Pool::new_from_cfg(&cfg).await?;
+
+    if let Some(all) = cmd.list {
+        if matches!(all, ListMode::All) {
+            cfg.history.show_missing = true;
+        }
+        let mut conn = pool.get_conn(DbTable::files).await?;
+        let db_filter = cfg.history.clone().with_keywords(keywords(&cmd.query));
+        return super::list::db_list(
+            &mut conn,
+            DbTable::files,
+            cmd.sort.unwrap_or_default(),
+            &db_filter,
+            all,
+            &cli.output,
+        )
+        .await;
+    }
+
+    if cmd.cd {
+        cfg.history.show_missing = false;
+        let (prog, detach) = sink_accept(&cli, &mut cfg);
+
+        if !cmd.query.trim().is_empty() {
+            let conn = pool.get_conn(DbTable::files).await?;
+            let db_filter = cfg.history.clone().with_keywords(keywords(&cmd.query));
+
+            match prog {
+                Some(prog) => {
+                    if accept_best(conn, DbTable::files, &db_filter, prog, detach).await? {
+                        return Ok(());
+                    }
+                }
+                None => match conn
+                    .print_best_by_frecency(&db_filter, DbTable::files)
+                    .await
+                {
+                    // printed: the caller consumes it
+                    RetryStrat::Next => return Ok(()),
+                    // nothing to print
+                    RetryStrat::None => {
+                        return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
+                    }
+                    // the interface was asked for
+                    RetryStrat::Search => {}
+                },
+            }
+        }
+    }
+
     let pane = FsPane::Files {
         sort: SortOrder::none,
         input: (cmd.query, 0),
@@ -177,7 +265,6 @@ async fn handle_files(
     )?;
 
     let mm_cfg = get_mm_cfg(&cli.mm_config, &cfg);
-    let pool = Pool::new_from_cfg(&cfg).await?;
     start(pane, cfg, mm_cfg, pool, cli).await
 }
 
@@ -286,29 +373,37 @@ async fn handle_dirs(
 
     if cmd.cd {
         cfg.history.show_missing = false;
+        let (prog, detach) = sink_accept(&cli, &mut cfg);
 
         if !cmd.query.is_empty() {
             let conn = pool.get_conn(DbTable::dirs).await?;
             let db_filter = cfg.history.clone().with_keywords(cmd.query.clone());
 
-            let result = conn.print_best_by_frecency(&db_filter, DbTable::dirs).await;
-            match result {
-                RetryStrat::Next => return Ok(()),
-                RetryStrat::None if db_filter.refind != RetryStrat::Search => {
-                    return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
+            match prog {
+                Some(prog) => {
+                    if accept_best(conn, DbTable::dirs, &db_filter, prog, detach).await? {
+                        return Ok(());
+                    }
                 }
-                _ => {
-                    if matches!(result, RetryStrat::None) {
-                        // since no match, truncating is more desirable
-                        cmd.query.truncate(1);
+                None => {
+                    let result = conn.print_best_by_frecency(&db_filter, DbTable::dirs).await;
+                    match result {
+                        RetryStrat::Next => return Ok(()),
+                        RetryStrat::None if db_filter.refind != RetryStrat::Search => {
+                            return Err(CliError::MatchError(matchmaker::MatchError::NoMatch));
+                        }
+                        _ => {
+                            if matches!(result, RetryStrat::None) {
+                                // since no match, truncating is more desirable
+                                cmd.query.truncate(1);
+                            }
+                        }
                     }
                 }
             }
         };
 
-        // fallback to interactive if no match
-        cfg.global.interface.alt_accept = true;
-        cfg.global.interface.no_multi_accept = true;
+        // fallback to the interface when nothing matched
         STORE::set(InitialNoRelative);
     } else if let Some(all) = cmd.list {
         let mut conn = pool.get_conn(DbTable::dirs).await?;
@@ -318,8 +413,9 @@ async fn handle_dirs(
         }
         let db_filter = cfg.history.clone().with_keywords(cmd.query.clone());
 
-        return super::list::dirs_list(
+        return super::list::db_list(
             &mut conn,
+            DbTable::dirs,
             cmd.sort.unwrap_or_default(),
             &db_filter,
             all,
@@ -458,27 +554,16 @@ async fn handle_default(
                 }
             }
         } else
-        // if only pattern is given, determine a directory as follows:
+        // if only the pattern is given, search from the current directory
         {
             if cmd.paths.is_empty() {
-                cmd.paths.push("..".into())
+                cmd.paths.push(".".into()) // match all pattern
             };
 
-            // the z shell function passes through here when the last provided argument is ., .. or ./, corresponding to:
-            // - `.`: search all directories in default_dir
-            // - `..` (only argument): same as 1, but default_dir is forced to cwd
-            // - `./`: show all directories in current dir
-            // ..which is analgous to the behavior !cmd.cd, except that the analgue of 3 is the no-arg branch rather than `./`
-            // Note: another parsing approach is tor replace initial .. to . but that seems more confusing.
-            let force_search_in_cwd = nav_pane || cmd.paths[0].cmp_exch("..", ".".into());
-
-            AbsPath::new_unchecked(
-                if !force_search_in_cwd && cfg.global.fd.default_search_in_home {
-                    __home()
-                } else {
-                    __cwd()
-                },
-            )
+            // the z shell function passes through here when the last provided argument
+            // is `.`, `..` or `./`: the first two are fd patterns rooted at the cwd,
+            // while `./` (nav_pane) browses it
+            AbsPath::new_unchecked(__cwd())
         };
 
         if nav_pane {
@@ -514,23 +599,13 @@ async fn handle_default(
     {
         // pattern specified
         let cwd = if cmd.paths.len() == 1 {
-            // support `..` as a shorthand for 'search (any pattern in) current directory'
-            let force_search_in_cwd = cmd.paths[0].cmp_exch("..", ".".into());
-
-            // last item is a pattern
-            AbsPath::new_unchecked(
-                if !force_search_in_cwd && cfg.global.fd.default_search_in_home {
-                    __home()
-                } else {
-                    __cwd()
-                }
-                .to_path_buf(),
-            )
+            // last item is a pattern; search from the cwd
+            AbsPath::new_unchecked(__cwd())
         } else if cmd.paths.is_empty() {
             if !cmd.fd.iter().any(|x| x == "--glob" || x == "-g") {
                 cmd.paths.push(".".into()); // match all pattern
             }
-            AbsPath::new_unchecked(__cwd().to_path_buf())
+            AbsPath::new_unchecked(__cwd())
         } else {
             AbsPath::new_unchecked(if cfg.global.fd.reduce_paths {
                 paths_base(&cmd.paths[0..cmd.paths.len() - 1])

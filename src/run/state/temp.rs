@@ -82,7 +82,7 @@ pub struct SmartGitVisibility;
 /// [`matchmaker::Matchmaker`] accept hook, which then emits the selection and
 /// returns nothing for the opener/apps to consume.
 #[derive(Debug)]
-pub struct AcceptFlavor;
+pub struct AcceptAsPrint;
 
 /// Set by the Apps pane populate when it spawns the recache task; ensures
 /// recache isn't run more than once (thread-local, so only checked on the
