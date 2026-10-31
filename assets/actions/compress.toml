@@ -1,4 +1,4 @@
-# Compression menu actions (shipped plugin).
+# Compression menu actions
 #
 # This file is a MenuActions map: each key is an action name shown in the
 # menu overlay. Actions are gated with `have:program` rules so a format only

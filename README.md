@@ -143,7 +143,7 @@ For a full list of binds, press `alt-h` within the app[^binds].
 
 To begin, call `fs` without any positional arguments.
 
-<img src=".README.assets/nav-pane.png" alt="Navigation pane with a fuzzy query and a directory-tree preview" />
+<img src=".README.assets/nav-pane.png" alt="Navigation pane with a fuzzy query and a directory-tree preview" width="666" />
 
 Once inside, you can navigate and re-enter from other panes by pressing the `left`/`right` arrow keys (corresponding to the `Parent`/ `Advance` actions).
 
@@ -170,7 +170,7 @@ You can search through all files recursively by
 - by calling `fs` directly with the same arguments
 - or by triggering the `Find` action (`ctrl-f`) in-app.
 
-<img src=".README.assets/find-pane.png" alt="Find pane with a fuzzy query and a markdown preview" />
+<img src=".README.assets/find-pane.png" alt="Find pane with a fuzzy query and a markdown preview" width="666" />
 
 The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Options overlay](#options).
 
@@ -206,7 +206,7 @@ This pane operates in a query and a filter mode, which can be switched between w
 >
 > When the active item is `advance`/`executed` on, the matched line and column are saved in the environment variables `HIGHLIGHT_LINE` and `HIGHLIGHT_COLUMN`. If your `$EDITOR` is supported, the `Lessfilter::Edit` action (which `advance` dispatches to) automatically opens the file to the corresponding position (you can also configure this manually).
 
-<img src=".README.assets/search-pane.png" alt="Search pane with query results and a context column" />
+<img src=".README.assets/search-pane.png" alt="Search pane with query results and a context column" width="666" />
 
 [^mode-switch]: To switch to filtering the second column, type `%` (i.e. `path_filter % context_filter`).
 
@@ -225,13 +225,13 @@ f:ist can also accept **arbitrary lists of files from a command** or **input str
 
 A complete example of a notes manager this can be used for can be found [here](https://squirreljetpack.github.io/fist-docs/custom-pane#example-browsing-markdown-notes).
 
-<img src=".README.assets/custom-stream.png" alt="Custom stream pane listing markdown notes with a filtered preview" />
+<img src=".README.assets/custom-stream.png" alt="Custom stream pane listing markdown notes with a filtered preview" width="666" />
 
 ### History
 
 f:ist records the **files, directories and applications** that you've visited in a local database, where they are displayed in the `Files`/`Folders` (`ctrl-g`) and `Apps` panes, sorted by relevance[^relevance].
 
-<img src=".README.assets/history-pane.png" alt="History pane listing recently visited files with a markdown preview" />
+<img src=".README.assets/history-pane.png" alt="History pane listing recently visited files with a markdown preview" width="666" />
 
 The *Files* and *Folders* panes are most useful when integrated into the ambient context where you usually access files. For example, the [shell](#shell-integration), or a [command launcher](#dependencies).
 
@@ -239,7 +239,7 @@ The *Files* and *Folders* panes are most useful when integrated into the ambient
 
 `PushStash(name)` adds the selection (or the current directory while the cursor is disabled) to a named stash, and `OpenStash(name)` switches to its pane. Stash panes are transient or database-backed collections of paths, useful for scratch space or bookmarking[^stashes].
 
-<img src=".README.assets/stash-pane.png" alt="Stash pane holding three pushed entries, with a directory-tree preview" />
+<img src=".README.assets/stash-pane.png" alt="Stash pane holding three pushed entries, with a directory-tree preview" width="666" />
 
 By default, `alt-s` and `alt-b` are bound to "smart" stash actions for the *default* (transient) and *bookmark* (persistent) stashes:
 
@@ -262,7 +262,7 @@ The apps pane comes prepopulated from the existing applications on your system, 
 The `App` action has no default key binding. `fs :o --list` prints the
 currently known application paths without opening the app pane.
 
-<img src=".README.assets/app-pane.png" alt="Apps pane with a pending file and an application icon preview" />
+<img src=".README.assets/app-pane.png" alt="Apps pane with a pending file and an application icon preview" width="666" />
 
 It can be used to select a launch method for a given set of files (provided through the command line, or collected in the app view's pending files).
 
@@ -270,7 +270,7 @@ It can be used to select a launch method for a given set of files (provided thro
 
 Every pane has a **Options overlay** (`alt-p`), with settings for [filtering](https://squirreljetpack.github.io/fist-docs/visibility), [sorting](https://squirreljetpack.github.io/fist-docs/sorting), and other pane-specific controls for the displayed results.
 
-<img src=".README.assets/options-overlay.png" alt="Options overlay with filter and sort controls" />
+<img src=".README.assets/options-overlay.png" alt="Options overlay with filter and sort controls" width="666" />
 
 Selecting a sort does not interrupt the current results; items are resorted on the fly. The active sort key is displayed on the right.
 
@@ -294,7 +294,7 @@ For more information on any of the panes, run `fs [pane] --help` with the approp
 
 The **Menu** (`alt-e`) houses all the actions available in the current context.
 
-<img src=".README.assets/menu-overlay.png" alt="Action menu over a document preview, listing copy, move, rename and delete actions" />
+<img src=".README.assets/menu-overlay.png" alt="Action menu over a document preview, listing copy, move, rename and delete actions" width="666" />
 
 Custom actions can be added in `actions.toml` and from files in `actions/`. They consist of 3 parts:
 
@@ -314,7 +314,7 @@ For example, the default `mm.toml` binds `Ctrl-Esc` to `Execute($SHELL)`: the in
 
 ### Queue
 
-<img src=".README.assets/queue-overlay.png" alt="Queue overlay with pending copy and move operations" />
+<img src=".README.assets/queue-overlay.png" alt="Queue overlay with pending copy and move operations" width="666" />
 
 The **Queue** overlay (`alt-u`) lists the pending file operations. Rows show their kind, source, destination, and progress, and can be edited, rearranged, removed and executed from the overlay. `Undo`/`Redo` cycles between filters to narrows the overlay to a single queue kind.
 
@@ -391,11 +391,11 @@ The lessfilter tool dispatches to 9 presets:
 - `edit`: editing
 - `alternate` and `alternate2`: extra presets for custom use
 
-<img src=".README.assets/lessfilter-info.png" alt="The info preset, using mediainfo to display image metadata" />
+<img src=".README.assets/lessfilter-info.png" alt="The info preset, using mediainfo to display image metadata" width="666" />
 
 Images are rendered using the best supported graphics protocol of your terminal (sixel, kitty, or iTerm2), falling back to Unicode halfblocks otherwise.
 
-<img src=".README.assets/image-preview.png" alt="An image preview rendered at pixel resolution with the sixel protocol" />
+<img src=".README.assets/image-preview.png" alt="An image preview rendered at pixel resolution with the sixel protocol" width="666" />
 
 Each preset is configured by a rules table in the [config file](https://github.com/Squirreljetpack/fist/blob/main/assets/config/lessfilter.toml). Each rule is a pair (Actions, Patterns), and for a given file, the rule whose patterns score the highest is selected -- its actions are invoked on the target file.
 

@@ -89,8 +89,8 @@ fn make_mm(
         ],
         0,
     );
-    // stability is applied by sort::set_sort_in_nucleo (fs_reload), which knows the
-    // engaged mode — the initial call here was redundant
+    // the engaged sort is applied by sort::set_sort_from_pane
+    // (start initializer + fs_reload), not here at worker construction
 
     let injector = worker.injector();
 
@@ -288,6 +288,10 @@ pub async fn start(
         .ext_aliaser(fsaction_aliaser)
         .initializer(move |state| {
             sort::set_sort_from_pane(state, false);
+            // the sort fn only governs the next match pass, and populate's
+            // first pass already ran before this initializer: re-sort the
+            // matches so a pane created with an explicit sort starts sorted
+            state.worker_resort();
             state.picker_ui.query.show_border = false;
             fs_post_reload_new(state);
             if let Some(enter) = lock_prompt {
