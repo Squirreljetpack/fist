@@ -286,67 +286,7 @@ pub enum InsertionStrategy {
 }
 
 /// Per-stash pane settings, keyed by stash name (the unnamed stash is "").
-/// The name "default" (case-insensitive) is reserved.
-#[derive(Default)]
-pub struct StashPaneSettings(HashMap<String, StashPaneSetting>);
-
-impl std::ops::Deref for StashPaneSettings {
-    type Target = HashMap<String, StashPaneSetting>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Clone for StashPaneSettings {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl PartialEq for StashPaneSettings {
-    fn eq(
-        &self,
-        other: &Self,
-    ) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl std::fmt::Debug for StashPaneSettings {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for StashPaneSettings {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let map = HashMap::<String, StashPaneSetting>::deserialize(deserializer)?;
-        if let Some(key) = map.keys().find(|k| k.eq_ignore_ascii_case("default")) {
-            return Err(serde::de::Error::custom(format!(
-                "stash name {key:?} is reserved"
-            )));
-        }
-        Ok(Self(map))
-    }
-}
-
-impl serde::Serialize for StashPaneSettings {
-    fn serialize<S>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
+pub type StashPaneSettings = HashMap<String, StashPaneSetting>;
 
 /// How a stash pane treats its entries.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

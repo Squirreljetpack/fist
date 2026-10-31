@@ -43,6 +43,11 @@ default_sort = "frecency"
 prompt = "◷> "
 # prompt_style = { fg = "LightYellow" }
 
+# The unnamed default stash.
+[panes.stashes.""]
+prompt = "⊞ > "
+prompt_style.modifier = "ITALIC"
+
 ### SETTINGS ###
 
 [smart_visibility]
