@@ -33,6 +33,7 @@
 use std::sync::Mutex;
 
 use bitflags::bitflags;
+use cba::bait::MutexExt;
 use log::debug;
 use matchmaker::nucleo::{Line, Span, Style, Text};
 use ratatui::style::Color;
@@ -166,7 +167,7 @@ impl TOAST {
     /// ([`ToastFlags::SUSTAINED`]) and in-flight progress
     /// ([`ToastFlags::PERSIST`]).
     pub fn clear() {
-        let mut state = TOAST.lock().unwrap();
+        let mut state = TOAST._lock();
         state.retain(|line| {
             line.flags
                 .intersects(ToastFlags::SUSTAINED | ToastFlags::PERSIST)
@@ -183,7 +184,7 @@ impl TOAST {
     /// Cursor movement: drop transient toasts and the results of finished file
     /// operations ([`ToastFlags::SUSTAINED`]), keep in-flight progress.
     pub fn clear_sustained() {
-        let mut state = TOAST.lock().unwrap();
+        let mut state = TOAST._lock();
         state.retain(|line| line.flags.contains(ToastFlags::PERSIST));
         let footer = if state.is_empty() {
             None
@@ -198,7 +199,7 @@ impl TOAST {
         prefix: &str,
         item: &Span<'static>,
     ) {
-        let mut state = TOAST.lock().unwrap();
+        let mut state = TOAST._lock();
         state.retain_mut(|line| {
             if line.prefix.content == prefix {
                 if let ToastContent::List(items) = &mut line.content {
@@ -219,7 +220,7 @@ impl TOAST {
 
     /// Remove any active toast line matching the given prefix.
     pub fn remove(prefix: &str) {
-        let mut state = TOAST.lock().unwrap();
+        let mut state = TOAST._lock();
         state.retain(|line| line.prefix.content != prefix);
 
         let footer = if state.is_empty() {
@@ -257,7 +258,7 @@ impl TOAST {
         from: Span<'static>,
         to: Span<'static>,
     ) {
-        let mut state = TOAST.lock().unwrap();
+        let mut state = TOAST._lock();
         let prefix_span = Span::styled(prefix, style);
         state.push(ToastLine {
             prefix: prefix_span,
@@ -280,7 +281,7 @@ impl TOAST {
         style: ToastStyle,
         msg: impl Into<std::borrow::Cow<'static, str>>,
     ) {
-        let mut state = TOAST.lock().unwrap();
+        let mut state = TOAST._lock();
         let prefix_span = Span::styled(format!("{style}: "), style);
         state.push(ToastLine {
             prefix: prefix_span,
@@ -302,7 +303,7 @@ impl TOAST {
         prefix: impl Into<std::borrow::Cow<'static, str>>,
         line: impl Into<Line<'static>>,
     ) {
-        let mut state = TOAST.lock().unwrap();
+        let mut state = TOAST._lock();
         let prefix_cow = prefix.into();
         let prefix_span = Span::styled(prefix_cow.clone(), style.into());
         let new_line = line.into();
@@ -336,7 +337,7 @@ impl TOAST {
         line: impl Into<Line<'static>>,
         replace: bool,
     ) {
-        let mut state = TOAST.lock().unwrap();
+        let mut state = TOAST._lock();
 
         if replace {
             state.retain(|line| {
@@ -372,7 +373,7 @@ impl TOAST {
     /// - If no `"Skipped"` line exists: renders `"Skipped"`.
     /// - If `"Skipped"` already exists: increments the count in-place to `"Skipped (2)"`, `"Skipped (3)"`, etc.
     pub fn push_skipped() {
-        let mut state = TOAST.lock().unwrap();
+        let mut state = TOAST._lock();
 
         const SKIPPED: &str = "Skipped";
 
@@ -435,7 +436,7 @@ impl TOAST {
         items: impl IntoIterator<Item = Span<'static>>,
         flags: ToastFlags,
     ) {
-        let mut state = TOAST.lock().unwrap();
+        let mut state = TOAST._lock();
         let prefix_cow = prefix.into();
         if let Some(line) = state
             .iter_mut()
@@ -469,117 +470,117 @@ impl TOAST {
 mod tests {
     use super::*;
 
-    /// The toast tests share the process-global [`TOAST`] static, so they
-    /// must not run concurrently.
+    /// The toast tests share the process-global [`TOAST`] store, so they must
+    /// not run concurrently: [`TOAST::clear_sustained`] drops every transient
+    /// line, including those other tests put there.
     static TEST_LOCK: Mutex<()> = Mutex::new(());
 
+    /// Production paths exercised by sibling tests push toasts through the
+    /// same global store, so each test asserts only on its own prefix.
     #[test]
     fn test_toast_push_and_pop() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK._lock();
         GLOBAL::init_test_senders();
-        // clear initial state
-        {
-            let mut state = TOAST.lock().unwrap();
-            state.clear();
-        }
 
+        const PREFIX: &str = "Test extracting: ";
         TOAST::push_with_flag(
             ToastStyle::Info,
-            "Extracting: ",
+            PREFIX,
             [Span::raw("archive1.zip"), Span::raw("archive2.zip")],
             ToastFlags::PERSIST,
         );
 
         {
-            let state = TOAST.lock().unwrap();
-            assert_eq!(state.len(), 1);
-            assert_eq!(state[0].prefix.content, "Extracting: ");
-            assert_eq!(state[0].flags, ToastFlags::PERSIST);
-            if let ToastContent::List(items) = &state[0].content {
-                assert_eq!(items.len(), 2);
-            } else {
+            let state = TOAST._lock();
+            let line = state
+                .iter()
+                .find(|line| line.prefix.content == PREFIX)
+                .expect("Expected grouped toast");
+            assert_eq!(line.flags, ToastFlags::PERSIST);
+            let ToastContent::List(items) = &line.content else {
                 panic!("Expected ToastContent::List");
-            }
+            };
+            assert_eq!(items.len(), 2);
+            assert_eq!(items[0], Span::raw("archive1.zip"));
+            assert_eq!(items[1], Span::raw("archive2.zip"));
         }
 
         // Remove archive1.zip
-        TOAST::pop("Extracting: ", &Span::raw("archive1.zip"));
+        TOAST::pop(PREFIX, &Span::raw("archive1.zip"));
         {
-            let state = TOAST.lock().unwrap();
-            assert_eq!(state.len(), 1);
-            if let ToastContent::List(items) = &state[0].content {
-                assert_eq!(items.len(), 1);
-                assert_eq!(items[0], Span::raw("archive2.zip"));
-            } else {
+            let state = TOAST._lock();
+            let line = state
+                .iter()
+                .find(|line| line.prefix.content == PREFIX)
+                .expect("Expected grouped toast");
+            let ToastContent::List(items) = &line.content else {
                 panic!("Expected ToastContent::List");
-            }
+            };
+            assert_eq!(items.len(), 1);
+            assert_eq!(items[0], Span::raw("archive2.zip"));
         }
 
         // Remove archive2.zip - entry should be removed entirely
-        TOAST::pop("Extracting: ", &Span::raw("archive2.zip"));
-        {
-            let state = TOAST.lock().unwrap();
-            assert_eq!(state.len(), 0);
-        }
+        TOAST::pop(PREFIX, &Span::raw("archive2.zip"));
+        assert!(
+            TOAST
+                ._lock()
+                .iter()
+                .all(|line| line.prefix.content != PREFIX)
+        );
     }
 
     #[test]
     fn test_push_with_flag_survives_clear() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK._lock();
         GLOBAL::init_test_senders();
-        {
-            let mut state = TOAST.lock().unwrap();
-            state.clear();
-        }
 
-        TOAST::push(ToastStyle::Success, "Copied: ", [Span::raw("a.rs")]);
+        const TRANSIENT: &str = "Test copied: ";
+        const PERSISTENT: &str = "Test persistent: ";
+        TOAST::push(ToastStyle::Success, TRANSIENT, [Span::raw("a.rs")]);
         TOAST::push_with_flag(
             ToastStyle::Info,
-            "Extracting: ",
+            PERSISTENT,
             [Span::raw("b.zip")],
             ToastFlags::PERSIST,
         );
 
         TOAST::clear_sustained();
 
-        {
-            let state = TOAST.lock().unwrap();
-            assert_eq!(state.len(), 1);
-            assert_eq!(state[0].prefix.content, "Extracting: ");
-            assert_eq!(state[0].flags, ToastFlags::PERSIST);
-        }
+        let state = TOAST._lock();
+        assert!(state.iter().all(|line| line.prefix.content != TRANSIENT));
+        let line = state
+            .iter()
+            .find(|line| line.prefix.content == PERSISTENT)
+            .expect("Expected persistent toast");
+        assert_eq!(line.flags, ToastFlags::PERSIST);
     }
 
     #[test]
     fn test_toast_remove() {
-        let _guard = TEST_LOCK.lock().unwrap();
+        let _guard = TEST_LOCK._lock();
         GLOBAL::init_test_senders();
-        {
-            let mut state = TOAST.lock().unwrap();
-            state.clear();
-        }
 
-        TOAST::replace(ToastStyle::Normal, "sorting: ", Span::raw("recent"));
-        TOAST::replace(ToastStyle::Normal, "showing: ", Span::raw("hidden"));
+        const SORT: &str = "Test sorting: ";
+        const SHOW: &str = "Test showing: ";
+        TOAST::replace(ToastStyle::Normal, SORT, Span::raw("recent"));
+        TOAST::replace(ToastStyle::Normal, SHOW, Span::raw("hidden"));
 
         {
-            let state = TOAST.lock().unwrap();
-            assert_eq!(state.len(), 2);
+            let state = TOAST._lock();
+            assert!(state.iter().any(|line| line.prefix.content == SORT));
+            assert!(state.iter().any(|line| line.prefix.content == SHOW));
         }
 
-        TOAST::remove("sorting: ");
+        TOAST::remove(SORT);
 
         {
-            let state = TOAST.lock().unwrap();
-            assert_eq!(state.len(), 1);
-            assert_eq!(state[0].prefix.content, "showing: ");
+            let state = TOAST._lock();
+            assert!(state.iter().all(|line| line.prefix.content != SORT));
+            assert!(state.iter().any(|line| line.prefix.content == SHOW));
         }
 
-        TOAST::remove("showing: ");
-
-        {
-            let state = TOAST.lock().unwrap();
-            assert_eq!(state.len(), 0);
-        }
+        TOAST::remove(SHOW);
+        assert!(TOAST._lock().iter().all(|line| line.prefix.content != SHOW));
     }
 }

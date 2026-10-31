@@ -259,8 +259,16 @@ mod tests {
     use super::*;
     use fist_types::filters::Visibility;
 
+    /// Serializes the tests that read or write [`SORT_MODE`]. It is the one
+    /// process-global of this module ([`STACK`], [`STORE`] and `GLOBAL::cfg`
+    /// are thread-local, so each test thread gets its own), which means the
+    /// default parallel runner lets one test's engaged sort leak into
+    /// another's [`FsPane::set_initial_sort`].
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
     #[test]
     fn test_set_initial_sort_inherits_when_unhidden() {
+        let _guard = TEST_LOCK.lock().unwrap();
         GLOBAL::init_test_senders();
         STACK::init(FsPane::new_nav(
             AbsPath::new("/tmp"),
@@ -284,6 +292,7 @@ mod tests {
 
     #[test]
     fn test_set_initial_sort_uses_default_when_hidden() {
+        let _guard = TEST_LOCK.lock().unwrap();
         GLOBAL::init_test_senders();
         STACK::init(FsPane::new_nav(
             AbsPath::new("/tmp"),
@@ -306,6 +315,7 @@ mod tests {
 
     #[test]
     fn test_set_global_sort_sets_hidemetadata_on_none() {
+        let _guard = TEST_LOCK.lock().unwrap();
         GLOBAL::init_test_senders();
         STACK::init(FsPane::new_nav(
             AbsPath::new("/tmp"),
