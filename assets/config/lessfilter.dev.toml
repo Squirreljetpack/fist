@@ -77,7 +77,7 @@ info = []
 open = [] #  Metadata, Image, Text, Extract all defer to a system open in this preset and the next
 
 alternate = [
-    [["none"], ["*/*"]],
+    [["None"], ["*/*"]],
 ]
 
 [actions]

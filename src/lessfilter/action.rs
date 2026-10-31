@@ -12,7 +12,16 @@ use crate::lessfilter::helpers::{
     application_icon_path, image_viewer, infer_editor, infer_visual, with_header_lines,
 };
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, serde::Serialize)]
+#[derive(
+    Debug,
+    Hash,
+    PartialEq,
+    Eq,
+    Clone,
+    serde::Serialize,
+    strum_macros::Display,
+    strum_macros::EnumString,
+)]
 #[serde(untagged)]
 pub enum Action {
     // core
@@ -27,7 +36,10 @@ pub enum Action {
     Header,
     None,
     // todo: Url,
-    /// Key to a custom [action](super::config::CustomActions)
+    /// Key to a custom [action](super::config::CustomActions). Any id that
+    /// matches no builtin keeps the id as its payload.
+    #[strum(default)]
+    #[strum(to_string = "{0}")]
     Custom(String),
 }
 
@@ -38,18 +50,7 @@ impl<'de> Deserialize<'de> for Action {
     {
         let s = String::deserialize(deserializer)?;
 
-        match s.to_lowercase().as_str() {
-            "directory" => Ok(Action::Directory),
-            "text" => Ok(Action::Text),
-            "image" => Ok(Action::Image),
-            "application" => Ok(Action::Application),
-            "extract" => Ok(Action::Extract),
-            "open" => Ok(Action::Open),
-            "metadata" => Ok(Action::Metadata),
-            "header" => Ok(Action::Header),
-            "none" => Ok(Action::None),
-            _ => Ok(Action::Custom(s)),
-        }
+        Ok(Action::from(s.as_str()))
     }
 }
 

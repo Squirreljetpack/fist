@@ -22,7 +22,7 @@ use cba::{_trace, ebog, unwrap};
 use cba::{bog::BogOkExt, broc::CommandExt};
 use std::ffi::OsString;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::cli::clap_tools::LessfilterCommand;
@@ -319,48 +319,19 @@ fn run_diagnose(
                 }
                 prints!("  actions:".to_string());
                 for action in entry.rule.iter() {
-                    let commands = if let Action::Custom(s) = action {
-                        let Some(template) = cfg.actions.get(s) else {
-                            prints!(format!("    (custom action '{s}' is not defined)"));
+                    if let Action::Custom(key) = action {
+                        let Some(template) = cfg.actions.get(key) else {
+                            prints!(format!("    {action}: (custom action is not defined)"));
                             continue;
                         };
-                        vec![format_path(template, &apath)]
-                    } else {
-                        action
-                            .to_progs(path, preset)
-                            .0
-                            .into_iter()
-                            .map(|strategy| match strategy {
-                                CommandStrategy::Header => "<header>".to_string(),
-                                CommandStrategy::Metadata(p) => {
-                                    format!("<metadata {}>", p.display())
-                                }
-                                CommandStrategy::Pager(p) => {
-                                    format!("<pager {}>", p.display())
-                                }
-                                CommandStrategy::ShowError(msg) => {
-                                    format!("<showerror \"{msg}\">")
-                                }
-                                CommandStrategy::Image(p, _) => {
-                                    format!("<image {}>", p.display())
-                                }
-
-                                CommandStrategy::SystemOpen => {
-                                    format!("<open {}>", path.display())
-                                }
-
-                                CommandStrategy::None => "<none>".to_string(),
-
-                                CommandStrategy::Prog(prog, args) => std::iter::once(prog)
-                                    .chain(args)
-                                    .map(|part| part.to_string_lossy().into_owned())
-                                    .collect::<Vec<_>>()
-                                    .join(" "),
-                            })
-                            .collect()
-                    };
-                    for command in commands {
-                        prints!(format!("    {command}"));
+                        prints!(format!("    {action} -> {}", format_path(template, &apath)));
+                        continue;
+                    }
+                    for strategy in action.to_progs(path, preset).0 {
+                        prints!(format!(
+                            "    {action} -> {}",
+                            describe_strategy(strategy, path)
+                        ));
                     }
                 }
             }
@@ -371,6 +342,27 @@ fn run_diagnose(
     }
 
     0
+}
+
+/// One-line rendering of a resolved [`CommandStrategy`] for `--diagnose`.
+fn describe_strategy(
+    strategy: CommandStrategy,
+    path: &Path,
+) -> String {
+    match strategy {
+        CommandStrategy::Header => "<header>".to_string(),
+        CommandStrategy::Metadata(p) => format!("<metadata {}>", p.display()),
+        CommandStrategy::Pager(p) => format!("<pager {}>", p.display()),
+        CommandStrategy::ShowError(msg) => format!("<showerror \"{msg}\">"),
+        CommandStrategy::Image(p, _) => format!("<image {}>", p.display()),
+        CommandStrategy::SystemOpen => format!("<open {}>", path.display()),
+        CommandStrategy::None => "<none>".to_string(),
+        CommandStrategy::Prog(prog, args) => std::iter::once(prog)
+            .chain(args)
+            .map(|part| part.to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join(" "),
+    }
 }
 
 //-------------------------

@@ -41,7 +41,7 @@ pub enum Preset {
     /// Metadata/raw info.
     Info,
     #[clap(alias = "o")]
-    /// System open (opens in-process).
+    /// System open.
     ///
     /// The other presets' standard actions defer here.
     Open,
@@ -150,7 +150,7 @@ define_collection_wrapper!(
     /// Name => Shell Script
     ///
     /// # Notes
-    /// Name is case insensitive
+    /// Name is matched exactly (case-sensitive).
     ///
     #[derive(Debug, serde::Serialize, serde::Deserialize)]
     #[serde(transparent)]

@@ -79,8 +79,8 @@ pub struct LessfilterCommand {
     #[arg(long, action = clap::ArgAction::Set)]
     pub record: Option<bool>,
 
-    /// Print the detected file data, the winning rule with its score, and
-    /// the commands that would run — without executing anything.
+    /// Print the detected filetype and resolved action plan without executing
+    /// anything.
     #[arg(long, action = ArgAction::SetTrue)]
     pub diagnose: bool,
 

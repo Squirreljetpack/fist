@@ -12,6 +12,7 @@ use std::path::Path;
 use cba::prints;
 use matchmaker::action::Action;
 
+use crate::lessfilter::action::Action as LessfilterAction;
 use crate::{
     config::Config,
     display::display_menu_actions,
@@ -136,8 +137,9 @@ fn check(
         ));
     }
     if lessfilter.is_file() {
-        if let Err(e) = read_parse::<LessfilterConfig>(lessfilter) {
-            r.error(e);
+        match read_parse::<LessfilterConfig>(lessfilter) {
+            Ok(cfg) => check_action_keys(&cfg, &mut r),
+            Err(e) => r.error(e),
         }
     } else {
         r.warn(format!(
@@ -263,6 +265,24 @@ where
 {
     let content = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
     toml::from_str(&content).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+/// A custom action key that spells a builtin id parses as that builtin action,
+/// so no rule can reference it.
+fn check_action_keys(
+    cfg: &LessfilterConfig,
+    r: &mut CheckResult,
+) {
+    for key in cfg.actions.keys() {
+        if !matches!(
+            LessfilterAction::from(key.as_str()),
+            LessfilterAction::Custom(_)
+        ) {
+            r.error(format!(
+                "action key {key:?} is a builtin action id and cannot be referenced; rename it"
+            ));
+        }
+    }
 }
 
 #[cfg(test)]
