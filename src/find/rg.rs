@@ -8,6 +8,7 @@ use crate::{
 };
 use fist_types::When;
 use fist_types::filters::{SortOrder, Visibility};
+use fist_types::git::VCS_DIRS;
 
 // pub fn is_inverted(
 //     patterns: &[String],
@@ -76,6 +77,13 @@ pub fn build_rg_args(
         }
         if !vis.ignore {
             ret.push("--no-ignore".into());
+        } else {
+            // `--hidden` would otherwise descend into VCS metadata, which no ignore
+            // file covers. Matches the walker's VCS pruning.
+            for vcs in VCS_DIRS {
+                ret.push("--glob".into());
+                ret.push(format!("!**/{vcs}/**").into());
+            }
         }
     }
 

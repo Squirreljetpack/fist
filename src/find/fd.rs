@@ -7,7 +7,7 @@ use crate::{
     config::FdConfig,
     lessfilter::LessfilterConfig,
 };
-use fist_types::{filetypes::FileTypeArg, filters::Visibility};
+use fist_types::{filetypes::FileTypeArg, filters::Visibility, git::VCS_DIRS};
 
 // probably we can avoid clones + turn into const but this is easier
 pub fn default_exclusions() -> Vec<String> {
@@ -194,6 +194,17 @@ pub fn build_fd_args(
         for e in exclusions {
             ret.push("-E".into());
             ret.push(e.into());
+        }
+
+        // `--hidden` would otherwise descend into VCS metadata, which no ignore
+        // file covers. Matches the walker's VCS pruning.
+        if vis.ignore {
+            for vcs in VCS_DIRS {
+                for glob in [format!("**/{vcs}/**"), format!("**/{vcs}")] {
+                    ret.push("-E".into());
+                    ret.push(glob.into());
+                }
+            }
         }
     }
 
