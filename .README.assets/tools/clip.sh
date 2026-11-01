@@ -121,12 +121,12 @@ scene() {
         'text:Busty Beaver.md' sleep:1.2
       ;;
     prompt)
-      # Prompt locking: Up enters the cwd prompt; alt-space unlocks it, and
+      # Prompt locking: Up enters the cwd prompt; ctrl-space unlocks it, and
       # Find auto-locks once a query exists. ctrl-z returns to nav and Up
       # re-enters the cwd prompt for the poster.
       clip prompt /home/dev/work "" \
-        sleep:0.5 Up sleep:1.2 alt+space sleep:0.8 \
-        ctrl+f sleep:0.6 text:auth sleep:1.2 alt+space sleep:0.8 ctrl+u \
+        sleep:0.5 Up sleep:1.2 ctrl+space sleep:0.8 \
+        ctrl+f sleep:0.6 text:auth sleep:1.2 ctrl+space sleep:0.8 ctrl+u \
         ctrl+z sleep:0.5 ctrl+u Up sleep:1.0
       ;;
     queue-edit)
@@ -208,13 +208,13 @@ scene() {
         shift+Down sleep:0.2 shift+Down sleep:0.2 shift+Down sleep:0.5
       ;;
     stash)
-      # The pane opens in the query prompt, alt-space leaves it, then the whole
+      # The pane opens in the query prompt, ctrl-space leaves it, then the whole
       # scene is cursor only: stash the first docs row, Parent up to the repo,
       # two Down, Tab twice for two more entries, then open the stash pane with
       # all three.
       rm -f "$DHOME/work/harborlight/src/api/"*.7z "$DHOME/work/harborlight/docs/"*.zip
       clip stash /home/dev/work/harborlight/docs "--lock-prompt=always" \
-        sleep:0.8 alt+space sleep:0.8 \
+        sleep:0.8 ctrl+space sleep:0.8 \
         Tab sleep:0.3 alt+s sleep:0.9 \
         Left sleep:0.6 Down sleep:0.3 Down sleep:0.5 \
         Tab sleep:0.3 Tab sleep:0.4 alt+s sleep:1.0 \

@@ -207,8 +207,8 @@ pub enum FsAction {
     // ----------------------------------
     /// Enter (Some(true)) / leave (Some(false)) the prompt; None toggles.
     LockPrompt(Option<bool>),
-    /// Jump and accept;
-    /// 0 jumps to menu.
+    /// Jump to position N-1 and accept the item there; 0 enters the cwd lock
+    /// and accepts the locked cwd once it is entered.
     JumpOrAccept(u8),
 }
 // print, accept
@@ -248,6 +248,12 @@ impl FsAction {
 // i.e. "current" saved inputs in chained actions, or consecutive nav actions
 
 // todo: get rid of aliaser for effects
+/// Print-vs-open flavor of an accept keypress: `alt_accept` flips the plain
+/// accept to print, and the app pane always keeps the open flavor.
+fn accept_print_flavor(is_print: bool) -> bool {
+    (GLOBAL::cfg().interface.alt_accept ^ is_print) && !STACK::in_app()
+}
+
 pub fn fsaction_aliaser(
     a: Action<FsAction>,
     state: &mut MMState<'_>,
@@ -426,14 +432,16 @@ pub fn fsaction_aliaser(
                 {
                     acs![Action::Pos(digit.saturating_sub(1) as i32)]
                 } else if digit == 0
-                // 0 -> TogglePrompt
+                // 0 -> jump to the cwd; accept it when already locked there
                 {
-                    if in_prompt() {
-                        lock_prompt(state, false);
+                    if in_prompt() && state.picker_ui.results.cursor_disabled() {
+                        // the cwd lock accepts the cwd, not the disabled list
+                        // cursor, so take the prompt path directly
+                        acs![FsAction::AcceptPrompt(accept_print_flavor(false))]
                     } else {
                         enter_prompt(state);
+                        acs![]
                     }
-                    acs![]
                 } else if in_prompt()
                 // in prompt => jump out
                 {
@@ -517,8 +525,7 @@ pub fn fsaction_aliaser(
                     acs![a]
                 } else {
                     let is_print = matches!(a, Action::Print(_));
-                    let print_flavor =
-                        (GLOBAL::cfg().interface.alt_accept ^ is_print) && !STACK::in_app();
+                    let print_flavor = accept_print_flavor(is_print);
 
                     if in_prompt() {
                         if state.picker_ui.results.cursor_disabled() {

@@ -153,11 +153,11 @@ fn config_as_code() -> BindMap<FsAction> {
 
         // Prompt
         // ----------------------------------
-        key!(alt-space) => FsAction::LockPrompt(None), // None toggles the prompt
+        key!(ctrl-space), key!(alt-hyphen) => FsAction::LockPrompt(None), // None toggles the prompt
 
         // JumpOrAccept
         // --------------------------------
-        key!(ctrl-0), key!(ctrl-enter) => FsAction::JumpOrAccept(0),
+        key!(alt-space) => FsAction::JumpOrAccept(0),
         key!(ctrl-1) => FsAction::JumpOrAccept(1),
         key!(ctrl-2) => FsAction::JumpOrAccept(2),
         key!(ctrl-3) => FsAction::JumpOrAccept(3),

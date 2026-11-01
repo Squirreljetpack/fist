@@ -100,7 +100,7 @@ VHS/xterm.js cannot display either protocol.
     (cursor-select two files, zip), `archive` (zip + tar.gz, cut a top-level
     file, Parent, paste at the base, enter the tar.gz and its `data/`) and
     `move` (cut, Folders history, paste, Queue).
-  - prompt: `prompt` (cwd lock with `Up`, `alt-space`, Find auto-lock);
+  - prompt: `prompt` (cwd lock with `Up`, `ctrl-space`, Find auto-lock);
   - queue: `queue-edit` (delete a row, run into the current directory, delete
     the copy, reopen and re-run the completed row) and `long-copy` (2 GB
     `ctrl-v` copy with the gauge held open);
@@ -152,7 +152,7 @@ VHS/xterm.js cannot display either protocol.
   that a shorter hold can be a single frame. `Right` in a prompt is
   `ForwardChar`; use `shift-right` while the prompt is active.
 - `stash` runs `--lock-prompt=always` so the pane opens in the query prompt,
-  and `alt-space` leaves it; `Esc` does not leave a prompt, it quits the app.
+  and `ctrl-space` leaves it; `Esc` does not leave a prompt, it quits the app.
   After `Left` to
   the parent, the cursor sits on the `docs` folder it came from (second-to-last
   row), so two more `Down`s wrap to the top of the list, where `Tab` twice

@@ -218,7 +218,8 @@ pub struct InterfaceConfig {
     pub cwd_prompt: String,
     /// Display a toast when current directory has no entries.
     pub toast_on_empty: bool,
-    /// If [JumpOrAccept](`crate::run::FsAction::JumpOrAccept`) should accept or advance
+    /// If [JumpOrAccept](`crate::run::FsAction::JumpOrAccept`) should accept or
+    /// advance; ignored by `JumpOrAccept(0)`, which always accepts
     pub jump_or_advance: bool,
 }
 

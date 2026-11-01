@@ -140,9 +140,12 @@ delay_clear = true
 # open a shell in the current directory
 "ctrl-esc" = "Execute($SHELL)" # (requires keyboard enhancement)
 
+### Prompt
+"ctrl-space" = "LockPrompt" # toggles the prompt (None = toggle)
+"alt-hyphen" = "LockPrompt"
+
 ### JumpOrAccept
-"ctrl-0" = "JumpOrAccept(0)"
-"alt-space" = "LockPrompt" # toggles the prompt (None = toggle)
+"alt-space" = "JumpOrAccept(0)"
 "ctrl-1" = "JumpOrAccept(1)"
 "ctrl-2" = "JumpOrAccept(2)"
 "ctrl-3" = "JumpOrAccept(3)"

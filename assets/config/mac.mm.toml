@@ -93,8 +93,8 @@ reset_cursor_on_query_change = true
 "right" = "Advance"
 "shift-left" = "BackwardChar"
 "shift-right" = "ForwardChar"
-"alt-space" = "LockPrompt"
 "ctrl-space" = "LockPrompt"
+"alt-hyphen" = "LockPrompt"
 # Consistent scheme: Arrow keys always move the cursor
 # "shift-left" = "Parent"
 # "shift-right" = "Advance"
@@ -198,7 +198,7 @@ reset_cursor_on_query_change = true
 "ctrl-esc" = "Execute($SHELL)" # (requires keyboard enhancement)
 
 ### JumpOrAccept
-"ctrl-0" = "JumpOrAccept(0)"
+"alt-space" = "JumpOrAccept(0)"
 "ctrl-1" = "JumpOrAccept(1)"
 "ctrl-2" = "JumpOrAccept(2)"
 "ctrl-3" = "JumpOrAccept(3)"

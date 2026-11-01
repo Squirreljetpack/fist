@@ -131,7 +131,9 @@ cargo install fist
 - `ctrl-l`: Maximize preview.
 - `alt-l`: Maximize [extended](#lessfilter) preview.
 - `/` and `~`: Jump to home
-- `ctrl-[0-9]`: JumpOrAccept
+- `ctrl-1`..`ctrl-9`: JumpOrAccept
+- `alt-space`: JumpOrAccept(prompt)
+- `ctrl-space`, `alt-hyphen`: toggle prompt lock
 
 For a full list of binds, press `alt-h` within the app[^binds].
 
@@ -156,7 +158,7 @@ Once inside, you can navigate and re-enter from other panes by pressing the `lef
 F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. Unfortunately, because the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions end up bound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in query-reliant panes like [`Find`](#find) or [`Search`](#search), the query bar locks when entering these panes: indicated by a blue border around your prompt. When the prompt is locked, the `left`/`right` and `shift-left`/`right` keys switch roles, so that `left`/`right` reverts to only moving the caret in your query.
 On macos, `cmd+delete` also returns to `DeleteWord` instead of `Trash`.
 
-The locked state can also be entered by *entering the prompt* -- pressing up at the first result, (or down at the last with `results.cycle`). Note that `in_prompt` ⇒ `locked_prompt`: in this state, the prompt displays your current directory, and all actions apply to that instead. To exit the prompt, just press up or down again. To toggle *the locked state*, you can press `alt-space`[^prompt-lock] -- but this is not often necessary.
+The locked state can also be entered by *entering the prompt* -- pressing up at the first result, (or down at the last with `results.cycle`). Note that `in_prompt` ⇒ `locked_prompt`: in this state, the prompt displays your current directory, and all actions apply to that instead. To exit the prompt, just press up or down again. To toggle *the locked state*, press `ctrl-space` or `alt-hyphen`[^prompt-lock] -- but this is not often necessary. `alt-space` jumps to the locked cwd and then accepts it.
 
 [^prompt-lock]: necessarily, this will also drop you out of the prompt if you were in it
 
