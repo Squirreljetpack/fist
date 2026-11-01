@@ -10,7 +10,7 @@ use crate::{
     lua::{execute, load_script},
     pager,
     run::state::{ExecuteHandlerShouldProcessParent, MENU_ACTIONS, STACK, STORE},
-    utils::{command::maybe_tty, formatter::format_path},
+    utils::{command::maybe_tty, formatter::format_state_at},
 };
 
 /// Execution mode of the `FsAction::Execute*` variants, transported through
@@ -335,7 +335,7 @@ pub(super) fn collect_exec_env(
             vars.push(("SCROLL_LINE".to_string(), p.text_offset().to_string()));
         }
     }
-    let preview_cmd = format_path(state.preview_payload(), path);
+    let preview_cmd = format_state_at(state.preview_payload(), state, path);
     vars.push(("FS_PREVIEW_COMMAND".to_string(), preview_cmd));
 
     vars

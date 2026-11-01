@@ -230,7 +230,7 @@ impl Default for InterfaceConfig {
             no_multi_print: false,
             always_paste: false,
             advance_command: Preset::Edit.to_command_string(When::Auto, false),
-            cwd_prompt: "{} ".into(),
+            cwd_prompt: "{=} ".into(),
             toast_on_empty: true,
             jump_or_advance: false,
             allow_trash_db_items: false,

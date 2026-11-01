@@ -1,9 +1,9 @@
-use std::{borrow::Cow, ffi::OsString, sync::Arc};
+use std::ffi::OsString;
 
 use cba::{_trace, bog::BogOkExt, prints};
 use fist_types::filters::SortOrder;
 use matchmaker::{
-    Either, MatchError, Matchmaker, PickOptions,
+    AttachmentFormatter, Either, MatchError, Matchmaker, PickOptions,
     config::{RenderConfig, TerminalConfig, UiConfig},
     event::EventLoop,
     message::Event,
@@ -30,7 +30,7 @@ use crate::{
         pane::FsPane,
         previewer::make_previewer,
         query_prompt,
-        register::{MMExt, emit_print, paste_handler, path_formatter, query_handler, sync_handler},
+        register::{MMExt, emit_print, paste_handler, query_handler, sync_handler},
         reload::fs_post_reload_new,
         state::{
             AcceptAsPrint, DB_FILTER, GLOBAL, HideMetadata, LockPromptSetting, MENU_ACTIONS, STACK,
@@ -46,6 +46,7 @@ use crate::{
         queue_overlay::{AppOverlay, QueueOverlay},
     },
     unzip,
+    utils::formatter::preview_formatter,
     watcher::FsWatcher,
 };
 
@@ -62,7 +63,7 @@ fn make_mm(
 ) -> (FsMatchmaker, FsInjector) {
     let worker = Worker::new(
         [
-            Column::new("%", |item: &PathItem, _d: &()| {
+            Column::new("path", |item: &PathItem, _d: &()| {
                 if let Ok([_, o]) = &item.tail
                     && !o.is_empty()
                 {
@@ -72,10 +73,7 @@ fn make_mm(
             })
             .with_raw(|item: &PathItem, _d: &()| item.match_name()),
             Column::new("", |item: &PathItem, _| format_tail(item))
-                .with_raw(|item: &PathItem, _d: &()| match &item.tail {
-                    Ok([s, _]) => Cow::Borrowed(s.as_str()),
-                    Err(t) => Cow::Owned(t.to_string()),
-                })
+                .with_raw(|item: &PathItem, _d: &()| item.tail_raw())
                 .highlight_if(|item: &PathItem, _: &()| !tail_shows_metadata(item)),
             Column::new("3", |item: &PathItem, _d: &()| {
                 // rg panes only: there the sort is none and metadata holds the packed loc
@@ -257,9 +255,7 @@ pub async fn start(
     let bind_tx = event_loop.bind_controller();
 
     // init previewer
-    let formatter = Either::Left(Arc::new(
-        Box::new(path_formatter) as matchmaker::RenderFn<PathItem>
-    ));
+    let formatter: AttachmentFormatter<PathItem, ()> = Either::Right(preview_formatter);
     let binds_ptr = event_loop.get_binds_ptr();
     let previewer = make_previewer(
         &mut mm,

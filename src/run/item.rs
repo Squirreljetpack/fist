@@ -94,6 +94,15 @@ impl PathItem {
         }
     }
 
+    /// Plain-text tail value (column 2), the tail without the col-1 display
+    /// override. rg context blocks are flattened to their rendered text.
+    pub fn tail_raw(&self) -> Cow<'_, str> {
+        match &self.tail {
+            Ok([s, _]) => Cow::Borrowed(s.as_str()),
+            Err(t) => Cow::Owned(t.to_string()),
+        }
+    }
+
     /// Col-1 match/filter key: the `tail[1]` display override when set, else the
     /// clean, icon-free path string shown by [`Self::render`].
     pub fn match_name(&self) -> Cow<'_, str> {

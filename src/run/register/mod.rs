@@ -29,7 +29,7 @@ use crate::{
     },
     utils::{
         command::{command_log_stderr, tokio_from_script},
-        formatter::format_path,
+        formatter::{format_item, format_state, format_state_at},
     },
 };
 
@@ -52,8 +52,8 @@ impl FsMatchmaker {
             let template = state.payload();
             if !template.is_empty() {
                 // User reload event: create a custom pane
-                if let Some(item) = state.current_raw() {
-                    let script = path_formatter(item, template);
+                if state.current_raw().is_some() {
+                    let script = format_state(template, state);
                     log::debug!("Reloading: {script}");
                     let (shell, arg) = &*SHELL;
                     let command = (
@@ -119,7 +119,7 @@ impl FsMatchmaker {
             let Some(path) = resolve_target(state, false) else {
                 return;
             };
-            let cmd = format_path(state.payload(), &path);
+            let cmd = format_state_at(state.payload(), state, &path);
             if cmd.is_empty() {
                 warn!("Empty formatted command");
                 return;
@@ -182,7 +182,7 @@ impl FsMatchmaker {
             let Some(path) = resolve_target(state, false) else {
                 return;
             };
-            let cmd = format_path(state.payload(), &path);
+            let cmd = format_state_at(state.payload(), state, &path);
             if cmd.is_empty() {
                 warn!("Empty formatted command");
                 return;
@@ -226,7 +226,7 @@ impl FsMatchmaker {
             let Some(payload) = state.discriminant_payload.take() else {
                 return;
             };
-            let cmd = format_path(state.payload(), &path);
+            let cmd = format_state_at(state.payload(), state, &path);
             if cmd.is_empty() {
                 warn!("Empty formatted command");
                 return;
@@ -331,7 +331,7 @@ impl FsMatchmaker {
             let Some(path) = resolve_target(state, false) else {
                 return;
             };
-            let cmd = format_path(state.payload(), &path);
+            let cmd = format_state_at(state.payload(), state, &path);
             if cmd.is_empty() {
                 warn!("Empty formatted command");
                 return;
@@ -353,15 +353,15 @@ impl FsMatchmaker {
         output_sep: String,
     ) {
         self.register_interrupt_handler(Interrupt::Print, move |state| {
-            if let Some(t) = state.current_raw() {
-                let template = if state.payload().is_empty() {
-                    default_template.as_deref()
-                } else {
-                    Some(state.payload().as_str())
-                };
-
-                emit_print(&print_handle, t, template, &output_sep);
+            let Some(item) = state.current_raw() else {
+                return;
             };
+            let template = if state.payload().is_empty() {
+                default_template.as_deref()
+            } else {
+                Some(state.payload().as_str())
+            };
+            emit_print(&print_handle, item, template, &output_sep);
         });
     }
 }
@@ -380,7 +380,7 @@ pub fn emit_print(
     output_sep: &str,
 ) {
     let mut display = if let Some(template) = template {
-        path_formatter(item, template)
+        format_item(template, item)
     } else {
         item.path.to_string_lossy().into()
     };
@@ -393,11 +393,4 @@ pub fn emit_print(
         print!("{}{}", display, output_sep);
         let _ = std::io::stdout().flush();
     }
-}
-
-pub fn path_formatter(
-    item: &PathItem,
-    template: &str,
-) -> String {
-    format_path(template, &item.path)
 }

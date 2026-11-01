@@ -85,4 +85,4 @@ refind = "Search"
 # allow_trash_db_items = true
 
 # prompt prefix when in the query bar: https://squirreljetpack.github.io/fist-docs/16-output-templates#the-format-template
-# cwd_prompt = '{2:2} '
+# cwd_prompt = '{2~2} '

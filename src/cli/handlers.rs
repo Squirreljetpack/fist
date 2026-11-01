@@ -856,16 +856,9 @@ async fn handle_tools(
                 if path.is_dir() {
                     let cmd = crate::config::pager_cfg().display_directory.clone();
                     if !cmd.is_empty() {
-                        let expanded: Vec<String> = cmd
-                            .iter()
-                            .map(|s| {
-                                if s == "{}" {
-                                    path.to_string_lossy().into_owned()
-                                } else {
-                                    s.clone()
-                                }
-                            })
-                            .collect();
+                        let abs = AbsPath::new(path.as_path());
+                        let expanded: Vec<String> =
+                            cmd.iter().map(|s| format_path(s, &abs)).collect();
                         let code = Command::new(&expanded[0])
                             .args(&expanded[1..])
                             .status()
