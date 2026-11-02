@@ -7,7 +7,8 @@
 //! `render_text` opens a file and pages it to the subtool's own stdout.
 //!
 //! When `bat` is `Some(opts)` and the `bat` binary exists, the stream is piped
-//! through it first. The pager never starts on empty output (first-line gate).
+//! through it first. The pager never starts on empty output (first-line gate,
+//! skipped in follow mode, where an idle stream is expected).
 
 use std::{
     fs::File,
@@ -46,9 +47,13 @@ pub struct PagerOpts {
     pub fallback_range: Option<(usize, Option<usize>)>,
 }
 
-/// Live-tailing reader for a file. Seeks to the end of the file on
-/// construction, then blocks on each `read` call until new bytes arrive or the
-/// `stop` flag is set.
+/// Chunk size of the backward scan that finds the last N lines.
+const TAIL_CHUNK: u64 = 8 * 1024;
+
+/// Live-tailing reader for a file. On construction it either starts at the
+/// top of the file or buffers its last N lines; buffered content is handed out
+/// on the first reads, then each `read` call blocks until new bytes arrive or
+/// the `stop` flag is set.
 ///
 /// Uses a [`notify::RecommendedWatcher`] (NonRecursive, watching the parent
 /// directory) to wake immediately when the file is modified, rather than
@@ -60,6 +65,8 @@ pub struct FileTailer {
     file: File,
     offset: u64,
     stop: Arc<AtomicBool>,
+    /// Pre-existing content, handed out before the live stream starts.
+    replay: Cursor<Vec<u8>>,
     /// Receives a signal each time the watched file is modified.
     rx: mpsc::Receiver<()>,
     /// Kept alive for the duration of the tailer; dropped when the tailer is
@@ -68,14 +75,22 @@ pub struct FileTailer {
 }
 
 impl FileTailer {
-    /// Open `path`, seek to its current end, and return a tailer. Content
-    /// appended after this call will be visible on reads.
+    /// Open `path` and return a tailer. With `tail = Some(n)` the last `n`
+    /// lines are buffered and replayed first, and reading resumes at the
+    /// current end of the file; with `tail = None` the whole file is replayed
+    /// from the top. Content appended after this call is visible on reads in
+    /// both modes.
     pub fn new(
         path: &Path,
         stop: Arc<AtomicBool>,
+        tail: Option<usize>,
     ) -> io::Result<Self> {
         let mut file = File::open(path)?;
-        let offset = file.seek(SeekFrom::End(0))?;
+        let len = file.metadata()?.len();
+        let (offset, replay) = match tail {
+            Some(lines) => (len, Cursor::new(read_last_lines(&mut file, len, lines)?)),
+            None => (0, Cursor::new(Vec::new())),
+        };
 
         let (tx, rx) = mpsc::channel::<()>();
 
@@ -118,9 +133,75 @@ impl FileTailer {
             file,
             offset,
             stop,
+            replay,
             rx,
             _watcher,
         })
+    }
+}
+
+/// Read the last `lines` lines of a file of `len` bytes, leaving `file`
+/// positioned at EOF.
+fn read_last_lines(
+    file: &mut File,
+    len: u64,
+    lines: usize,
+) -> io::Result<Vec<u8>> {
+    if lines == 0 || len == 0 {
+        file.seek(SeekFrom::Start(len))?;
+        return Ok(Vec::new());
+    }
+    // Scan backwards in chunks until the window holds more line breaks than
+    // `lines`: the extra break bounds the start of the first kept line.
+    let mut start = len;
+    let mut found = 0usize;
+    let mut chunks: Vec<Vec<u8>> = Vec::new();
+    while start > 0 && found <= lines {
+        let size = start.min(TAIL_CHUNK);
+        start -= size;
+        file.seek(SeekFrom::Start(start))?;
+        let mut chunk = vec![0; size as usize];
+        file.read_exact(&mut chunk)?;
+        found += chunk.iter().filter(|b| **b == b'\n').count();
+        chunks.push(chunk);
+    }
+    file.seek(SeekFrom::Start(len))?;
+
+    let mut buf: Vec<u8> = chunks.into_iter().rev().flatten().collect();
+    // A window that starts mid-file begins with the end of an older line.
+    if start > 0 {
+        match buf.iter().position(|b| *b == b'\n') {
+            Some(idx) => {
+                buf.drain(..=idx);
+            }
+            None => return Ok(Vec::new()),
+        }
+    }
+    keep_last_lines(&mut buf, lines);
+    Ok(buf)
+}
+
+/// Trim `buf` down to its last `lines` lines. A final fragment without a
+/// newline counts as a line.
+fn keep_last_lines(
+    buf: &mut Vec<u8>,
+    lines: usize,
+) {
+    let newlines = buf.iter().filter(|b| **b == b'\n').count();
+    let total = newlines + usize::from(!buf.is_empty() && !buf.ends_with(b"\n"));
+    let drop = total.saturating_sub(lines);
+    if drop == 0 {
+        return;
+    }
+    let mut seen = 0;
+    for (i, b) in buf.iter().enumerate() {
+        if *b == b'\n' {
+            seen += 1;
+            if seen == drop {
+                buf.drain(..=i);
+                return;
+            }
+        }
     }
 }
 
@@ -129,6 +210,13 @@ impl Read for FileTailer {
         &mut self,
         buf: &mut [u8],
     ) -> io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        let replayed = self.replay.read(buf)?;
+        if replayed > 0 {
+            return Ok(replayed);
+        }
         loop {
             if self.stop.load(Ordering::Relaxed) {
                 return Ok(0);
@@ -138,6 +226,7 @@ impl Read for FileTailer {
             if len < self.offset {
                 self.file = File::open(&self.path)?;
                 self.offset = 0;
+                self.replay = Cursor::new(Vec::new());
             }
             let n = self.file.read(buf)?;
             if n > 0 {
@@ -466,7 +555,9 @@ pub fn render_text(
 /// The pager input is either a stream (`Ok`) or a file path (`Err`).
 ///
 /// Stream input: the first-line gate runs here — never start a pager on empty
-/// output. Bat receives the stream on stdin.
+/// output. In follow mode the gate is skipped: a tailed stream can stay idle
+/// for a long time, and the pager pages whatever arrives later. Bat receives
+/// the stream on stdin.
 ///
 /// Path input: the gate is skipped — the path is passed to bat directly (bat
 /// opens the file itself, so language detection works); without bat (or when it
@@ -483,12 +574,15 @@ fn page_inner(
     let mut feed: Box<dyn Read + Send> = match input {
         Ok(reader) => {
             let mut buf = BufReader::new(reader);
-            let mut first_line = String::new();
-            if buf.read_line(&mut first_line)? == 0 {
-                return Ok(false); // empty: no pager, no reaping, no bump
-            }
-            let raw: Box<dyn Read + Send> =
-                Box::new(Cursor::new(first_line.into_bytes()).chain(buf));
+            let raw: Box<dyn Read + Send> = if opts.follow {
+                Box::new(buf)
+            } else {
+                let mut first_line = String::new();
+                if buf.read_line(&mut first_line)? == 0 {
+                    return Ok(false); // empty: no pager, no reaping, no bump
+                }
+                Box::new(Cursor::new(first_line.into_bytes()).chain(buf))
+            };
             if let Some(bat_opts) = bat.filter(|_| has("bat")) {
                 match spawn_bat(bat_opts, None) {
                     Ok((child, mut stdin, stdout)) => {
@@ -561,9 +655,10 @@ fn page_inner(
 /// which the caller verified is a terminal. Streams feed incrementally.
 ///
 /// If `follow` is true, enables auto-scroll to the bottom as content arrives.
-/// If `scroll_to` is set, jumps to that 0-indexed line after the first line is
-/// pushed. If `stop` is set, the PostPagerExit hook stores `true` into it to
-/// cancel a running [`FileTailer`].
+/// If `scroll_to` is set, jumps to that 0-indexed line once the pager holds
+/// enough content for the line to sit at the top of the display; end of input
+/// settles a still-pending jump on the last page. If `stop` is set, the
+/// PostPagerExit hook stores `true` into it to cancel a running [`FileTailer`].
 fn page_tty(
     mut source: Box<dyn Read + Send>,
     cmd_child: &Arc<Mutex<Option<Child>>>,
@@ -596,6 +691,13 @@ fn page_tty(
     }
     configure_hooks(&pager, cmd_child, bat_child, stop);
 
+    // The pager starts empty; jumping now would be clamped to whatever little
+    // has been pushed yet. Minus applies the request once the target line has a
+    // full page below it.
+    if let Some(target) = scroll_to {
+        let _ = pager.go_to_line_when_ready(target);
+    }
+
     let pager_for_thread = pager.clone();
     let pager_thread = thread::spawn(move || {
         let _ = minus::dynamic_paging(pager_for_thread);
@@ -603,7 +705,6 @@ fn page_tty(
 
     let mut feed = BufReader::new(source);
     let mut line = String::new();
-    let mut first_pushed = false;
     loop {
         line.clear();
         match feed.read_line(&mut line) {
@@ -611,12 +712,6 @@ fn page_tty(
             Ok(_) => {
                 if pager.push_str(line.clone()).is_err() {
                     break; // pager quit; stop feeding
-                }
-                if !first_pushed {
-                    first_pushed = true;
-                    if let Some(target) = scroll_to {
-                        let _ = pager.go_to_line(target);
-                    }
                 }
             }
             Err(e) => {
@@ -626,6 +721,10 @@ fn page_tty(
         }
     }
     drop(feed);
+    // A target within the final page never gets a full page below it, so the
+    // deferred request above is still pending: end_data settles it, clamped to
+    // the last page.
+    let _ = pager.end_data();
     let _ = pager_thread.join();
 
     // The id-2 hook killed the children when the pager exited early; otherwise

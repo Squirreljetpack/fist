@@ -15,7 +15,6 @@
 ```toml
 bat_opts = ["--color=always", "--style=changes"]
 line_numbers = false
-follow = false
 horizontal_scroll = false
 smart_case = true
 # prompt = "" # disable prompt text
@@ -25,7 +24,6 @@ smart_case = true
 | ------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
 | `bat_opts`          | list of strings | Extra arguments passed to `bat`.                                                                      |
 | `line_numbers`      | bool            | Show line numbers in the pager.                                                                       |
-| `follow`            | bool            | Auto-scroll as new output arrives (follow mode).                                                      |
 | `horizontal_scroll` | bool            | Always enable horizontal scrolling (Ctrl+h still toggles it).                                         |
 | `prompt`            | string          | Footer prompt text shown by the pager.                                                                |
 | `smart_case`        | bool            | Queries with no uppercase chars match case-insensitively; queries with uppercase stay case-sensitive. |
@@ -49,6 +47,27 @@ fs :tool pager -- Cargo.toml
 - On a terminal, output is paged interactively (minus), with bat colors when
   bat is installed. When stdout is a pipe or file, content passes through
   with colors but no paging UI.
+
+### Opening at a position — `+OFFSET`
+
+An argument starting with `+` chooses where the pager opens:
+
+| Form  | Meaning                                                                                       |
+| ----- | --------------------------------------------------------------------------------------------- |
+| `+N`  | Open with line `N` (1-based) at the top of the display; the rest of the file stays available. |
+| `+Np` | Percent form of the above, e.g. `+50p` for the middle of the file. Needs a file argument.     |
+| `+F`  | Page the whole file, scrolled to the end, and follow it as it grows (`Ctrl+f` toggles).       |
+| `+NF` | Page only the last `N` lines, then follow the file as it grows. Needs a file argument.        |
+
+```sh
+fs :tool pager +120 src/main.rs
+fs :tool pager +50p src/main.rs
+fs :tool pager +F /var/log/syslog
+fs :tool pager +200F /var/log/syslog
+```
+
+With `-C NUM`, the display is padded with `NUM` lines of context around the
+`+N` target line.
 
 ## Environment variables
 

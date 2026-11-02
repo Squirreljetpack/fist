@@ -787,10 +787,11 @@ async fn handle_tools(
                     "Page a file or stdin through bat into minus.\n\n\
                     Usage: fs :tool pager [OPTIONS] [+OFFSET] [--] [FILE]\n\n\
                     Arguments:\n  \
-                      +OFFSET              Line offset to scroll to:\n                         \
+                      +OFFSET              Where to open (see below)\n                         \
                         +N    Scroll to line N (1-based)\n                         \
                         +Np   Scroll to N% of total lines\n                         \
-                        +F    Follow / live-tail mode\n  \
+                        +F    Feed the whole file, scroll to the end, follow growth\n                         \
+                        +NF   Feed the last N lines, then follow growth\n  \
                       [FILE]               File or directory to page (reads stdin if omitted)\n\n\
                     Options:\n  \
                       -C [NUM]             Lines of context around target line (defaults to 0)\n  \
@@ -800,7 +801,7 @@ async fn handle_tools(
                 return Ok(());
             }
 
-            // Parse optional +OFFSET arg (+N, +Np, +F) from options.
+            // Parse optional +OFFSET arg (+N, +Np, +F, +NF) from options.
             let mut offset_arg: Option<String> = None;
             if let Some(pos) = opt_args
                 .iter()
@@ -872,22 +873,47 @@ async fn handle_tools(
 
             // Interpret the +OFFSET arg.
             let mut follow = false;
+            let mut follow_tail: Option<usize> = None;
             let mut target_line: Option<usize> = None;
             if let Some(ref offset) = offset_arg {
                 let s = offset.trim_start_matches('+');
-                if s.eq_ignore_ascii_case("f") {
+                if let Some(n_str) = s.strip_suffix(['f', 'F']) {
                     follow = true;
-                } else if let Some(pct_str) = s.strip_suffix(['p', 'P']) {
-                    if let Ok(pct) = pct_str.parse::<usize>() {
-                        if let Some(ref path) = file_path {
-                            let total = crate::pager::count_lines(path).unwrap_or(0);
-                            if total > 0 {
-                                target_line = Some((total * pct / 100).max(1));
+                    if !n_str.is_empty() {
+                        match n_str.parse::<usize>() {
+                            Ok(n) => follow_tail = Some(n),
+                            Err(_) => {
+                                ebog!(
+                                    "fs :tool pager: invalid offset '{offset}' (expected +N, +Np, +F or +NF)"
+                                );
+                                exit(2);
                             }
+                        }
+                    }
+                } else if let Some(pct_str) = s.strip_suffix(['p', 'P']) {
+                    match pct_str.parse::<usize>() {
+                        Ok(pct) => {
+                            if let Some(ref path) = file_path {
+                                let total = crate::pager::count_lines(path).unwrap_or(0);
+                                if total > 0 {
+                                    target_line = Some((total * pct / 100).max(1));
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            ebog!(
+                                "fs :tool pager: invalid offset '{offset}' (expected +N, +Np, +F or +NF)"
+                            );
+                            exit(2);
                         }
                     }
                 } else if let Ok(n) = s.parse::<usize>() {
                     target_line = Some(n);
+                } else {
+                    ebog!(
+                        "fs :tool pager: invalid offset '{offset}' (expected +N, +Np, +F or +NF)"
+                    );
+                    exit(2);
                 }
             }
 
@@ -914,13 +940,13 @@ async fn handle_tools(
             // Follow mode: no windowing; add --file-name for syntax detection.
             if follow {
                 let code = if let Some(ref path) = file_path {
-                    // +F with file: live tail via FileTailer.
+                    // Follow with a file: replay (part of) the file, then tail it.
                     if let Some(ref mut opts) = bat {
                         opts.push("--file-name".to_string());
                         opts.push(path.to_string_lossy().into_owned());
                     }
                     let stop = Arc::new(AtomicBool::new(false));
-                    match crate::pager::FileTailer::new(path, stop.clone()) {
+                    match crate::pager::FileTailer::new(path, stop.clone(), follow_tail) {
                         Ok(tailer) => crate::pager::page_reader(
                             tailer,
                             false,
@@ -939,7 +965,7 @@ async fn handle_tools(
                         }
                     }
                 } else {
-                    // +F stdin: auto-scroll only.
+                    // Follow stdin: no file to replay or watch; auto-scroll only.
                     crate::pager::page_reader(
                         std::io::stdin(),
                         false,
