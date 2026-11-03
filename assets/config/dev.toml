@@ -10,6 +10,7 @@ ignore_patterns = [".DS_Store"]
 [panes.find]
 show_preview = 60
 # lock_prompt = "auto"
+# exclusions = [ "~/.cache", "~/.Trash", "node_modules", "target" ]
 
 [panes.search]
 lock_prompt = "auto"

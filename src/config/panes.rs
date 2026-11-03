@@ -129,6 +129,9 @@ pub struct FindPaneSettings {
     #[serde(with = "crate::watcher::serde_duration_ms")]
     pub max_refresh_execution_time_threshold: std::time::Duration,
 
+    /// When given a set of paths to search with `fs`, change the working directory to their common denominator.
+    pub reduce_paths: bool,
+
     #[serde(flatten)]
     pub fd: FdConfig,
 }
@@ -145,22 +148,9 @@ impl Default for FindPaneSettings {
             default_sort: None,
             max_refresh_items_threshold: 20000,
             max_refresh_execution_time_threshold: std::time::Duration::from_millis(400), // a generous default threshold to be sure it's working
+            reduce_paths: false,
             fd: FdConfig::default(),
         }
-    }
-}
-
-impl std::ops::Deref for FindPaneSettings {
-    type Target = FdConfig;
-
-    fn deref(&self) -> &Self::Target {
-        &self.fd
-    }
-}
-
-impl std::ops::DerefMut for FindPaneSettings {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.fd
     }
 }
 
@@ -220,20 +210,6 @@ impl Default for SearchPaneSettings {
             fs_status_template: String::new(),
             rg: RgConfig::default(),
         }
-    }
-}
-
-impl std::ops::Deref for SearchPaneSettings {
-    type Target = RgConfig;
-
-    fn deref(&self) -> &Self::Target {
-        &self.rg
-    }
-}
-
-impl std::ops::DerefMut for SearchPaneSettings {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.rg
     }
 }
 

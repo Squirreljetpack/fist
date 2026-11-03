@@ -26,7 +26,7 @@ use crate::{
     aliases::MMState,
     cli::paths::__home,
     clipboard::{CopyMode, Payload, copy_paths},
-    config::{InsertionStrategy, StashPaneKind},
+    config::{InsertionStrategy, RemoveDbRecordAction, StashPaneKind},
     db::DbTable,
     lessfilter::Preset,
     menu::{MenuEvaluationContext, MenuStrategy},
@@ -362,25 +362,7 @@ pub fn fsaction_aliaser(
                 }
             }
             FsAction::Delete(_) => acs![Action::Custom(fa)],
-            FsAction::Trash(_) => {
-                if !GLOBAL::cfg().interface.allow_trash_db_items
-                    && STACK::with_current(|p| {
-                        matches!(
-                            p,
-                            FsPane::Stash { .. }
-                                | FsPane::Apps { .. }
-                                | FsPane::Files { .. }
-                                | FsPane::Folders { .. }
-                        )
-                    })
-                {
-                    // the db-backed panes track items rather than own them:
-                    // remove the records instead of trashing the real paths
-                    acs![FsAction::Delete(false)]
-                } else {
-                    acs![Action::Custom(fa)]
-                }
-            }
+            FsAction::Trash(_) => acs![Action::Custom(fa)],
 
             //  ------------- Overlay aliases --------------
             FsAction::ShowQueue
@@ -1060,18 +1042,14 @@ pub fn fsaction_handler(
         }
 
         FsAction::Trash(no_confirm) => {
-            // db-backed panes (stash + apps/files/folders) route to Delete in
-            // the aliaser unless interface.allow_trash_db_items is set, so a
-            // Trash arriving here always operates on the real paths
-            let no_yes_default = STACK::with_current(|p| {
-                matches!(
-                    p,
-                    FsPane::Stash { .. }
-                        | FsPane::Apps { .. }
-                        | FsPane::Files { .. }
-                        | FsPane::Folders { .. }
-                )
+            let (stash_name, history_table) = STACK::with_current(|p| match p {
+                FsPane::Stash { stash_name, .. } => (Some(stash_name.clone()), None),
+                FsPane::Files { .. } => (None, Some(DbTable::files)),
+                FsPane::Folders { .. } => (None, Some(DbTable::dirs)),
+                FsPane::Apps { .. } => (None, Some(DbTable::apps)),
+                _ => (None, None),
             });
+            let is_db_pane = stash_name.is_some() || history_table.is_some();
 
             let mut items = vec![];
             state.map_selected_to_vec(|_, s| {
@@ -1081,6 +1059,21 @@ pub fn fsaction_handler(
             if items.is_empty() {
                 return;
             }
+
+            if is_db_pane
+                && GLOBAL::cfg().interface.remove_db_record_action == RemoveDbRecordAction::Trash
+            {
+                handle_db_record_removal(
+                    stash_name,
+                    history_table,
+                    items,
+                    no_confirm,
+                    FsAction::Trash(true),
+                );
+                return;
+            }
+
+            let no_yes_default = is_db_pane;
 
             if !no_confirm {
                 let prompt = if items.len() == 1 {
@@ -1137,9 +1130,6 @@ pub fn fsaction_handler(
             });
         }
         FsAction::Delete(no_confirm) => {
-            // In a stash pane, Delete removes the stash entry; in the db
-            // history panes (files/dirs/apps) it removes the db entry. The
-            // actual path is only deleted in the fs panes (nav/find/search/custom).
             let (stash_name, history_table) = STACK::with_current(|p| match p {
                 FsPane::Stash { stash_name, .. } => (Some(stash_name.clone()), None),
                 FsPane::Files { .. } => (None, Some(DbTable::files)),
@@ -1147,6 +1137,7 @@ pub fn fsaction_handler(
                 FsPane::Apps { .. } => (None, Some(DbTable::apps)),
                 _ => (None, None),
             });
+            let is_db_pane = stash_name.is_some() || history_table.is_some();
 
             let mut items = vec![];
             state.map_selected_to_vec(|_, s| {
@@ -1157,37 +1148,33 @@ pub fn fsaction_handler(
                 return;
             }
 
-            if !no_confirm {
-                // brief single-line modal, worded after what is removed
-                let remove_from = match (&stash_name, &history_table) {
-                    (Some(_), _) => Some("stash"),
-                    (_, Some(_)) => Some("history"),
-                    _ => None,
-                };
+            if is_db_pane
+                && GLOBAL::cfg().interface.remove_db_record_action == RemoveDbRecordAction::Delete
+            {
+                handle_db_record_removal(
+                    stash_name,
+                    history_table,
+                    items,
+                    no_confirm,
+                    FsAction::Delete(true),
+                );
+                return;
+            }
 
-                let prompt = match remove_from {
-                    Some(remove_from) if items.len() == 1 => Line::from_iter([
-                        Span::styled("Remove", Color::Red),
-                        Span::raw(format!(
-                            " {} from {remove_from}?",
-                            short_display(&AbsPath::new_unchecked(&items[0]))
-                        )),
-                    ]),
-                    Some(remove_from) => Line::from_iter([
-                        Span::styled("Remove", Color::Red),
-                        Span::raw(format!(" {} items from {remove_from}?", items.len())),
-                    ]),
-                    None if items.len() == 1 => Line::from_iter([
+            if !no_confirm {
+                let prompt = if items.len() == 1 {
+                    Line::from_iter([
                         Span::styled("Delete", Color::Red),
                         Span::raw(format!(
                             " {}?",
                             short_display(&AbsPath::new_unchecked(&items[0]))
                         )),
-                    ]),
-                    None => Line::from_iter([
+                    ])
+                } else {
+                    Line::from_iter([
                         Span::styled("Delete", Color::Red),
                         Span::raw(format!(" {} items?", items.len())),
-                    ]),
+                    ])
                 };
 
                 STORE::set(ConfirmPrompt {
@@ -1205,17 +1192,6 @@ pub fn fsaction_handler(
                     scroll: 0,
                 });
                 GLOBAL::send_action(FsAction::Confirm);
-                return;
-            }
-
-            if let Some(name) = stash_name {
-                db_stash_remove(name, items);
-                return;
-            }
-
-            if let Some(table) = history_table {
-                // todo: lowpri: explain that app will get repopulated
-                db_remove_history_entries(table, items);
                 return;
             }
 
@@ -1419,7 +1395,26 @@ pub fn fsaction_handler(
         }
         // filters
         FsAction::CycleFilter => {
-            if STACK::with_current(|p| {
+            if STACK::with_current(|p| matches!(p, FsPane::Search { .. })) {
+                let case = STACK::with_current_mut(|p| {
+                    let FsPane::Search { case, .. } = p else {
+                        return fist_types::When::Auto;
+                    };
+                    case.cycle();
+                    *case
+                });
+                let style = Style::new().fg(Color::Yellow);
+                TOAST::remove("ordering: ");
+                TOAST::remove("showing: ");
+                TOAST::remove("pattern: ");
+                let label = match case {
+                    fist_types::When::Auto => "smart",
+                    fist_types::When::Always => "sensitive",
+                    fist_types::When::Never => "ignore",
+                };
+                TOAST::replace(style, "case: ", Span::raw(label).italic());
+                fs_reload(state, false, false);
+            } else if STACK::with_current(|p| {
                 matches!(
                     p,
                     FsPane::Files { .. }
@@ -1497,6 +1492,8 @@ pub fn fsaction_handler(
                 });
                 let style = Style::new().fg(Color::Yellow);
                 TOAST::remove("ordering: ");
+                TOAST::remove("showing: ");
+                TOAST::remove("case: ");
                 TOAST::replace(
                     style,
                     "pattern: ",
@@ -1911,6 +1908,63 @@ fn db_remove_history_entries(
         }
         GLOBAL::send_action(FsAction::Reload);
     });
+}
+
+fn handle_db_record_removal(
+    stash_name: Option<String>,
+    history_table: Option<DbTable>,
+    items: Vec<PathBuf>,
+    no_confirm: bool,
+    confirm_action: FsAction,
+) {
+    if !no_confirm {
+        let remove_from = match (&stash_name, &history_table) {
+            (Some(_), _) => Some("stash"),
+            (_, Some(_)) => Some("history"),
+            _ => None,
+        };
+
+        let prompt = match remove_from {
+            Some(remove_from) if items.len() == 1 => Line::from_iter([
+                Span::styled("Remove", Color::Red),
+                Span::raw(format!(
+                    " {} from {remove_from}?",
+                    short_display(&AbsPath::new_unchecked(&items[0]))
+                )),
+            ]),
+            Some(remove_from) => Line::from_iter([
+                Span::styled("Remove", Color::Red),
+                Span::raw(format!(" {} items from {remove_from}?", items.len())),
+            ]),
+            None => return,
+        };
+
+        STORE::set(ConfirmPrompt {
+            prompt,
+            options: vec![("Yes", 0), ("No", 0)],
+            option_handler: Box::new(move |idx| {
+                if idx == 0 {
+                    GLOBAL::send_action(confirm_action);
+                }
+            }),
+            content: None,
+            content_above: false,
+            title_in_border: false,
+            cursor: 1, // Default to No
+            scroll: 0,
+        });
+        GLOBAL::send_action(FsAction::Confirm);
+        return;
+    }
+
+    if let Some(name) = stash_name {
+        db_stash_remove(name, items);
+        return;
+    }
+
+    if let Some(table) = history_table {
+        db_remove_history_entries(table, items);
+    }
 }
 
 enum_from_str_display! {
