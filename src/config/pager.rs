@@ -36,6 +36,9 @@ pub struct PagerConfig {
     /// Set by the `+F` CLI arg, not the config file.
     #[serde(skip)]
     pub follow: bool,
+
+    /// Copy selection immediately on mouse release instead of waiting for explicit key.
+    pub copy_on_select: bool,
 }
 
 impl Default for PagerConfig {
@@ -48,6 +51,7 @@ impl Default for PagerConfig {
             horizontal_scroll: false,
             smart_case: true,
             smart_changes: false,
+            copy_on_select: false,
             display_directory: vec![
                 "fs".into(),
                 ":tool".into(),

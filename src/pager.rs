@@ -29,7 +29,7 @@ use notify::{Config as NotifyConfig, Event, RecursiveMode, Watcher as NotifyWatc
 use crate::config::pager_cfg;
 use cba::broc::{TTY_HANDLE, has};
 use log::error;
-use minus::{LineNumbers, Pager, hooks::Hook};
+use minus::{LineNumbers, Pager, hooks::Hook, input::InputEvent};
 
 /// Options controlling scroll position, follow mode, and fallback windowing
 /// for non-TTY paths when bat is absent.
@@ -417,13 +417,28 @@ fn configure_pager(pager: &Pager) {
     // Default bindings plus the Alt-h help binding.
     let mut input_register = minus::input::HashedEventRegister::default();
     input_register.add_help_key(&[]);
-    let _ = pager.set_input_classifier(Box::new(input_register));
 
-    // Route pager selection copies through fist's existing clipboard handle
-    // instead of a fresh arboard connection.
-    let _ = pager.set_clipboard_handler(Box::new(|text| {
-        crate::clipboard::copy_from_pager(text.to_string());
-    }));
+    // Copy selection to clipboard with toast acknowledgment
+    let toast_pager = pager.clone();
+    if crate::config::pager_cfg().copy_on_select {
+        input_register.add_mouse_events(&["left:up"], move |_, ps| {
+            if ps.selection.is_some()
+                && ps.selection != ps.selection_anchor
+                && let Some(text) = ps.extract_selection()
+            {
+                crate::clipboard::copy_from_pager(text);
+                let _ = toast_pager.send_toast("Copied!");
+            }
+            InputEvent::ClearSelection
+        });
+    } else {
+        input_register.add_copy_key(&["y"], move |text| {
+            crate::clipboard::copy_from_pager(text.to_string());
+            let _ = toast_pager.send_toast("Copied!");
+        });
+        let _ = pager.set_selection_hint("y to copy, Esc to clear");
+    }
+    let _ = pager.set_input_classifier(Box::new(input_register));
 }
 
 /// Neutralize minus's pre-populated `PostPagerExit` id-1 hook (`process::exit`)
