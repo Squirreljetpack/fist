@@ -18,6 +18,7 @@ preview_layout_index = 1
 
 one_line = true
 default_sort = "none"
+empty_pattern = "-v ^ *$"
 
 rg_status_template = '''
 {blue:filter: {}} \s\m/\t
@@ -35,12 +36,12 @@ show_preview = true
 
 [panes.files]
 default_sort = "atime"
-prompt = "◷> "
+prompt = "◷ > "
 # prompt_style = { fg = "LightYellow" }
 
 [panes.dirs]
 default_sort = "frecency"
-prompt = "◷> "
+prompt = "◷ > "
 # prompt_style = { fg = "LightYellow" }
 
 # The unnamed default stash.
@@ -57,11 +58,6 @@ prompt_style.modifier = "ITALIC"
 # git_repo = "auto"
 # ignored_targets = true
 # retain_filetype_filters = false
-
-[fd]
-
-[rg]
-empty_pattern = "-v ^ *$"
 
 [notify]
 

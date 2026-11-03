@@ -39,10 +39,6 @@ fs_status_template = '''
 # error = { fg = "Red" }
 ### SETTINGS ###
 #
-[fd]
-
-[rg]
-
 [notify]
 
 [misc]
