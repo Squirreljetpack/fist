@@ -168,6 +168,14 @@ impl Default for MiscConfig {
 
 // -------------- GLOBAL --------------
 
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RemoveDbRecordAction {
+    #[default]
+    None,
+    Trash,
+    Delete,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 /// Settings related to the behavior of the main interface.
@@ -183,11 +191,11 @@ pub struct InterfaceConfig {
     pub no_multi_print: bool,
     /// When outside the prompt, whether to register paste as characters or an action.
     pub always_paste: bool,
-    /// Whether the Trash action operates on the underlying items in the
-    /// database-backed panes (stashes and the files/folders/apps history).
-    /// When false, Trash routes to Delete there: records are removed instead
-    /// of the real paths.
-    pub allow_trash_db_items: bool,
+    /// Which action deletes records in database-backed panes (stashes and the files/folders/apps history).
+    /// When `Trash`, Trash removes the database record while Delete operates on the real path.
+    /// When `Delete`, Delete removes the database record while Trash operates on the real path.
+    /// When `None` (default), neither removes database records: both operate on the real paths.
+    pub remove_db_record_action: RemoveDbRecordAction,
     /// Hide the preview while the cursor is disabled (locked onto the cwd).
     pub hide_preview_when_cursor_disabled: bool,
     /// When false, Parent inside a preview extraction leaves the archive
@@ -222,7 +230,7 @@ impl Default for InterfaceConfig {
             cwd_prompt: "{=} ".into(),
             toast_on_empty: true,
             jump_or_advance: false,
-            allow_trash_db_items: false,
+            remove_db_record_action: RemoveDbRecordAction::None,
             hide_preview_when_cursor_disabled: false,
             allow_enter_unzip_directory: false,
             stability_threshold: 30,
@@ -242,11 +250,6 @@ pub struct FdConfig {
     /// Arguments added to every fd command
     pub base_args: Vec<String>,
 
-    /// Enabling this will hide ignored files when a pattern but no path is given to fs, such as using `fs [pattern]`, provided that ignore was not explicitly specified to the cli.
-    pub default_search_ignore: bool,
-    //  ---------------- Experimental/Nonstandard ---------------
-    /// When given a set of paths to search with `fs`, change the working directory to their common denominator.
-    pub reduce_paths: bool,
     /// The set of arguments applied to the end of `fs ::` when no `fd_args` were given.
     pub default_args: Vec<String>,
 }
@@ -256,8 +259,6 @@ impl Default for FdConfig {
         Self {
             exclusions: crate::find::fd::default_exclusions(),
             base_args: Vec::new(),
-            default_search_ignore: false,
-            reduce_paths: false,
             default_args: Vec::new(),
         }
     }
@@ -430,8 +431,8 @@ mod tests {
             "show_preview = 60\nexclusions = [\"node_modules\"]\nbase_args = [\"-H\"]",
         )
         .unwrap();
-        assert_eq!(find_ok.exclusions, vec!["node_modules"]);
-        assert_eq!(find_ok.base_args, vec!["-H"]);
+        assert_eq!(find_ok.fd.exclusions, vec!["node_modules"]);
+        assert_eq!(find_ok.fd.base_args, vec!["-H"]);
 
         // Unknown field on FindPaneSettings must be rejected
         let find_err = toml::from_str::<FindPaneSettings>("show_preview = 60\nunknown_field = 123");
@@ -444,7 +445,7 @@ mod tests {
         let search_ok: SearchPaneSettings =
             toml::from_str("one_line = true\nempty_pattern = \"-v ^ *$\"").unwrap();
         assert!(search_ok.one_line);
-        assert_eq!(search_ok.empty_pattern.as_deref(), Some("-v ^ *$"));
+        assert_eq!(search_ok.rg.empty_pattern.as_deref(), Some("-v ^ *$"));
 
         // Unknown field on SearchPaneSettings must be rejected
         let search_err =
