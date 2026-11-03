@@ -110,11 +110,12 @@ cargo install fist
 
 - `ctrl-f`/`ctrl-r`: Find files / Search text.
 - `ctrl-g`: History view (Folders and files).
-- `ctrl-z`/`ctrl-y`: Undo / Redo.
+- `ctrl-z`/`alt-z`: Undo / Redo.
 
 ---
 
 - `ctrl-x`/`ctrl-c`/`ctrl-v`: Move, Copy, Paste.
+- `ctrl-y`: Copy the path.
 - `delete/shift-delete`: Trash/Delete.
 - `alt-e`: Open menu.
 - `alt-u`: Open queue.

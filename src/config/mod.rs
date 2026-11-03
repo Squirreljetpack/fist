@@ -154,8 +154,6 @@ pub struct QueueConfig {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MiscConfig {
-    /// How long to wait between consecutive clipboard actions
-    pub clipboard_delay_ms: u64,
     /// Overwrite or append logs on application start.
     pub append_mode_logging: bool,
     /// Overwrite or append tool logs on application start.
@@ -168,7 +166,6 @@ pub struct MiscConfig {
 impl Default for MiscConfig {
     fn default() -> Self {
         Self {
-            clipboard_delay_ms: 20,
             append_mode_logging: false,
             tools_append_mode_logging: false,
             spawn_with: Vec::new(),
@@ -304,12 +301,21 @@ pub struct FsConfig {
     /// absolute paths before the worker restart and rehydrated once the
     /// fresh listing lands (see [`crate::run::selection`]).
     pub refill_selections_after_reload: bool,
+    /// Copy the selected files themselves to the system clipboard, so they can
+    /// be pasted into a file manager. When false, Copy only enqueues to the
+    /// queue.
+    pub copy_files_to_clipboard: bool,
+    /// Cut the selected files to the system clipboard on Move, so they can be
+    /// pasted into a file manager. When false, Move only enqueues to the queue.
+    pub move_files_to_clipboard: bool,
 }
 
 impl Default for FsConfig {
     fn default() -> Self {
         Self {
             refill_selections_after_reload: true,
+            copy_files_to_clipboard: true,
+            move_files_to_clipboard: false,
         }
     }
 }

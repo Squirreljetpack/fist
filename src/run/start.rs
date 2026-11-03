@@ -335,7 +335,7 @@ pub async fn start(
         STORE::set(HideMetadata);
     }
     sort::set_global_sort_from_pane(false);
-    clipboard::init(cfg.misc.clipboard_delay_ms, osc52, copy_trailing_newline);
+    clipboard::init(osc52, copy_trailing_newline);
     crate::spawn::init_spawn_with(cfg.misc.spawn_with);
     global_ui_init(cfg.styles);
 

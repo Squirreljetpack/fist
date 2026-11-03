@@ -1,34 +1,64 @@
-use arboard::{Clipboard, ImageData};
+//! The clipboard model: one delivery path for text, another for files.
+//!
+//! [`CLIPBOARD`] holds the single [`FsClipboard`], initialized once at startup
+//! ([`init`]). Copies arrive as a [`Payload`], which says what the clipboard
+//! should afterwards contain:
+//!
+//! - Text goes through arboard, the local handle.
+//! - File references go through [`files`], which speaks each platform's own
+//!   structure (`text/uri-list` and `x-special/gnome-copied-files` on Linux,
+//!   `CF_HDROP` on Windows, pasteboard items on macOS), alongside the path text
+//!   and, for one image file, its bitmap. arboard cannot express "these files",
+//!   so file copies bypass it entirely.
+//!
+//! `tui.osc52 = true` replaces the arboard handle with OSC 52, which writes the
+//! text straight to the terminal — what makes copying work over ssh, and why
+//! that mode never touches the machine's own clipboard. OSC 52 carries text
+//! only, so in that mode a file copy degrades to the paths.
+//!
+//! The pager is the one caller outside the task pool: it copies from its own
+//! thread ([`copy_from_pager`]), so that write is synchronous and logged
+//! instead of toasted.
+
+use arboard::Clipboard;
 use cba::bait::{OptionExt, ResultExt};
-use image::ImageReader;
 use matchmaker::message::RenderCommand;
 use ratatui::text::Span;
-use std::borrow::Cow;
 use std::path::PathBuf;
-use std::sync::Mutex;
-use std::time::Duration;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, MutexGuard};
 
 use crate::run::item::short_display;
 use crate::run::state::{GLOBAL, TASKS, TOAST, ToastFlags, ToastStyle};
 use crate::utils::osc52;
 
-/// Holds the local arboard handle (if active) and configuration options.
+pub mod files;
+
+pub use files::CopyMode;
+
+/// The local clipboard handle plus the settings every copy consults.
 pub struct FsClipboard {
+    /// The arboard handle. `None` when `tui.osc52` routes text to the terminal
+    /// instead.
     pub arboard: Option<Clipboard>,
+    /// Whether copied text keeps its trailing newline
+    /// (`tui.copy_trailing_newline`).
     pub copy_trailing_newline: bool,
-    pub item_delay: Duration,
 }
 
 pub static CLIPBOARD: Mutex<Option<FsClipboard>> = Mutex::new(None);
+static WRITE_LOCK: Mutex<()> = Mutex::new(());
+static SEQ: AtomicU64 = AtomicU64::new(0);
 
+/// Create the process-global clipboard handle. `use_osc52` skips arboard, so
+/// every later text copy is written as an OSC 52 sequence.
 pub fn init(
-    cb_sleep: u64,
-    osc52: bool,
+    use_osc52: bool,
     copy_trailing_newline: bool,
 ) {
     let err_prefix = "Failed to initialize clipboard";
     if let Ok(mut cb) = CLIPBOARD.lock().ok().elog(err_prefix) {
-        let arboard = if osc52 {
+        let arboard = if use_osc52 {
             None
         } else {
             Clipboard::new().prefix(err_prefix)._elog()
@@ -36,14 +66,154 @@ pub fn init(
         *cb = Some(FsClipboard {
             arboard,
             copy_trailing_newline,
-            item_delay: Duration::from_millis(cb_sleep),
         });
     }
 }
 
-/// Serialize paths into one OSC52 payload: newline-delimited, no final
-/// newline.
-pub fn serialize_paths(paths: &[PathBuf]) -> String {
+/// What a copy of the selected paths should leave on the clipboard.
+#[derive(Clone, Copy)]
+pub enum Payload {
+    /// The paths as newline-separated text.
+    Text,
+    /// File references, marked as a copy or as a cut for the paste target.
+    Files(CopyMode),
+}
+
+/// Which clipboard a completed copy reached.
+enum Written {
+    /// The machine's own clipboard: arboard, or a native file clipboard.
+    Local,
+    /// The terminal, via OSC 52: the UI stream was bypassed.
+    Osc52,
+}
+
+/// Copy `paths` to the clipboard in `payload` form. Building a bitmap or
+/// waiting on a clipboard server must not block the event loop, so the work
+/// runs on the task pool.
+pub fn copy_paths(
+    paths: Vec<PathBuf>,
+    payload: Payload,
+    toast: bool,
+) {
+    if paths.is_empty() {
+        return;
+    }
+    let seq = SEQ.fetch_add(1, Ordering::Relaxed) + 1;
+    TASKS::spawn_blocking("clipboard copy paths", move || {
+        let spans: Vec<Span<'static>> = paths.iter().map(|p| short_display(p)).collect();
+        let text = serialize_paths(&paths);
+        let clip = match payload {
+            Payload::Files(mode) => Some(files::Clip::new(paths, mode)),
+            Payload::Text => None,
+        };
+        let _guard = WRITE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        if seq < SEQ.load(Ordering::Relaxed) {
+            return;
+        }
+        let result = match clip {
+            None => write(text),
+            // OSC 52 has no file references: send the paths instead
+            Some(_) if !local_active() => write(text),
+            Some(clip) => files::set(clip)
+                .map(|()| Written::Local)
+                .map_err(|e| e.to_string()),
+        };
+        report(result, spans, toast);
+    });
+}
+
+/// Copy one complete text payload (command output) through the active backend.
+pub fn copy_text(
+    text: String,
+    toast: bool,
+) {
+    let seq = SEQ.fetch_add(1, Ordering::Relaxed) + 1;
+    TASKS::spawn_blocking("clipboard copy text", move || {
+        let span = text_summary(&text);
+        let _guard = WRITE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        if seq < SEQ.load(Ordering::Relaxed) {
+            return;
+        }
+        report(write(text), vec![span], toast);
+    });
+}
+
+/// Copy text from the pager through the active backend. The pager runs on its
+/// own thread (outside the task pool), so the write happens synchronously and
+/// failures are logged, not toasted.
+pub fn copy_from_pager(text: String) {
+    if text.is_empty() {
+        return;
+    }
+    let _guard = WRITE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    if let Err(e) = write(text) {
+        log::error!("Pager clipboard copy failed: {e}");
+    }
+}
+
+/// Write one text payload through the active backend. OSC 52 can only carry
+/// text and applies the trailing-newline policy all the same.
+fn write(mut text: String) -> Result<Written, String> {
+    let mut guard = lock();
+    let Some(fcb) = guard.as_mut() else {
+        // never initialized: the terminal is the only clipboard there is
+        return osc52::write_osc52(&text)
+            .map(|()| Written::Osc52)
+            .map_err(|e| e.to_string());
+    };
+    apply_newline_policy(&mut text, fcb.copy_trailing_newline);
+    match fcb.arboard.as_mut() {
+        Some(cb) => cb
+            .set_text(text)
+            .map(|()| Written::Local)
+            .map_err(|e| e.to_string()),
+        None => osc52::write_osc52(&text)
+            .map(|()| Written::Osc52)
+            .map_err(|e| e.to_string()),
+    }
+}
+
+/// Report a finished copy: the optional success toast, the repaint an OSC 52
+/// write needs, or the error toast.
+fn report(
+    result: Result<Written, String>,
+    spans: Vec<Span<'static>>,
+    toast: bool,
+) {
+    match result {
+        Ok(written) => {
+            if toast {
+                TOAST::push_with_flag(
+                    ToastStyle::Success,
+                    "Copied: ",
+                    spans,
+                    ToastFlags::SUSTAINED,
+                );
+            }
+            if matches!(written, Written::Osc52) {
+                // the sequence bypassed the TUI stream: repaint
+                GLOBAL::send_mm(RenderCommand::Redraw);
+            }
+        }
+        Err(e) => {
+            log::error!("Clipboard write failed: {e}");
+            TOAST::push(ToastStyle::Error, "Failed to copy: ", spans);
+        }
+    }
+}
+
+/// Whether copies can reach the local clipboard at all (arboard initialized and
+/// not replaced by OSC 52).
+fn local_active() -> bool {
+    lock().as_ref().is_some_and(|fcb| fcb.arboard.is_some())
+}
+
+fn lock() -> MutexGuard<'static, Option<FsClipboard>> {
+    CLIPBOARD.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Serialize paths into one text payload: newline-delimited, no final newline.
+fn serialize_paths(paths: &[PathBuf]) -> String {
     paths
         .iter()
         .map(|p| p.to_string_lossy())
@@ -62,34 +232,7 @@ fn text_summary(text: &str) -> Span<'static> {
     Span::from(s)
 }
 
-/// Report a completed OSC52 write: success toast (optionally) plus a redraw,
-/// or the existing error-toast path on failure.
-fn report_osc52(
-    result: std::io::Result<()>,
-    spans: Vec<Span<'static>>,
-    toast: bool,
-) {
-    match result {
-        Ok(()) => {
-            if toast {
-                TOAST::push_with_flag(
-                    ToastStyle::Success,
-                    "Copied: ",
-                    spans,
-                    ToastFlags::SUSTAINED,
-                );
-            }
-            // the sequence bypassed the TUI stream: repaint
-            GLOBAL::send_mm(RenderCommand::Redraw);
-        }
-        Err(e) => {
-            log::error!("OSC52 clipboard write failed: {e}");
-            TOAST::push(ToastStyle::Error, "Failed to copy: ", spans);
-        }
-    }
-}
-
-pub fn apply_newline_policy(
+fn apply_newline_policy(
     text: &mut String,
     copy_trailing_newline: bool,
 ) {
@@ -100,256 +243,6 @@ pub fn apply_newline_policy(
             text.pop();
         }
     }
-}
-
-/// Copy text from the pager through the initialized backend. The pager runs
-/// on its own thread (outside the task runtime), so the write happens
-/// synchronously here; failures are logged, not toasted. When the clipboard
-/// was never initialized (no arboard handle), the copy falls back to OSC 52.
-pub fn copy_from_pager(text: String) {
-    let mut guard = CLIPBOARD.lock().unwrap();
-    let mut text = text;
-    match guard.as_mut() {
-        Some(fcb) => apply_newline_policy(&mut text, fcb.copy_trailing_newline),
-        None => apply_newline_policy(&mut text, false),
-    }
-    if text.is_empty() {
-        return;
-    }
-    match guard.as_mut().and_then(|fcb| fcb.arboard.as_mut()) {
-        Some(cb) => {
-            if let Err(e) = cb.set_text(text) {
-                log::error!("Clipboard set_text failed: {e}");
-            }
-        }
-        None => {
-            if let Err(e) = osc52::write_osc52(&text) {
-                log::error!("OSC52 clipboard write failed: {e}");
-            }
-        }
-    }
-}
-
-pub fn copy_texts(
-    texts: Vec<String>,
-    toast: bool,
-) {
-    if texts.is_empty() {
-        return;
-    }
-    TASKS::spawn_blocking("clipboard copy", move || {
-        let mut guard = CLIPBOARD.lock().unwrap();
-        let item_delay = guard
-            .as_ref()
-            .map_or(Duration::from_millis(20), |fcb| fcb.item_delay);
-        let arboard_opt = guard.as_mut().and_then(|fcb| fcb.arboard.as_mut());
-        match arboard_opt {
-            Some(cb) => {
-                let mut success = Vec::new();
-                let mut failed = Vec::new();
-                for (i, text) in texts.iter().enumerate() {
-                    match cb.set_text(text.clone()) {
-                        Ok(_) => success.push(Span::from(text.clone())),
-                        Err(_) => failed.push(Span::from(text.clone())),
-                    }
-                    if i + 1 < texts.len() {
-                        std::thread::sleep(item_delay);
-                    }
-                }
-                drop(guard);
-                if !failed.is_empty() {
-                    TOAST::push(ToastStyle::Error, "Failed to copy: ", failed);
-                }
-                if toast && !success.is_empty() {
-                    TOAST::push_with_flag(
-                        ToastStyle::Success,
-                        "Copied: ",
-                        success,
-                        ToastFlags::SUSTAINED,
-                    );
-                }
-            }
-            None => {
-                let spans = texts.iter().map(|t| text_summary(t)).collect();
-                let result = osc52::write_osc52(&texts.join("\n"));
-                drop(guard);
-                report_osc52(result, spans, toast);
-            }
-        }
-    });
-}
-
-pub fn copy_paths_as_text(
-    paths: Vec<PathBuf>,
-    toast: bool,
-) {
-    if paths.is_empty() {
-        return;
-    }
-    TASKS::spawn_blocking("clipboard copy paths", move || {
-        let spans: Vec<Span<'static>> = paths.iter().map(|p| short_display(p)).collect();
-        let mut guard = CLIPBOARD.lock().unwrap();
-        let item_delay = guard
-            .as_ref()
-            .map_or(Duration::from_millis(20), |fcb| fcb.item_delay);
-        let arboard_opt = guard.as_mut().and_then(|fcb| fcb.arboard.as_mut());
-        match arboard_opt {
-            Some(cb) => {
-                let mut success = Vec::new();
-                let mut failed = Vec::new();
-                for (i, path) in paths.iter().enumerate() {
-                    match cb.set_text(path.to_string_lossy()) {
-                        Ok(_) => success.push(short_display(path)),
-                        Err(_) => failed.push(short_display(path)),
-                    }
-                    if i + 1 < paths.len() {
-                        std::thread::sleep(item_delay);
-                    }
-                }
-                drop(guard);
-                if !failed.is_empty() {
-                    TOAST::push(ToastStyle::Error, "Failed to copy: ", failed);
-                }
-                if toast && !success.is_empty() {
-                    TOAST::push_with_flag(
-                        ToastStyle::Success,
-                        "Copied: ",
-                        success,
-                        ToastFlags::SUSTAINED,
-                    );
-                }
-            }
-            None => {
-                let result = osc52::write_osc52(&serialize_paths(&paths));
-                drop(guard);
-                report_osc52(result, spans, toast);
-            }
-        }
-    });
-}
-
-pub fn copy_files(
-    paths: Vec<PathBuf>,
-    toast: bool,
-) {
-    if paths.is_empty() {
-        return;
-    }
-    TASKS::spawn_blocking("clipboard copy files", move || {
-        let spans: Vec<Span<'static>> = paths.iter().map(|p| short_display(p)).collect();
-        let mut guard = CLIPBOARD.lock().unwrap();
-        let item_delay = guard
-            .as_ref()
-            .map_or(Duration::from_millis(20), |fcb| fcb.item_delay);
-        let arboard_opt = guard.as_mut().and_then(|fcb| fcb.arboard.as_mut());
-        match arboard_opt {
-            Some(cb) => {
-                let mut success = Vec::new();
-                let mut failed = Vec::new();
-
-                for (i, path) in paths.iter().enumerate() {
-                    let image_data_opt = if let Some(mime) = mime_guess::from_path(path).first() {
-                        if mime.type_() == mime_guess::mime::IMAGE {
-                            ImageReader::open(path)
-                                .ok()
-                                .and_then(|reader| reader.decode().ok())
-                                .map(|img| {
-                                    let rgba = img.into_rgba8();
-                                    let (w, h) = rgba.dimensions();
-                                    ImageData {
-                                        width: w as usize,
-                                        height: h as usize,
-                                        bytes: Cow::Owned(rgba.into_raw()),
-                                    }
-                                })
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    };
-
-                    let result = match image_data_opt {
-                        Some(data) => cb.set_image(data),
-                        None => cb.set_text(path.to_string_lossy()),
-                    };
-
-                    match result {
-                        Ok(_) => success.push(short_display(path)),
-                        Err(_) => failed.push(short_display(path)),
-                    }
-
-                    if i + 1 < paths.len() {
-                        std::thread::sleep(item_delay);
-                    }
-                }
-                drop(guard);
-                if !failed.is_empty() {
-                    TOAST::push(ToastStyle::Error, "Failed to copy: ", failed);
-                }
-                if toast && !success.is_empty() {
-                    TOAST::push_with_flag(
-                        ToastStyle::Success,
-                        "Copied: ",
-                        success,
-                        ToastFlags::SUSTAINED,
-                    );
-                }
-            }
-            None => {
-                // OSC52 is text-only: send the paths, not image bytes
-                let result = osc52::write_osc52(&serialize_paths(&paths));
-                drop(guard);
-                report_osc52(result, spans, toast);
-            }
-        }
-    });
-}
-
-/// Copy one complete text payload (command output) through the initialized
-/// backend. Owns the whole lock boundary: lock `CLIPBOARD`, write, unlock,
-/// then toast/redraw.
-pub fn copy_text(
-    mut text: String,
-    toast: bool,
-) {
-    TASKS::spawn_blocking("clipboard copy text", move || {
-        let mut guard = CLIPBOARD.lock().unwrap();
-        let copy_trailing_newline = guard.as_ref().is_some_and(|fcb| fcb.copy_trailing_newline);
-        apply_newline_policy(&mut text, copy_trailing_newline);
-        if text.is_empty() {
-            return;
-        }
-        let span = text_summary(&text);
-        let arboard_opt = guard.as_mut().and_then(|fcb| fcb.arboard.as_mut());
-        match arboard_opt {
-            Some(cb) => {
-                let result = cb.set_text(text);
-                drop(guard);
-                match result {
-                    Ok(_) => {
-                        if toast {
-                            TOAST::push_with_flag(
-                                ToastStyle::Success,
-                                "Copied: ",
-                                [span],
-                                ToastFlags::SUSTAINED,
-                            );
-                        }
-                    }
-                    Err(e) => {
-                        log::error!("Clipboard set_text failed: {e}");
-                        TOAST::push(ToastStyle::Error, "Failed to copy: ", [span]);
-                    }
-                }
-            }
-            None => {
-                let result = osc52::write_osc52(&text);
-                drop(guard);
-                report_osc52(result, vec![span], toast);
-            }
-        }
-    });
 }
 
 #[cfg(test)]
