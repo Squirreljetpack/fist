@@ -1,12 +1,8 @@
-use std::{collections::BTreeSet, ffi::OsString, path::PathBuf};
+use std::{collections::BTreeSet, ffi::OsString};
 
 use cba::{vec_, wbog};
 
-use crate::{
-    cli::paths::{__cwd, __home},
-    config::FdConfig,
-    lessfilter::LessfilterConfig,
-};
+use crate::{config::FdConfig, lessfilter::LessfilterConfig};
 use fist_types::{filetypes::FileTypeArg, filters::Visibility, git::VCS_DIRS};
 
 // probably we can avoid clones + turn into const but this is easier
@@ -168,32 +164,9 @@ pub fn build_fd_args(
 
     // add -E
     if !vis.all() {
-        let exclusions = {
-            let mut exclusions = cfg
-                .exclusions
-                .get(&PathBuf::new())
-                .cloned()
-                .unwrap_or_else(default_exclusions);
-
-            // todo: check full/replaced for all paths
-            if __cwd() == __home() {
-                if let Some(excls) = cfg.exclusions.get(&PathBuf::from("~")) {
-                    exclusions.extend(excls.iter().cloned());
-                }
-            } else if let Ok(stripped) = __cwd().strip_prefix(__home())
-                && let Some(excls) = cfg.exclusions.get(&PathBuf::from("~").join(stripped))
-            {
-                exclusions.extend(excls.iter().cloned());
-            } else if let Some(excls) = cfg.exclusions.get(__cwd()) {
-                exclusions.extend(excls.iter().cloned());
-            }
-
-            exclusions
-        };
-
-        for e in exclusions {
+        for e in &cfg.exclusions {
             ret.push("-E".into());
-            ret.push(e.into());
+            ret.push(crate::utils::path::expand_tilde(e).into());
         }
 
         // `--hidden` would otherwise descend into VCS metadata, which no ignore
@@ -305,5 +278,23 @@ mod tests {
             .collect();
 
         assert_eq!(search_paths, vec!["/path/one", "/path/two"]);
+    }
+
+    #[test]
+    fn test_build_fd_args_exclusions_tilde() {
+        let cfg = FdConfig {
+            exclusions: vec!["~/.cache".into(), "target".into()],
+            ..Default::default()
+        };
+        let args = build_fd_args(Visibility::default(), &[], &[], &[], &cfg);
+
+        let exclusions: Vec<_> = args
+            .windows(2)
+            .filter(|w| w[0] == "-E")
+            .map(|w| w[1].to_str().unwrap())
+            .collect();
+
+        assert!(exclusions.contains(&crate::utils::path::expand_tilde("~/.cache").as_str()));
+        assert!(exclusions.contains(&"target"));
     }
 }

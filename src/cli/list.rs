@@ -81,7 +81,7 @@ pub fn fd_list(
 ) -> Result<(), CliError> {
     let (prog, args) = (
         "fd",
-        build_fd_args(vis, types, paths, fd_args, &cfg.global.fd),
+        build_fd_args(vis, types, paths, fd_args, &cfg.global.panes.find.fd),
     );
 
     let (_child, stdout) = match Command::new(prog).args(args).spawn_piped()._ebog() {
@@ -140,7 +140,7 @@ pub fn rg_list(
             patterns,
             paths,
             rg,
-            &cfg.global.rg,
+            &cfg.global.panes.search.rg,
         ),
     );
 

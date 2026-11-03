@@ -186,7 +186,10 @@ impl FsPane {
                 let threshold = cfg.panes.find.max_refresh_items_threshold;
                 let time_threshold = cfg.panes.find.max_refresh_execution_time_threshold;
                 let start_time = std::time::Instant::now();
-                let (prog, args) = ("fd", build_fd_args(vis, types, paths, fd_args, &cfg.fd));
+                let (prog, args) = (
+                    "fd",
+                    build_fd_args(vis, types, paths, fd_args, &cfg.panes.find.fd),
+                );
 
                 log::info!("spawning: {}", display_sh_prog_and_args(prog, &args));
 
@@ -300,7 +303,7 @@ impl FsPane {
                         patterns,
                         paths,
                         rg,
-                        &cfg.rg,
+                        &cfg.panes.search.rg,
                     ),
                 );
                 let toast_on_empty = toast_on_empty && is_initial.take();

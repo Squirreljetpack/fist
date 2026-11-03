@@ -1,6 +1,9 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::run::FsPane;
+use crate::{
+    config::{FdConfig, RgConfig},
+    run::FsPane,
+};
 use fist_types::{When, filters::*};
 use matchmaker::config::{ShowCondition, StyleSetting};
 use ratatui::style::Color;
@@ -125,6 +128,9 @@ pub struct FindPaneSettings {
     /// If the execution time is less than this threshold (in milliseconds), enable the directory watcher to auto-refresh the pane on changes.
     #[serde(with = "crate::watcher::serde_duration_ms")]
     pub max_refresh_execution_time_threshold: std::time::Duration,
+
+    #[serde(flatten)]
+    pub fd: FdConfig,
 }
 
 impl Default for FindPaneSettings {
@@ -139,7 +145,22 @@ impl Default for FindPaneSettings {
             default_sort: None,
             max_refresh_items_threshold: 20000,
             max_refresh_execution_time_threshold: std::time::Duration::from_millis(400), // a generous default threshold to be sure it's working
+            fd: FdConfig::default(),
         }
+    }
+}
+
+impl std::ops::Deref for FindPaneSettings {
+    type Target = FdConfig;
+
+    fn deref(&self) -> &Self::Target {
+        &self.fd
+    }
+}
+
+impl std::ops::DerefMut for FindPaneSettings {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.fd
     }
 }
 
@@ -177,6 +198,9 @@ pub struct SearchPaneSettings {
     pub rg_status_template: String,
     /// Template to display when filtering with fs
     pub fs_status_template: String,
+
+    #[serde(flatten)]
+    pub rg: RgConfig,
 }
 
 impl Default for SearchPaneSettings {
@@ -194,7 +218,22 @@ impl Default for SearchPaneSettings {
             preserve_whitespace: false,
             rg_status_template: String::new(),
             fs_status_template: String::new(),
+            rg: RgConfig::default(),
         }
+    }
+}
+
+impl std::ops::Deref for SearchPaneSettings {
+    type Target = RgConfig;
+
+    fn deref(&self) -> &Self::Target {
+        &self.rg
+    }
+}
+
+impl std::ops::DerefMut for SearchPaneSettings {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.rg
     }
 }
 

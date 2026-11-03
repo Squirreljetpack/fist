@@ -607,7 +607,7 @@ async fn handle_default(
             }
             AbsPath::new_unchecked(__cwd())
         } else {
-            AbsPath::new_unchecked(if cfg.global.fd.reduce_paths {
+            AbsPath::new_unchecked(if cfg.global.panes.find.reduce_paths {
                 paths_base(&cmd.paths[0..cmd.paths.len() - 1])
             } else {
                 let ret = cmd.paths[0].abs(current_dir().__ebog());

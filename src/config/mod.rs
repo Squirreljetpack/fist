@@ -121,14 +121,6 @@ pub struct GlobalConfig {
     /// Configure behavior of filesystem actions.
     pub fs: FsConfig,
 
-    /// Configure behavior of the fd tool.
-    /// This affects [FsAction::Find](`crate::run::FsAction::Find`) and the default subcommand.
-    pub fd: FdConfig,
-
-    /// Configure behavior of the rg tool.
-    /// This affects [FsAction::Rg](`crate::run::FsAction::Rg`) and the rg subcommand.
-    pub rg: RgConfig,
-
     /// Configure various pane related settings.
     pub panes: PanesConfig,
 
@@ -239,14 +231,13 @@ impl Default for InterfaceConfig {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FdConfig {
-    /// A map of folders => exclusion globs which should be applied when in them.
+    /// List of exclusion globs which should be applied.
     /// ~ can be used in lieu of $HOME.
-    /// If a list is specified for the empty path "", that list will override the list of default exclusions for the platform, and apply everywhere.
-    /// Only one value (exclusion list) can apply to each path.
-    pub exclusions: HashMap<PathBuf, Vec<String>>,
+    #[serde(default = "crate::find::fd::default_exclusions")]
+    pub exclusions: Vec<String>,
 
     /// Arguments added to every fd command
     pub base_args: Vec<String>,
@@ -258,6 +249,18 @@ pub struct FdConfig {
     pub reduce_paths: bool,
     /// The set of arguments applied to the end of `fs ::` when no `fd_args` were given.
     pub default_args: Vec<String>,
+}
+
+impl Default for FdConfig {
+    fn default() -> Self {
+        Self {
+            exclusions: crate::find::fd::default_exclusions(),
+            base_args: Vec::new(),
+            default_search_ignore: false,
+            reduce_paths: false,
+            default_args: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -417,6 +420,40 @@ mod tests {
     use crate::{lessfilter::LessfilterConfig, run::mm_config::MMConfig};
 
     use super::*;
+
+    #[test]
+    fn test_flatten_deny_unknown_fields() {
+        use crate::config::panes::{FindPaneSettings, SearchPaneSettings};
+
+        // Known find pane fields + flattened fd fields deserialize correctly
+        let find_ok: FindPaneSettings = toml::from_str(
+            "show_preview = 60\nexclusions = [\"node_modules\"]\nbase_args = [\"-H\"]",
+        )
+        .unwrap();
+        assert_eq!(find_ok.exclusions, vec!["node_modules"]);
+        assert_eq!(find_ok.base_args, vec!["-H"]);
+
+        // Unknown field on FindPaneSettings must be rejected
+        let find_err = toml::from_str::<FindPaneSettings>("show_preview = 60\nunknown_field = 123");
+        assert!(
+            find_err.is_err(),
+            "Expected error on unknown field in FindPaneSettings"
+        );
+
+        // Known search pane fields + flattened rg fields deserialize correctly
+        let search_ok: SearchPaneSettings =
+            toml::from_str("one_line = true\nempty_pattern = \"-v ^ *$\"").unwrap();
+        assert!(search_ok.one_line);
+        assert_eq!(search_ok.empty_pattern.as_deref(), Some("-v ^ *$"));
+
+        // Unknown field on SearchPaneSettings must be rejected
+        let search_err =
+            toml::from_str::<SearchPaneSettings>("one_line = true\nunknown_field = 123");
+        assert!(
+            search_err.is_err(),
+            "Expected error on unknown field in SearchPaneSettings"
+        );
+    }
 
     #[test]
     fn deserialize_configs() {
