@@ -25,7 +25,7 @@ use crate::{
     abspath::AbsPath,
     aliases::MMState,
     cli::paths::__home,
-    clipboard::{copy_files, copy_paths_as_text},
+    clipboard::{CopyMode, Payload, copy_paths},
     config::{InsertionStrategy, StashPaneKind},
     db::DbTable,
     lessfilter::Preset,
@@ -131,6 +131,9 @@ pub enum FsAction {
     Copy,
     /// Copy full path.
     CopyPath,
+    /// Copy the selected files themselves to the system clipboard, to be
+    /// pasted into a file manager.
+    CopyFiles,
     /// Create a new file. Paths are relative to the current item's parent.
     New,
     /// Create a new directory. Paths are relative to the current item's parent.
@@ -926,7 +929,9 @@ pub fn fsaction_handler(
                     toast_vec,
                     ToastFlags::SUSTAINED,
                 );
-                copy_files(cb_vec, false);
+                if let Some(payload) = copy_payload(CopyMode::Cut) {
+                    copy_paths(cb_vec, payload, false);
+                }
             };
         }
         FsAction::Copy => {
@@ -955,7 +960,9 @@ pub fn fsaction_handler(
                     toast_vec,
                     ToastFlags::SUSTAINED,
                 );
-                copy_files(cb_vec, false);
+                if let Some(payload) = copy_payload(CopyMode::Copy) {
+                    copy_paths(cb_vec, payload, false);
+                }
             };
         }
 
@@ -1267,7 +1274,16 @@ pub fn fsaction_handler(
                 STACK::cwd().map(PathBuf::from).into_iter().collect()
             };
 
-            copy_paths_as_text(paths, true);
+            copy_paths(paths, Payload::Text, true);
+        }
+        FsAction::CopyFiles => {
+            let paths = if !state.picker_ui.results.cursor_disabled() {
+                state.map_selected_to_vec(|_, s| s.path.inner())
+            } else {
+                STACK::cwd().map(PathBuf::from).into_iter().collect()
+            };
+
+            copy_paths(paths, Payload::Files(CopyMode::Copy), true);
         }
         FsAction::Paste(dest_base) => {
             let base = if dest_base.is_empty() {
@@ -1857,6 +1873,17 @@ fn db_stash_remove(
     }
 }
 
+/// The file payload Copy and Move put on the clipboard, when
+/// `[fs] copy_files_to_clipboard` / `[fs] move_files_to_clipboard` asks for
+/// one: a copy of the files, or a cut when the queue move removes them.
+fn copy_payload(mode: CopyMode) -> Option<Payload> {
+    let enabled = match mode {
+        CopyMode::Copy => GLOBAL::cfg().fs.copy_files_to_clipboard,
+        CopyMode::Cut => GLOBAL::cfg().fs.move_files_to_clipboard,
+    };
+    enabled.then_some(Payload::Files(mode))
+}
+
 /// Remove `paths` from the db table backing a history pane (files/dirs/apps),
 /// then reload once the removals complete. Used by Delete inside a history pane.
 fn db_remove_history_entries(
@@ -1894,7 +1921,7 @@ enum_from_str_display! {
     Undo, Redo,
     ShowOptions, Help, ShowQueue, ShowMounts,
     ShowMenu, CycleFilter, ToggleFilter,
-    Move, Copy, CopyPath, New, NewFolder, Rename;
+    Move, Copy, CopyPath, CopyFiles, New, NewFolder, Rename;
 
     tuples:
     JumpOrAccept, SetAlias, Enqueue,

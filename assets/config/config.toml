@@ -77,6 +77,16 @@ refind = "Search"
 # Keep completed queue rows after closing the queue overlay (default: false)
 # clear_completed_on_close = true
 
+[fs]
+# Copy the selected files themselves to the system clipboard, so they can be
+# pasted into a file manager (default: true). When false, Copy only enqueues
+# to the queue; ctrl-y still copies the paths.
+# copy_files_to_clipboard = false
+
+# Cut the selected files to the system clipboard on Move (default: false). When
+# false, Move only enqueues to the queue.
+# move_files_to_clipboard = true
+
 ### MISC ###
 
 [interface]
