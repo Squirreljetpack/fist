@@ -3,7 +3,7 @@
 //! matchmaker-mode mirror ([`prompt_mode`]).
 
 use cba::_trace;
-use matchmaker::message::BindDirective;
+use matchmaker::{config::RenderConfig, message::BindDirective};
 use ratatui::text::Line;
 
 use crate::run::state::GLOBAL::cfg;
@@ -12,6 +12,20 @@ use crate::{
     run::state::{GLOBAL, InPrompt, STACK, STORE, ui::prompt_main_style},
     utils::formatter::format_prompt,
 };
+
+/// Swap query and status configs between default (unlocked) and locked styles.
+fn swap_config(state: &mut MMState<'_>) {
+    STORE::with_mut::<RenderConfig, _>(|stored| {
+        std::mem::swap(&mut state.picker_ui.query.config, &mut stored.query);
+        std::mem::swap(
+            &mut state.picker_ui.status.status_config,
+            &mut stored.status,
+        );
+    })
+    .unwrap();
+    state.picker_ui.status.init();
+    state.picker_ui.status.set(None);
+}
 
 /// Declarative prompt:
 /// - cursor disabled (prompt mode): the directory prompt (falls back to the
@@ -97,11 +111,8 @@ pub fn lock_prompt(
     // mirror only on real transitions so the mode stack stays balanced
     if was_in_prompt != enter {
         prompt_mode(enter);
+        swap_config(state);
     }
-    // the query bar border is the prompt-mode indicator: shown only while
-    // in the prompt, hidden otherwise
-    state.picker_ui.query.show_border = enter;
-
     if !enter {
         state.stash_preview_visibility(None);
         // leaving the prompt restores the cursor (the caller may still move
@@ -152,8 +163,8 @@ pub fn enter_prompt(state: &mut MMState<'_>) -> bool {
     STORE::set(InPrompt);
     if !was_in_prompt {
         prompt_mode(true);
+        swap_config(state);
     }
-    state.picker_ui.query.show_border = true;
     state.picker_ui.results.disable_cursor(true);
     refresh_prompt(state);
     true

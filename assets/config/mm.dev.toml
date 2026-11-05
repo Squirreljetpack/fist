@@ -60,10 +60,8 @@ delay_clear = true
 "alt-enter" = "Print"
 "alt-r" = "Reload"
 
-"ctrl-[" = "ToggleWrap" # requires keyboard enhancement
-"ctrl-]" = "TogglePreviewWrap" # requires keyboard enhancement
-"alt-{" = "ToggleWrap"
-"alt-}" = "TogglePreviewWrap"
+"alt-w" = "ToggleWrap"
+"alt-shift-w" = "TogglePreviewWrap"
 
 "ctrl-shift-right" = "HScroll(1)"
 "ctrl-shift-left" = "HScroll(-1)"
@@ -102,7 +100,7 @@ delay_clear = true
 "ctrl-c" = "Copy"
 "ctrl-n" = "New"
 "ctrl-shift-n" = "NewFolder"
-"ctrl-y" = "CopyPath"
+"alt-x" = "CopyPath"
 "delete" = "Trash"
 "shift-delete" = "Delete"
 # non-mac default; mac dev keeps DeleteWord (lib default, no mac.dev toml)

@@ -23,10 +23,10 @@ default_sort = "none"
 empty_pattern = "-v ^ *$"
 
 rg_status_template = '''
-{blue:filter: {}} \s\m/\t
+{blue:filter: ({})}\s \m/\t
 '''
 fs_status_template = '''
-{red:query: {}} \s\m/\t
+{red:query: ({})}\s \m/\t
 '''
 
 [panes.app]
@@ -76,13 +76,11 @@ refind = "Search"
 # clear_completed_on_close = true
 
 [fs]
-# Copy the selected files themselves to the system clipboard, so they can be
-# pasted into a file manager (default: true). When false, Copy only enqueues
-# to the queue; ctrl-y still copies the paths.
+# Copy the selected files themselves to the system clipboard on Copy. When
+# false, Copy only enqueues to the queue.
 # copy_files_to_clipboard = false
 
-# Cut the selected files to the system clipboard on Move (default: false). When
-# false, Move only enqueues to the queue.
+# Cut the selected files to the system clipboard on Move (default: false).
 # move_files_to_clipboard = true
 
 ### MISC ###

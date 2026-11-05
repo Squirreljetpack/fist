@@ -224,8 +224,16 @@ pub async fn start(
         tui,
         overlay,
         help,
+        query_locked,
     } = mm_cfg;
     _trace!(cfg);
+
+    use matchmaker_partial::Apply;
+
+    let mut locked_render = render.clone();
+    locked_render.query.apply(query_locked.query);
+    locked_render.status.apply(query_locked.status);
+    STORE::set(locked_render);
 
     let print_handle = AppendOnly::new();
     let UiConfig {
@@ -287,7 +295,6 @@ pub async fn start(
             // first pass already ran before this initializer: re-sort the
             // matches so a pane created with an explicit sort starts sorted
             state.worker_resort();
-            state.picker_ui.query.show_border = false;
             fs_post_reload_new(state);
             if let Some(enter) = lock_prompt {
                 STORE::set(LockPromptSetting(enter));
