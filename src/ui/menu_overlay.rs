@@ -172,12 +172,16 @@ impl MenuItem {
         }
     }
 
-    /// Execute the item on `path`.
+    /// Execute the item on `path`, the current cursor item.
+    ///
+    /// `targets` is the current selection, or `path` when nothing is selected;
+    /// batch actions use it so they follow the selections-over-cursor rule.
     /// Returns a [`MenuPrompt`] to open the input bar, or whether to keep the
     /// menu open.
     pub fn action(
         &self,
         path: AbsPath,
+        targets: Vec<AbsPath>,
     ) -> Result<MenuPrompt, bool> {
         match self {
             MenuItem::New => Ok(MenuPrompt::new(PromptKind::New)),
@@ -187,44 +191,36 @@ impl MenuItem {
                 TOAST::push_with_flag(
                     ToastStyle::Normal,
                     "Move: ",
-                    [short_display(&path)],
+                    targets.iter().map(|p| short_display(p)),
                     ToastFlags::SUSTAINED,
                 );
-                QUEUE::enqueue("move".into(), vec![path]);
+                QUEUE::enqueue("move".into(), targets);
                 Err(false)
             }
             MenuItem::Copy => {
                 TOAST::push_with_flag(
                     ToastStyle::Normal,
                     "Copied: ",
-                    [short_display(&path)],
+                    targets.iter().map(|p| short_display(p)),
                     ToastFlags::SUSTAINED,
                 );
-                QUEUE::enqueue("copy".into(), vec![path]);
+                QUEUE::enqueue("copy".into(), targets);
                 Err(false)
             }
             MenuItem::Symlink => {
                 TOAST::push(
                     ToastStyle::Normal,
                     "Queued symlink: ",
-                    [short_display(&path)],
+                    targets.iter().map(|p| short_display(p)),
                 );
-                QUEUE::enqueue("symlink".into(), vec![path]);
+                QUEUE::enqueue("symlink".into(), targets);
                 Err(false)
             }
             MenuItem::Goto => Ok(MenuPrompt::new(PromptKind::Goto)),
             MenuItem::Trash => {
-                match trash::delete(&path) {
-                    Ok(()) => TOAST::push(ToastStyle::Success, "Trashed: ", [short_display(&path)]),
-                    Err(e) => {
-                        log::error!("Failed to trash {}: {e}", path.to_string_lossy());
-                        TOAST::push(
-                            ToastStyle::Error,
-                            "Failed to trash: ",
-                            [short_display(&path)],
-                        )
-                    }
-                }
+                // the menu skips the confirmation: selection-aware like the
+                // bound Trash action, but immediate
+                GLOBAL::send_action(FsAction::Trash(true));
                 Err(false)
             }
             MenuItem::Delete => {
@@ -495,12 +491,7 @@ impl MenuOverlay {
         // the pane reloads — the same bookkeeping as FsAction::App, but
         // done inline since the selection is only known here.
         if matches!(item, MenuItem::OpenWith) {
-            let selected: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
-            let files = if selected.is_empty() {
-                vec![self.target_path(state)]
-            } else {
-                selected
-            };
+            let files = self.target_paths(state);
 
             let displays: Vec<_> = files.iter().map(|p| short_display(p)).collect();
 
@@ -515,7 +506,7 @@ impl MenuOverlay {
         }
 
         let path = self.target_path(state);
-        match item.action(path) {
+        match item.action(path, self.target_paths(state)) {
             Ok(prompt) => {
                 self.set_prompt(prompt, state);
                 OverlayEffect::None

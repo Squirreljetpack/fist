@@ -458,6 +458,29 @@ impl FsPane {
         }
     }
 
+    /// Whether this pane orders via SQL (files/folders/apps), which labels
+    /// `size` as `count` and `none` as `frecency` (see [`SortOrder::label`]).
+    #[inline]
+    pub fn uses_sql_sort(&self) -> bool {
+        matches!(
+            self,
+            FsPane::Files { .. } | FsPane::Folders { .. } | FsPane::Apps { .. }
+        )
+    }
+
+    /// Resolve a user-facing sort label — the options overlay's display name
+    /// — to one of this pane's supported orders.
+    pub fn sort_for_label(
+        &self,
+        label: &str,
+    ) -> Option<SortOrder> {
+        let db = self.uses_sql_sort();
+        self.sort_options()
+            .iter()
+            .copied()
+            .find(|order| order.label(db).eq_ignore_ascii_case(label))
+    }
+
     /// Sort options of [`FsPane::Search`] — usable without a pane instance
     /// (CLI/config validation chokepoint).
     pub fn search_sort_options() -> &'static [SortOrder] {

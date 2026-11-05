@@ -120,6 +120,10 @@ pub enum FsAction {
     ShowMenu,
     /// Cycle sort order (in database/stash panes) or directory/file visibility (in other panes).
     CycleFilter,
+    /// Set the sort order to the named display label (e.g. `SetSort(count)`).
+    /// Database panes label size as `count` and none as `frecency`; other
+    /// panes use the plain labels.
+    SetSort(String),
     /// Toggle between frecency and atime ordering (in database panes) or toggle hidden file visibility (in other panes).
     ToggleFilter,
 
@@ -1551,6 +1555,35 @@ pub fn fsaction_handler(
             }
             refresh_prompt(state);
         }
+        FsAction::SetSort(label) => {
+            let (db, target) =
+                STACK::with_current(|p| (p.uses_sql_sort(), p.sort_for_label(&label)));
+            let Some(target) = target else {
+                TOAST::replace(
+                    Style::new().fg(Color::Yellow),
+                    "ordering: ",
+                    Span::raw("unsupported").italic(),
+                );
+                return;
+            };
+            let changed = STACK::with_current_mut(|p| {
+                let sort = p.sort_mut();
+                if *sort == target {
+                    false
+                } else {
+                    *sort = target;
+                    true
+                }
+            });
+            if changed {
+                TOAST::replace(
+                    Style::new().fg(Color::Yellow),
+                    "ordering: ",
+                    Span::raw(target.label(db)).italic(),
+                );
+                GLOBAL::send_action(FsAction::Refilter);
+            }
+        }
         // ------------------------------------------------------
         // Execute/Accept
         FsAction::Help => {
@@ -1978,7 +2011,7 @@ enum_from_str_display! {
     Move, Copy, CopyPath, CopyFiles, New, NewFolder, Rename;
 
     tuples:
-    JumpOrAccept, SetAlias, Enqueue,
+    JumpOrAccept, SetAlias, Enqueue, SetSort,
     ExecPaged = ExecutePaged, ExecTTY = ExecuteTTY, ExecDetached = ExecuteDetached, ExecSilent = ExecuteSilent, CopyCommand, CopyCommandAsync;
 
     defaults:
