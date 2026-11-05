@@ -3,13 +3,14 @@ use matchmaker::{
     binds::{BindMap, BindMapExt, ResolvedBindMap},
     collections::HiddenColumns,
     config::{
-        DisplayConfig, HelpDisplayConfig, OverlayConfig, Percentage, PreviewSetting,
-        PreviewerConfig, RenderConfig, RowConnectionStyle, TerminalConfig, TerminalLayoutSettings,
+        DisplayConfig, HelpDisplayConfig, OverlayConfig, PartialQueryConfig, PartialStatusConfig,
+        Percentage, PreviewSetting, PreviewerConfig, RenderConfig, RowConnectionStyle,
+        TerminalConfig, TerminalLayoutSettings,
     },
     nucleo::nucleo,
 };
 use matchmaker_partial::Apply;
-use ratatui::style::Modifier;
+use ratatui::prelude::*;
 use std::path::Path;
 
 use super::{FsAction, binds::default_binds};
@@ -64,6 +65,10 @@ pub struct MMConfig {
     #[serde(default)]
     pub mount: MountConfig,
 
+    /// Query bar border while the prompt is locked.
+    #[serde(default)]
+    pub query_locked: QueryLockedConfig,
+
     /// Preview command handling (`<MM_IMAGE>` parsing, shell, debounce, ...)
     #[serde(default)]
     pub previewer: PreviewerConfig,
@@ -83,6 +88,14 @@ impl Default for MMConfig {
         let src = include_str!("../../assets/config/mm.toml");
         toml::from_str(src).unwrap()
     }
+}
+
+/// Render configuration overrides while the prompt is locked.
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct QueryLockedConfig {
+    pub query: PartialQueryConfig,
+    pub status: PartialStatusConfig,
 }
 
 pub const MATCHER_CONFIG: nucleo::Config = const { nucleo::Config::DEFAULT.match_paths() };

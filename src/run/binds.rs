@@ -133,7 +133,7 @@ fn config_as_code() -> BindMap<FsAction> {
 
         // File actions
         // ----------------------------------
-        key!(ctrl-y) => FsAction::CopyPath,
+        key!(alt-x) => FsAction::CopyPath,
         key!(delete) => FsAction::Trash(true),
         key!(shift-delete) => FsAction::Delete(false),
         key!(ctrl-shift-r) => FsAction::Rename,

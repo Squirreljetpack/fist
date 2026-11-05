@@ -90,6 +90,11 @@ pub enum FsAction {
     /// Go forward
     Redo,
 
+    /// Set or toggle [`InPrompt`].
+    LockPrompt(Option<bool>),
+    /// Jump to position N-1 and accept the item there; 0 targets the cwd.
+    JumpOrAccept(u8),
+
     // Display
     // ----------------------------------
     /// Display current filters.
@@ -106,28 +111,18 @@ pub enum FsAction {
     /// Enqueue current items under the specified queue kind.
     Enqueue(QueueKind),
 
-    /// Switch to the named stash pane. Empty name = the unnamed stash.
-    OpenStash(String),
-    /// Add the active items to the named stash.
-    PushStash(String),
-    /// Add selections (or cwd) to the named stash; when there is nothing
-    /// to add, switch to its pane instead.
-    Stash(String),
-    /// Execute the queued operations selected by a queue-kind selector.
-    ExecuteQueue(QueueSelector),
-
+    // Sort & Filters
+    // ----------------------------------
     /// Show available actions on the current item(s).
     ShowMenu,
     /// Cycle sort order (in database/stash panes) or directory/file visibility (in other panes).
     CycleFilter,
     /// Set the sort order to the named display label (e.g. `SetSort(count)`).
-    /// Database panes label size as `count` and none as `frecency`; other
-    /// panes use the plain labels.
     SetSort(String),
     /// Toggle between frecency and atime ordering (in database panes) or toggle hidden file visibility (in other panes).
     ToggleFilter,
 
-    // file actions
+    // File actions
     // ----------------------------------
     /// Move file (to the [`QUEUE`] and the system clipboard).
     Move,
@@ -166,6 +161,19 @@ pub enum FsAction {
     },
     /// Preview a file using a preset
     LessfilterPreview(Preset, When),
+
+    // Queue & Stash
+    // ----------------------------------
+    /// Switch to the named stash pane. Empty name = the unnamed stash.
+    OpenStash(String),
+    /// Add the active items to the named stash.
+    PushStash(String),
+    /// Add selections (or cwd) to the named stash; when there is nothing
+    /// to add, switch to its pane instead.
+    Stash(String),
+    /// Execute the queued operations selected by a queue-kind selector.
+    ExecuteQueue(QueueSelector),
+    
     // Execute
     // ----------------------------------
     /// Execute a command template formatted against the current item (or the
@@ -193,6 +201,7 @@ pub enum FsAction {
     /// action key, looked up in the global config (discriminant 9, waited,
     /// output paged).
     MenuActionExecPaged(String),
+    
     // Nonbindable
     // ----------------------------------
     SaveInput,
@@ -209,14 +218,6 @@ pub enum FsAction {
     AcceptPrompt(bool),
     Filtering(Option<bool>),
     SetStatus(Option<Line<'static>>),
-
-    // Other
-    // ----------------------------------
-    /// Enter (Some(true)) / leave (Some(false)) the prompt; None toggles.
-    LockPrompt(Option<bool>),
-    /// Jump to position N-1 and accept the item there; 0 enters the cwd lock
-    /// and accepts the locked cwd once it is entered.
-    JumpOrAccept(u8),
 }
 // print, accept
 

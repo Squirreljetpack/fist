@@ -1,16 +1,12 @@
 [tui]
 min = 12
-# when system clipboard cannot be (i.e. over ssh), this falls back to osc52.
-# set to true to never use the system clipboard.
-osc52 = false
+# When false, tries the system clipboard before the osc52 protocol
+osc52 = true
 scroll = "Expansive"
 percentage = 70
 
 [ui]
 mouse_events = true
-
-[status]
-show = true
 
 [results]
 delay_clear = true
@@ -69,13 +65,23 @@ scroll_wrap = true
 # images = true
 
 [overlay]
-border = { type = "Rounded", color = "darkGrey", padding = 1 }
+border = { type = "Rounded", color = "DarkGray", padding = 1 }
 
 [query]
-border = { type = "Rounded", sides = "ALL", color = "blue" }
+border = { sides = "BOTTOM", color = "blue" }
 # word movement stops at these characters in addition to whitespace
 word_boundaries = ['.', '/']
 reset_cursor_on_query_change = true
+prompt_style.modifier = "BOLD"
+
+[status]
+show = true
+row_connection = "Capped"
+style = { modifier = "DIM | ITALIC", fg = "Gray" }
+
+[query_locked.query]
+# Border while the prompt is locked.
+border = { sides = "BOTTOM", color = "red" }
 
 [prompt]
 # characters kept between the cursor and the left edge of prompt bars
@@ -108,10 +114,8 @@ reset_cursor_on_query_change = true
 "alt-enter" = "Print"
 "alt-r" = "Reload"
 
-"ctrl-[" = "ToggleWrap" # requires keyboard enhancement
-"ctrl-]" = "TogglePreviewWrap" # requires keyboard enhancement
-"alt-{" = "ToggleWrap"
-"alt-}" = "TogglePreviewWrap"
+"alt-w" = "ToggleWrap"
+"alt-shift-w" = "TogglePreviewWrap"
 
 "alt-shift-right" = "HScroll(1)"
 "alt-shift-left" = "HScroll(-1)"
@@ -151,7 +155,7 @@ reset_cursor_on_query_change = true
 "ctrl-c" = "Copy"
 "ctrl-n" = "New"
 "ctrl-shift-n" = "NewFolder"
-"ctrl-y" = "CopyPath"
+"alt-x" = "CopyPath"
 "delete" = "Trash"
 "shift-delete" = "Delete"
 "f2" = "Rename"
