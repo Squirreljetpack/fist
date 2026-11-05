@@ -163,7 +163,7 @@ impl PathItem {
 pub fn short_display(path: &Path) -> Span<'static> {
     let text = path.basename();
     if path.is_symlink() {
-        Span::styled(text, Color::Green)
+        Span::styled(text, Color::LightCyan)
     } else if path.is_dir() {
         Span::styled(text, Color::LightBlue)
     } else {

@@ -86,6 +86,19 @@ impl MenuOverlay {
             .unwrap_or_else(STACK::_cwd)
     }
 
+    /// The selected items, or the cursor item (the cwd while the cursor is
+    /// disabled) when nothing is selected.
+    pub fn target_paths(
+        &self,
+        state: &mut MMState<'_, PathItem, ()>,
+    ) -> Vec<AbsPath> {
+        let mut paths: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
+        if paths.is_empty() {
+            paths.push(self.target_path(state));
+        }
+        paths
+    }
+
     pub fn target_parent(
         &self,
         state: &mut MMState<'_, PathItem, ()>,
