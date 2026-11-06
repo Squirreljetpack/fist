@@ -610,6 +610,12 @@ impl MenuOverlay {
         let targets = ctx.resolve_targets(action);
         let displays: Vec<Span<'static>> = targets.iter().map(|p| short_display(p)).collect();
 
+        if GLOBAL::cfg().interface.bump_menu_action_paths {
+            for path in &targets {
+                db().bump_path(path.is_dir(), path.clone());
+            }
+        }
+
         match action.strategy {
             MenuStrategy::Queue => {
                 QUEUE::enqueue(key.to_string(), targets);

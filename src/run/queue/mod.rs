@@ -7,11 +7,13 @@
 //! are the sole owners of live queue data.
 
 mod execute;
-mod pump;
+pub mod pump;
 mod status;
 pub use status::*;
 
-pub use pump::{ensure_watcher, scheduler, shutdown, task_log};
+pub use pump::{
+    PUMP_CONFIG, PumpConfig, ensure_watcher, maybe_bump_dest, scheduler, shutdown, task_log,
+};
 
 use std::{ffi::OsString, path::PathBuf, sync::Mutex};
 
@@ -597,16 +599,16 @@ impl QUEUE {
         // start count is computed
         let mut queue: Vec<QueueItem> = Vec::new();
         {
-            let state = QUEUE_STATE.lock().unwrap();
+            let mut state = QUEUE_STATE.lock().unwrap();
             for i in indices {
-                let Some(mut item) = state.shared.get(i).cloned() else {
+                let Some(item) = state.shared.get_mut(i) else {
                     continue;
                 };
                 if item.status.state.is_started() {
                     continue;
                 }
                 if matches!(item.kind.as_str(), "copy" | "move" | "symlink") {
-                    let Some(dest) = transfer_dest(&item, nav_cwd.as_ref()) else {
+                    let Some(dest) = transfer_dest(item, nav_cwd.as_ref()) else {
                         continue; // no nav to resolve against: stays pending
                     };
                     // moves/symlinks onto themselves do nothing; copies
@@ -615,7 +617,7 @@ impl QUEUE {
                     // never execute, so it becomes PendingErr — otherwise
                     // it would be re-selected and re-skipped forever.
                     if matches!(item.kind.as_str(), "move" | "symlink")
-                        && is_identity_transfer(&item, &dest)
+                        && is_identity_transfer(item, &dest)
                     {
                         item.status.state.store(QueueItemState::PendingErr);
                         TOAST::push_skipped();
@@ -623,7 +625,7 @@ impl QUEUE {
                     }
                     item.data = dest.into_os_string();
                 }
-                queue.push(item);
+                queue.push(item.clone());
             }
         }
         if queue.is_empty() {

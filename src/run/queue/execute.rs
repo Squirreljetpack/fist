@@ -194,6 +194,7 @@ fn finish_inline(
 ) {
     match result {
         Ok(()) => {
+            super::pump::maybe_bump_dest(&item);
             item.status.state.store(QueueItemState::CompleteOk);
             QUEUE_ACTION_HISTORY.lock().unwrap().push(item);
         }

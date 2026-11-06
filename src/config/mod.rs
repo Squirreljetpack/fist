@@ -1,5 +1,5 @@
-use cba::{bs::create_dir, vec_};
-use std::{collections::HashMap, path::PathBuf};
+use cba::bs::create_dir;
+use std::path::PathBuf;
 
 use crate::{
     cli::clap_helpers::ClapStyleOverride, db::zoxide::HistoryConfig, watcher::WatcherConfig,
@@ -118,9 +118,6 @@ impl std::ops::DerefMut for Config {
 pub struct GlobalConfig {
     pub interface: InterfaceConfig,
 
-    /// Configure behavior of filesystem actions.
-    pub fs: FsConfig,
-
     /// Configure various pane related settings.
     pub panes: PanesConfig,
 
@@ -179,7 +176,7 @@ pub enum RemoveDbRecordAction {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 /// Settings related to the behavior of the main interface.
-/// It is recommended not to change these.
+/// It is recommended not to change these without cause.
 pub struct InterfaceConfig {
     // actions
     /// The command template to execute when [FsAction::Advance](`crate::run::FsAction::Advance`) is invoked on a file.
@@ -218,6 +215,24 @@ pub struct InterfaceConfig {
     /// If [JumpOrAccept](`crate::run::FsAction::JumpOrAccept`) should accept or
     /// advance; ignored by `JumpOrAccept(0)`, which always accepts
     pub jump_or_advance: bool,
+
+    // filesystem actions
+    /// Preserve selections across reloads: selections are saved as hashed
+    /// absolute paths before the worker restart and rehydrated once the
+    /// fresh listing lands (see [`crate::run::selection`]).
+    pub refill_selections_after_reload: bool,
+    /// Copy the selected files themselves to the system clipboard, so they can
+    /// be pasted into a file manager. When false, Copy only enqueues to the
+    /// queue.
+    pub copy_files_to_clipboard: bool,
+    /// Cut the selected files to the system clipboard on Move, so they can be
+    /// pasted into a file manager. When false, Move only enqueues to the queue.
+    pub move_files_to_clipboard: bool,
+    /// Bump the paths a menu action is triggered on, including actions that
+    /// only enqueue their targets.
+    pub bump_menu_action_paths: bool,
+    /// Bump the destinations of successful Copy, Move, and Symlink runs.
+    pub bump_transfer_destinations: bool,
 }
 
 impl Default for InterfaceConfig {
@@ -235,91 +250,11 @@ impl Default for InterfaceConfig {
             allow_enter_unzip_directory: false,
             stability_threshold: 30,
             preserve_size_cache: false,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct FdConfig {
-    /// List of exclusion globs which should be applied.
-    /// ~ can be used in lieu of $HOME.
-    #[serde(default = "crate::find::fd::default_exclusions")]
-    pub exclusions: Vec<String>,
-
-    /// Arguments added to every fd command
-    pub base_args: Vec<String>,
-
-    /// The set of arguments applied to the end of `fs ::` when no `fd_args` were given.
-    pub default_args: Vec<String>,
-}
-
-impl Default for FdConfig {
-    fn default() -> Self {
-        Self {
-            exclusions: crate::find::fd::default_exclusions(),
-            base_args: Vec::new(),
-            default_args: Vec::new(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct RgConfig {
-    /// A map of folders => globs which should be applied when in them.
-    /// ~ can be used in lieu of $HOME.
-    /// If a list is specified for the empty path "", that list will apply everywhere.
-    /// Only one value can apply to each path.
-    /// Multiple glob flags may be used. Globbing rules match .gitignore globs. Precede a glob with a ! to exclude it. If multiple globs match a file or directory, the glob given later in the command line takes precedence. Globs used via this flag are matched case insensitively. This is passed on to rg through the `--iglob` parameter.
-    pub iglobs: HashMap<PathBuf, Vec<String>>,
-    /// Arguments added to every rg command
-    pub base_args: Vec<String>,
-
-    /// Query when no patterns are provided. Starting with '-v ' adds the -v flag.
-    pub empty_pattern: Option<String>,
-    /// The set of arguments applied to the end of `fs :` when no `rg_args` were given.
-    pub default_args: Vec<String>,
-}
-
-impl Default for RgConfig {
-    fn default() -> Self {
-        RgConfig {
-            iglobs: Default::default(),
-            base_args: vec_![
-                "--trim",
-                "--color=ansi",
-                "--no-context-separator",
-                "--field-context-separator=-",
-            ],
-            empty_pattern: None,
-            default_args: Default::default(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct FsConfig {
-    /// Preserve selections across reloads: selections are saved as hashed
-    /// absolute paths before the worker restart and rehydrated once the
-    /// fresh listing lands (see [`crate::run::selection`]).
-    pub refill_selections_after_reload: bool,
-    /// Copy the selected files themselves to the system clipboard, so they can
-    /// be pasted into a file manager. When false, Copy only enqueues to the
-    /// queue.
-    pub copy_files_to_clipboard: bool,
-    /// Cut the selected files to the system clipboard on Move, so they can be
-    /// pasted into a file manager. When false, Move only enqueues to the queue.
-    pub move_files_to_clipboard: bool,
-}
-
-impl Default for FsConfig {
-    fn default() -> Self {
-        Self {
             refill_selections_after_reload: true,
             copy_files_to_clipboard: true,
             move_files_to_clipboard: false,
+            bump_menu_action_paths: false,
+            bump_transfer_destinations: false,
         }
     }
 }

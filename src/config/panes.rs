@@ -1,9 +1,8 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{
-    config::{FdConfig, RgConfig},
-    run::FsPane,
-};
+use cba::vec_;
+
+use crate::run::FsPane;
 use fist_types::{When, filters::*};
 use matchmaker::config::{ShowCondition, StyleSetting};
 use ratatui::style::Color;
@@ -105,6 +104,31 @@ impl Default for PaneSettings {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
+pub struct FdConfig {
+    /// List of exclusion globs which should be applied.
+    /// ~ can be used in lieu of $HOME.
+    #[serde(default = "crate::find::fd::default_exclusions")]
+    pub exclusions: Vec<String>,
+
+    /// Arguments added to every fd command
+    pub base_args: Vec<String>,
+
+    /// The set of arguments applied to the end of `fs ::` when no `fd_args` were given.
+    pub default_args: Vec<String>,
+}
+
+impl Default for FdConfig {
+    fn default() -> Self {
+        Self {
+            exclusions: crate::find::fd::default_exclusions(),
+            base_args: Vec::new(),
+            default_args: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct FindPaneSettings {
     /// Input prompt
     pub prompt: Option<String>,
@@ -150,6 +174,40 @@ impl Default for FindPaneSettings {
             max_refresh_execution_time_threshold: std::time::Duration::from_millis(400), // a generous default threshold to be sure it's working
             reduce_paths: false,
             fd: FdConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct RgConfig {
+    /// A map of folders => globs which should be applied when in them.
+    /// ~ can be used in lieu of $HOME.
+    /// If a list is specified for the empty path "", that list will apply everywhere.
+    /// Only one value can apply to each path.
+    /// Multiple glob flags may be used. Globbing rules match .gitignore globs. Precede a glob with a ! to exclude it. If multiple globs match a file or directory, the glob given later in the command line takes precedence. Globs used via this flag are matched case insensitively. This is passed on to rg through the `--iglob` parameter.
+    pub iglobs: HashMap<PathBuf, Vec<String>>,
+    /// Arguments added to every rg command
+    pub base_args: Vec<String>,
+
+    /// Query when no patterns are provided. Starting with '-v ' adds the -v flag.
+    pub empty_pattern: Option<String>,
+    /// The set of arguments applied to the end of `fs :` when no `rg_args` were given.
+    pub default_args: Vec<String>,
+}
+
+impl Default for RgConfig {
+    fn default() -> Self {
+        RgConfig {
+            iglobs: Default::default(),
+            base_args: vec_![
+                "--trim",
+                "--color=ansi",
+                "--no-context-separator",
+                "--field-context-separator=-",
+            ],
+            empty_pattern: None,
+            default_args: Default::default(),
         }
     }
 }
