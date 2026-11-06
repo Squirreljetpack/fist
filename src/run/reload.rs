@@ -100,7 +100,8 @@ pub fn fs_reload(
     // before the worker restart wipes the current listing. Refill only if the
     // reload re-reads the same directory.
     {
-        let refill = GLOBAL::cfg().fs.refill_selections_after_reload && !is_new && !dir_changed;
+        let refill =
+            GLOBAL::cfg().interface.refill_selections_after_reload && !is_new && !dir_changed;
         if refill && !state.picker_ui.selector.is_empty() {
             let hashes: Vec<u64> = state
                 .picker_ui

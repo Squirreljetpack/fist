@@ -22,7 +22,7 @@ use crate::{
     lua::{execute, load_script},
     run::{
         item::short_display,
-        state::{GLOBAL, MENU_ACTIONS, TOAST, ToastStyle},
+        state::{GLOBAL, GLOBAL::db, MENU_ACTIONS, TOAST, ToastStyle},
     },
 };
 
@@ -194,6 +194,10 @@ fn finish_inline(
 ) {
     match result {
         Ok(()) => {
+            if item.bump_dest {
+                let dest = AbsPath::new_unchecked(PathBuf::from(&item.data));
+                db().bump_path(dest.is_dir(), dest);
+            }
             item.status.state.store(QueueItemState::CompleteOk);
             QUEUE_ACTION_HISTORY.lock().unwrap().push(item);
         }
@@ -259,6 +263,7 @@ mod tests {
             src: vec![AbsPath::new_unchecked(&src_dir)],
             data: dst_folder.as_os_str().to_owned(),
             status: QueueItemStatus::new(&src_dir),
+            bump_dest: false,
         };
         // the unified watcher resolves tasks through rows in the shared
         // queue, mirroring the production dispatch path
@@ -280,6 +285,7 @@ mod tests {
             src: vec![AbsPath::new_unchecked(&src_dir)],
             data: symlink_target.as_os_str().to_owned(),
             status: QueueItemStatus::new(&src_dir),
+            bump_dest: false,
         };
         QUEUE_STATE.lock().unwrap().shared.push(sym_item.clone());
         let watch = sym_item.status.clone();
@@ -303,6 +309,7 @@ mod tests {
             src: vec![AbsPath::new_unchecked(&src)],
             data: "../a/".into(),
             status: QueueItemStatus::new(&src),
+            bump_dest: false,
         };
         let nav = AbsPath::new_unchecked("/tmp/nav");
         assert_eq!(
@@ -373,6 +380,7 @@ mod tests {
                 src: vec![AbsPath::new_unchecked(&src_dir)],
                 data: Default::default(),
                 status: QueueItemStatus::new(&src_dir),
+                bump_dest: false,
             });
             state.shared.len() - 1
         };
@@ -421,6 +429,7 @@ mod tests {
             src: vec![AbsPath::new_unchecked(&src)],
             data: Default::default(),
             status: QueueItemStatus::new(&src),
+            bump_dest: false,
         };
 
         {

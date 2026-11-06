@@ -20,7 +20,7 @@ use fist_copy::{Scheduler, TaskState};
 use super::*;
 use crate::run::{
     item::short_display,
-    state::{TOAST, ToastFlags, ToastStyle},
+    state::{GLOBAL::db, TOAST, ToastFlags, ToastStyle},
 };
 
 pub static COPY_SCHED: OnceLock<Scheduler> = OnceLock::new();
@@ -86,6 +86,10 @@ fn tick(
         match snap.state {
             TaskState::Pending | TaskState::Started => {}
             TaskState::CompleteOk => finalize(item, QueueItemState::CompleteOk, |item| {
+                if item.bump_dest {
+                    let dest = AbsPath::new_unchecked(PathBuf::from(&item.data));
+                    db().bump_path(dest.is_dir(), dest);
+                }
                 if let Some(first) = item.src.first() {
                     TOAST::push(ToastStyle::Success, "Complete: ", [short_display(first)]);
                 }

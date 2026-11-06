@@ -173,7 +173,7 @@ pub enum FsAction {
     Stash(String),
     /// Execute the queued operations selected by a queue-kind selector.
     ExecuteQueue(QueueSelector),
-    
+
     // Execute
     // ----------------------------------
     /// Execute a command template formatted against the current item (or the
@@ -201,7 +201,7 @@ pub enum FsAction {
     /// action key, looked up in the global config (discriminant 9, waited,
     /// output paged).
     MenuActionExecPaged(String),
-    
+
     // Nonbindable
     // ----------------------------------
     SaveInput,
@@ -1905,12 +1905,12 @@ fn db_stash_remove(
 }
 
 /// The file payload Copy and Move put on the clipboard, when
-/// `[fs] copy_files_to_clipboard` / `[fs] move_files_to_clipboard` asks for
+/// `[interface] copy_files_to_clipboard` / `[interface] move_files_to_clipboard` asks for
 /// one: a copy of the files, or a cut when the queue move removes them.
 fn copy_payload(mode: CopyMode) -> Option<Payload> {
     let enabled = match mode {
-        CopyMode::Copy => GLOBAL::cfg().fs.copy_files_to_clipboard,
-        CopyMode::Cut => GLOBAL::cfg().fs.move_files_to_clipboard,
+        CopyMode::Copy => GLOBAL::cfg().interface.copy_files_to_clipboard,
+        CopyMode::Cut => GLOBAL::cfg().interface.move_files_to_clipboard,
     };
     enabled.then_some(Payload::Files(mode))
 }

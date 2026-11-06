@@ -23,7 +23,7 @@ use crate::{
     cli::paths::__home,
     run::{
         FsPane,
-        state::{MENU_ACTIONS, STACK, TASKS, TOAST, ToastStyle},
+        state::{GLOBAL, MENU_ACTIONS, STACK, TASKS, TOAST, ToastStyle},
     },
 };
 
@@ -114,6 +114,9 @@ pub struct QueueItem {
     /// Task input: destination hint for transfers, script destination for
     /// custom kinds. Never mutated after enqueue.
     pub data: OsString,
+    /// Task input: bump `data` when the run succeeds. Captured at dispatch
+    /// from `interface.bump_transfer_destinations`.
+    pub bump_dest: bool,
 }
 
 impl QueueItem {
@@ -126,6 +129,7 @@ impl QueueItem {
             status: QueueItemStatus::new(&src),
             src: vec![src],
             data: Default::default(),
+            bump_dest: false,
         }
     }
 
@@ -311,6 +315,7 @@ impl QUEUE {
                 status: QueueItemStatus::new(&paths[0]),
                 src: paths,
                 data: Default::default(),
+                bump_dest: false,
             });
         }
     }
@@ -595,18 +600,19 @@ impl QUEUE {
         // (config is main-thread TLS): unresolvable rows stay pending, and
         // identity transfers are reported as skipped — all before the
         // start count is computed
+        let bump_dest = GLOBAL::cfg().interface.bump_transfer_destinations;
         let mut queue: Vec<QueueItem> = Vec::new();
         {
-            let state = QUEUE_STATE.lock().unwrap();
+            let mut state = QUEUE_STATE.lock().unwrap();
             for i in indices {
-                let Some(mut item) = state.shared.get(i).cloned() else {
+                let Some(item) = state.shared.get_mut(i) else {
                     continue;
                 };
                 if item.status.state.is_started() {
                     continue;
                 }
                 if matches!(item.kind.as_str(), "copy" | "move" | "symlink") {
-                    let Some(dest) = transfer_dest(&item, nav_cwd.as_ref()) else {
+                    let Some(dest) = transfer_dest(item, nav_cwd.as_ref()) else {
                         continue; // no nav to resolve against: stays pending
                     };
                     // moves/symlinks onto themselves do nothing; copies
@@ -615,15 +621,16 @@ impl QUEUE {
                     // never execute, so it becomes PendingErr — otherwise
                     // it would be re-selected and re-skipped forever.
                     if matches!(item.kind.as_str(), "move" | "symlink")
-                        && is_identity_transfer(&item, &dest)
+                        && is_identity_transfer(item, &dest)
                     {
                         item.status.state.store(QueueItemState::PendingErr);
                         TOAST::push_skipped();
                         continue;
                     }
                     item.data = dest.into_os_string();
+                    item.bump_dest = bump_dest;
                 }
-                queue.push(item);
+                queue.push(item.clone());
             }
         }
         if queue.is_empty() {
