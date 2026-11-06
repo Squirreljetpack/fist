@@ -1,4 +1,12 @@
-### PANES ###
+# This config file contains of active settings and inactive settings.
+# Except for [smart_visibility], the inactive settings describe
+# non-default behavior. Since f:ist is extensively configurable, these are left as
+# a few of the options for which preference is particularly subjective, or which are
+# likely to be of interest to users.
+
+# For a full reference, consult the docs (https://squirreljetpack.github.io/fist-docs/configuration).
+
+# === PANES ===
 [panes.nav]
 show_preview = 60
 
@@ -51,7 +59,7 @@ prompt = "◷ > "
 prompt = "⊞ > "
 prompt_style.modifier = "ITALIC"
 
-### SETTINGS ###
+# === SETTINGS ===
 
 [smart_visibility]
 # dot_query_show_hidden = true
@@ -67,28 +75,33 @@ prompt_style.modifier = "ITALIC"
 
 [history]
 refind = "Search"
-# Paths matching these globs are not recorded in history. Patterns match the
-# whole path, so add /* to cover everything beneath a directory.
+# Paths matching these globs are not recorded in history.
 # exclude = ["~/ignore_exact", "/logs/secret/*"]
 
 [queue]
-# Keep completed queue rows after closing the queue overlay (default: false)
+# Keep completed queue rows after closing the queue overlay
 # clear_completed_on_close = true
-
-[fs]
-# Copy the selected files themselves to the system clipboard on Copy. When
-# false, Copy only enqueues to the queue.
-# copy_files_to_clipboard = false
-
-# Cut the selected files to the system clipboard on Move (default: false).
-# move_files_to_clipboard = true
 
 ### MISC ###
 
 [interface]
 # hide the preview when in the query bar
 # hide_preview_when_cursor_disabled = true
-remove_db_record_action = "Trash"
+
+remove_db_record_action = "Trash" # Trash | Delete | None
 
 # prompt prefix when in the query bar: https://squirreljetpack.github.io/fist-docs/16-output-templates#the-format-template
 # cwd_prompt = '{2~2} '
+
+# Copy the selected files to the system clipboard on Copy.
+# copy_files_to_clipboard = false
+
+# Cut the selected files to the system clipboard on Move (default: false).
+# move_files_to_clipboard = true
+
+# Bump the paths a menu action is triggered on, (including actions that only
+# enqueue their targets).
+# bump_menu_action_paths = true
+
+# Bump the destinations of successful Copy, Move, and Symlink runs.
+# bump_transfer_destinations = true

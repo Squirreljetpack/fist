@@ -20,10 +20,25 @@ use fist_copy::{Scheduler, TaskState};
 use super::*;
 use crate::run::{
     item::short_display,
-    state::{TOAST, ToastFlags, ToastStyle},
+    state::{GLOBAL::db, TOAST, ToastFlags, ToastStyle},
 };
 
 pub static COPY_SCHED: OnceLock<Scheduler> = OnceLock::new();
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct PumpConfig {
+    pub bump_dests: bool,
+}
+
+pub static PUMP_CONFIG: OnceLock<PumpConfig> = OnceLock::new();
+
+pub fn maybe_bump_dest(item: &QueueItem) {
+    let bump = PUMP_CONFIG.get().is_some_and(|c| c.bump_dests);
+    if !item.data.is_empty() && DEST_KINDS.contains(&item.kind.as_str()) && bump {
+        let dest = AbsPath::new_unchecked(PathBuf::from(&item.data));
+        db().bump_path(dest.is_dir(), dest);
+    }
+}
 
 static WATCHER: OnceLock<()> = OnceLock::new();
 
@@ -86,6 +101,7 @@ fn tick(
         match snap.state {
             TaskState::Pending | TaskState::Started => {}
             TaskState::CompleteOk => finalize(item, QueueItemState::CompleteOk, |item| {
+                maybe_bump_dest(item);
                 if let Some(first) = item.src.first() {
                     TOAST::push(ToastStyle::Success, "Complete: ", [short_display(first)]);
                 }

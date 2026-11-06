@@ -58,6 +58,9 @@ pub fn init(
     let sort = pane.sort_order();
     debug!("Initial sort: {sort}");
 
+    let _ = crate::run::queue::pump::PUMP_CONFIG.set(crate::run::queue::pump::PumpConfig {
+        bump_dests: config.interface.bump_transfer_destinations,
+    });
     CONFIG.with(|c| c.set(config).ok());
     let _ = DB.set(db_pool);
     let _ = RENDER_TX.set(render_tx);
