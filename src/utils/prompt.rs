@@ -82,8 +82,14 @@ pub fn show_error<S: AsRef<str>>(messages: &[S]) {
     for msg in messages {
         eprintln!("{}", msg.as_ref());
     }
-    eprintln!();
-    eprint!("(Press Enter to continue) ");
+
+    await_continue();
+}
+
+pub fn await_continue() {
+    use crossterm::style::Stylize;
+
+    eprint!("\n{}", "Press Enter to Continue".bold().underlined());
     let _ = std::io::stderr().flush();
     let mut input = String::new();
     let _ = std::io::stdin().read_line(&mut input);

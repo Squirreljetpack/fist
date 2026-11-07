@@ -122,6 +122,7 @@ pub enum MenuItem {
     Extract,
     Unmount,
     Mounts,
+    Execute,
     Custom {
         name: String,
         action: String,
@@ -147,6 +148,7 @@ impl MenuItem {
             MenuItem::Extract => "extract",
             MenuItem::Unmount => "unmount",
             MenuItem::Mounts => "show mounts",
+            MenuItem::Execute => "execute",
             MenuItem::Custom { name, .. } => name,
         }
     }
@@ -166,6 +168,7 @@ impl MenuItem {
             MenuItem::Extract => Some("E"),
             MenuItem::Unmount => None,
             MenuItem::Mounts => None,
+            MenuItem::Execute => Some("X"),
             MenuItem::Symlink => None,
             MenuItem::Goto => None,
             MenuItem::Custom { alias, .. } => alias.as_deref(),
@@ -250,6 +253,7 @@ impl MenuItem {
                 GLOBAL::send_action(FsAction::ShowMounts);
                 Err(false)
             }
+            MenuItem::Execute => Ok(MenuPrompt::new(PromptKind::Execute)),
             MenuItem::OpenWith => {
                 unreachable!("OpenWith is handled in MenuOverlay::execute")
             }
@@ -339,7 +343,7 @@ impl ColumnIndexable for MenuEntry {
     }
 }
 
-pub const MENU_ITEMS: [MenuItem; 14] = [
+pub const MENU_ITEMS: [MenuItem; 15] = [
     MenuItem::New,
     MenuItem::Rename,
     MenuItem::Move,
@@ -354,6 +358,7 @@ pub const MENU_ITEMS: [MenuItem; 14] = [
     MenuItem::NewFolder,
     MenuItem::Symlink,
     MenuItem::Goto,
+    MenuItem::Execute,
 ];
 
 /// The menu overlay: a two-column picker of the available actions
@@ -690,7 +695,7 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
     ) -> OverlayEffect {
         if let Some(p) = self.prompt_kind {
             if let OverlayEffect::Disable = self.prompt.handle_input(c, state) {
-                self.on_prompt_accept(p, state)
+                self.on_prompt_accept(p, state, false)
             } else {
                 OverlayEffect::None
             }
@@ -721,11 +726,18 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
         }
 
         if let Some(p) = self.prompt_kind {
+            // Print("") is the alternative accept for the execute prompt:
+            // detach instead of waiting.
+            if matches!(p, PromptKind::Execute)
+                && matches!(action, Action::Print(s) if s.is_empty())
+            {
+                return self.on_prompt_accept(p, state, true);
+            }
             // defer to prompt
             match self.prompt.handle_action_(action) {
                 None => {}
                 Some(false) => self.prompt_kind = None,
-                Some(true) => return self.on_prompt_accept(p, state),
+                Some(true) => return self.on_prompt_accept(p, state, false),
             }
             return OverlayEffect::None;
         }

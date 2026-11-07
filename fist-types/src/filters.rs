@@ -239,6 +239,7 @@ impl Visibility {
     pub fn set_default(&mut self) {
         *self = Visibility {
             dirs: self.dirs,
+            files: self.files,
             ..Default::default()
         }
     }

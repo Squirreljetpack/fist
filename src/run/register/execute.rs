@@ -10,7 +10,7 @@ use crate::{
     lua::{execute, load_script},
     pager,
     run::state::{ExecuteHandlerShouldProcessParent, MENU_ACTIONS, STACK, STORE},
-    utils::{command::maybe_tty, formatter::format_state_at},
+    utils::{command::maybe_tty, formatter::format_state_at, prompt::await_continue},
 };
 
 /// Execution mode of the `FsAction::Execute*` variants, transported through
@@ -33,6 +33,12 @@ pub enum ExecutionMode {
     MenuAction = 7,
     LuaCommand = 8,
     LuaCommandPaged = 9,
+    /// Wait for the child, and prompt for Enter when it exits non-zero before
+    /// the TUI is redrawn. Signal termination (no exit code) does not prompt.
+    ExecuteOrConfirm = 10,
+    /// Wait for the child and always prompt for Enter before the TUI is
+    /// redrawn, regardless of the exit status.
+    ExecuteWait = 11,
 }
 
 impl ExecutionMode {
@@ -48,6 +54,8 @@ impl ExecutionMode {
             7 => Some(Self::MenuAction),
             8 => Some(Self::LuaCommand),
             9 => Some(Self::LuaCommandPaged),
+            10 => Some(Self::ExecuteOrConfirm),
+            11 => Some(Self::ExecuteWait),
             _ => None,
         }
     }
@@ -212,7 +220,7 @@ pub(super) fn build_exec_command(
     }
 
     match mode {
-        ExecutionMode::Normal => {}
+        ExecutionMode::Normal | ExecutionMode::ExecuteOrConfirm | ExecutionMode::ExecuteWait => {}
         ExecutionMode::Paged => {
             // prepare to pipe stdout to the pager
             builder.stdout(Stdio::piped()).stdin(Stdio::null());
@@ -282,6 +290,24 @@ pub(super) fn wait_exec(
             }
             Err(e) => {
                 info!("Failed to wait on command [{cmd}]: {e}");
+                false
+            }
+        },
+        ExecutionMode::ExecuteOrConfirm | ExecutionMode::ExecuteWait => match child.wait() {
+            Ok(i) => {
+                info!("Command [{cmd}] exited with {i}");
+                if mode == ExecutionMode::ExecuteWait
+                    || (mode == ExecutionMode::ExecuteOrConfirm && i.code().is_some_and(|c| c != 0))
+                {
+                    await_continue();
+                }
+                i.success()
+            }
+            Err(e) => {
+                info!("Failed to wait on command [{cmd}]: {e}");
+                if mode == ExecutionMode::ExecuteWait {
+                    await_continue();
+                }
                 false
             }
         },
