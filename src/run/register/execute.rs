@@ -33,6 +33,12 @@ pub enum ExecutionMode {
     MenuAction = 7,
     LuaCommand = 8,
     LuaCommandPaged = 9,
+    /// Wait for the child, and prompt for Enter when it exits non-zero before
+    /// the TUI is redrawn. Signal termination (no exit code) does not prompt.
+    ExecuteOrConfirm = 10,
+    /// Wait for the child and always prompt for Enter before the TUI is
+    /// redrawn, regardless of the exit status.
+    ExecuteWait = 11,
 }
 
 impl ExecutionMode {
@@ -48,6 +54,8 @@ impl ExecutionMode {
             7 => Some(Self::MenuAction),
             8 => Some(Self::LuaCommand),
             9 => Some(Self::LuaCommandPaged),
+            10 => Some(Self::ExecuteOrConfirm),
+            11 => Some(Self::ExecuteWait),
             _ => None,
         }
     }
@@ -212,7 +220,7 @@ pub(super) fn build_exec_command(
     }
 
     match mode {
-        ExecutionMode::Normal => {}
+        ExecutionMode::Normal | ExecutionMode::ExecuteOrConfirm | ExecutionMode::ExecuteWait => {}
         ExecutionMode::Paged => {
             // prepare to pipe stdout to the pager
             builder.stdout(Stdio::piped()).stdin(Stdio::null());
@@ -285,8 +293,38 @@ pub(super) fn wait_exec(
                 false
             }
         },
+        ExecutionMode::ExecuteOrConfirm | ExecutionMode::ExecuteWait => match child.wait() {
+            Ok(i) => {
+                info!("Command [{cmd}] exited with {i}");
+                if mode == ExecutionMode::ExecuteWait
+                    || (mode == ExecutionMode::ExecuteOrConfirm && i.code().is_some_and(|c| c != 0))
+                {
+                    prompt_to_continue();
+                }
+                i.success()
+            }
+            Err(e) => {
+                info!("Failed to wait on command [{cmd}]: {e}");
+                if mode == ExecutionMode::ExecuteWait {
+                    prompt_to_continue();
+                }
+                false
+            }
+        },
         _ => true,
     }
+}
+
+/// Print the confirmation prompt and block until Enter is pressed. The TUI has
+/// already been suspended (`tui.enter_execute`), so plain stdio is usable.
+fn prompt_to_continue() {
+    use crossterm::style::Stylize;
+    use std::io::Write;
+
+    print!("\n{}", "Press Enter to Continue".bold().underlined());
+    let _ = std::io::stdout().flush();
+    let mut input = String::new();
+    let _ = std::io::stdin().read_line(&mut input);
 }
 
 /// Resolve the execution target: the cwd when the cursor is disabled,
