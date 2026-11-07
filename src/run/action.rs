@@ -179,6 +179,12 @@ pub enum FsAction {
     /// Execute a command template formatted against the current item (or the
     /// cwd while the cursor is disabled), waiting for it to exit.
     Execute(String),
+    /// Like [`Self::Execute`], but wait for Enter before returning to the TUI
+    /// when the command exits non-zero.
+    ExecuteOrConfirm(String),
+    /// Like [`Self::ExecuteOrConfirm`], but always wait for Enter, regardless
+    /// of the command's exit status.
+    ExecuteWait(String),
     /// Like [`Self::Execute`], but pipe stdout through the pager.
     ExecPaged(String),
     /// Like [`Self::Execute`], but connect stdin/stdout/stderr to the tty.
@@ -1635,9 +1641,15 @@ pub fn fsaction_handler(
         // See the execute handlers in [`crate::run::register::execute`]: the
         // mode is transported in `state.discriminant_payload`, the template
         // stays untouched.
-        fa @ (FsAction::Execute(_) | FsAction::ExecPaged(_) | FsAction::ExecTTY(_)) => {
+        fa @ (FsAction::Execute(_)
+        | FsAction::ExecuteOrConfirm(_)
+        | FsAction::ExecuteWait(_)
+        | FsAction::ExecPaged(_)
+        | FsAction::ExecTTY(_)) => {
             let (mode, template) = match fa {
                 FsAction::Execute(t) => (ExecutionMode::Normal, t),
+                FsAction::ExecuteOrConfirm(t) => (ExecutionMode::ExecuteOrConfirm, t),
+                FsAction::ExecuteWait(t) => (ExecutionMode::ExecuteWait, t),
                 FsAction::ExecPaged(t) => (ExecutionMode::Paged, t),
                 FsAction::ExecTTY(t) => (ExecutionMode::Tty, t),
                 _ => unreachable!(),
@@ -2103,6 +2115,8 @@ macro_rules! enum_from_str_display {
 
                                 },
                                 Execute(s) => write!(f, "Execute({})", s),
+                                ExecuteOrConfirm(s) => write!(f, "ExecuteOrConfirm({})", s),
+                                ExecuteWait(s) => write!(f, "ExecuteWait({})", s),
 
                                 LessfilterPreview(p, _) => {
                                     write!(f, "LFPreview({p})")
@@ -2239,6 +2253,13 @@ macro_rules! enum_from_str_display {
                                     let cmd = data.ok_or_else(|| "Missing command for Execute")?;
                                     Ok(Self::Execute(cmd.into()))
                                 }
+                                "ExecuteOrConfirm" | "ExecOrConfirm" => {
+                                    let cmd = data.ok_or_else(|| {
+                                        "Missing command for ExecuteOrConfirm"
+                                    })?;
+                                    Ok(Self::ExecuteOrConfirm(cmd.into()))
+                                }
+                                // ExecuteWait is not bindable
 
                                 /* ------------------------------------- */
 

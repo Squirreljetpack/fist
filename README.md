@@ -154,7 +154,7 @@ Once inside, you can navigate and re-enter from other panes by pressing the `lef
 
 > [!NOTE]
 >
-> The following describes what is probably the least straightforward feature of F:st. Hopefully, it will make more sense when you start to use it. If not, the behavior comes from a block of bind definitions in [`mm.toml`](#configuration)[^customization-philosophy] that you can delete to disable.
+> The following describes what is probably the least straightforward feature of F:st. Hopefully, it will make more sense when you start to use it. If not, the behavior comes from a block of bind definitions in [`mm.toml`](https://github.com/Squirreljetpack/fist/blob/main/assets/config/mm.toml)[^customization-philosophy] that you can delete to disable.
 
 F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. Unfortunately, because the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions end up bound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in query-reliant panes like [`Find`](#find) or [`Search`](#search), the query bar locks when entering these panes: indicated by a blue border around your prompt. When the prompt is locked, the `left`/`right` and `shift-left`/`right` keys switch roles, so that `left`/`right` reverts to only moving the caret in your query.
 On macos, `cmd+delete` also returns to `DeleteWord` instead of `Trash`.
@@ -262,9 +262,6 @@ The apps pane comes prepopulated from the existing applications on your system, 
 - the `open with` [menu action](#menu)
 - a custom binding for the `App` action.
 
-The `App` action has no default key binding. `fs :o --list` prints the
-currently known application paths without opening the app pane.
-
 <img src=".README.assets/app-pane.png" alt="Apps pane with a pending file and an application icon preview" width="666" />
 
 It can be used to select a launch method for a given set of files (provided through the command line, or collected in the app view's pending files).
@@ -313,7 +310,7 @@ For more information, consult the [docs](https://squirreljetpack.github.io/fist-
 
 The other, more direct way to add arbitrary execution flows is by adding `Execute`-type actions in the `[binds]` section. These work the same way as binds from [matchmaker](https://github.com/Squirreljetpack/matchmaker) or [fzf](https://github.com/junegunn/fzf).
 
-For example, the default `mm.toml` binds `Ctrl-Esc` to `Execute($SHELL)`: the inner string is executed in your shell environment, allowing you to drop into a shell from your current directory in f:st. On exit, you return to the main app. There are also additional variants such as `ExecPaged`, which lets you view your results in a navigable interface, or `Become` -- which transforms the process instead of pausing f:st.
+For example, the default `mm.toml` binds `Ctrl-Esc` to `Execute($SHELL)`: the inner string is executed in your shell environment, allowing you to drop into a shell from your current directory in f:st. On exit, you return to the main app. There are also additional variants such as `ExecPaged`, which lets you view your results in a navigable interface, or `Become` -- which transforms to the process, leaving f:st.
 
 ### Queue
 
@@ -516,7 +513,7 @@ fs exposes several of the more generally useful functionalities it uses internal
 
 # Configuration
 
-Configuration is presently only documented in the source files: [Main Config](./src/config/mod.rs), [Panes](./src/config/panes.rs), [Styling](./src/config/styles.rs), [Miscellaneous UI](./src/config/ui.rs), [Lessfilter](./src/lessfilter/config.rs), [Lessfilter](./src/lessfilter/config.rs), [Matchmaker Config](./src/run/mm_config.rs)[^mm-config].
+Configuration is presently only documented in the source files: [Main Config](./src/config/mod.rs), [Panes](./src/config/panes.rs), [Styling](./src/config/styles.rs), [Miscellaneous UI](./src/config/ui.rs), [Lessfilter](./src/lessfilter/config.rs), [Lessfilter](./src/lessfilter/config.rs), [Matchmaker Config](./src/run/mm_config.rs).
 
 For more information on this one, you can refer to the matchmaker documentation [here](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/src/config.rs).
 

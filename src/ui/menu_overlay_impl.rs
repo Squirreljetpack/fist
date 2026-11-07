@@ -32,6 +32,7 @@ pub enum PromptKind {
     Extract,
     #[strum(serialize = "Set alias")]
     SetAlias,
+    Execute,
 }
 
 /// The rename prompt for `path`: the input is prepopulated with the full path
@@ -115,6 +116,7 @@ impl MenuOverlay {
         &mut self,
         prompt: PromptKind,
         state: &mut MMState<'_, PathItem, ()>,
+        print_flavor: bool,
     ) -> OverlayEffect {
         match prompt {
             PromptKind::New => {
@@ -336,6 +338,17 @@ impl MenuOverlay {
                         false,
                     );
                 }
+            }
+            PromptKind::Execute => {
+                let input = self.prompt.input.value();
+                if input.trim().is_empty() {
+                    return OverlayEffect::None;
+                }
+                GLOBAL::send_action(if print_flavor {
+                    FsAction::ExecDetached(input)
+                } else {
+                    FsAction::ExecuteWait(input)
+                });
             }
             PromptKind::Extract => {
                 let input = self.prompt.input.value();

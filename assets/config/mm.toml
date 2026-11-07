@@ -101,7 +101,8 @@ border = { sides = "BOTTOM", color = "red" }
 "shift-right" = "ForwardChar"
 "ctrl-space" = "LockPrompt"
 "alt-hyphen" = "LockPrompt"
-# Consistent scheme: Arrow keys always move the cursor
+
+# Consistent scheme (disable above and uncomment below): Arrow keys always move the cursor
 # "shift-left" = "Parent"
 # "shift-right" = "Advance"
 
