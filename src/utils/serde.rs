@@ -33,12 +33,12 @@ where
     }
 }
 
-pub mod border_result {
-    use matchmaker::config::{BorderSetting, PartialBorderSetting};
+pub mod frame_result {
+    use matchmaker::config::{FrameSetting, PartialFrameSetting};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn serialize<S>(
-        value: &Result<BorderSetting, PartialBorderSetting>,
+        value: &Result<FrameSetting, PartialFrameSetting>,
         serializer: S,
     ) -> Result<S::Ok, S::Error>
     where
@@ -52,11 +52,11 @@ pub mod border_result {
 
     pub fn deserialize<'de, D>(
         deserializer: D
-    ) -> Result<Result<BorderSetting, PartialBorderSetting>, D::Error>
+    ) -> Result<Result<FrameSetting, PartialFrameSetting>, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let partial = PartialBorderSetting::deserialize(deserializer)?;
+        let partial = PartialFrameSetting::deserialize(deserializer)?;
         Ok(Err(partial))
     }
 }

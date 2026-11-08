@@ -22,14 +22,14 @@ use crate::{
         OVERLAY_TICK_RATE,
         prompt_overlay::{PromptConfig, PromptOverlay},
     },
-    utils::serde::border_result,
+    utils::serde::frame_result,
 };
 
 use matchmaker::{
     Selector,
     action::Action,
     config::{
-        BorderSetting, CursorSetting, OverlayLayoutSettings, PartialBorderSetting, Percentage,
+        CursorSetting, FrameSetting, OverlayLayoutSettings, PartialFrameSetting, Percentage,
         QueryConfig, ResultsConfig, RowConnectionStyle,
     },
     message::BindDirective,
@@ -57,8 +57,8 @@ const MENU_WIDTH_POINTS: &[(u16, Percentage)] = &[(40, Percentage::new(50))];
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MenuConfig {
-    #[serde(with = "border_result")]
-    pub border: Result<BorderSetting, PartialBorderSetting>,
+    #[serde(with = "frame_result")]
+    pub frame: Result<FrameSetting, PartialFrameSetting>,
     /// When set, the builtin items get no aliases (custom actions keep their
     /// configured aliases).
     pub no_default_aliases: bool,
@@ -73,7 +73,7 @@ pub struct MenuConfig {
 
 impl Default for MenuConfig {
     fn default() -> Self {
-        let border = PartialBorderSetting {
+        let frame = PartialFrameSetting {
             title: Some("Menu".into()),
             sides: Some(Borders::ALL),
             padding: Some(Padding::new(2, 2, 0, 1).into()),
@@ -86,7 +86,7 @@ impl Default for MenuConfig {
             ..Default::default()
         };
         Self {
-            border: Err(border),
+            frame: Err(frame),
             no_default_aliases: false,
             compact: false,
             min_width: 16,
@@ -422,8 +422,8 @@ impl MenuOverlay {
         }
     }
 
-    pub fn border(&self) -> &BorderSetting {
-        self.config.border.as_ref().unwrap()
+    pub fn frame(&self) -> &FrameSetting {
+        self.config.frame.as_ref().unwrap()
     }
 
     /// The nucleo index and the item currently under the cursor, if any.
@@ -450,7 +450,7 @@ impl MenuOverlay {
     ) {
         self.prompt_kind = Some(prompt.kind);
         if !prompt.title.is_empty() {
-            self.prompt.input.config.border.title = prompt.title;
+            self.prompt.input.config.frame.title = prompt.title;
         }
         self.prompt.on_enable(&Rect::default(), state);
 
@@ -813,17 +813,17 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
             [
                 SizeHint {
                     adaptive_percentage: MENU_WIDTH_POINTS,
-                    min: self.config.min_width + self.border().width(),
-                    max: (content_width + self.border().width())
-                        .max(self.config.min_width + self.border().width()),
+                    min: self.config.min_width + self.frame().width(),
+                    max: (content_width + self.frame().width())
+                        .max(self.config.min_width + self.frame().width()),
                 },
                 SizeHint {
                     adaptive_percentage: &[],
                     // with no actions the overlay shrinks to the message and border
                     min: if self.menu_items.is_empty() {
-                        2 + self.border().height()
+                        2 + self.frame().height()
                     } else {
-                        self.config.min_height + self.border().height()
+                        self.config.min_height + self.frame().height()
                     },
                     max: 0,
                 },
@@ -832,7 +832,7 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
             ui_area,
         );
 
-        let inner = self.border().inner_of(self.area);
+        let inner = self.frame().inner_of(self.area);
 
         // compact empty state: nothing to lay out, the message fills the box
         if self.menu_items.is_empty() {
@@ -884,9 +884,9 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
             .update_table(worker, &self.selector, &mut matchmaker::matcher::matcher());
 
         frame.render_widget(Clear, self.area);
-        frame.render_widget(self.border().as_block(), self.area);
+        frame.render_widget(self.frame().as_block(), self.area);
 
-        let inner = self.border().inner_of(self.area);
+        let inner = self.frame().inner_of(self.area);
 
         // no actions available (e.g. the app pane lists custom actions
         // only, and none matched): a compact box with the message only
@@ -980,10 +980,10 @@ mod tests {
         // production applies the partial border onto the overlay border in
         // get_mm_cfg; mirror that so the default renders fully
         let mut config = MenuConfig::default();
-        if let Err(partial) = config.border {
-            let mut full = matchmaker::config::OverlayConfig::default().border;
+        if let Err(partial) = config.frame {
+            let mut full = matchmaker::config::OverlayConfig::default().frame;
             full.apply(partial);
-            config.border = Ok(full);
+            config.frame = Ok(full);
         }
         config
     }

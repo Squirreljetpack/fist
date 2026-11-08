@@ -5,14 +5,14 @@ use crate::{
         item::PathItem,
         state::{GLOBAL, STACK, sort},
     },
-    utils::{serde::border_result, text::bold_indices},
+    utils::{serde::frame_result, text::bold_indices},
 };
 
 use cba::bum::UsizeExt;
 use fist_types::{When, filters::*};
 use matchmaker::{
     action::Action,
-    config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting},
+    config::{FrameSetting, OverlayLayoutSettings, PartialFrameSetting},
     render::MMState,
     ui::{Overlay, OverlayEffect, utils},
 };
@@ -28,8 +28,8 @@ const PANE_WIDTH: u16 = const { 4 + 17 + 1 };
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct OptionsBaseConfig {
-    #[serde(with = "border_result")]
-    pub border: Result<BorderSetting, PartialBorderSetting>,
+    #[serde(with = "frame_result")]
+    pub frame: Result<FrameSetting, PartialFrameSetting>,
     pub item_fg: Color,
     pub item_modifier: Modifier,
     pub alignment: HorizontalAlignment,
@@ -38,18 +38,18 @@ pub struct OptionsBaseConfig {
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct OptionsPaneConfig {
-    pub border: BorderSetting,
+    pub frame: FrameSetting,
     pub alignment: Option<HorizontalAlignment>,
 }
 
 impl Default for OptionsBaseConfig {
     fn default() -> Self {
-        let border = PartialBorderSetting {
+        let frame = PartialFrameSetting {
             title: Some("Options".into()),
             ..Default::default()
         };
         Self {
-            border: Err(border),
+            frame: Err(frame),
             item_fg: Color::DarkGray,
             item_modifier: Default::default(),
             alignment: Default::default(),
@@ -93,8 +93,8 @@ impl OptionsOverlay {
         }
     }
 
-    pub fn border(&self) -> &BorderSetting {
-        self.config.border.as_ref().unwrap()
+    pub fn frame(&self) -> &FrameSetting {
+        self.config.frame.as_ref().unwrap()
     }
 
     pub fn item_style(&self) -> Style {
@@ -109,11 +109,11 @@ impl OptionsOverlay {
             .max()
             .map(|v| *v as u16 + 2)
             .unwrap_or(2)
-            + self.border().height()
+            + self.frame().height()
     }
     pub fn width(&self) -> u16 {
         self.pane_lens.iter().filter(|&&v| v != 0).count() as u16 * PANE_WIDTH
-            + self.border().width()
+            + self.frame().width()
     }
     pub fn num_panes(&self) -> usize {
         self.pane_lens.iter().filter(|&&v| v > 0).count()
@@ -412,7 +412,7 @@ impl OptionsOverlay {
                 })
                 .collect();
 
-            Paragraph::new(lines).block(self.configs[pane_idx].border.as_static_block())
+            Paragraph::new(lines).block(self.configs[pane_idx].frame.as_static_block())
         };
 
         let mut widgets = vec![];
@@ -850,7 +850,7 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
             .map(|_| Constraint::Length(PANE_WIDTH))
             .collect();
 
-        let inner_area = self.border().as_block().inner(area);
+        let inner_area = self.frame().as_block().inner(area);
 
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
@@ -861,7 +861,7 @@ impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
             frame.render_widget(widget, chunks[i]);
         }
 
-        frame.render_widget(self.border().as_block(), area);
+        frame.render_widget(self.frame().as_block(), area);
     }
 }
 

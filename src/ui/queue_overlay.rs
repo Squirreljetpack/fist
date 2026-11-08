@@ -16,14 +16,14 @@ use crate::{
         components::Gauge,
         input::{InputWidget, InputWidgetConfig},
     },
-    utils::serde::border_result,
+    utils::serde::frame_result,
 };
 
 use cba::bath::PathExt;
 use cba::bring::StrExt;
 use matchmaker::{
     action::Action,
-    config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting, StyleSetting},
+    config::{FrameSetting, OverlayLayoutSettings, PartialFrameSetting, StyleSetting},
     message::BindDirective,
     render::MMState,
     ui::{Overlay, OverlayEffect, utils},
@@ -39,8 +39,8 @@ use std::{collections::BTreeSet, fmt::Alignment, sync::atomic::Ordering};
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct QueueConfig {
-    #[serde(with = "border_result")]
-    pub border: Result<BorderSetting, PartialBorderSetting>,
+    #[serde(with = "frame_result")]
+    pub frame: Result<FrameSetting, PartialFrameSetting>,
     // pub bar_width: u16,
     pub column_spacing: usize,
 
@@ -53,12 +53,12 @@ pub struct QueueConfig {
 
 impl Default for QueueConfig {
     fn default() -> Self {
-        let border = PartialBorderSetting {
+        let frame = PartialFrameSetting {
             title: Some("Queue".into()),
             ..Default::default()
         };
         Self {
-            border: Err(border),
+            frame: Err(frame),
             // bar_width: 15,
             column_spacing: 2,
             cell: Default::default(),
@@ -507,12 +507,12 @@ impl QueueOverlay {
         }
     }
 
-    pub fn border(&self) -> &BorderSetting {
-        self.config.border.as_ref().unwrap()
+    pub fn frame(&self) -> &FrameSetting {
+        self.config.frame.as_ref().unwrap()
     }
 
     pub fn width(&self) -> u16 {
-        self.area.width.saturating_sub(self.border().width())
+        self.area.width.saturating_sub(self.frame().width())
     }
 
     fn update_widths(
@@ -591,9 +591,9 @@ impl QueueOverlay {
     fn set_area(&mut self) {
         log::trace!("new widths {:?}", self.widths);
 
-        let width = self.widths.iter().sum::<u16>() + self.border().width() + 3;
+        let width = self.widths.iter().sum::<u16>() + self.frame().width() + 3;
         self.area = utils::default_area(
-            [width.into(), [self.border().height() + 4, 0].into()],
+            [width.into(), [self.frame().height() + 4, 0].into()],
             &self.extra.0,
             &self.extra.1,
         );
@@ -644,7 +644,7 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
         let state = QUEUE_STATE.lock().unwrap();
         self.state.available_w = ui_area
             .width
-            .saturating_sub(self.border().width())
+            .saturating_sub(self.frame().width())
             .saturating_sub(3); // column spacing
         self.update_widths(&state.shared, self.state.available_w);
 
@@ -673,7 +673,7 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
         if state.shared.is_empty() {
             frame.render_widget(Clear, self.area);
             frame.render_widget(
-                Paragraph::new("Queue is empty").block(self.border().as_block()),
+                Paragraph::new("Queue is empty").block(self.frame().as_block()),
                 self.area,
             );
             return;
@@ -686,7 +686,7 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
             log::trace!("new widths {:?}", self.widths);
             self.set_area();
         } else if self.state.dirty {
-            let border_w = self.border().width();
+            let border_w = self.frame().width();
             self.state
                 .update_editing_widths(&mut self.widths, &mut self.area, border_w);
         }
@@ -746,7 +746,7 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
             .header(header)
             .column_spacing(1)
             .block(
-                self.border()
+                self.frame()
                     .as_static_block()
                     .title(format!("[kind: {filter_label}]")),
             );
@@ -757,8 +757,8 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
             frame,
             area,
             &self.widths,
-            self.border().left(),
-            self.border().top(),
+            self.frame().left(),
+            self.frame().top(),
             self.config.editing_style.into(),
             Some(&state),
         );
@@ -790,8 +790,8 @@ impl AppOverlay {
         }
     }
 
-    pub fn border(&self) -> &BorderSetting {
-        self.config.border.as_ref().unwrap()
+    pub fn frame(&self) -> &FrameSetting {
+        self.config.frame.as_ref().unwrap()
     }
 
     fn update_widths(
@@ -814,9 +814,9 @@ impl AppOverlay {
     fn set_area(&mut self) {
         log::trace!("new widths {:?}", self.widths);
 
-        let width = self.widths.iter().sum::<u16>() + self.border().width();
+        let width = self.widths.iter().sum::<u16>() + self.frame().width();
         self.area = utils::default_area(
-            [width.into(), [self.border().height() + 4, 0].into()],
+            [width.into(), [self.frame().height() + 4, 0].into()],
             &self.extra.0,
             &self.extra.1,
         );
@@ -865,7 +865,7 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
         let pending = app_pending();
         self.state.available_w = ui_area
             .width
-            .saturating_sub(self.border().width())
+            .saturating_sub(self.frame().width())
             .saturating_sub(self.widths.len().saturating_sub(1) as u16);
         self.update_widths(&pending, self.state.available_w);
 
@@ -894,7 +894,7 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
             self.state.dirty = false;
             self.state.reiinit = false;
         } else if self.state.dirty {
-            let border_w = self.border().width();
+            let border_w = self.frame().width();
             self.state
                 .update_editing_widths(&mut self.widths, &mut self.area, border_w);
         }
@@ -963,7 +963,7 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
             )
             .header(header)
             .column_spacing(1)
-            .block(self.border().as_static_block());
+            .block(self.frame().as_static_block());
 
             frame.render_widget(Clear, area);
             frame.render_stateful_widget(table, area, &mut self.state.state);
@@ -1012,7 +1012,7 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
         )
         .header(header)
         .column_spacing(1)
-        .block(self.border().as_static_block());
+        .block(self.frame().as_static_block());
 
         frame.render_widget(Clear, area);
         frame.render_stateful_widget(table, area, &mut self.state.state);
@@ -1021,8 +1021,8 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
             frame,
             area,
             &self.widths,
-            self.border().left(),
-            self.border().top(),
+            self.frame().left(),
+            self.frame().top(),
             self.config.editing_style.into(),
         );
     }

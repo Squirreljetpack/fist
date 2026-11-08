@@ -18,13 +18,13 @@ use crate::{
         state::{GLOBAL, TOAST, ToastStyle},
     },
     ui::OVERLAY_TICK_RATE,
-    utils::serde::border_result,
+    utils::serde::frame_result,
 };
 use matchmaker::{
     Selector,
     action::Action,
     config::{
-        BorderSetting, CursorSetting, OverlayLayoutSettings, PartialBorderSetting, Percentage,
+        CursorSetting, FrameSetting, OverlayLayoutSettings, PartialFrameSetting, Percentage,
         QueryConfig, ResultsConfig, RowConnectionStyle,
     },
     message::BindDirective,
@@ -54,14 +54,14 @@ const MIN_WIDTH: u16 = 16;
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MountConfig {
-    #[serde(with = "border_result")]
-    pub border: Result<BorderSetting, PartialBorderSetting>,
+    #[serde(with = "frame_result")]
+    pub frame: Result<FrameSetting, PartialFrameSetting>,
     pub results: ResultsConfig,
 }
 
 impl Default for MountConfig {
     fn default() -> Self {
-        let border = PartialBorderSetting {
+        let frame = PartialFrameSetting {
             title: Some("Mounts".into()),
             sides: Some(Borders::ALL),
             padding: Some(Padding::new(2, 2, 0, 1).into()),
@@ -76,7 +76,7 @@ impl Default for MountConfig {
         };
         results.autoscroll.end = true;
         Self {
-            border: Err(border),
+            frame: Err(frame),
             results,
         }
     }
@@ -148,9 +148,9 @@ impl MountOverlay {
         }
     }
 
-    /// The overlay border.
-    fn border(&self) -> BorderSetting {
-        self.config.border.as_ref().unwrap().clone()
+    /// The overlay frame.
+    fn frame(&self) -> FrameSetting {
+        self.config.frame.as_ref().unwrap().clone()
     }
 
     fn build_worker(&mut self) {
@@ -346,7 +346,7 @@ impl Overlay<FsAction, PathItem, ()> for MountOverlay {
         ui_area: &Rect,
         layout: &OverlayLayoutSettings,
     ) {
-        let border = self.border();
+        let frame = self.frame();
 
         // the table additionally reserves the prefix indentation and the
         // inter-column spacing
@@ -361,14 +361,14 @@ impl Overlay<FsAction, PathItem, ()> for MountOverlay {
             + column_width(0)
             + column_width(1)
             + self.config.results.column_spacing.0;
-        let min_width = MIN_WIDTH + border.width();
+        let min_width = MIN_WIDTH + frame.width();
 
         // the query line, its separator and one row per volume; without volumes
         // the box shrinks to the message and border
         let height = if self.entries.is_empty() {
-            2 + border.height()
+            2 + frame.height()
         } else {
-            self.entries.len() as u16 + 3 + border.height()
+            self.entries.len() as u16 + 3 + frame.height()
         };
 
         self.area = utils::default_area(
@@ -376,7 +376,7 @@ impl Overlay<FsAction, PathItem, ()> for MountOverlay {
                 SizeHint {
                     adaptive_percentage: MOUNT_WIDTH_POINTS,
                     min: min_width,
-                    max: (content_width + border.width()).max(min_width),
+                    max: (content_width + frame.width()).max(min_width),
                 },
                 SizeHint {
                     adaptive_percentage: &[],
@@ -388,7 +388,7 @@ impl Overlay<FsAction, PathItem, ()> for MountOverlay {
             ui_area,
         );
 
-        let inner = border.inner_of(self.area);
+        let inner = frame.inner_of(self.area);
 
         // compact empty state: nothing to lay out, the message fills the box
         if self.entries.is_empty() {
@@ -434,11 +434,11 @@ impl Overlay<FsAction, PathItem, ()> for MountOverlay {
         self.results
             .update_table(worker, &self.selector, &mut matchmaker::matcher::matcher());
 
-        let border = self.border();
+        let overlay_frame = self.frame();
         frame.render_widget(Clear, self.area);
-        frame.render_widget(border.as_block(), self.area);
+        frame.render_widget(overlay_frame.as_block(), self.area);
 
-        let inner = border.inner_of(self.area);
+        let inner = overlay_frame.inner_of(self.area);
 
         // no volumes to enter: a compact box with the message only
         if self.entries.is_empty() {

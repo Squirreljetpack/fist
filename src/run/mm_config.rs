@@ -65,7 +65,7 @@ pub struct MMConfig {
     #[serde(default)]
     pub mount: MountConfig,
 
-    /// Query bar border while the prompt is locked.
+    /// Query bar frame while the prompt is locked.
     #[serde(default)]
     pub query_locked: QueryLockedConfig,
 
@@ -182,39 +182,39 @@ pub fn get_mm_cfg(
         tui.clear_on_exit = false;
     }
 
-    if let Err(p) = mm_cfg.options.base.border {
-        let mut full = mm_cfg.overlay.border.clone();
+    if let Err(p) = mm_cfg.options.base.frame {
+        let mut full = mm_cfg.overlay.frame.clone();
         full.apply(p);
-        mm_cfg.options.base.border = Ok(full)
+        mm_cfg.options.base.frame = Ok(full)
     }
-    if let Err(p) = mm_cfg.menu.border {
-        let mut full = mm_cfg.overlay.border.clone();
+    if let Err(p) = mm_cfg.menu.frame {
+        let mut full = mm_cfg.overlay.frame.clone();
         full.apply(p);
-        mm_cfg.menu.border = Ok(full)
+        mm_cfg.menu.frame = Ok(full)
     }
-    if let Err(p) = mm_cfg.queue.border {
-        let mut full = mm_cfg.overlay.border.clone();
+    if let Err(p) = mm_cfg.queue.frame {
+        let mut full = mm_cfg.overlay.frame.clone();
         full.apply(p);
-        mm_cfg.queue.border = Ok(full)
+        mm_cfg.queue.frame = Ok(full)
     }
-    if let Err(p) = mm_cfg.app.border {
-        let mut full = mm_cfg.overlay.border.clone();
+    if let Err(p) = mm_cfg.app.frame {
+        let mut full = mm_cfg.overlay.frame.clone();
         full.apply(p);
-        mm_cfg.app.border = Ok(full)
+        mm_cfg.app.frame = Ok(full)
     }
-    if let Err(p) = mm_cfg.confirm.border {
-        let mut full = mm_cfg.overlay.border.clone();
-        if p.modifier.is_none() {
-            full.modifier = Modifier::ITALIC
+    if let Err(p) = mm_cfg.confirm.frame {
+        let mut full = mm_cfg.overlay.frame.clone();
+        if p.style.as_ref().map_or(true, |s| s.modifier.is_empty()) {
+            full.style.modifier = Modifier::ITALIC;
         }
         full.apply(p);
-        mm_cfg.confirm.border = Ok(full)
+        mm_cfg.confirm.frame = Ok(full)
     }
 
-    if let Err(p) = mm_cfg.mount.border {
-        let mut full = mm_cfg.overlay.border.clone();
+    if let Err(p) = mm_cfg.mount.frame {
+        let mut full = mm_cfg.overlay.frame.clone();
         full.apply(p);
-        mm_cfg.mount.border = Ok(full)
+        mm_cfg.mount.frame = Ok(full)
     }
 
     _dbg!(&mm_cfg);

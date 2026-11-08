@@ -11,27 +11,27 @@ side = "right"
 percentage = 40
 min = 30
 max = 120
-border = { type = "LightDoubleDashed", color = "DarkGray" }
+frame = { type = "LightDoubleDashed", fg = "DarkGray" }
 
 [[preview.layout]]
 side = "top"
 percentage = 50
 min = 5
 max = 50
-border = { type = "LightDoubleDashed", color = "DarkGray" }
+frame = { type = "LightDoubleDashed", fg = "DarkGray" }
 
 [[preview.layout]]
 side = "right"
 percentage = 80
 min = 5
 max = 200
-border = { type = "LightDoubleDashed", color = "DarkGray" }
+frame = { type = "LightDoubleDashed", fg = "DarkGray" }
 
 [overlay]
-border = { type = "Plain", padding = 1 }
+frame = { type = "Plain", padding = 1 }
 
 [query]
-border = { type = "Rounded", sides = "ALL", color = "blue" }
+frame = { type = "Rounded", sides = "ALL", fg = "blue" }
 
 [results]
 delay_clear = true
