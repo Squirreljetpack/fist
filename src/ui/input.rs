@@ -1,13 +1,13 @@
 use crate::run::action::FsAction;
-use matchmaker::config::{QueryConfig, StyleSetting};
-use matchmaker::{action::Action, config::BorderSetting, ui::QueryUI};
+use matchmaker::config::{FrameSetting, QueryConfig, StyleSetting};
+use matchmaker::{action::Action, ui::QueryUI};
 use ratatui::style::Style;
 use ratatui::text::Span;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct InputWidgetConfig {
-    pub border: BorderSetting,
+    pub frame: FrameSetting,
     /// Characters kept between the cursor and the left edge of the bar.
     pub scroll_padding_left: usize,
     pub style: StyleSetting,
@@ -19,7 +19,7 @@ impl Default for InputWidgetConfig {
     fn default() -> Self {
         Self {
             scroll_padding_left: 3, // easier to see when editing cells
-            border: Default::default(),
+            frame: Default::default(),
             style: Default::default(),
             // lowpri: figure out a way to configure this
             word_boundaries: vec!['.', '/'],
@@ -36,7 +36,7 @@ pub struct InputWidget {
 impl InputWidget {
     pub fn new(config: InputWidgetConfig) -> Self {
         let inner = QueryUI::new(QueryConfig {
-            border: config.border.clone(),
+            frame: config.frame.clone(),
             style: config.style,
             word_boundaries: config.word_boundaries.clone(),
             ..Default::default()

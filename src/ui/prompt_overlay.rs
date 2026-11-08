@@ -3,7 +3,7 @@ use crate::ui::input::InputWidget;
 use crate::{run::action::FsAction, ui::input::InputWidgetConfig};
 use matchmaker::{
     action::Action,
-    config::{BorderSetting, OverlayLayoutSettings, Percentage},
+    config::{FrameSetting, OverlayLayoutSettings, Percentage},
     render::MMState,
     ui::{Overlay, OverlayEffect},
 };
@@ -17,7 +17,7 @@ use unicode_width::UnicodeWidthStr;
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PromptConfig {
-    pub border: BorderSetting,
+    pub frame: FrameSetting,
     /// Characters kept between the input cursor and the left edge of the bar.
     pub scroll_padding_left: usize,
 }
@@ -25,7 +25,7 @@ pub struct PromptConfig {
 impl Default for PromptConfig {
     fn default() -> Self {
         Self {
-            border: BorderSetting {
+            frame: FrameSetting {
                 sides: Some(Borders::ALL),
                 ..Default::default()
             },
@@ -42,7 +42,7 @@ pub struct PromptOverlay {
 impl PromptOverlay {
     pub fn new(config: PromptConfig) -> Self {
         let input_config = InputWidgetConfig {
-            border: config.border.clone(),
+            frame: config.frame.clone(),
             scroll_padding_left: config.scroll_padding_left,
             ..Default::default()
         };
@@ -59,7 +59,7 @@ impl PromptOverlay {
     ) -> Rect {
         let ui_w = ui_area.width;
         let content_w =
-            self.input.inner.input().width() as u16 + self.input.config.border.width() + 2;
+            self.input.inner.input().width() as u16 + self.input.config.frame.width() + 2;
 
         // 1. Calculate interpolation factor 't' based on screen width [40, 150]
         let t = ((ui_w as f32 - 40.0) / (150.0 - 40.0)).clamp(0.0, 1.0);
@@ -81,7 +81,7 @@ impl PromptOverlay {
             .min(ui_w.saturating_sub(2));
 
         // 5. Vertical positioning: 20% offset above center
-        let height = self.input.config.border.height() + 1;
+        let height = self.input.config.frame.height() + 1;
         let available_height = ui_area.height.saturating_sub(height);
         let offset =
             available_height / 2 - Percentage::new(20).compute_clamped(available_height, 0, 0);
@@ -130,13 +130,13 @@ impl Overlay<FsAction, PathItem, ()> for PromptOverlay {
         self.input.update_width(area.width);
         self.input.scroll_to_cursor();
 
-        let block = self.input.config.border.as_block();
+        let block = self.input.config.frame.as_block();
         let span = self.input.make_input(ratatui::style::Style::default());
         frame.render_widget(Paragraph::new(Line::from(span)).block(block), area);
 
         let pos = Position::new(
-            area.x + self.input.config.border.left() + self.input.inner.cursor_rel_offset(),
-            area.y + self.input.config.border.top(),
+            area.x + self.input.config.frame.left() + self.input.inner.cursor_rel_offset(),
+            area.y + self.input.config.frame.top(),
         );
         frame.set_cursor_position(pos);
     }

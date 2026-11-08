@@ -1,11 +1,11 @@
 use crate::run::action::FsAction;
 use crate::run::item::PathItem;
 use crate::run::state::STORE;
-use crate::utils::serde::border_result;
+use crate::utils::serde::frame_result;
 use cba::bait::TransformExt;
 use matchmaker::{
     action::Action,
-    config::{BorderSetting, OverlayLayoutSettings, PartialBorderSetting},
+    config::{FrameSetting, OverlayLayoutSettings, PartialFrameSetting, StyleSetting},
     render::MMState,
     ui::{Overlay, OverlayEffect, utils},
 };
@@ -18,9 +18,9 @@ use std::fmt::Debug;
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ConfirmConfig {
-    #[serde(with = "border_result")]
-    pub border: Result<BorderSetting, PartialBorderSetting>,
-    pub content_border: BorderSetting,
+    #[serde(with = "frame_result")]
+    pub frame: Result<FrameSetting, PartialFrameSetting>,
+    pub content_frame: FrameSetting,
     pub button_fg: Color,
     pub button_bg: Color,
     pub selected_fg: Color,
@@ -33,13 +33,16 @@ pub struct ConfirmConfig {
 impl Default for ConfirmConfig {
     fn default() -> Self {
         Self {
-            border: Err(PartialBorderSetting {
+            frame: Err(PartialFrameSetting {
                 sides: Some(Borders::ALL),
-                color: Some(Color::White),
+                border_style: Some(StyleSetting {
+                    fg: Some(Color::White),
+                    ..Default::default()
+                }),
                 padding: Some(Padding::new(2, 2, 0, 1).into()),
                 ..Default::default()
             }),
-            content_border: BorderSetting {
+            content_frame: FrameSetting {
                 r#type: Some(BorderType::LightDoubleDashed),
                 ..Default::default()
             },
@@ -113,12 +116,12 @@ impl ConfirmOverlay {
         }
     }
 
-    fn border(&self) -> &BorderSetting {
-        self.config.border.as_ref().unwrap()
+    fn frame(&self) -> &FrameSetting {
+        self.config.frame.as_ref().unwrap()
     }
 
-    fn content_border(&self) -> &BorderSetting {
-        &self.config.content_border
+    fn content_frame(&self) -> &FrameSetting {
+        &self.config.content_frame
     }
 
     fn accept(&mut self) -> OverlayEffect {
@@ -207,7 +210,7 @@ impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
         let has_content = self.prompt.content.is_some();
         let title_h = has_title as u16;
         let min_content_h = if has_content {
-            5 + self.content_border().height()
+            5 + self.content_frame().height()
         } else {
             0
         };
@@ -237,19 +240,19 @@ impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
                     .map(|t| t.width() as u16)
                     .unwrap_or_default(),
             )
-            .transform(|x| x + self.border().width())
+            .transform(|x| x + self.frame().width())
             .min(ui_area.width.saturating_sub(2) * 9 / 10);
 
         let options_h = options_width.div_ceil(ui_area.width);
 
         let height = if has_content {
             [
-                title_h + options_h + min_content_h + num_gaps + self.border().height(),
+                title_h + options_h + min_content_h + num_gaps + self.frame().height(),
                 0,
             ]
             .into()
         } else {
-            (title_h + options_h + num_gaps + self.border().height()).into()
+            (title_h + options_h + num_gaps + self.frame().height()).into()
         };
 
         self.area = utils::default_area([width.into(), height], layout, ui_area);
@@ -263,9 +266,9 @@ impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
         // 1. Initial Setup & Clearing
         frame.render_widget(Clear, area);
         let block = if !self.prompt.title_in_border {
-            self.border().as_block()
+            self.frame().as_block()
         } else {
-            self.border().as_block().title(self.prompt.prompt.clone())
+            self.frame().as_block().title(self.prompt.prompt.clone())
         };
         let inner_area = block.inner(area);
         frame.render_widget(block, area);
@@ -416,7 +419,7 @@ impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
             let content_area = Rect::new(inner_area.x, content_y, inner_area.width, content_h);
             frame.render_widget(
                 Paragraph::new(content.clone())
-                    .block(self.content_border().as_block())
+                    .block(self.content_frame().as_block())
                     .scroll((self.prompt.scroll, 0)),
                 content_area,
             );

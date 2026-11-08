@@ -22,7 +22,7 @@ side = "right"
 percentage = 40
 min = 30
 max = 120
-border = { type = "LightDoubleDashed", color = "DarkGray" }
+frame = { type = "LightDoubleDashed", fg = "DarkGray" }
 
 # find
 [[preview.layout]]
@@ -30,7 +30,7 @@ side = "top"
 percentage = 50
 min = 5
 max = 50
-border = { type = "LightDoubleDashed", color = "DarkGray" }
+frame = { type = "LightDoubleDashed", fg = "DarkGray" }
 
 # wide
 [[preview.layout]]
@@ -38,7 +38,7 @@ side = "right"
 percentage = 80
 min = 5
 max = 200
-border = { type = "LightDoubleDashed", color = "DarkGray" }
+frame = { type = "LightDoubleDashed", fg = "DarkGray" }
 
 # app
 [[preview.layout]]
@@ -65,10 +65,10 @@ scroll_wrap = true
 # images = true
 
 [overlay]
-border = { type = "Rounded", color = "DarkGray", padding = 1 }
+frame = { type = "Rounded", fg = "DarkGray", padding = 1 }
 
 [query]
-border = { sides = "BOTTOM", color = "blue" }
+frame = { sides = "BOTTOM", fg = "blue" }
 # word movement stops at these characters in addition to whitespace
 word_boundaries = ['.', '/']
 reset_cursor_on_query_change = true
@@ -80,8 +80,8 @@ row_connection = "Capped"
 style = { modifier = "DIM | ITALIC", fg = "Gray" }
 
 [query_locked.query]
-# Border while the prompt is locked.
-border = { sides = "BOTTOM", color = "red" }
+# Frame while the prompt is locked.
+frame = { sides = "BOTTOM", fg = "red" }
 
 [prompt]
 # characters kept between the cursor and the left edge of prompt bars
