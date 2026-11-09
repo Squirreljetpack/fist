@@ -21,5 +21,6 @@ smart_case = true
 smart_changes = true
 
 # Command to run when the pager is given a directory path.
-# {} is replaced with the directory path. Empty list disables this.
+# {} expands to the path as a raw argument (not shell-quoted); use {:} to quote.
+# Empty list disables this.
 display_directory = ["fs", ":tool", "liza", ":u2", "--", "{}"]

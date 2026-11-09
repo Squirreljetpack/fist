@@ -33,7 +33,7 @@ use crate::lessfilter::env::line_column;
 use crate::lessfilter::helpers::{extract, show_header, show_simple_metadata};
 use crate::pager;
 use crate::spawn::{init_spawn_with, open_wrapped};
-use crate::utils::formatter::format_path;
+use crate::utils::formatter::format_path_shell;
 use crate::{
     abspath::AbsPath,
     lessfilter::{
@@ -122,7 +122,7 @@ pub async fn handle(
                 ebog!("The custom action '{s}' is not defined!");
                 continue; // Note: This skip doesn't count as success/fail for execution logic
             };
-            let script = format_path(template, &AbsPath::new(path.clone()));
+            let script = format_path_shell(template, &AbsPath::new(path.clone()));
 
             let mut cmd = Command::from_script(&script, &[]).with_args(args.drain(..));
             log::trace!("spawning custom: {script}");
@@ -324,7 +324,10 @@ fn run_diagnose(
                             prints!(format!("    {action}: (custom action is not defined)"));
                             continue;
                         };
-                        prints!(format!("    {action} -> {}", format_path(template, &apath)));
+                        prints!(format!(
+                            "    {action} -> {}",
+                            format_path_shell(template, &apath)
+                        ));
                         continue;
                     }
                     for strategy in action.to_progs(path, preset).0 {

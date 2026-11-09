@@ -35,6 +35,12 @@ trait Host {
     fn selection(&self) -> Vec<Ctx<'_>>;
     /// Base of `.` slices.
     fn cwd(&self) -> Cow<'_, str>;
+    /// Whether path values bypass shell quoting. Argv contexts (commands that
+    /// are already split into words) set this so paths reach the program
+    /// verbatim.
+    fn raw(&self) -> bool {
+        false
+    }
 }
 
 struct StateHost<'a, 'b> {
@@ -109,6 +115,8 @@ struct PathHost<'a> {
     tail: Option<Cow<'a, str>>,
     /// Base of `.` slices.
     cwd: Cow<'a, str>,
+    /// Expand path values without shell quoting (argv contexts).
+    raw: bool,
 }
 
 impl Host for PathHost<'_> {
@@ -126,6 +134,10 @@ impl Host for PathHost<'_> {
 
     fn cwd(&self) -> Cow<'_, str> {
         Cow::Borrowed(self.cwd.as_ref())
+    }
+
+    fn raw(&self) -> bool {
+        self.raw
     }
 }
 
@@ -151,9 +163,15 @@ enum Each {
 }
 
 impl Each {
-    /// Only the bare multi window is a shell argument.
-    fn raw(&self) -> bool {
-        matches!(self, Each::Tail | Each::Index)
+    /// Only the bare multi window follows the host's default quoting.
+    fn raw(
+        &self,
+        host_raw: bool,
+    ) -> bool {
+        match self {
+            Each::Window { .. } => host_raw,
+            Each::Tail | Each::Index => true,
+        }
     }
 }
 
@@ -174,12 +192,14 @@ enum Value {
 }
 
 impl Value {
-    /// Path slices are shell arguments and quoted by default; `=` and the
-    /// display forms are raw, and so are the columns (they read data, not a
-    /// path).
-    fn raw(&self) -> bool {
+    /// Path slices with an explicit delimiter keep its quoting; the bare line
+    /// follows the host's default. Display forms and columns are always raw.
+    fn raw(
+        &self,
+        host_raw: bool,
+    ) -> bool {
         match self {
-            Value::Line => false,
+            Value::Line => host_raw,
             Value::Slice { raw, .. } => *raw,
             Value::Cwd { .. } | Value::Truncate { .. } | Value::Tail | Value::Index => true,
         }
@@ -325,7 +345,7 @@ fn render_spec(
                 host.selection()
                     .iter()
                     .filter_map(|ctx| each_text(ctx, each))
-                    .map(|text| quote(each.raw(), text))
+                    .map(|text| quote(each.raw(host.raw()), text))
                     .collect::<Vec<_>>()
                     .join(" "),
             );
@@ -350,7 +370,7 @@ fn render_spec(
         }
     };
 
-    Some(quote(value.raw(), text))
+    Some(quote(value.raw(host.raw()), text))
 }
 
 fn each_text(
@@ -490,7 +510,8 @@ pub fn format_state_at(
 
 /// Single-item template for per-item output printing: the item is the line, so
 /// `{t}`/`{tail}` resolve for every printed item, but `{#}` (results index) does
-/// not exist outside a live result list and stays literal.
+/// not exist outside a live result list and stays literal. Path values expand
+/// raw; `{:}` forces shell quoting.
 pub fn format_item(
     template: &str,
     item: &PathItem,
@@ -500,6 +521,7 @@ pub fn format_item(
             path: item.path.to_string_lossy(),
             tail: Some(item.tail_raw()),
             cwd: __cwd().to_string_lossy(),
+            raw: true,
         },
         template,
     )
@@ -515,8 +537,9 @@ pub fn preview_formatter(
     format_state(template, state)
 }
 
-/// Single-path template for contexts without a result list (listing,
-/// lessfilter, pager).
+/// Single-path template for display and argv contexts without a result list
+/// (listing, output, pager). Path values expand raw; `{:}` forces shell
+/// quoting.
 pub fn format_path(
     template: &str,
     path: &AbsPath,
@@ -526,13 +549,31 @@ pub fn format_path(
             path: path.to_string_lossy(),
             tail: None,
             cwd: __cwd().to_string_lossy(),
+            raw: true,
         },
         template,
     )
 }
 
-/// The cwd prompt: the path is home-collapsed. Quoting works as everywhere else,
-/// so `{=}` is the bare form.
+/// Single-path template for shell commands (lessfilter actions). Path values
+/// are shell-quoted by default; `{=}` forces raw.
+pub fn format_path_shell(
+    template: &str,
+    path: &AbsPath,
+) -> String {
+    render(
+        &PathHost {
+            path: path.to_string_lossy(),
+            tail: None,
+            cwd: __cwd().to_string_lossy(),
+            raw: false,
+        },
+        template,
+    )
+}
+
+/// The cwd prompt: the path is home-collapsed. Path values expand raw; `{:}`
+/// forces shell quoting.
 pub fn format_prompt(
     template: &str,
     cwd: &Path,
@@ -551,6 +592,7 @@ pub fn format_prompt(
             cwd: path.clone(),
             path,
             tail: None,
+            raw: true,
         },
         template,
     )
@@ -570,6 +612,7 @@ mod tests {
                 path: Cow::Borrowed(P),
                 tail: None,
                 cwd: Cow::Borrowed("/home/you"),
+                raw: false,
             },
             template,
         )
@@ -663,12 +706,30 @@ mod tests {
             path: Cow::Borrowed("/tmp/it's here"),
             tail: None,
             cwd: Cow::Borrowed("/tmp"),
+            raw: false,
         };
         assert_eq!(render(&p, "{}"), r"'/tmp/it'\''s here'");
         assert_eq!(render(&p, "{=}"), "/tmp/it's here");
         assert_eq!(render(&p, r"\{}\n"), "{}\n".replace("\\n", "\n"));
         assert_eq!(render(&p, "a\\tb"), "a\tb");
         assert_eq!(render(&p, r"\{tail}"), "{tail}");
+    }
+
+    #[test]
+    fn raw_hosts_quote_only_on_request() {
+        let p = PathHost {
+            path: Cow::Borrowed("/tmp/it's here"),
+            tail: None,
+            cwd: Cow::Borrowed("/tmp"),
+            raw: true,
+        };
+        assert_eq!(render(&p, "{}"), "/tmp/it's here");
+        assert_eq!(render(&p, "{:}"), r"'/tmp/it'\''s here'");
+        assert_eq!(render(&p, "{=}"), "/tmp/it's here");
+        assert_eq!(render(&p, "{0:-1}"), "'/tmp'");
+        assert_eq!(render(&p, "{0=-1}"), "/tmp");
+        assert_eq!(render(&p, "{+}"), "/tmp/it's here");
+        assert_eq!(render(&p, "pre{}post"), "pre/tmp/it's herepost");
     }
 
     #[test]
@@ -690,7 +751,8 @@ mod tests {
         // per-item output printing: the item is the line, no result index
         assert_eq!(format_item("{t}", &item), "12:3: fn main() {");
         assert_eq!(format_item("{-1=0}", &item), "report.md");
-        assert_eq!(format_item("{}", &item), format!("'{P}'"));
+        assert_eq!(format_item("{}", &item), P);
+        assert_eq!(format_item("{:}", &item), format!("'{P}'"));
         assert_eq!(format_item("{#}", &item), "{#}");
 
         // item-less contexts: both literal
@@ -731,7 +793,8 @@ mod tests {
     #[test]
     fn prompt_quotes_and_truncates() {
         let cwd = Path::new("/zzz/q/w/e/r");
-        assert_eq!(format_prompt("{}", cwd), "'/zzz/q/w/e/r'");
+        assert_eq!(format_prompt("{}", cwd), "/zzz/q/w/e/r");
+        assert_eq!(format_prompt("{:}", cwd), "'/zzz/q/w/e/r'");
         assert_eq!(format_prompt("{=}", cwd), "/zzz/q/w/e/r");
         assert_eq!(format_prompt("{2~2}", cwd), "/zzz…/e/r");
         assert_eq!(format_prompt("{2:2}", cwd), "''");
