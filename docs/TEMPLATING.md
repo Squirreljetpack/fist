@@ -18,12 +18,12 @@ alone picks the base, the operation and the quoting.
 
 | Body          | Meaning                                                         |
 | ------------- | --------------------------------------------------------------- |
-| *(empty)*     | the item's path — the "line"                                    |
+| *(empty)*     | the item's path — the "line"; follows the context default       |
 | `S:E`         | component range of the current path, **quoted**                 |
 | `S=E`         | component range of the current path, **raw**                    |
 | `S.E`         | component range of the **current directory**, **raw**           |
 | `S~E`         | display truncation: first `S` components `…/` last `E`, **raw** |
-| `S+E`         | component range of **every selected item**, **quoted**          |
+| `S+E`         | component range of **every selected item**, context default     |
 | `+t`, `+tail` | the tail column of **every selected item**, raw                 |
 | `+#`          | the index of **every selected item**, raw                       |
 | `t`           | the tail column (column 2), raw                                 |
@@ -42,11 +42,13 @@ fit.
 
 Every spec is exactly one operation, with exactly one delimiter — there are no
 prefixes and no combinations, so raw multi (`{+=}`) and multi truncation do not
-exist. Path values are single-quoted unless the delimiter says raw, with
-embedded `'` escaped as `'\''`, in every context — the display-only cwd prompt
-included, where `{=}` is the bare form. `t` and `#` read data rather than a
-path, so they are always raw: quote them in the template if you need one
-argument.
+exist. Path values are raw by default in display/output and argv contexts
+(listing, `--format`/Print, the cwd prompt, and the pager's
+`display_directory`), and shell-quoted by default in shell contexts (command
+actions, previews, and lessfilter actions). Use `{:}` to force shell quoting,
+`{=}` to force raw, or an explicit `S:E` / `S=E` slice to pick the quoting for
+that range. `t` and `#` read data rather than a path, so they are always raw:
+quote them in the template if you need one argument.
 
 Only recognized placeholders are replaced. Unrecognized ones (`{foo}`,
 `{+~2:2}`, `{a:b}`) are left in the output literally, which makes typos visible.
@@ -67,9 +69,13 @@ needs the live result list, so printed output has it literal too.
 
 For a current item `/home/you/docs/report.md` with tail `12:3: fn main() {`:
 
+The bare forms below are shown in a raw context (listing/output/cwd/argv). In a
+shell context, `{}` and the bare multi specs are quoted like `{:}`.
+
 | Template | Result                                       |
 | -------- | -------------------------------------------- |
-| `{}`     | `'/home/you/docs/report.md'`                 |
+| `{}`     | `/home/you/docs/report.md`                   |
+| `{:}`    | `'/home/you/docs/report.md'`                 |
 | `{=}`    | `/home/you/docs/report.md`                   |
 | `{0:-1}` | `'/home/you/docs'`                           |
 | `{-1:0}` | `'report.md'`                                |
@@ -84,13 +90,13 @@ For a current item `/home/you/docs/report.md` with tail `12:3: fn main() {`:
 
 With two selected paths `a/first.txt`, `b/second.txt`:
 
-| Template | Result                         |
-| -------- | ------------------------------ |
-| `{+}`    | `'a/first.txt' 'b/second.txt'` |
-| `{0+1}`  | `'a' 'b'`                      |
-| `{-1+0}` | `'first.txt' 'second.txt'`     |
-| `{+t}`   | tail of every selected item    |
-| `{+#}`   | `0 1`                          |
+| Template | Result                      |
+| -------- | --------------------------- |
+| `{+}`    | `a/first.txt b/second.txt`  |
+| `{0+1}`  | `a b`                       |
+| `{-1+0}` | `first.txt second.txt`      |
+| `{+t}`   | tail of every selected item |
+| `{+#}`   | `0 1`                       |
 
 ## Where templates are expanded
 
@@ -100,14 +106,15 @@ carry the printed item, so the tail column works there but there is no results
 index. Detached contexts (listing, lessfilter) and the cwd prompt resolve
 against a single path.
 
-| Context         | Config / invocation                                                                                                                                            | Notes                                                                                                                          |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Command actions | `[bind]` payloads of `Execute`, `ExecPaged`, `ExecTTY`, `ExecDetached`, `ExecSilent`, `CopyCommand`, `CopyCommandAsync`; `[actions]`/`[rules]` custom commands | `{}` is the resolved target: the current item, its parent for parent-processing actions, or the cwd while the cursor is locked |
-| Previews        | preview `command`/`layout.command`, `Preview(...)`, `SetPreview`                                                                                               | state-based; environment (`MM_*`, `HIGHLIGHT_*`, …) is supplied by matchmaker                                                  |
-| Output          | `--format` (interactive accept-print and `Print` action)                                                                                                       | expanded **once per printed item**: `{t}` is that item's tail, `{+}` sees only that item, `{#}` is literal                     |
-| Listing         | `--list`, `fs :info --format`                                                                                                                                  | path only: `{t}`/`{#}` stay literal                                                                                            |
-| lessfilter      | action commands in the lessfilter config                                                                                                                       | path only                                                                                                                      |
-| cwd prompt      | `interface.cwd_prompt`                                                                                                                                         | `{}` is the cwd (with `~` collapsed), quoted like any other value — use `{=}` for the bare form                                |
+| Context         | Config / invocation                                                                                                                                            | Notes                                                                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Command actions | `[bind]` payloads of `Execute`, `ExecPaged`, `ExecTTY`, `ExecDetached`, `ExecSilent`, `CopyCommand`, `CopyCommandAsync`; `[actions]`/`[rules]` custom commands | shell context: `{}` is the resolved target (the current item, its parent for parent-processing actions, or the cwd while the cursor is locked), quoted |
+| Previews        | preview `command`/`layout.command`, `Preview(...)`, `SetPreview`                                                                                               | shell context; environment (`MM_*`, `HIGHLIGHT_*`, …) is supplied by matchmaker                                                                        |
+| Output          | `--format` (interactive accept-print and `Print` action)                                                                                                       | raw path values; expanded **once per printed item**: `{t}` is that item's tail, `{+}` sees only that item, `{#}` is literal                            |
+| Listing         | `--list`, `fs :info --format`                                                                                                                                  | raw path values; path only: `{t}`/`{#}` stay literal                                                                                                   |
+| lessfilter      | action commands in the lessfilter config                                                                                                                       | shell context, so `{}` is quoted; path only                                                                                                            |
+| cwd prompt      | `interface.cwd_prompt`                                                                                                                                         | `{}` is the cwd (with `~` collapsed), raw; use `{:}` to quote                                                                                          |
+| Pager directory | `pager.toml` `display_directory`                                                                                                                               | argv context, so `{}` is raw; use `{:}` to include quotes                                                                                              |
 
 Status/footer/help lines are matchmaker display templates (`\m`, `\t`,
 `{red:text}`), not item templates.
