@@ -56,7 +56,7 @@ prompt = "◷ > "
 
 # The unnamed default stash.
 [panes.stashes.""]
-prompt = "⊞ > "
+prompt = "󰀻 > " # ⊞
 prompt_style.modifier = "ITALIC"
 
 # === SETTINGS ===
