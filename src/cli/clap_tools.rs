@@ -23,7 +23,7 @@ pub struct ShellCommand {
     #[arg(long, default_value_t = String::from("Z"))]
     pub open_name: String,
     /// Arguments passed to the history panes opened by the open function
-    #[arg(long, default_value_t = String::from("--sort=atime"))]
+    #[arg(long, default_value_t = String::from("--sort=atime --lock-prompt=always"))]
     pub open_args: String,
     /// Command used by open function
     #[arg(long, default_value_t = default_open_cmd())]

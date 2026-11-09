@@ -111,6 +111,10 @@ info = [
 # Note: Directory, Text, Image, Metadata, Application all defer to a system open in this preset and the next
 open = [
     [["Open"], ["*"]],
+    [
+        ["Open"],
+        ["1|cat:document", "1|cat:spreadsheet", "1|cat:email", "1|cat:academic"],
+    ],
 ]
 
 alternate = [

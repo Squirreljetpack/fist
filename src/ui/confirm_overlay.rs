@@ -5,7 +5,7 @@ use crate::utils::serde::frame_result;
 use cba::bait::TransformExt;
 use matchmaker::{
     action::Action,
-    config::{FrameSetting, OverlayLayoutSettings, PartialFrameSetting, StyleSetting},
+    config::{FrameSetting, OverlayLayoutSettings, PartialFrameSetting, PartialStyleSetting},
     render::MMState,
     ui::{Overlay, OverlayEffect, utils},
 };
@@ -35,10 +35,10 @@ impl Default for ConfirmConfig {
         Self {
             frame: Err(PartialFrameSetting {
                 sides: Some(Borders::ALL),
-                border_style: Some(StyleSetting {
+                border_style: PartialStyleSetting {
                     fg: Some(Color::White),
                     ..Default::default()
-                }),
+                },
                 padding: Some(Padding::new(2, 2, 0, 1).into()),
                 ..Default::default()
             }),
