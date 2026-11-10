@@ -226,8 +226,8 @@ pub fn display_menu_actions(
     }
     if verbosity < 5 {
         out.push('\n');
-        for key in actions.keys() {
-            out.push_str(&format!("  {key}\n"));
+        for (key, action) in actions.iter() {
+            out.push_str(&format!("  {}\n", action.display_name(key)));
         }
         return out;
     }
@@ -250,12 +250,15 @@ pub fn display_menu_actions(
 /// own serde setup so the output echoes actions.toml syntax.
 #[derive(serde::Serialize)]
 struct ActionToml {
-    #[serde(with = "cba::bird::one_or_many")]
+    #[serde(serialize_with = "crate::menu::serialize_conditions")]
     condition: Vec<MenuCondition>,
+    prefix: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     command: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     alias: Option<String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    help: String,
     strategy: MenuStrategy,
     requires_dest: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -269,8 +272,10 @@ impl ActionToml {
     ) -> Self {
         Self {
             condition: action.condition.clone(),
+            prefix: action.prefix.clone(),
             command: include_command.then(|| action.command.clone()),
             alias: action.alias.clone(),
+            help: action.help.clone(),
             strategy: action.strategy,
             requires_dest: action.requires_dest,
             close: action.close,

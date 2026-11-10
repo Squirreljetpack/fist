@@ -69,14 +69,16 @@ clap = { workspace = true }
 dirs = { workspace = true }
 easy-ext = "1.0.2"
 env_logger = "0.11.9"
+fastrand = "2"
 globset = "0.4.18"
 ignore = "0.4.25"
 indexmap = { version = "2.13.0", features = ["serde"] }
 jiff = "0.2"
 log = "0.4.29"
-mlua = { version = "0.12", features = ["lua54", "vendored", "send"] }
+mlua = { version = "0.12", features = ["lua54", "vendored", "send", "serde"] }
 phf = { workspace = true }
 serde = { workspace = true }
+serde_json = "1.0"
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 strum = { workspace = true }
 strum_macros = { workspace = true }

@@ -10,7 +10,7 @@ use cba::{
     bait::{OptionExt, ResultExt},
     bo::{load_type_or_default, write_str},
     bog::{self, BogOkExt},
-    ebog,
+    ebog, wbog,
 };
 use fist::{
     cli::{
@@ -80,14 +80,11 @@ async fn main() {
     cfg.override_from(&cli.opts);
 
     // menu actions live in their own file (actions.toml + the actions/
-    // folder); a broken file is a hard error naming the file
-    let actions = match MenuActions::load_all(actions_path(), actions_dir()) {
-        Ok(a) => a,
-        Err(e) => {
-            ebog!("{e}");
-            exit(1);
-        }
-    };
+    // folder); a broken file is logged and skipped, keeping the rest
+    let (actions, action_errors) = MenuActions::load_all(actions_path(), actions_dir(), true);
+    for e in action_errors {
+        wbog!("{e}");
+    }
     MENU_ACTIONS
         .set(actions)
         .expect("MENU_ACTIONS initialized more than once");

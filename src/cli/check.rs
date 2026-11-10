@@ -149,13 +149,10 @@ fn check(
     }
     // lessfilter presets carry shell templates, not lua commands
 
-    let actions_map = match MenuActions::load_all(actions, actions_dir) {
-        Ok(a) => a,
-        Err(e) => {
-            r.error(e);
-            return r;
-        }
-    };
+    let (actions_map, action_errors) = MenuActions::load_all(actions, actions_dir, false);
+    for e in action_errors {
+        r.error(e);
+    }
     r.actions = actions_map.clone();
 
     // 2. compile every menu-action command (with @file resolution against
@@ -173,7 +170,7 @@ fn check(
         }
     }
 
-    // 5. key collisions: action keys differing only in case from each other
+    // 3. key collisions: action keys differing only in case from each other
     //    (queue kind matching is exact-case, so `ExecuteQueue(key)` selects
     //    by the exact spelling; collisions with the builtin kinds are
     //    rejected at parse time as reserved keys)
@@ -188,7 +185,21 @@ fn check(
         seen.push(key);
     }
 
-    // 6. bindings referencing missing action keys (queue selectors only:
+    // 4. menu rows must be distinguishable: a prefix can make two different
+    //    keys render identically (e.g. `["git: diff"]` vs `["diff"]` under
+    //    prefix `git`)
+    let mut rendered: Vec<(String, &str)> = Vec::new();
+    for (key, action) in actions_map.iter() {
+        let name = action.display_name(key);
+        if let Some((_, other)) = rendered.iter().find(|(n, _)| *n == name) {
+            r.error(format!(
+                "actions {other:?} and {key:?} both render as {name:?} in the menu"
+            ));
+        }
+        rendered.push((name, key));
+    }
+
+    // 5. bindings referencing missing action keys (queue selectors only:
     //    ExecuteQueue/ClearQueue payloads are menu-action keys, Enqueue is queue kind)
     if mm.is_file() {
         let (binds, _help) = get_mm_binds(mm);
@@ -216,7 +227,7 @@ fn check(
         }
     }
 
-    // 7. requires_dest on non-queue strategies has no effect
+    // 6. requires_dest on non-queue strategies has no effect
     for (key, action) in actions_map.iter() {
         if action.requires_dest
             && !matches!(
@@ -231,7 +242,7 @@ fn check(
         }
     }
 
-    // 8. alias collisions
+    // 7. alias collisions
     let mut aliases: Vec<(&str, &str)> = Vec::new();
     for (key, action) in actions_map.iter() {
         if let Some(alias) = action.alias.as_deref() {
@@ -245,10 +256,12 @@ fn check(
         }
     }
 
-    // 9. empty seq conditions never fire intentionally
+    // 8. empty seq conditions never fire intentionally
     for (key, action) in actions_map.iter() {
         for condition in &action.condition {
-            if matches!(condition, crate::menu::MenuCondition::Seq(v) if v.is_empty()) {
+            if let crate::menu::MenuCondition::Seq(v) = condition
+                && v.is_empty()
+            {
                 r.warn(format!(
                     "action {key:?}: an empty seq condition is almost certainly a mistake"
                 ));
@@ -328,7 +341,6 @@ mod tests {
     fn shipped_actions_parse() {
         let toml_str = include_str!("../../assets/config/actions.toml");
         let actions: MenuActions = toml::from_str(toml_str).unwrap();
-        assert_eq!(actions.len(), 1);
         assert!(actions["chmod +x"].command.contains("chmod "));
     }
 
@@ -426,7 +438,7 @@ mod tests {
 ["Git"]
 alias = "g"
 command = "return 1"
-strategy = "Execute"
+strategy = "Exec"
 requires_dest = true
 
 ["git"]

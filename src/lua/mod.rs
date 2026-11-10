@@ -13,8 +13,9 @@
 
 mod execute;
 mod inject;
+pub mod modules;
 
-pub use execute::{check_compiles, execute};
+pub use execute::{check_compiles, execute, set_toasts_to_stderr};
 pub use inject::{LuaFn, call_transform, compile_script};
 
 use std::path::Path;

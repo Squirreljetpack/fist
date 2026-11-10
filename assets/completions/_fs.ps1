@@ -379,6 +379,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
             [CompletionResult]::new('diskspace', 'diskspace', [CompletionResultType]::ParameterValue, 'Disk usage: compute directory sizes concurrently and print them')
             [CompletionResult]::new('check', 'check', [CompletionResultType]::ParameterValue, 'Validate configuration and scripts; exits non-zero on errors')
+            [CompletionResult]::new('action', 'action', [CompletionResultType]::ParameterValue, 'Run a menu action directly (name as shown in the menu)')
             [CompletionResult]::new('showerror', 'showerror', [CompletionResultType]::ParameterValue, 'Display an error message and wait for keypress')
             break
         }
@@ -406,6 +407,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('types', 'types', [CompletionResultType]::ParameterValue, 'List mappings supported by the --type parameter')
             [CompletionResult]::new('diskspace', 'diskspace', [CompletionResultType]::ParameterValue, 'Disk usage: compute directory sizes concurrently and print them')
             [CompletionResult]::new('check', 'check', [CompletionResultType]::ParameterValue, 'Validate configuration and scripts; exits non-zero on errors')
+            [CompletionResult]::new('action', 'action', [CompletionResultType]::ParameterValue, 'Run a menu action directly (name as shown in the menu)')
             [CompletionResult]::new('showerror', 'showerror', [CompletionResultType]::ParameterValue, 'Display an error message and wait for keypress')
             break
         }
@@ -704,6 +706,38 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;check' {
+            [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
+            [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
+            [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
+            [CompletionResult]::new('--lock-prompt', '--lock-prompt', [CompletionResultType]::ParameterName, 'Lock the prompt at startup')
+            [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
+            [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
+            [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
+            [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
+            break
+        }
+        'fs;:tool;action' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Destination directory for actions that write somewhere')
+            [CompletionResult]::new('--dest', '--dest', [CompletionResultType]::ParameterName, 'Destination directory for actions that write somewhere')
+            [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
+            [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
+            [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
+            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
+            [CompletionResult]::new('--lock-prompt', '--lock-prompt', [CompletionResultType]::ParameterName, 'Lock the prompt at startup')
+            [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
+            [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
+            [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
+            [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
+            break
+        }
+        'fs;:t;action' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Destination directory for actions that write somewhere')
+            [CompletionResult]::new('--dest', '--dest', [CompletionResultType]::ParameterName, 'Destination directory for actions that write somewhere')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')

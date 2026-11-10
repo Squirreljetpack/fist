@@ -1,0 +1,157 @@
+# Test menu action for the Lua executor API and standard I/O.
+
+["test"]
+prefix = ""
+
+strategy = "ExecWait"
+condition = { selected = "active" }
+command = """
+local arg_paths, arg_dst, arg_nav_cwd = ...
+
+-- 1. The globals and varargs agree
+assert(arg_paths == paths, "arg_paths must match global paths")
+assert(arg_dst == dst, "arg_dst must match global dst")
+assert(arg_nav_cwd == nav_cwd, "arg_nav_cwd must match global nav_cwd")
+assert(set_progress == nil, "set_progress is only defined for queued actions")
+
+-- 2. Toasts in every style
+toast("info", "test: info toast")
+toast("success", "test: success toast")
+toast("warning", "test: warning toast")
+toast("warn", "test: warn toast")
+toast("error", "test: error toast")
+toast("err", "test: err toast")
+toast("normal", "test: normal toast")
+toast(nil, "test: nil/default toast")
+
+toast_push("info", "test: ", "info item")
+toast_push("success", "test: ", "success item")
+toast_push("warning", "test: ", "warning item")
+toast_push("error", "test: ", "error item")
+toast_push(nil, "test: ", "normal item")
+
+-- 3. os.exit stops the script without terminating the host
+local exit_ok, exit_err = pcall(function() os.exit(0) end)
+assert(not exit_ok, "os.exit should raise an error to safely terminate script")
+assert(tostring(exit_err):find("os.exit%(0%)"), "os.exit error message mismatch: " .. tostring(exit_err))
+
+-- 4. lunacolors styles survive nesting
+local styled = lunacolors.bold(lunacolors.green("test-styled"))
+assert(styled:find("test-styled", 1, true) ~= nil, "styled string must contain text")
+
+-- 5. util behavior
+util.sleep(1)
+local u = util.uuid()
+assert(#u == 36, "util.uuid must return 36-char string")
+
+local ts_iso = util.timestamp()
+assert(#ts_iso > 10, "default timestamp non-empty")
+local ts_epoch = util.timestamp("epoch")
+assert(tonumber(ts_epoch) ~= nil, "epoch timestamp must be numeric string")
+local ts_unix = util.timestamp("unix")
+assert(tonumber(ts_unix) ~= nil, "unix timestamp must be numeric string")
+local ts_ms = util.timestamp("ms")
+assert(tonumber(ts_ms) ~= nil, "ms timestamp must be numeric string")
+local ts_year = util.timestamp("%Y")
+assert(#ts_year == 4 and tonumber(ts_year) ~= nil, "strftime %Y must return 4 digits")
+
+local json_str = util.json_encode({ foo = "bar", num = 123, arr = { 1, 2, 3 } })
+local json_val = util.json_decode(json_str)
+assert(json_val.foo == "bar" and json_val.num == 123, "json roundtrip mismatch")
+assert(#json_val.arr == 3 and json_val.arr[2] == 2, "json array roundtrip mismatch")
+
+local toml_str = util.toml_encode({ title = "Test", count = 42 })
+local toml_val = util.toml_decode(toml_str)
+assert(toml_val.title == "Test" and toml_val.count == 42, "toml roundtrip mismatch")
+
+assert(util.shq("hello world") == "'hello world'", "shq space quoting")
+assert(util.shq("simple") == "simple", "shq simple identity")
+
+-- 6. path behavior
+assert(path.parent("/a/b/c.tar.gz") == "/a/b", "path.parent failed")
+assert(path.parent("/root_file.txt") == "/", "path.parent root failed")
+assert(path.base("/a/b/c.tar.gz") == "c.tar.gz", "path.base failed")
+assert(path.stem("/a/b/c.tar.gz") == "c.tar", "path.stem failed")
+assert(path.ext("/a/b/c.tar.gz") == "gz", "path.ext failed")
+assert(path.ext("no_ext") == "", "path.ext empty failed")
+assert(path.join("a", "b", "c.txt") == "a/b/c.txt", "path.join failed")
+
+assert(path.is_dir("/") == true, "/ must be a directory")
+assert(path.is_file("/") == false, "/ is not a file")
+assert(path.is_file("/__nonexistent_test_file_path__") == false, "nonexistent file check")
+assert(path.exists("/") == true, "path.exists(/) failed")
+assert(path.lexists("/") == true, "path.lexists(/) failed")
+assert(path.rel("/a/b/c", "/a") == "b/c", "path.rel failed")
+assert(path.mime("test.png") == "image/png", "path.mime failed")
+assert(util.path == nil, "util.path should be nil")
+
+-- 7. proc behavior
+local p_res = proc.run("echo", {"hello"})
+assert(p_res.ok == true, "proc.run echo")
+assert(p_res.stdout:find("hello") ~= nil, "proc.run echo stdout")
+
+-- 8. fs behavior
+local tmp_f = fs.tempfile("test_fist_")
+assert(fs.stat(tmp_f) ~= nil, "fs.stat on tempfile")
+assert(fs.write(tmp_f, "test content") == true, "fs.write")
+assert(fs.read(tmp_f) == "test content", "fs.read")
+assert(fs.remove(tmp_f) == true, "fs.remove")
+
+-- 9. Stdin reading
+assert(io.stdin ~= nil, "io.stdin must be available")
+assert(io.type(io.stdin) == "file", "io.stdin must be a valid file handle")
+
+-- Check if stdin has data or EOF ready without blocking indefinitely
+local has_input = os.execute([=[python3 -c "import select, sys; sys.exit(0 if select.select([sys.stdin], [], [], 0)[0] else 1)" 2>/dev/null]=]) == true
+if not has_input then
+  has_input = os.execute([=[perl -e 'vec($r="",0,1)=1; exit(select($r,undef,undef,0) ? 0 : 1)' 2>/dev/null]=]) == true
+end
+
+local stdin_line = nil
+if has_input then
+  stdin_line = io.read("*l")
+end
+
+-- 10. Stdout and stderr printing with lunacolors
+print(lunacolors.bold(lunacolors.underline("=== Lua Executor API Test ===")))
+print(lunacolors.green("paths count: ") .. tostring(#paths))
+for i, p in ipairs(paths) do
+  print(string.format("  [%d]: %s", i, p))
+end
+print(lunacolors.blue("dst: ") .. dst)
+print(lunacolors.yellow("nav_cwd: ") .. tostring(nav_cwd))
+print("stdin: " .. tostring(stdin_line or "<empty/eof>"))
+
+io.stdout:write("stdout write: OK\\n")
+io.write("io.write: OK\\n")
+io.stdout:flush()
+
+io.stderr:write("stderr write: OK\\n")
+io.stderr:flush()
+
+toast("success", "API and I/O tests passed successfully")
+"""
+
+["test_input"]
+prefix = ""
+
+strategy = "ExecWait"
+condition = { selected = "active" }
+command = """
+if input == nil then
+  print("input module is not available")
+  return
+end
+
+print(lunacolors.bold("=== 1. input.prompt ==="))
+local name = input.prompt("Enter your name:", "Anonymous")
+print("Prompt result: " .. tostring(name))
+
+print(lunacolors.bold("\\n=== 2. input.confirm ==="))
+local confirmed = input.confirm("Do you agree?", true)
+print("Confirm result: " .. tostring(confirmed))
+
+print(lunacolors.bold("\\n=== 3. input.select ==="))
+local choice = input.select({"apple", "banana", "cherry"}, "Pick a fruit:")
+print("Select result: " .. tostring(choice))
+"""

@@ -2,16 +2,18 @@
 
 pub mod plugins;
 
+use std::collections::HashSet;
+
 use cba::{define_collection_wrapper, vecmap::VecMap};
 use indexmap::IndexMap;
 use matchmaker::render::MMState;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize as _, Serializer, ser::SerializeSeq};
 
 use crate::{
     abspath::AbsPath,
     lessfilter::{
         Categories, LessfilterConfig, LessfilterSettings,
-        file_rule::{FileData, FileRule},
+        file_rule::{FileData, FileRule, FileRuleKind},
         rule_matcher::Test,
     },
     run::{item::PathItem, register::resolve_target, state::STACK},
@@ -28,6 +30,14 @@ impl Default for MenuActions {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Sentinel `prefix` replaced with the stem of the declaring file at load
+/// time; an empty prefix drops the prefix from the menu row entirely.
+pub const DEFAULT_PREFIX: &str = ":";
+
+fn default_prefix() -> String {
+    DEFAULT_PREFIX.to_string()
 }
 
 /// Menu action keys reserved for the builtin queue kinds and the queue
@@ -51,6 +61,16 @@ impl<'de> Deserialize<'de> for MenuActions {
                 "menu action key {key:?} is reserved"
             )));
         }
+        // an enqueued row starts right away, so nothing can supply the
+        // destination `requires_dest` waits for
+        if let Some(key) = map.iter().find_map(|(k, a)| {
+            (a.strategy == MenuStrategy::Enqueue && a.requires_dest).then_some(k)
+        }) {
+            return Err(serde::de::Error::custom(format!(
+                "menu action {key:?} cannot combine `requires_dest` with \
+                 `strategy = \"Enqueue\"`: the row starts immediately"
+            )));
+        }
         Ok(Self::new_from(map))
     }
 }
@@ -61,15 +81,32 @@ impl MenuActions {
     /// subfolders resolved first, then sorted path order (numeric prefixes order them).
     /// The primary file's entries come first; a key defined in a later file is an error.
     /// A missing primary file or folder yields the empty set.
+    ///
+    /// A file that fails to parse or redefine an existing key is skipped whole
+    /// and its error returned, so one bad file neither aborts loading nor
+    /// hides the rest.
+    ///
+    /// With `filter`, actions that can never fire because every alternative
+    /// requires a program that is not installed are dropped; pass `false` to
+    /// keep them so tooling can inspect them.
     pub fn load_all(
         primary: &std::path::Path,
         dir: &std::path::Path,
-    ) -> Result<Self, String> {
+        filter: bool,
+    ) -> (Self, Vec<String>) {
         let mut merged = Self::new();
+        let mut seen = HashSet::new();
+        let mut errors = Vec::new();
         if primary.is_file() {
-            let content = std::fs::read_to_string(primary)
-                .map_err(|e| format!("{}: {e}", primary.display()))?;
-            merge_actions(&mut merged, primary, &content)?;
+            match std::fs::read_to_string(primary) {
+                Ok(content) => {
+                    if let Err(e) = merge_actions(&mut merged, &mut seen, primary, &content, filter)
+                    {
+                        errors.push(e);
+                    }
+                }
+                Err(e) => errors.push(format!("{}: {e}", primary.display())),
+            }
         }
         let mut files = Vec::new();
         fn collect_toml_files(
@@ -90,10 +127,10 @@ impl MenuActions {
             Ok(())
         }
 
-        if let Err(e) = collect_toml_files(dir, &mut files) {
-            if e.kind() != std::io::ErrorKind::NotFound {
-                return Err(format!("{}: {e}", dir.display()));
-            }
+        if let Err(e) = collect_toml_files(dir, &mut files)
+            && e.kind() != std::io::ErrorKind::NotFound
+        {
+            errors.push(format!("{}: {e}", dir.display()));
         }
 
         // Sort files by path component depth descending (innermost folders first),
@@ -105,28 +142,57 @@ impl MenuActions {
         });
 
         for path in files {
-            let content =
-                std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-            merge_actions(&mut merged, &path, &content)?;
+            match std::fs::read_to_string(&path) {
+                Ok(content) => {
+                    if let Err(e) = merge_actions(&mut merged, &mut seen, &path, &content, filter) {
+                        errors.push(e);
+                    }
+                }
+                Err(e) => errors.push(format!("{}: {e}", path.display())),
+            }
         }
-        Ok(merged)
+        (merged, errors)
     }
 }
 
 fn merge_actions(
     merged: &mut MenuActions,
+    seen: &mut HashSet<String>,
     path: &std::path::Path,
     content: &str,
+    filter: bool,
 ) -> Result<(), String> {
     let actions: MenuActions =
         toml::from_str(content).map_err(|e| format!("{}: {e}", path.display()))?;
-    for (key, action) in actions.inner {
-        if merged.contains_key(&key) {
-            return Err(format!(
-                "duplicate menu action key {key:?} in {}",
-                path.display()
-            ));
+    // Duplicate keys are a config error whether or not the action survives
+    // filtering: an action gated on an uninstalled program must not let a
+    // later file redefine its key only in normal runs.
+    if let Some(key) = actions.keys().find(|key| seen.contains(*key)) {
+        return Err(format!(
+            "duplicate menu action key {key:?} in {}",
+            path.display()
+        ));
+    }
+    let stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    // a file merges whole or not at all: never leave half of it behind
+    let mut resolved = Vec::with_capacity(actions.inner.len());
+    for (key, mut action) in actions.inner {
+        // a gate on a program that is not installed would hide the action
+        // anyway, but its key is still taken
+        if filter && !action.retain_possible_alternatives() {
+            seen.insert(key);
+            continue;
         }
+        if action.prefix == DEFAULT_PREFIX {
+            action.prefix = stem.clone();
+        }
+        resolved.push((key, action));
+    }
+    for (key, action) in resolved {
+        seen.insert(key.clone());
         merged.insert(key, action);
     }
     Ok(())
@@ -136,16 +202,29 @@ fn merge_actions(
 /// and executes a user-defined lua script on the focused items.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct MenuAction {
-    /// The action is visible in the menu iff at least one condition is
-    /// satisfied; an empty list means always visible. Accepts a single
-    /// condition without the surrounding array.
-    #[serde(default, with = "cba::bird::one_or_many")]
+    /// The action is visible in the menu iff at least one alternative passes;
+    /// pure alternatives are written `{ any = [ ... ] }`, while a lone
+    /// condition needs no wrapper. An empty list means always visible.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_conditions",
+        serialize_with = "serialize_conditions"
+    )]
     pub condition: Vec<MenuCondition>,
     /// Lua script executed for this action (`@file` syntax supported).
     pub command: String,
+    /// Menu group label: the row reads `{prefix}: {key}`. The default `:`
+    /// resolves to the stem of the file declaring the action, and `""`
+    /// drops the prefix from the row.
+    #[serde(default = "default_prefix")]
+    pub prefix: String,
     /// Alias shown in the second column of the menu (e.g. `w`).
     #[serde(default)]
     pub alias: Option<String>,
+    /// Free-form description of the action. Not rendered anywhere yet, it is
+    /// there for documentation and tooling.
+    #[serde(default)]
+    pub help: String,
     #[serde(default)]
     pub strategy: MenuStrategy,
     /// Whether queued executions of this action require a non-empty
@@ -159,15 +238,93 @@ pub struct MenuAction {
     #[serde(default)]
     pub close: Option<bool>,
 }
+/// Read a `condition` field: a lone condition, or `{ any = [ ... ] }`
+/// alternatives.
+pub fn deserialize_conditions<'de, D>(deserializer: D) -> Result<Vec<MenuCondition>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Any {
+        any: Vec<MenuCondition>,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Helper {
+        Any(Any),
+        One(MenuCondition),
+    }
+
+    Ok(match Helper::deserialize(deserializer)? {
+        Helper::Any(any) if any.any.is_empty() => {
+            return Err(serde::de::Error::custom(
+                "an `any` condition needs at least one alternative",
+            ));
+        }
+        Helper::Any(any) => any.any,
+        Helper::One(one) => vec![one],
+    })
+}
+
+/// Write a `condition` back in the shape [`deserialize_conditions`] reads.
+pub fn serialize_conditions<S>(
+    conditions: &[MenuCondition],
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    #[derive(serde::Serialize)]
+    struct Any<'a> {
+        any: &'a [MenuCondition],
+    }
+
+    match conditions {
+        [] => serializer.serialize_seq(Some(0))?.end(),
+        [one] => one.serialize(serializer),
+        many => Any { any: many }.serialize(serializer),
+    }
+}
 
 impl MenuAction {
+    /// The row label: `{prefix}: {key}`, or just `{key}` when the prefix is
+    /// empty.
+    pub fn display_name(
+        &self,
+        key: &str,
+    ) -> String {
+        if self.prefix.is_empty() {
+            key.to_string()
+        } else {
+            format!("{}: {key}", self.prefix)
+        }
+    }
+
+    /// Remove the alternatives that require a program that is not installed,
+    /// since they can never pass. Returns whether anything is left to show:
+    /// an action whose every alternative is gone is invisible for good.
+    fn retain_possible_alternatives(&mut self) -> bool {
+        // no conditions at all means always visible
+        if self.condition.is_empty() {
+            return true;
+        }
+        self.condition.retain(|condition| !condition.fails_has());
+        !self.condition.is_empty()
+    }
+
     /// Whether choosing this action closes the menu: `close` overrides the
-    /// strategy default (Execute/ExecuteSilent/ExecPaged exit, Queue/QueueBatch
-    /// keep open).
+    /// strategy default (Exec/ExecWait/ExecSilent/ExecPaged/Enqueue exit,
+    /// Queue/QueueBatch keep open).
     pub fn closes(&self) -> bool {
         self.close.unwrap_or(matches!(
             self.strategy,
-            MenuStrategy::Execute | MenuStrategy::ExecuteSilent | MenuStrategy::ExecPaged
+            MenuStrategy::Exec
+                | MenuStrategy::ExecWait
+                | MenuStrategy::ExecSilent
+                | MenuStrategy::ExecPaged
+                | MenuStrategy::Enqueue
         ))
     }
 
@@ -229,43 +386,130 @@ impl MenuAction {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum MenuStrategy {
     /// Run the action's command through the lua engine and wait for it.
-    Execute,
-    /// Run the action's command through the lua engine without waiting.
+    #[serde(alias = "Execute")]
+    Exec,
+    /// Run the action's command through the lua engine, wait for it, and then prompt for Enter.
+    #[serde(alias = "ExecuteWait")]
+    ExecWait,
+    /// Run the action's command through the lua engine in the background.
     #[default]
-    #[serde(alias = "silent")]
-    ExecuteSilent,
+    #[serde(alias = "ExecuteSilent", alias = "silent")]
+    ExecSilent,
     /// Run the action's command through the lua engine, wait for it, and page
     /// its stdout.
+    #[serde(alias = "ExecutePaged")]
     ExecPaged,
     /// Enqueue all target items into a single queue item and keep the menu open.
     Queue,
     /// Enqueue the target items into queue items of at most `n` paths each and
     /// keep the menu open.
     QueueBatch(usize),
+    /// Enqueue all target items into a single queue item and start it right
+    /// away.
+    Enqueue,
 }
 
-/// Repetition of a single rule, scoped by [`SelectedCondition`].
+/// Repetition of a rule set, scoped by [`SelectedCondition`].
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RepeatCondition {
-    /// Which state the rule is evaluated against.
+    /// Which state the rule set is evaluated against.
     #[serde(default)]
     pub selected: SelectedCondition,
-    pub condition: FileRule,
+    /// The rules every target must satisfy; defaults to `*` (any target).
+    #[serde(default = "default_rules")]
+    pub condition: RuleSet,
     #[serde(default)]
     pub strict: bool,
 }
 
+/// The rule set a [`RepeatCondition`] falls back to when it omits one.
+fn default_rules() -> RuleSet {
+    RuleSet(vec!["*".parse().expect("`*` is a valid file rule")])
+}
+
+/// One or more [`FileRule`]s that must all pass: a set passes iff every rule in
+/// it passes, so a single rule and a one-element set are equivalent. Written as
+/// a bare rule string or as an array of them.
+#[derive(Debug, Clone)]
+pub struct RuleSet(Vec<FileRule>);
+
+impl RuleSet {
+    pub fn rules(&self) -> &[FileRule] {
+        &self.0
+    }
+
+    /// Whether every rule in the set passes.
+    fn passes(
+        &self,
+        rule_passes: impl FnMut(&FileRule) -> bool,
+    ) -> bool {
+        self.0.iter().all(rule_passes)
+    }
+
+    /// Whether one of the rules requires a program that is not installed, so
+    /// the set can never pass.
+    fn fails_has(&self) -> bool {
+        self.0.iter().any(rule_fails_has)
+    }
+}
+
+impl From<FileRule> for RuleSet {
+    fn from(rule: FileRule) -> Self {
+        Self(vec![rule])
+    }
+}
+
+impl From<Vec<FileRule>> for RuleSet {
+    fn from(rules: Vec<FileRule>) -> Self {
+        Self(rules)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for RuleSet {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        cba::bird::one_or_many::deserialize(deserializer).map(Self)
+    }
+}
+
+impl serde::Serialize for RuleSet {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        cba::bird::one_or_many::serialize(&self.0, serializer)
+    }
+}
+
+/// Whether a single rule requires a program that is not on `PATH`.
+fn rule_fails_has(rule: &FileRule) -> bool {
+    !rule.invert && matches!(&rule.kind, FileRuleKind::Have(program) if !cba::broc::has(program))
+}
+
 /// A criterion evaluated against the picker state at menu open.
-/// The action is visible iff at least one condition is satisfied.
+/// The action is visible iff at least one of the conditions is satisfied;
+/// none of them = always visible.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 #[serde(untagged)]
 pub enum MenuCondition {
-    /// Positional: exactly as many items must be selected as there are rules,
-    /// and rule *i* must match the *i*-th selected item in selection order.
-    Seq(Vec<FileRule>),
-    /// Repetition of a single rule, scoped by [`SelectedCondition`].
+    /// Positional: exactly as many items must be selected as there are sets,
+    /// and set *i* must match the *i*-th selected item in selection order.
+    Seq(Vec<RuleSet>),
+    /// Repetition of a rule set, scoped by [`SelectedCondition`].
     Repeat(RepeatCondition),
+}
+
+impl MenuCondition {
+    /// Whether the condition can never pass because it requires a program that
+    /// is not installed.
+    fn fails_has(&self) -> bool {
+        match self {
+            // every position must pass, so one bad position kills the seq
+            MenuCondition::Seq(sets) => sets.iter().any(RuleSet::fails_has),
+            // the rules of one repeat are all required at once
+            MenuCondition::Repeat(repeat) => repeat.condition.fails_has(),
+        }
+    }
 }
 
 /// The picker state a [`MenuCondition::Repeat`] rule is evaluated against.
@@ -363,10 +607,9 @@ impl<'de> Deserialize<'de> for SelectedCondition {
     }
 }
 
-/// Whether at least one condition is satisfied against the state at menu
-/// open. An empty condition list means always visible. `cache` holds the
-/// [`FileData`] computed per file so each file's data is built at most once
-/// per menu open.
+/// Whether the action is applicable against the state at menu open.
+/// `cache` holds the [`FileData`] computed per file so each file's data is
+/// built at most once per menu open.
 pub fn condition_passes<'a>(
     conditions: &[MenuCondition],
     selected: &[AbsPath],
@@ -421,16 +664,18 @@ impl MenuCondition {
         settings: &LessfilterSettings,
         categories: &'a Categories,
     ) -> bool {
-        let mut passes_rule = |path: &AbsPath, rule: &FileRule| {
-            data_for(cache, settings, categories, path).is_some_and(|d| rule.passes(path, d))
+        let mut passes_rules = |path: &AbsPath, rules: &RuleSet| {
+            rules.passes(|rule| {
+                data_for(cache, settings, categories, path).is_some_and(|d| rule.passes(path, d))
+            })
         };
         match self {
-            MenuCondition::Seq(rules) => {
-                selected.len() == rules.len()
+            MenuCondition::Seq(sets) => {
+                selected.len() == sets.len()
                     && selected
                         .iter()
-                        .zip(rules)
-                        .all(|(path, rule)| passes_rule(path, rule))
+                        .zip(sets)
+                        .all(|(path, rules)| passes_rules(path, rules))
             }
             MenuCondition::Repeat(RepeatCondition {
                 selected: which,
@@ -444,13 +689,13 @@ impl MenuCondition {
                     if *strict && !selected.is_empty() {
                         return false;
                     }
-                    cursor.is_some_and(|cursor| passes_rule(cursor, condition))
+                    cursor.is_some_and(|cursor| passes_rules(cursor, condition))
                 }
                 SelectedCondition::Cwd => {
                     if *strict {
-                        nav_cwd.is_some_and(|nav| passes_rule(nav, condition))
+                        nav_cwd.is_some_and(|nav| passes_rules(nav, condition))
                     } else {
-                        cursor_disabled && cwd.is_some_and(|cwd| passes_rule(cwd, condition))
+                        cursor_disabled && cwd.is_some_and(|cwd| passes_rules(cwd, condition))
                     }
                 }
                 SelectedCondition::Selections(n) => {
@@ -461,7 +706,7 @@ impl MenuCondition {
                     } else if selected.len() < *n {
                         return false;
                     }
-                    selected.iter().all(|path| passes_rule(path, condition))
+                    selected.iter().all(|path| passes_rules(path, condition))
                 }
                 SelectedCondition::Active => {
                     // resolve the target set: selections → cursor → cwd
@@ -481,7 +726,7 @@ impl MenuCondition {
                     if *strict && targets.len() != 1 {
                         return false;
                     }
-                    targets.iter().all(|path| passes_rule(path, condition))
+                    targets.iter().all(|path| passes_rules(path, condition))
                 }
             },
         }
@@ -591,6 +836,51 @@ mod tests {
     }
 
     #[test]
+    fn silent_strategy_alias_parse() {
+        let actions: MenuActions = toml::from_str(
+            "\
+            [my-action]\n\
+            command = \"print('x')\"\n\
+            strategy = \"silent\"\n\
+        ",
+        )
+        .unwrap();
+        assert_eq!(actions["my-action"].strategy, MenuStrategy::ExecSilent);
+    }
+
+    #[test]
+    fn duplicate_keys_error_even_when_filtered() {
+        let temp_dir = std::env::temp_dir().join("fist_test_duplicate_filtered");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        std::fs::write(
+            temp_dir.join("a.toml"),
+            "\
+            [dup]\n\
+            condition = { condition = [\"*\", \"have:no-such-program-fist\"] }\n\
+            command = \"print('a')\"\n\
+        ",
+        )
+        .unwrap();
+        std::fs::write(
+            temp_dir.join("b.toml"),
+            "\
+            [dup]\n\
+            command = \"print('b')\"\n\
+        ",
+        )
+        .unwrap();
+
+        let (actions, errors) =
+            MenuActions::load_all(&temp_dir.join("primary.toml"), &temp_dir, true);
+        assert!(actions.is_empty());
+        assert!(errors.iter().any(|e| e.contains("duplicate")), "{errors:?}");
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
     fn non_reserved_keys_parse() {
         let actions: MenuActions = toml::from_str(
             "\
@@ -601,7 +891,6 @@ mod tests {
         ",
         )
         .unwrap();
-        assert_eq!(actions.len(), 1);
         assert_eq!(actions["my-action"].strategy, MenuStrategy::Queue);
         assert!(actions["my-action"].requires_dest);
     }
@@ -624,11 +913,65 @@ mod tests {
         .unwrap();
 
         let primary = temp_dir.join("primary.toml");
-        let actions = MenuActions::load_all(&primary, &temp_dir).unwrap();
+        let (actions, errors) = MenuActions::load_all(&primary, &temp_dir, true);
+        assert!(errors.is_empty(), "unexpected load errors: {errors:?}");
 
         // Check both actions are present
         assert!(actions.contains_key("top_action"));
         assert!(actions.contains_key("inner_action"));
+
+        // the default prefix resolves to the stem of the declaring file
+        assert_eq!(actions["top_action"].prefix, "top");
+        assert_eq!(actions["inner_action"].prefix, "inner");
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn load_all_drops_failing_has_gates() {
+        let temp_dir = std::env::temp_dir().join("fist_test_has_gates");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        std::fs::write(
+            temp_dir.join("gates.toml"),
+            "\
+            [installed]\n\
+            condition = [\"*\", \"have:sh\"]\n\
+            command = \"print('a')\"\n\
+            \n\
+            [missing]\n\
+            condition = [\"*\", \"have:no-such-program-fist\"]\n\
+            command = \"print('b')\"\n\
+            \n\
+            [still_possible]\n\
+            condition = { any = [\n\
+                { selected = \"active\", condition = [\"*\", \"have:no-such-program-fist\"] },\n\
+                { selected = \"active\" },\n\
+            ] }\n\
+            command = \"print('c')\"\n\
+            \n\
+            [always]\n\
+            command = \"print('d')\"\n\
+        ",
+        )
+        .unwrap();
+
+        let (actions, errors) =
+            MenuActions::load_all(&temp_dir.join("primary.toml"), &temp_dir, true);
+        assert!(errors.is_empty(), "unexpected load errors: {errors:?}");
+        assert!(actions.contains_key("installed"));
+        assert!(!actions.contains_key("missing"));
+        // the dead alternative is stripped, the viable one keeps the action
+        assert_eq!(actions["still_possible"].condition.len(), 1);
+        // an action with no conditions at all stays visible
+        assert!(actions.contains_key("always"));
+
+        // tooling can inspect the unfiltered set
+        let (unfiltered, errors) =
+            MenuActions::load_all(&temp_dir.join("primary.toml"), &temp_dir, false);
+        assert!(errors.is_empty(), "unexpected load errors: {errors:?}");
+        assert!(unfiltered.contains_key("missing"));
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }

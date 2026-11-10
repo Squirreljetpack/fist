@@ -757,6 +757,19 @@ async fn handle_tools(
             );
             exit(code)
         }
+        SubTool::Action(cmd) => {
+            use crate::cli::action;
+            let code = action::run(
+                actions_path(),
+                actions_dir(),
+                action::Args {
+                    name: cmd.name,
+                    dest: cmd.dest,
+                    paths: cmd.paths,
+                },
+            );
+            exit(code)
+        }
         SubTool::Colors => {
             display_ratatui_styles()?;
             Ok(())

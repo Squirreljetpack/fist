@@ -1,0 +1,152 @@
+# Media conversion menu actions
+
+["to webp"]
+prefix = "image"
+
+strategy = "ExecSilent"
+condition = { selected = "active", condition = ["mime:image/*", "have:cwebp"] }
+command = """
+for _, p in ipairs(paths) do
+  local out_dir = dst ~= "" and dst or path.parent(p)
+  local out_file = path.join(out_dir, path.stem(p) .. ".webp")
+  if out_file == p then
+    out_file = path.unique(path.join(out_dir, path.stem(p) .. "_converted.webp"))
+  elseif dst == "" and path.exists(out_file) then
+    out_file = path.unique(out_file)
+  end
+  local res = proc.run("cwebp", {"-q", "85", p, "-o", out_file})
+  if res.ok then
+    toast_push("success", "Converted: ", path.base(out_file))
+  else
+    toast_push("error", "Failed: ", path.base(p))
+  end
+end
+"""
+
+["to png"]
+prefix = "image"
+
+strategy = "ExecSilent"
+condition = { selected = "active", condition = ["mime:image/*", "have:magick"] }
+command = """
+for _, p in ipairs(paths) do
+  local out_dir = dst ~= "" and dst or path.parent(p)
+  local out_file = path.join(out_dir, path.stem(p) .. ".png")
+  if out_file == p then
+    out_file = path.unique(path.join(out_dir, path.stem(p) .. "_converted.png"))
+  elseif dst == "" and path.exists(out_file) then
+    out_file = path.unique(out_file)
+  end
+  local res = proc.run("magick", {p, out_file})
+  if res.ok then
+    toast_push("success", "Converted: ", path.base(out_file))
+  else
+    toast_push("error", "Failed: ", path.base(p))
+  end
+end
+"""
+
+["optimize"]
+prefix = "image"
+
+strategy = "ExecSilent"
+condition = { any = [{ selected = "active", condition = ["mime:image/png", "have:oxipng"] }, { selected = "active", condition = ["mime:image/jpeg", "have:jpegoptim"] }] }
+command = """
+-- Lossless recompression: png through oxipng, jpeg through jpegoptim. The
+-- condition keeps the targets uniform, so one tool serves the whole set.
+local png, jpg = proc.has("oxipng"), proc.has("jpegoptim")
+local names, failed = {}, {}
+for _, p in ipairs(paths) do
+  local mime = path.mime(p)
+  local res
+  if mime == "image/png" and png then
+    res = proc.run("oxipng", {"-q", "-o", "4", "--strip", "safe", p})
+  elseif mime == "image/jpeg" and jpg then
+    res = proc.run("jpegoptim", {"-q", "--strip-all", p})
+  end
+  if res then
+    if res.ok then
+      names[#names + 1] = path.base(p)
+    else
+      failed[#failed + 1] = path.base(p)
+    end
+  end
+end
+
+if #names > 0 then
+  toast_push("success", "Optimized: ", #names == 1 and names[1] or (#names .. " images"))
+end
+if #failed > 0 then toast_push("error", "Failed: ", table.concat(failed, ", ")) end
+if #names == 0 and #failed == 0 then toast("warning", "Nothing optimized: no png/jpeg targets") end
+"""
+
+["to animated webp"]
+prefix = "video"
+
+strategy = "Queue"
+condition = { selected = "active", condition = ["mime:video/*", "have:ffmpeg"] }
+command = """
+for i, p in ipairs(paths) do
+  set_progress(math.floor((i - 1) / #paths * 255))
+  local out_dir = dst ~= "" and dst or path.parent(p)
+  local out_file = path.join(out_dir, path.stem(p) .. ".webp")
+  if out_file == p then
+    out_file = path.unique(path.join(out_dir, path.stem(p) .. "_animated.webp"))
+  elseif dst == "" and path.exists(out_file) then
+    out_file = path.unique(out_file)
+  end
+  local res = proc.run("ffmpeg", {"-y", "-hide_banner", "-loglevel", "error", "-i", p, "-vcodec", "libwebp", "-filter:v", "fps=15", "-lossless", "0", "-q:v", "70", "-loop", "0", "-an", out_file})
+  if res.ok then
+    toast_push("success", "Created webp: ", path.base(out_file))
+  else
+    toast_push("error", "Failed: ", path.base(p))
+  end
+end
+set_progress(255)
+"""
+
+["extract mp3"]
+prefix = "video"
+
+strategy = "ExecSilent"
+condition = { selected = "active", condition = ["mime:video/*", "have:ffmpeg"] }
+command = """
+for _, p in ipairs(paths) do
+  local out_dir = dst ~= "" and dst or path.parent(p)
+  local out_file = path.join(out_dir, path.stem(p) .. ".mp3")
+  if out_file == p then
+    out_file = path.unique(path.join(out_dir, path.stem(p) .. "_extracted.mp3"))
+  elseif dst == "" and path.exists(out_file) then
+    out_file = path.unique(out_file)
+  end
+  local res = proc.run("ffmpeg", {"-y", "-hide_banner", "-loglevel", "error", "-i", p, "-vn", "-c:a", "libmp3lame", "-q:a", "2", out_file})
+  if res.ok then
+    toast_push("success", "Extracted audio: ", path.base(out_file))
+  else
+    toast_push("error", "Failed: ", path.base(p))
+  end
+end
+"""
+
+["to mp3"]
+prefix = "audio"
+
+strategy = "ExecSilent"
+condition = { selected = "active", condition = ["mime:audio/*", "have:ffmpeg"] }
+command = """
+for _, p in ipairs(paths) do
+  local out_dir = dst ~= "" and dst or path.parent(p)
+  local out_file = path.join(out_dir, path.stem(p) .. ".mp3")
+  if out_file == p then
+    out_file = path.unique(path.join(out_dir, path.stem(p) .. "_converted.mp3"))
+  elseif dst == "" and path.exists(out_file) then
+    out_file = path.unique(out_file)
+  end
+  local res = proc.run("ffmpeg", {"-y", "-hide_banner", "-loglevel", "error", "-i", p, "-c:a", "libmp3lame", "-b:a", "320k", out_file})
+  if res.ok then
+    toast_push("success", "Converted to mp3: ", path.base(out_file))
+  else
+    toast_push("error", "Failed: ", path.base(p))
+  end
+end
+"""

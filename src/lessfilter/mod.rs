@@ -11,7 +11,7 @@ pub mod rule_matcher;
 #[cfg(target_os = "linux")]
 mod xdg_icon;
 pub use config::*;
-pub use helpers::{application_has_icon, env_bat_opts};
+pub use helpers::{application_has_icon, editor_cmd, env_bat_opts};
 pub mod env;
 pub mod mime_helpers;
 

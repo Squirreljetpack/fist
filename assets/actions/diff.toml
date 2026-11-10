@@ -1,33 +1,35 @@
 # Diff and comparison menu actions.
 
 ["diff"]
+prefix = ""
+
 strategy = "ExecPaged"
 condition = ["type:f", "type:f"]
 command = """
-local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
-local p1 = shq(paths[1])
-local p2 = shq(paths[2])
+local p1 = util.shq(paths[1])
+local p2 = util.shq(paths[2])
 local ok, how, code = os.execute("diff -u --color=always " .. p1 .. " " .. p2 .. " 2>/dev/null")
 if not ok and code ~= 1 then
-  os.execute("git diff --no-index --color=always " .. p1 .. " " .. p2)
+  local g_ok = os.execute("git diff --no-index --color=always " .. p1 .. " " .. p2)
+  if g_ok then
+    print(lunacolors.bold("Files are identical:") .. "\\n  " .. paths[1] .. "\\n  " .. paths[2])
+  end
+elseif ok then
+  print(lunacolors.bold("Files are identical:") .. "\\n  " .. paths[1] .. "\\n  " .. paths[2])
 end
 """
 
 ["compare"]
+prefix = ""
+
 strategy = "ExecPaged"
-condition = [
-    ["type:text", "type:text"],
-    ["type:text", "type:d"],
-    ["type:d", "type:text"],
-    ["type:d", "type:d"],
-]
+condition = { any = [["type:text", "type:text"], ["type:text", "type:d"], ["type:d", "type:text"], ["type:d", "type:d"]] }
 command = """
-local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
 local comp1 = paths[1]
 local comp2 = paths[2]
 
-local is_dir1 = os.execute("test -d " .. shq(comp1)) == true
-local is_dir2 = os.execute("test -d " .. shq(comp2)) == true
+local is_dir1 = path.is_dir(comp1)
+local is_dir2 = path.is_dir(comp2)
 
 if is_dir1 and is_dir2 then
   local c1 = comp1:gsub("/+$", "") .. "/"
@@ -37,64 +39,58 @@ if is_dir1 and is_dir2 then
   end
 end
 
-local function get_items(path, is_dir)
-  local list = {}
+local function get_items(target, is_dir)
+  local set = {}
   if is_dir then
-    local p = io.popen("cd " .. shq(path) .. " && fd 2>/dev/null")
+    local p = io.popen("cd " .. util.shq(target) .. " && fs -u --list 2>/dev/null")
     if p then
       for line in p:lines() do
-        list[#list + 1] = line
+        set[line] = true
       end
       p:close()
     end
   else
-    local f = io.open(path, "r")
-    if f then
-      for line in f:lines() do
-        list[#list + 1] = line
-      end
-      f:close()
+    local f, err = io.open(target, "r")
+    if not f then
+      error("failed to open " .. target .. ": " .. tostring(err))
     end
+    for line in f:lines() do
+      set[line] = true
+    end
+    f:close()
   end
-  return list
+  return set
 end
 
-local items1 = get_items(comp1, is_dir1)
-local items2 = get_items(comp2, is_dir2)
+local set1 = get_items(comp1, is_dir1)
+local set2 = get_items(comp2, is_dir2)
 
-local set1 = {}
-for _, line in ipairs(items1) do set1[line] = true end
-
-local set2 = {}
-for _, line in ipairs(items2) do set2[line] = true end
-
--- 1. in comp1 not in comp2
 local only1 = {}
-for line, _ in pairs(set1) do
-  if not set2[line] then only1[#only1 + 1] = line end
+local both = {}
+for line in pairs(set1) do
+  if set2[line] then
+    both[#both + 1] = line
+  else
+    only1[#only1 + 1] = line
+  end
 end
 table.sort(only1)
+table.sort(both)
 
--- 2. in comp2 not in comp1
 local only2 = {}
-for line, _ in pairs(set2) do
-  if not set1[line] then only2[#only2 + 1] = line end
+for line in pairs(set2) do
+  if not set1[line] then
+    only2[#only2 + 1] = line
+  end
 end
 table.sort(only2)
 
--- 3. in both comp1 and comp2
-local both = {}
-for line, _ in pairs(set1) do
-  if set2[line] then both[#both + 1] = line end
-end
-table.sort(both)
-
-print("\\n--- " .. comp1 .. " / " .. comp2 .. " ---")
+print("\\n" .. lunacolors.bold(lunacolors.underline(comp1 .. " / " .. comp2)))
 for _, line in ipairs(only1) do print(line) end
 
-print("\\n--- " .. comp2 .. " / " .. comp1 .. " ---")
+print("\\n" .. lunacolors.bold(lunacolors.underline(comp2 .. " / " .. comp1)))
 for _, line in ipairs(only2) do print(line) end
 
-print("\\n--- " .. comp1 .. " ^ " .. comp2 .. " ---")
+print("\\n" .. lunacolors.bold(lunacolors.underline(comp1 .. " ^ " .. comp2)))
 for _, line in ipairs(both) do print(line) end
 """

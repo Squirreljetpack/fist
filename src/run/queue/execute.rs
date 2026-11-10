@@ -145,6 +145,7 @@ pub fn perform(
                             &item.data.to_string_lossy(),
                             nav.as_ref(),
                             Some(&item.status.progress),
+                            false,
                         )
                         .map(|_| ())
                         .map_err(anyhow::Error::msg)

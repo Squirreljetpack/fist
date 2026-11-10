@@ -85,7 +85,6 @@ frame = { sides = "BOTTOM", fg = "red" }
 
 [prompt]
 # characters kept between the cursor and the left edge of prompt bars
-# (New, NewFolder, Rename, Goto, Extract, SetAlias)
 # scroll_padding_left = 3
 
 [binds]

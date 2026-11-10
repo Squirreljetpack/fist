@@ -317,6 +317,30 @@ impl QUEUE {
         }
     }
 
+    /// Enqueue one row holding every path in `paths` under `kind`, returning
+    /// the row's index in the shared queue. Used by the menu strategies that
+    /// act on the selection as a single unit.
+    pub fn enqueue_one(
+        kind: QueueKind,
+        paths: Vec<AbsPath>,
+    ) -> Option<usize> {
+        debug_assert!(
+            is_valid_queue_kind(&kind),
+            "enqueue kinds must parse as an ordinary queue kind, got {kind:?}"
+        );
+        if paths.is_empty() {
+            return None;
+        }
+        let mut state = QUEUE_STATE.lock().unwrap();
+        state.shared.push(QueueItem {
+            kind,
+            status: QueueItemStatus::new(&paths[0]),
+            src: paths,
+            data: Default::default(),
+        });
+        Some(state.shared.len() - 1)
+    }
+
     // ------------- view ops --------------
 
     pub fn view_len(view: QueueView) -> usize {
