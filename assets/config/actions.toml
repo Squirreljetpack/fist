@@ -28,19 +28,36 @@
 
 # Rule syntax: ext:rs, glob:*.rs, child:src, mime:image/*, type:f/type:d
 # have:program, cat:name, application, git... see lessfilter.toml.
-# A condition can be specified as a single object or an array.
+# A condition is a single object or a positional array. Alternative
+# conditions are written { any = [ <condition>, ... ] }: the action is
+# visible when any of them passes. Alternatives that need a missing program
+# are removed while loading, and an action left with none is dropped.
+# `condition` inside a scoped table defaults to `*` (any target), and may be
+# an array: every rule in the set must pass.
 
-# Strategies: "Execute" (wait for completion), "ExecuteSilent" (run in background),
+# Strategies: "Exec" (wait for completion), "ExecSilent" (run in background),
 # "ExecPaged" (display the output in the pager), "Queue" (enqueue all targets as
-# one queue item), { QueueBatch = n } (queue items of at most n paths).
+# one queue item), { QueueBatch = n } (queue items of at most n paths),
+# "Enqueue" (enqueue the targets as one queue item and start it immediately;
+# `requires_dest` is rejected with it).
+# `prefix` groups the row ({prefix}: {key}; ":" resolves to the declaring
+# file's stem, "" drops it) and `help` is a free-form description that is not
+# rendered yet.
 # The command is a lua script (supports the @file syntax), executed with
 # (paths, dst, nav_cwd): the targeted absolute paths as a lua table `paths`,
 # the destination `dst` (passed from the _to_ column of the queue, empty otherwise), and the
 # navigation directory `nav_cwd` (optional).
 #
-# Scripts may call set_progress(0-255) to set the executing item's progress.
+# Queued actions (`strategy = "Queue"`/`"QueueBatch"`/`"Enqueue"`) may call
+# set_progress(0-255) to drive the item's progress bar; the global is
+# undefined for every other strategy.
 # Note: the script runs in the _process_ cwd — scripts that rely on the working directory must cd manually.
 # (e.g. `os.execute('cd "' .. paths[1] .. '" && git log')`).
+#
+# `prefix` is the menu group label: the row reads `{prefix}: {key}`. The
+# default `:` resolves to the stem of the file that declared the action
+# (e.g. `image` for a `["to webp"]` in image.toml), while `prefix = ""`
+# drops the prefix from the row.
 #
 # `requires_dest = true` marks the action as requiring a non-empty
 # destination when executed from the queue.
@@ -62,27 +79,27 @@
 
 # chmod +x: toggle executability of targeted files and directories.
 ["chmod +x"]
-condition = { selected = "active", condition = "*" }
+prefix = ""
+
+condition = { selected = "active" }
 command = """
-local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
 local all_exec = true
 for _, p in ipairs(paths) do
-  if not os.execute("test -x " .. shq(p)) then
+  local st = fs.stat(p)
+  if not (st and st.executable) then
     all_exec = false
     break
   end
 end
 local mode = all_exec and "-x" or "+x"
-local dir = paths[1]:match("^(.*)/") or "."
-local names = {}
+local args = { mode, "--" }
 for _, p in ipairs(paths) do
-  names[#names + 1] = shq("./" .. (p:match("([^/]+)/?$") or "."))
+  args[#args + 1] = p
 end
-local ok, how, code = os.execute(
-  "cd " .. shq(dir) .. " && chmod " .. mode .. " " .. table.concat(names, " "))
-if not ok then error("chmod " .. mode .. " failed: " .. tostring(code)) end
+local res = proc.run("chmod", args)
+if not res.ok then error("chmod " .. mode .. " failed: " .. tostring(res.code)) end
 
 local prefix = "set " .. mode .. ": "
-local item = #paths == 1 and (paths[1]:match("([^/]+)/?$") or paths[1]) or (#paths .. " items")
+local item = #paths == 1 and path.base(paths[1]) or (#paths .. " items")
 toast_push("success", prefix, item)
 """

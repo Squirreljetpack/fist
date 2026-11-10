@@ -1,6 +1,20 @@
 // split out so that build.rs can mock these subcommands with their actual structs
-use clap::Subcommand;
-use std::ffi::OsString;
+use clap::{Args, Subcommand};
+use std::{ffi::OsString, path::PathBuf};
+
+/// Run a menu action directly from the shell.
+#[derive(Args, Debug, Clone)]
+pub struct ActionCommand {
+    /// Menu label, prefix included (`image: to png`, `flatten`).
+    pub name: String,
+    /// Destination directory for actions that write somewhere.
+    #[arg(long, short = 'd', value_name = "DIR")]
+    pub dest: Option<PathBuf>,
+    /// Paths to pass to the action; defaults to the current directory.
+    /// Use `--` before paths that look like options.
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+    pub paths: Vec<PathBuf>,
+}
 
 #[derive(Subcommand, Debug, Clone, strum_macros::Display)]
 // lowercase keeps the clap command names and the fuzzy picker's strum
@@ -57,6 +71,8 @@ pub enum SubTool {
     },
     /// Validate configuration and scripts; exits non-zero on errors.
     Check,
+    /// Run a menu action directly (name as shown in the menu).
+    Action(ActionCommand),
     /// Display an error message and wait for keypress.
     #[command(
         name = "showerror",

@@ -43,7 +43,7 @@ impl Default for ConfirmConfig {
                 ..Default::default()
             }),
             content_frame: FrameSetting {
-                r#type: Some(BorderType::LightDoubleDashed),
+                border_type: Some(BorderType::LightDoubleDashed),
                 ..Default::default()
             },
             button_fg: Color::Reset,

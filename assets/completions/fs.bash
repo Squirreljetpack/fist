@@ -55,6 +55,9 @@ _fs() {
             fs,:tool)
                 cmd="fs__subcmd__:tool"
                 ;;
+            fs__subcmd__:tool,action)
+                cmd="fs__subcmd__:tool__subcmd__action"
+                ;;
             fs__subcmd__:tool,bump)
                 cmd="fs__subcmd__:tool__subcmd__bump"
                 ;;
@@ -602,12 +605,66 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool)
-            opts="-q -v --help --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener colors liza shell lessfilter pager bump trash showbinds types diskspace check showerror"
+            opts="-q -v --help --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --config)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --mm-config)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --style)
+                    COMPREPLY=($(compgen -W "icons icon-colors colors none all auto" -- "${cur}"))
+                    return 0
+                    ;;
+                --fullscreen)
+                    COMPREPLY=($(compgen -W "true false" -- "${cur}"))
+                    return 0
+                    ;;
+                --lock-prompt)
+                    COMPREPLY=($(compgen -W "never auto always" -- "${cur}"))
+                    return 0
+                    ;;
+                --output-sep)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --format)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --opener)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        fs__subcmd__:tool__subcmd__action)
+            opts="-d -q -v --dest --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --dest)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --config)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0

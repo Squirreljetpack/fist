@@ -114,7 +114,7 @@ pub enum MenuItem {
     Move,
     Copy,
     Symlink,
-    Goto,
+    Jump,
     Trash,
     Delete,
     Open,
@@ -141,7 +141,7 @@ impl MenuItem {
             MenuItem::Copy => "copy",
             MenuItem::Symlink => "symlink",
             MenuItem::Trash => "trash",
-            MenuItem::Goto => "goto",
+            MenuItem::Jump => "jump",
             MenuItem::Delete => "delete",
             MenuItem::Open => "open",
             MenuItem::OpenWith => "open with",
@@ -170,7 +170,7 @@ impl MenuItem {
             MenuItem::Mounts => None,
             MenuItem::Execute => Some("X"),
             MenuItem::Symlink => None,
-            MenuItem::Goto => None,
+            MenuItem::Jump => Some("J"),
             MenuItem::Custom { alias, .. } => alias.as_deref(),
         }
     }
@@ -219,7 +219,7 @@ impl MenuItem {
                 QUEUE::enqueue("symlink".into(), targets);
                 Err(false)
             }
-            MenuItem::Goto => Ok(MenuPrompt::new(PromptKind::Goto)),
+            MenuItem::Jump => Ok(MenuPrompt::new(PromptKind::Jump)),
             MenuItem::Trash => {
                 // the menu skips the confirmation: selection-aware like the
                 // bound Trash action, but immediate
@@ -357,7 +357,7 @@ pub const MENU_ITEMS: [MenuItem; 15] = [
     MenuItem::Mounts,
     MenuItem::NewFolder,
     MenuItem::Symlink,
-    MenuItem::Goto,
+    MenuItem::Jump,
     MenuItem::Execute,
 ];
 
@@ -570,7 +570,7 @@ impl MenuOverlay {
         for (key, action) in self.actions.iter() {
             if ctx.is_applicable(action) {
                 items.push(MenuItem::Custom {
-                    name: key.clone(),
+                    name: action.display_name(key),
                     action: key.clone(),
                     alias: action.alias.clone(),
                 });
@@ -626,6 +626,12 @@ impl MenuOverlay {
                 QUEUE::enqueue(key.to_string(), targets);
                 TOAST::push(ToastStyle::Normal, "Queued: ", displays);
             }
+            MenuStrategy::Enqueue => {
+                if let Some(index) = QUEUE::enqueue_one(key.to_string(), targets) {
+                    QUEUE::dispatch(vec![index], ctx.nav_cwd.clone());
+                    TOAST::push(ToastStyle::Normal, "Started: ", displays);
+                }
+            }
             MenuStrategy::QueueBatch(n) => {
                 // a zero batch size parses but chunks of size 0 are invalid
                 let n = n.max(1);
@@ -634,11 +640,15 @@ impl MenuOverlay {
                 }
                 TOAST::push(ToastStyle::Normal, "Queued: ", displays);
             }
-            MenuStrategy::Execute => {
+            MenuStrategy::Exec => {
                 STORE::set(MenuCommandPaths::new_from(targets));
                 GLOBAL::send_action(FsAction::MenuAction(key.to_string()));
             }
-            MenuStrategy::ExecuteSilent => {
+            MenuStrategy::ExecWait => {
+                STORE::set(MenuCommandPaths::new_from(targets));
+                GLOBAL::send_action(FsAction::MenuActionWait(key.to_string()));
+            }
+            MenuStrategy::ExecSilent => {
                 STORE::set(MenuCommandPaths::new_from(targets));
                 GLOBAL::send_action(FsAction::MenuActionSilent(action.command.clone()));
             }

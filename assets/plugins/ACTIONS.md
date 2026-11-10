@@ -15,6 +15,7 @@ Before inventing fields or syntax, consult the version of F:ist being used:
 ```sh
 fs --dump-config            # writes the default actions.toml next to config.toml on first run
 fs :tool check              # parses every config file and compiles each action's lua (still maturing)
+fs :tool action 'zip' --dest <dir> -- x y   # runs one action directly; -- separates option-like paths
 ```
 
 The shipped examples are the best style references: `compress.toml` (queued shell-outs gated on `have:`) and `diff.toml` (paged positional-pair comparisons) in the repository's `assets/actions/`, plus the `chmod +x` action in the default `actions.toml`.
@@ -38,28 +39,32 @@ These keys are reserved (case-insensitive) and rejected: `copy`, `move`, `symlin
 
 A minimal action is a table with a `command`. Insertion order is menu display order.
 
-| Field           | Type           | Default           | Meaning                                               |
-| --------------- | -------------- | ----------------- | ----------------------------------------------------- |
-| `command`       | string         | required          | Lua script (`@file` reference supported).             |
-| `alias`         | string         | none              | Letter shown/typed in the menu to trigger the item.   |
-| `strategy`      | string         | `"ExecuteSilent"` | How the command runs; see below.                      |
-| `condition`     | list or object | always visible    | Visibility rules; see below.                          |
-| `requires_dest` | bool           | `false`           | Queued executions require a non-empty destination.    |
-| `close`         | bool           | strategy default  | Override whether choosing the action closes the menu. |
+| Field           | Type         | Default          | Meaning                                               |
+| --------------- | ------------ | ---------------- | ----------------------------------------------------- |
+| `command`       | string       | required         | Lua script (`@file` reference supported).             |
+| `alias`         | string       | none             | Letter shown/typed in the menu to trigger the item.   |
+| `help`          | string       | `""`             | Description of the action; not rendered yet.          |
+| `strategy`      | string       | `"ExecSilent"`   | How the command runs; see below.                      |
+| `prefix`        | string       | declaring file   | Row group label: `{prefix}: {key}`; `""` drops it.    |
+| `condition`     | object/`any` | always visible   | Visibility rules; see below.                          |
+| `requires_dest` | bool         | `false`          | Queued executions require a non-empty destination.    |
+| `close`         | bool         | strategy default | Override whether choosing the action closes the menu. |
 
 ### Strategies
 
 | Strategy             | Waits | Closes menu | Effect                                            |
 | -------------------- | ----- | ----------- | ------------------------------------------------- |
-| `Execute`            | yes   | yes         | Run the Lua command and wait.                     |
-| `ExecuteSilent`      | no    | yes         | Run without waiting (alias: `silent`).            |
+| `Exec`               | yes   | yes         | Run the Lua command and wait.                     |
+| `ExecWait`           | yes   | yes         | Run, wait, then prompt for Enter.                 |
+| `ExecSilent`         | no    | yes         | Run without waiting.                              |
 | `ExecPaged`          | yes   | yes         | Run, wait, and page stdout in the built-in pager. |
 | `Queue`              | —     | no          | Enqueue all targets as one multi-path queue item. |
 | `{ QueueBatch = n }` | —     | no          | Enqueue targets in chunks of at most *n* paths.   |
+| `Enqueue`            | —     | yes         | Enqueue all targets as one row and start it now.  |
 
 (`QueueBatch` carries a payload, so it is written as an inline table rather than a plain string.)
 
-Prefer `ExecPaged` for read-only reporting (`git log`, diffs, listings), `ExecuteSilent` for fire-and-forget mutations with a toast, and `Queue`/`QueueBatch` when destinations matter or the work is long-running. `close = false` keeps the menu open after Execute-style actions for back-to-back use.
+Prefer `ExecPaged` for read-only reporting (`git log`, diffs, listings), `ExecSilent` for fire-and-forget mutations with a toast, and `Queue`/`QueueBatch` when destinations matter or the work is long-running. `Enqueue` is `Queue` for work that should start at once instead of waiting in the overlay. `close = false` keeps the menu open after Exec-style actions for back-to-back use.
 
 ## The Lua environment
 
@@ -73,7 +78,7 @@ Built-in functions:
 
 - `toast(style, msg)` — footer notice; styles `info`, `success`, `warning`/`warn`, `error`/`err`, `normal`/nil.
 - `toast_push(style, prefix, item)` — grouped list toast (e.g. one row per processed file).
-- `set_progress(0-255)` — the executing queue item's progress bar; no-op outside queue runs.
+- `set_progress(0-255)` — the executing queue item's progress bar; defined only for queued actions.
 - `os.exit(code)` — stop the script safely (does not terminate `fs`).
 - `error(...)` — abort and surface a failure toast.
 
@@ -89,7 +94,17 @@ Always shell-quote interpolated values (the shipped actions define a local `shq`
 
 ## Conditions
 
-An action is visible iff **at least one** condition passes; an empty list means always visible. Conditions are evaluated once when the menu opens. A single condition may be written without the outer array.
+An action is visible iff **at least one** alternative passes; an empty list means always visible. Conditions are evaluated once when the menu opens. A single condition is written bare; several alternatives require the explicit `any` form:
+
+```toml
+condition = { any = ["type:f", { selected = "cwd", condition = "git" }] }
+```
+
+Alternatives that can never pass because they need a missing program (e.g. `have:qpdf`) are removed while loading; an action whose alternatives are all removed never reaches the menu. Leave `condition` out for an unconditional row — a written list always keeps at least one alternative.
+
+### Rule sets
+
+Inside a scoped condition the rule may be a set: `condition = ["mime:application/pdf", "have:qpdf"]` reads "a pdf **and** qpdf installed". Every rule in the set must pass, so a one-rule set and a bare rule are the same thing.
 
 ### Positional sequences
 
@@ -97,7 +112,7 @@ An action is visible iff **at least one** condition passes; an empty list means 
 condition = ["type:f", "type:d"]
 ```
 
-Exactly as many items must be selected as there are rules, and rule *i* must match the *i*-th selected item. Alternatives are supplied as nested arrays:
+Exactly as many items must be selected as there are rules, and rule *i* must match the *i*-th selected item. Each position may itself be a rule set:
 
 ```toml
 condition = [["type:text", "type:text"], ["type:d", "type:d"]]
@@ -141,7 +156,7 @@ Prefix `!` to invert (`!ext:log`).
 
 ## Interaction with the queue
 
-- `Queue`/`QueueBatch` create rows keyed by the action name; each row's destination is editable in the queue overlay (`alt-u`, `To` column).
+- `Queue`/`QueueBatch` create rows keyed by the action name; each row's destination is editable in the queue overlay (`alt-u`, `To` column). `Enqueue` does the same and starts the row immediately, so it cannot be combined with `requires_dest`.
 - On execution the script runs once **per row** with that row's stored `dst`; multi-path rows receive all their paths in `paths`.
 - `requires_dest = true`: executing via `All` silently skips rows with empty destinations; exact selectors report an error instead.
 - Binds compose with selectors: `Enqueue(my-action)`, `ExecuteQueue(my-action)`, `ClearQueue(my-action)`, `Paste` (= `ExecuteQueue(builtins)`).
@@ -153,7 +168,7 @@ Prefix `!` to invert (`!ext:log`).
 3. **Pick the smallest strategy** that fits; reach for `Queue` only when destinations or batching genuinely help.
 4. **Quote everything** interpolated into shell commands; keep diagnostics off paged stdout only when they belong there.
 5. **Report results** with `toast_push` per item or a final `toast`.
-6. **Exercise non-interactively**: `fs :tool check` catches parse/lua-compile errors (treat it as a lint, not a guarantee). Then run `fs`, select appropriate targets, and confirm the entry appears and behaves.
+6. **Exercise non-interactively**: `fs :tool check` catches parse/lua-compile errors (treat it as a lint, not a guarantee), and `fs :tool action '<menu label>' [--dest <dir>] [--] [paths...]` runs one action against given paths (toasts go to stderr; options must precede paths). Then run `fs`, select appropriate targets, and confirm the entry appears and behaves.
 7. **Test edge cases**: nothing selected (cursor on a file/directory), the prompt state, many items, spaces and quotes in names, missing destination for queued rows, and re-running idempotently.
 
 ## Common failure modes
@@ -164,4 +179,4 @@ Prefix `!` to invert (`!ext:log`).
 - **Wrong working directory:** scripts run in the process cwd; `cd` to the target explicitly.
 - **Duplicate key error at startup:** two action files define the same key; rename one.
 - **Reserved-key rejection:** `copy`/`all`/etc. cannot be action names — pick another kind.
-- **Long-running silent actions look frozen:** use `set_progress` and toasts, or make them queued rows so the overlay shows progress.
+- **Long-running actions look frozen:** a silent action has no progress bar, so make it a queued row (`strategy = "Queue"`) and drive `set_progress` — the overlay then shows the row and its progress.

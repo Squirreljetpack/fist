@@ -293,8 +293,9 @@ pub fn infer_visual(path: &Path) -> CommandStrategy {
 
 // ---------------------- EDITOR -----------------------------
 
-pub fn infer_editor(path: &Path) -> CommandStrategy {
-    // get base_cmd
+/// Editor command line from `FS_EDITOR`, else `EDITOR` (only when its program
+/// exists), else the platform default (`notepad` on Windows, `nano` elsewhere).
+pub fn editor_cmd() -> Vec<String> {
     let mut base_cmd: Vec<String> = if let Ok(v) = env::var("FS_EDITOR") {
         shell_words::split(&v).unwrap_or_default()
     } else if let Ok(v) = env::var("EDITOR") {
@@ -302,19 +303,26 @@ pub fn infer_editor(path: &Path) -> CommandStrategy {
             && !ret.is_empty()
             && has(&ret[0])
         {
-            shell_words::split(&v).unwrap_or_default()
+            ret
         } else {
             Vec::new()
         }
     } else {
-        // no editor configured: hand the file to the system opener
-        return CommandStrategy::SystemOpen;
+        Vec::new()
     };
     if base_cmd.is_empty() {
         base_cmd = vec![if cfg!(windows) { "notepad" } else { "nano" }.into()]
     }
+    base_cmd
+}
 
-    let mut cmd: Vec<OsString> = base_cmd.iter().map(OsString::from).collect();
+pub fn infer_editor(path: &Path) -> CommandStrategy {
+    // no editor configured: hand the file to the system opener
+    if env::var("FS_EDITOR").is_err() && env::var("EDITOR").is_err() {
+        return CommandStrategy::SystemOpen;
+    }
+
+    let mut cmd: Vec<OsString> = editor_cmd().iter().map(OsString::from).collect();
 
     // Try to apply line/column if supported
     let editor_name = cmd.first().unwrap().to_str().unwrap();

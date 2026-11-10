@@ -112,7 +112,10 @@ impl FsMatchmaker {
                     run_menu_lua_paged(&lua_cmd, &paths, nav_cwd.as_ref());
                 } else {
                     let nav_cwd = STACK::nav_cwd();
-                    run_menu_lua(&lua_cmd, &paths, nav_cwd.as_ref());
+                    run_menu_lua(&lua_cmd, &paths, nav_cwd.as_ref(), true);
+                    if mode == ExecutionMode::MenuActionWait {
+                        crate::utils::prompt::await_continue();
+                    }
                 }
                 return;
             }
@@ -175,7 +178,7 @@ impl FsMatchmaker {
                 };
                 let nav_cwd = STACK::nav_cwd();
                 TASKS::spawn_blocking("menu lua", move || {
-                    run_menu_lua(&lua_cmd, &paths, nav_cwd.as_ref())
+                    run_menu_lua(&lua_cmd, &paths, nav_cwd.as_ref(), false)
                 });
                 return;
             }

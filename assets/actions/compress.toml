@@ -11,75 +11,162 @@
 # non-empty.
 
 ["zip"]
-strategy = "Execute"
-condition = { condition = "have:zip" }
+strategy = "Exec"
+help = "Select an existing .zip archive first to append to it; otherwise a new archive is created next to the first selected path (or in --dest)."
+condition = { selected = "active", condition = "have:zip" }
 command = """
-local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
-local function base(p) return p:match("([^/]+)/?$") or "." end
-local function parent(p) return p:match("^(.*)/") or "." end
-local src_dir = parent(paths[1])
-local out_dir = dst ~= "" and dst or src_dir
-local archive = out_dir .. "/" .. base(paths[1]) .. ".zip"
+local is_archive = paths[1]:lower():match("%.zip$") ~= nil
+local archive = is_archive and paths[1] or path.join(dst ~= "" and dst or path.parent(paths[1]), path.base(paths[1]) .. ".zip")
+if is_archive and path.is_empty(archive) then os.remove(archive) end
+local first_idx = is_archive and 2 or 1
+local same_parent = true
+local common_dir = path.parent(paths[first_idx] or paths[1])
+for i = first_idx, #paths do
+  if path.parent(paths[i]) ~= common_dir then
+    same_parent = false
+    break
+  end
+end
 local names = {}
-for _, p in ipairs(paths) do names[#names + 1] = shq("./" .. base(p)) end
-local ok, how, code = os.execute(
-  "cd " .. shq(src_dir) .. " && zip -rq " .. shq(archive) .. " " .. table.concat(names, " "))
+if same_parent then
+  for i = first_idx, #paths do names[#names + 1] = util.shq("./" .. path.base(paths[i])) end
+else
+  for i = first_idx, #paths do names[#names + 1] = util.shq(paths[i]) end
+end
+if #names == 0 then error("no files to add to " .. path.base(archive)) end
+local cmd = same_parent
+  and ("cd " .. util.shq(common_dir) .. " && zip -rq " .. util.shq(archive) .. " " .. table.concat(names, " "))
+  or ("zip -rq -j " .. util.shq(archive) .. " " .. table.concat(names, " "))
+local ok, how, code = os.execute(cmd)
 if not ok then error("zip failed: " .. tostring(code)) end
-toast_push("success", "Compressed: ", base(archive))
+toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(archive))
+"""
+
+["cbz"]
+strategy = "Exec"
+help = "Select an existing .cbz archive first to append to it; otherwise a new archive is created next to the first selected path (or in --dest)."
+condition = { selected = "active", condition = "have:zip" }
+command = """
+local is_archive = paths[1]:lower():match("%.cbz$") ~= nil
+local archive = is_archive and paths[1] or path.join(dst ~= "" and dst or path.parent(paths[1]), path.base(paths[1]) .. ".cbz")
+if is_archive and path.is_empty(archive) then os.remove(archive) end
+local first_idx = is_archive and 2 or 1
+local same_parent = true
+local common_dir = path.parent(paths[first_idx] or paths[1])
+for i = first_idx, #paths do
+  if path.parent(paths[i]) ~= common_dir then
+    same_parent = false
+    break
+  end
+end
+local names = {}
+if same_parent then
+  for i = first_idx, #paths do names[#names + 1] = util.shq("./" .. path.base(paths[i])) end
+else
+  for i = first_idx, #paths do names[#names + 1] = util.shq(paths[i]) end
+end
+if #names == 0 then error("no files to add to " .. path.base(archive)) end
+local cmd = same_parent
+  and ("cd " .. util.shq(common_dir) .. " && zip -rq " .. util.shq(archive) .. " " .. table.concat(names, " "))
+  or ("zip -rq -j " .. util.shq(archive) .. " " .. table.concat(names, " "))
+local ok, how, code = os.execute(cmd)
+if not ok then error("cbz failed: " .. tostring(code)) end
+toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(archive))
 """
 
 ["tar.gz"]
-strategy = "Execute"
-condition = { condition = "have:tar" }
+strategy = "Exec"
+help = "Select an existing .tar.gz/.tgz archive first to append to it; otherwise a new archive is created next to the first selected path (or in --dest)."
+condition = { selected = "active", condition = "have:tar" }
 command = """
-local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
-local function base(p) return p:match("([^/]+)/?$") or "." end
-local function parent(p) return p:match("^(.*)/") or "." end
-local src_dir = parent(paths[1])
-local out_dir = dst ~= "" and dst or src_dir
-local archive = out_dir .. "/" .. base(paths[1]) .. ".tar.gz"
+local is_archive = paths[1]:lower():match("%.tar%.gz$") ~= nil or paths[1]:lower():match("%.tgz$") ~= nil
+local archive = is_archive and paths[1] or path.join(dst ~= "" and dst or path.parent(paths[1]), path.base(paths[1]) .. ".tar.gz")
+local empty = is_archive and path.is_empty(archive)
+local first_idx = is_archive and 2 or 1
+local same_parent = true
+local common_dir = path.parent(paths[first_idx] or paths[1])
+for i = first_idx, #paths do
+  if path.parent(paths[i]) ~= common_dir then
+    same_parent = false
+    break
+  end
+end
 local names = {}
-for _, p in ipairs(paths) do names[#names + 1] = shq(base(p)) end
-local ok, how, code = os.execute(
-  "cd " .. shq(src_dir) .. " && tar -czf " .. shq(archive) .. " -- " .. table.concat(names, " "))
+if same_parent then
+  for i = first_idx, #paths do names[#names + 1] = util.shq(path.base(paths[i])) end
+else
+  for i = first_idx, #paths do
+    names[#names + 1] = "-C " .. util.shq(path.parent(paths[i])) .. " " .. util.shq(path.base(paths[i]))
+  end
+end
+if #names == 0 then error("no files to add to " .. path.base(archive)) end
+local cd_prefix = same_parent and ("cd " .. util.shq(common_dir) .. " && ") or ""
+local cmd
+if is_archive and not empty then
+  local tar_file = archive:gsub("%.tar%.gz$", ".tar"):gsub("%.tgz$", ".tar")
+  cmd = cd_prefix .. "gzip -df " .. util.shq(archive) .. " && { tar -rf " .. util.shq(tar_file) .. " -- " .. table.concat(names, " ") .. "; st=$?; gzip -f " .. util.shq(tar_file) .. "; exit $st; }"
+else
+  cmd = cd_prefix .. "tar -czf " .. util.shq(archive) .. " -- " .. table.concat(names, " ")
+end
+local ok, how, code = os.execute(cmd)
 if not ok then error("tar.gz failed: " .. tostring(code)) end
-toast_push("success", "Compressed: ", base(archive))
+toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(archive))
 """
 
 ["tar.xz"]
-strategy = "Execute"
-condition = { condition = "have:xz" }
+strategy = "Exec"
+help = "Select an existing .tar.xz/.txz archive first to append to it; otherwise a new archive is created next to the first selected path (or in --dest)."
+condition = { selected = "active", condition = "have:xz" }
 command = """
-local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
-local function base(p) return p:match("([^/]+)/?$") or "." end
-local function parent(p) return p:match("^(.*)/") or "." end
-local src_dir = parent(paths[1])
-local out_dir = dst ~= "" and dst or src_dir
-local archive = out_dir .. "/" .. base(paths[1]) .. ".tar.xz"
+local is_archive = paths[1]:lower():match("%.tar%.xz$") ~= nil or paths[1]:lower():match("%.txz$") ~= nil
+local archive = is_archive and paths[1] or path.join(dst ~= "" and dst or path.parent(paths[1]), path.base(paths[1]) .. ".tar.xz")
+local empty = is_archive and path.is_empty(archive)
+local first_idx = is_archive and 2 or 1
+local same_parent = true
+local common_dir = path.parent(paths[first_idx] or paths[1])
+for i = first_idx, #paths do
+  if path.parent(paths[i]) ~= common_dir then
+    same_parent = false
+    break
+  end
+end
 local names = {}
-for _, p in ipairs(paths) do names[#names + 1] = shq(base(p)) end
-local ok, how, code = os.execute(
-  "cd " .. shq(src_dir) .. " && tar -cJf " .. shq(archive) .. " -- " .. table.concat(names, " "))
+if same_parent then
+  for i = first_idx, #paths do names[#names + 1] = util.shq(path.base(paths[i])) end
+else
+  for i = first_idx, #paths do
+    names[#names + 1] = "-C " .. util.shq(path.parent(paths[i])) .. " " .. util.shq(path.base(paths[i]))
+  end
+end
+if #names == 0 then error("no files to add to " .. path.base(archive)) end
+local cd_prefix = same_parent and ("cd " .. util.shq(common_dir) .. " && ") or ""
+local cmd
+if is_archive and not empty then
+  local tar_file = archive:gsub("%.tar%.xz$", ".tar"):gsub("%.txz$", ".tar")
+  cmd = cd_prefix .. "xz -df " .. util.shq(archive) .. " && { tar -rf " .. util.shq(tar_file) .. " -- " .. table.concat(names, " ") .. "; st=$?; xz -f " .. util.shq(tar_file) .. "; exit $st; }"
+else
+  cmd = cd_prefix .. "tar -cJf " .. util.shq(archive) .. " -- " .. table.concat(names, " ")
+end
+local ok, how, code = os.execute(cmd)
 if not ok then error("tar.xz failed: " .. tostring(code)) end
-toast_push("success", "Compressed: ", base(archive))
+toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(archive))
 """
 
 ["7z"]
-strategy = "Execute"
-condition = { condition = "have:7z" }
+strategy = "Exec"
+help = "Select an existing .7z archive first to append to it; otherwise a new archive is created next to the first selected path (or in --dest)."
+condition = { selected = "active", condition = "have:7z" }
 command = """
-local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
-local function base(p) return p:match("([^/]+)/?$") or "." end
-local function parent(p) return p:match("^(.*)/") or "." end
-local src_dir = parent(paths[1])
-local out_dir = dst ~= "" and dst or src_dir
-local archive = out_dir .. "/" .. base(paths[1]) .. ".7z"
+local is_archive = paths[1]:lower():match("%.7z$") ~= nil
+local archive = is_archive and paths[1] or path.join(dst ~= "" and dst or path.parent(paths[1]), path.base(paths[1]) .. ".7z")
+if is_archive and path.is_empty(archive) then os.remove(archive) end
 -- Absolute paths let one archive hold selections from different directories.
 -- 7z stores the basenames, not the temporary directory prefixes.
 local names = {}
-for _, p in ipairs(paths) do names[#names + 1] = shq(p) end
+for i = (is_archive and 2 or 1), #paths do names[#names + 1] = util.shq(paths[i]) end
+if #names == 0 then error("no files to add to " .. path.base(archive)) end
 local ok, how, code = os.execute(
-  "7z a -bd " .. shq(archive) .. " " .. table.concat(names, " "))
+  "7z a -bd " .. util.shq(archive) .. " " .. table.concat(names, " "))
 if not ok then error("7z failed: " .. tostring(code)) end
-toast_push("success", "Compressed: ", base(archive))
+toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(archive))
 """

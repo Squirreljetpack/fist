@@ -1,3 +1,4 @@
+pub mod action;
 mod check;
 mod clap;
 mod clap_;

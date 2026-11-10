@@ -29,11 +29,14 @@ pub struct QueueItemStatus {
 
 impl QueueItemStatus {
     pub fn new(path: &Path) -> Self {
-        let size = Arc::new(AtomicU64::new(file_size(path)));
+        Self::with_size(file_size(path))
+    }
+
+    fn with_size(size: u64) -> Self {
         Self {
             state: Default::default(),
             progress: Default::default(),
-            size,
+            size: Arc::new(AtomicU64::new(size)),
             task_id: Default::default(),
         }
     }

@@ -26,8 +26,8 @@ pub enum PromptKind {
     #[strum(serialize = "New folder")]
     NewFolder,
     Rename,
-    #[strum(serialize = "Go to")]
-    Goto,
+    #[strum(serialize = "Jump to")]
+    Jump,
     #[strum(serialize = "Extract to")]
     Extract,
     #[strum(serialize = "Set alias")]
@@ -318,7 +318,7 @@ impl MenuOverlay {
                     }
                 });
             }
-            PromptKind::Goto => {
+            PromptKind::Jump => {
                 let input = self.prompt.input.value();
                 let input_path = Path::new(&input);
                 if input_path.as_os_str().is_empty() {

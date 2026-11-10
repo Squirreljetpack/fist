@@ -39,6 +39,8 @@ pub enum ExecutionMode {
     /// Wait for the child and always prompt for Enter before the TUI is
     /// redrawn, regardless of the exit status.
     ExecuteWait = 11,
+    /// Wait for the menu action's Lua command and prompt for Enter before the TUI is redrawn.
+    MenuActionWait = 12,
 }
 
 impl ExecutionMode {
@@ -56,6 +58,7 @@ impl ExecutionMode {
             9 => Some(Self::LuaCommandPaged),
             10 => Some(Self::ExecuteOrConfirm),
             11 => Some(Self::ExecuteWait),
+            12 => Some(Self::MenuActionWait),
             _ => None,
         }
     }
@@ -79,7 +82,9 @@ pub(super) fn menu_lua_command(
     payload: &str,
 ) -> Option<String> {
     match mode {
-        ExecutionMode::MenuAction | ExecutionMode::LuaCommandPaged => MENU_ACTIONS
+        ExecutionMode::MenuAction
+        | ExecutionMode::MenuActionWait
+        | ExecutionMode::LuaCommandPaged => MENU_ACTIONS
             .get()
             .and_then(|actions| actions.get(payload).map(|a| a.command.clone())),
         ExecutionMode::LuaCommand => Some(payload.to_string()),
@@ -89,19 +94,20 @@ pub(super) fn menu_lua_command(
 
 /// Run a menu action's lua command with the `(paths, dst)` contract: the
 /// targeted paths table and an empty destination. The navigation directory
-/// is passed as the third argument when present. `set_progress` has no target
-/// here and is a silent no-op. The command runs in the process cwd — scripts
-/// are responsible for `cd`.
+/// is passed as the third argument when present. `set_progress` is not
+/// defined here (only queued runs have a progress cell to drive). The command
+/// runs in the process cwd — scripts are responsible for `cd`.
 pub(super) fn run_menu_lua(
     command: &str,
     paths: &[AbsPath],
     nav_cwd: Option<&AbsPath>,
+    allow_input: bool,
 ) {
     let Some(source) = load_script(command, Some(actions_dir())) else {
         log::error!("Failed to load menu action lua command: {command}");
         return;
     };
-    if let Err(e) = execute(&source, paths, "", nav_cwd, None) {
+    if let Err(e) = execute(&source, paths, "", nav_cwd, None, allow_input) {
         log::error!("Menu action lua error: {e}");
     }
 }
@@ -109,7 +115,7 @@ pub(super) fn run_menu_lua(
 /// Run a menu action's lua command paged: stdout (from `os.execute`,
 /// `io.popen`, prints, …) is piped into the pager while the script runs. The
 /// command runs in the process cwd — scripts are responsible for `cd`.
-/// `set_progress` has no target here and is a silent no-op.
+/// `set_progress` is not defined here (only queued runs have a progress cell).
 pub(super) fn run_menu_lua_paged(
     command: &str,
     paths: &[AbsPath],
@@ -131,7 +137,7 @@ pub(super) fn run_menu_lua_paged(
             Ok(p) => p,
             Err(e) => {
                 warn!("Failed to create stdout pipe for paged lua: {e}; running unpaged");
-                run_menu_lua(command, paths, nav_cwd);
+                run_menu_lua(command, paths, nav_cwd, false);
                 return;
             }
         };
@@ -143,7 +149,7 @@ pub(super) fn run_menu_lua_paged(
             Ok(r) => r,
             Err(e) => {
                 warn!("Failed to redirect stdout for paged lua: {e}; running unpaged");
-                run_menu_lua(command, paths, nav_cwd);
+                run_menu_lua(command, paths, nav_cwd, false);
                 return;
             }
         };
@@ -152,7 +158,7 @@ pub(super) fn run_menu_lua_paged(
             let _ = pager::page_reader(reader, true, bat, pager::PagerOpts::default());
         });
 
-        let result = execute(&source, paths, "", nav_cwd, None);
+        let result = execute(&source, paths, "", nav_cwd, None, false);
         if let Err(e) = result {
             log::error!("Menu action lua error: {e}");
         }
@@ -165,7 +171,7 @@ pub(super) fn run_menu_lua_paged(
 
     #[cfg(not(unix))]
     {
-        run_menu_lua(command, paths, nav_cwd);
+        run_menu_lua(command, paths, nav_cwd, false);
     }
 }
 
@@ -253,6 +259,7 @@ pub(super) fn build_exec_command(
         }
         ExecutionMode::LuaCommand
         | ExecutionMode::MenuAction
+        | ExecutionMode::MenuActionWait
         | ExecutionMode::LuaCommandPaged
         | ExecutionMode::Help => {
             return None;

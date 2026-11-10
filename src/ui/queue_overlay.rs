@@ -734,7 +734,11 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
                 } else {
                     Cell::from(item.data.to_string_lossy().into_owned().pad(0, 1))
                 };
-                let size = Cell::from(item.status.render(self.widths[3] as usize, &self.config));
+                let size = Cell::from(item.status.render(
+                    self.widths[3] as usize,
+                    &self.config,
+                    item.src.len(),
+                ));
 
                 Row::new(vec![kind, path_cell, dst_cell, size]).style(row_style)
             })
@@ -1033,6 +1037,7 @@ impl QueueItemStatus {
         &self,
         width: usize,
         cfg: &QueueConfig,
+        path_count: usize,
     ) -> Line<'static> {
         let size = self.size.load(Ordering::Relaxed);
         let progress = self.progress.load(Ordering::Relaxed);
@@ -1051,7 +1056,15 @@ impl QueueItemStatus {
             QueueItemState::CompleteErr => Style::default().fg(Color::Red),
         };
 
-        Line::styled(human_size(size, true).pad_to(width, Alignment::Left), style)
+        // One path has a meaningful input size; a multi-path row's count is
+        // already in the path column, and summing directory metadata would
+        // be misleading. The dash keeps the state color visible.
+        let text = if path_count > 1 {
+            "-".to_string()
+        } else {
+            human_size(size, true)
+        };
+        Line::styled(text.pad_to(width, Alignment::Left), style)
     }
 }
 
@@ -1123,13 +1136,26 @@ mod tests {
     }
 
     #[test]
+    fn test_queue_item_status_render_hides_multi_path_size() {
+        let status = QueueItemStatus::default();
+        status.size.store(2048, Ordering::Relaxed);
+
+        let cfg = QueueConfig::default();
+        let line = status.render(10, &cfg, 3);
+
+        let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+        assert_eq!(text.trim(), "-");
+        assert!(!text.contains("KB"), "{text}");
+    }
+
+    #[test]
     fn test_queue_item_status_render_started_gauge() {
         let status = QueueItemStatus::default();
         status.state.store(QueueItemState::Started);
         status.progress.store(128, Ordering::Relaxed);
 
         let cfg = QueueConfig::default();
-        let line = status.render(10, &cfg);
+        let line = status.render(10, &cfg, 1);
 
         let total_chars: usize = line.spans.iter().map(|s| s.content.chars().count()).sum();
         assert_eq!(total_chars, 10);

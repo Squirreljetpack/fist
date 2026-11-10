@@ -151,12 +151,27 @@ pub fn copy_from_pager(text: String) {
     }
 }
 
+/// Read text from the active clipboard handle, if available.
+pub fn get_text() -> Option<String> {
+    let mut guard = lock();
+    if let Some(fcb) = guard.as_mut() {
+        fcb.arboard.as_mut()?.get_text().ok()
+    } else {
+        Clipboard::new().ok()?.get_text().ok()
+    }
+}
+
 /// Write one text payload through the active backend. OSC 52 can only carry
 /// text and applies the trailing-newline policy all the same.
 fn write(mut text: String) -> Result<Written, String> {
     let mut guard = lock();
     let Some(fcb) = guard.as_mut() else {
-        // never initialized: the terminal is the only clipboard there is
+        if let Ok(mut cb) = Clipboard::new() {
+            return cb
+                .set_text(text)
+                .map(|()| Written::Local)
+                .map_err(|e| e.to_string());
+        }
         return osc52::write_osc52(&text)
             .map(|()| Written::Osc52)
             .map_err(|e| e.to_string());

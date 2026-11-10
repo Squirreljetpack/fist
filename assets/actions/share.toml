@@ -1,0 +1,116 @@
+# Sharing menu actions: paired devices, the tailnet, pastebins, and GUI drag
+# and drop. Each action is gated on the tool it shells out to.
+
+["device"]
+prefix = "share"
+
+strategy = "Exec"
+condition = { selected = "active", condition = ["!type:d", "have:kdeconnect-cli"] }
+command = """
+-- share the targets with a reachable KDE Connect device
+local res = proc.run("kdeconnect-cli", {"-a", "--id-name-only"})
+if not res.ok then error("kdeconnect-cli: " .. res.stderr) end
+
+local ids, labels = {}, {}
+for line in res.stdout:gmatch("[^\\n]+") do
+  local id, name = line:match("^(%S+)%s+(.+)$")
+  if id then
+    ids[#ids + 1] = id
+    labels[#labels + 1] = name
+  end
+end
+if #ids == 0 then error("no reachable kdeconnect devices") end
+
+local choice = input.select(labels, "Share to device:")
+if not choice then return end
+local id
+for i, label in ipairs(labels) do
+  if label == choice then
+    id = ids[i]
+    break
+  end
+end
+if not id then return end
+
+local shared = 0
+for _, target in ipairs(paths) do
+  if proc.run("kdeconnect-cli", {"--device", id, "--share", target}).ok then
+    shared = shared + 1
+  else
+    toast_push("error", "Failed: ", path.base(target))
+  end
+end
+if shared > 0 then
+  toast_push("success", "Shared to " .. choice .. ": ", shared == 1 and path.base(paths[1]) or (shared .. " items"))
+end
+"""
+
+["tailscale"]
+prefix = "share"
+
+strategy = "Exec"
+condition = { selected = "active", condition = ["!type:d", "have:tailscale"] }
+command = """
+-- push the targets into a tailnet peer's drop directory (`tailscale file get`)
+local peers = {}
+local status = proc.run("tailscale", {"status"})
+if status.ok then
+  for line in status.stdout:gmatch("[^\\n]+") do
+    local ip, host = line:match("^(%S+)%s+(%S+)")
+    if host and (ip:find("%.") or ip:find(":")) then peers[#peers + 1] = host end
+  end
+end
+if #peers > 0 then print("peers: " .. table.concat(peers, ", ")) end
+
+local host = input.prompt("Send to tailscale host:", peers[1])
+if not host or host == "" then return end
+
+local args = { "file", "cp" }
+for _, target in ipairs(paths) do args[#args + 1] = target end
+args[#args + 1] = host .. ":"
+local res = proc.run("tailscale", args)
+if res.ok then
+  toast_push("success", "Sent to " .. host .. ": ", #paths == 1 and path.base(paths[1]) or (#paths .. " items"))
+else
+  toast("error", "tailscale file cp: " .. res.stderr)
+end
+"""
+
+["paste"]
+prefix = "share"
+
+strategy = "ExecSilent"
+condition = { selected = "active", condition = ["!type:d", "have:curl"] }
+command = """
+-- upload to 0x0.st (falling back to paste.rs) and copy the returned url
+local function url(res)
+  if not res.ok then return nil end
+  local out = res.stdout:gsub("%s+$", "")
+  return out:match("^https?://%S+$") and out or nil
+end
+
+for _, target in ipairs(paths) do
+  local link = url(proc.run("curl", {"-fsS", "-F", "file=@" .. target, "https://0x0.st"}))
+    or url(proc.run("curl", {"-fsS", "--data-binary", "@" .. target, "https://paste.rs"}))
+  if link then
+    util.clipboard_set(link, { toast = false })
+    toast_push("success", "Uploaded: ", link)
+  else
+    toast_push("error", "Upload failed: ", path.base(target))
+  end
+end
+"""
+
+["drag"]
+prefix = "share"
+
+strategy = "ExecSilent"
+condition = { selected = "active", condition = "have:ripdrag" }
+command = """
+-- pop up a floating window to drag the targets into any GUI application
+local args = { "-a", "-x" }
+for _, target in ipairs(paths) do args[#args + 1] = target end
+local res = proc.run("ripdrag", args)
+-- gtk exits 131 when the drag window closes
+if not res.ok and res.code ~= 131 then toast("error", "ripdrag: " .. res.stderr) end
+"""

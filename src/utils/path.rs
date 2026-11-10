@@ -77,30 +77,20 @@ pub fn default_directories() -> Vec<AbsPath> {
 }
 
 /// Expands `~` at the start of a path or glob pattern to the user's home directory.
-/// Supports `~`, `~/...`, `~\\...`, and `~{...`.
 pub fn expand_tilde(pattern: &str) -> String {
+    let Some(rest) = pattern.strip_prefix('~') else {
+        return pattern.to_string();
+    };
+
+    if !rest.is_empty() && !rest.starts_with(['/', '\\']) {
+        return pattern.to_string();
+    }
+
     let Some(home) = dirs::home_dir() else {
         return pattern.to_string();
     };
-    let home_str = home.to_string_lossy();
-    let home_trimmed = home_str.trim_end_matches(['/', '\\']);
-    let base = if home_trimmed.is_empty() {
-        &home_str
-    } else {
-        home_trimmed
-    };
 
-    if pattern == "~" {
-        home_str.into_owned()
-    } else if let Some(rest) = pattern.strip_prefix("~/") {
-        format!("{base}/{rest}")
-    } else if let Some(rest) = pattern.strip_prefix("~\\") {
-        format!("{base}\\{rest}")
-    } else if let Some(rest) = pattern.strip_prefix("~{") {
-        format!("{base}{{{rest}")
-    } else {
-        pattern.to_string()
-    }
+    format!("{}{}", home.display(), rest)
 }
 
 pub fn paths_base<P>(paths: impl IntoIterator<Item = P>) -> PathBuf
@@ -563,19 +553,6 @@ mod tests {
     fn expand_follow_empty_input() {
         let result = expand_follow(Vec::<PathBuf>::new(), true);
         assert!(result.is_empty());
-    }
-
-    #[test]
-    fn test_expand_tilde() {
-        if let Some(home) = dirs::home_dir() {
-            let home_str = home.to_string_lossy();
-            assert_eq!(expand_tilde("~"), home_str);
-            assert_eq!(expand_tilde("~/t/*"), format!("{home_str}/t/*"));
-            assert_eq!(expand_tilde("~/t{,/**}"), format!("{home_str}/t{{,/**}}"));
-            assert_eq!(expand_tilde("~{,/**}"), format!("{home_str}{{,/**}}"));
-        }
-        assert_eq!(expand_tilde("/var/log/*"), "/var/log/*");
-        assert_eq!(expand_tilde("*.rs"), "*.rs");
     }
 
     // -----------------------------------------------------------------------

@@ -1,0 +1,201 @@
+# Reorganization menu actions: flatten directory trees, bulk-rename paths and
+# dedupe a file's lines.
+
+["flatten"]
+prefix = ""
+
+condition = { selected = "active", condition = "type:d" }
+command = """
+-- Move every nested file into the selected directory's root (uniquifying
+-- collisions), then delete the subdirectories left empty.
+local function scan(dir, files, dirs)
+  for _, name in ipairs(fs.readdir(dir)) do
+    local p = path.join(dir, name)
+    local st = fs.stat(p)
+    if st and st.is_dir and not st.is_symlink then
+      scan(p, files, dirs)
+      dirs[#dirs + 1] = p
+    else
+      files[#files + 1] = p
+    end
+  end
+end
+
+for i, root in ipairs(paths) do
+  if path.is_dir(root) then
+    local files, dirs = {}, {}
+    for _, name in ipairs(fs.readdir(root)) do
+      local p = path.join(root, name)
+      local st = fs.stat(p)
+      if st and st.is_dir and not st.is_symlink then
+        scan(p, files, dirs)
+        dirs[#dirs + 1] = p
+      end
+    end
+
+    local moved = 0
+    for _, file in ipairs(files) do
+      local ok = pcall(fs.rename, file, path.unique(path.join(root, path.base(file))))
+      if ok then
+        moved = moved + 1
+      else
+        toast_push("error", "Kept in place: ", path.base(file))
+      end
+    end
+    -- deepest first, so nested empties go before their parents
+    for _, dir in ipairs(dirs) do pcall(fs.remove, dir) end
+
+    toast_push("success", "Flattened: ", path.base(root) .. " (" .. moved .. " files)")
+  end
+end
+"""
+
+["bulk rename"]
+prefix = ""
+
+strategy = "Exec"
+condition = { selected = "active" }
+command = """
+-- Edit the basenames in $EDITOR, then apply them in two phases so swaps
+-- (a <-> b) and rotations never clobber a file.
+local dirs, sources, names = {}, {}, {}
+for i, p in ipairs(paths) do
+  dirs[i] = path.parent(p)
+  sources[i] = path.join(dirs[i], path.base(p))
+  names[i] = path.base(p)
+end
+
+-- a target may already exist when it is another source moving away
+local source_set = {}
+for _, src in ipairs(sources) do source_set[src:lower()] = true end
+
+local tmp = fs.tempfile("fist-rename-")
+fs.write(tmp, table.concat(names, "\\n") .. "\\n")
+
+local edit = proc.editor(tmp)
+if not edit.ok then
+  fs.remove(tmp)
+  error(("editor '%s' exited with %d"):format(edit.editor, edit.code))
+end
+
+local text = fs.read(tmp):gsub("\\n$", "")
+fs.remove(tmp)
+local edited = {}
+for line in (text .. "\\n"):gmatch("([^\\n]*)\\n") do
+  edited[#edited + 1] = (line:gsub("\\r$", ""))
+end
+
+if #edited ~= #paths then
+  error(("edited %d names for %d paths: every path needs exactly one line"):format(#edited, #paths))
+end
+
+local staged, targets = {}, {}
+for i, src in ipairs(sources) do
+  local name = edited[i]
+  if name == "" or name == "." or name == ".." then
+    error("invalid name on line " .. i .. ": '" .. name .. "'")
+  end
+  if name:find("/", 1, true) then
+    error("names are basenames only, line " .. i .. ": " .. name)
+  end
+  local dst = path.join(dirs[i], name)
+  if targets[dst:lower()] then error("duplicate target: " .. name) end
+  targets[dst:lower()] = true
+  if dst ~= src then
+    if (path.exists(dst) or path.lexists(dst)) and not source_set[dst:lower()] then
+      error("already exists in " .. path.base(dirs[i]) .. ": " .. name)
+    end
+    staged[#staged + 1] = { src = src, dst = dst }
+  end
+end
+
+if #staged == 0 then
+  toast("info", "bulk rename: no changes")
+  return
+end
+
+for _, item in ipairs(staged) do
+  print(path.base(item.src) .. " -> " .. path.base(item.dst))
+end
+if not input.confirm("Continue to rename?", true) then return end
+
+-- phase 1: move every source aside, freeing all of its own target names
+local tag = ".fist-rename-" .. util.uuid()
+local aside = 0
+for i, item in ipairs(staged) do
+  item.tmp = item.src .. tag
+  if pcall(fs.rename, item.src, item.tmp) then
+    aside = i
+  else
+    for j = aside, 1, -1 do pcall(fs.rename, staged[j].tmp, staged[j].src) end
+    error("cannot move " .. path.base(item.src) .. " aside; nothing renamed")
+  end
+end
+
+-- phase 2: move the staged paths onto their final names
+for i, item in ipairs(staged) do
+  if not pcall(fs.rename, item.tmp, item.dst) then
+    -- restore this and every later path; the earlier ones keep their new names
+    for j = i, #staged do pcall(fs.rename, staged[j].tmp, staged[j].src) end
+    error(("rename failed at '%s': %d path(s) already renamed"):format(path.base(item.src), i - 1))
+  end
+end
+
+toast_push("success", "Renamed: ", #staged == 1 and path.base(staged[1].dst) or (#staged .. " items"))
+"""
+
+["dedupe"]
+prefix = ""
+
+help = "Remove duplicate lines from a file in place, keeping the first occurrence"
+strategy = "Exec"
+
+condition = { selected = "cursor", condition = "mime:text/*" }
+command = """
+-- Drop repeated lines, keeping the first occurrence; show the plan first.
+-- The trailing-newline state is preserved.
+local p = paths[1]
+local ok, text = pcall(fs.read, p)
+if not ok or not text then
+  toast("error", "Cannot read: " .. path.base(p))
+  return
+end
+
+local nl = string.char(10)
+local trailing = text:sub(-1) == nl
+local body = trailing and text:sub(1, -2) or text
+local seen, kept, dropped, total = {}, {}, {}, 0
+for line in (body .. nl):gmatch("([^" .. nl .. "]*)" .. nl) do
+  total = total + 1
+  if seen[line] then
+    dropped[#dropped + 1] = line
+  else
+    seen[line] = true
+    kept[#kept + 1] = line
+  end
+end
+
+if #dropped == 0 then
+  toast("info", "No duplicate lines: " .. path.base(p))
+  return
+end
+
+local shown = math.min(#dropped, 10)
+local preview = { ("%s: %d lines -> %d lines"):format(path.base(p), total, #kept) }
+for i = 1, shown do
+  preview[#preview + 1] = "  - " .. dropped[i]
+end
+if #dropped > shown then
+  preview[#preview + 1] = ("  ... and %d more"):format(#dropped - shown)
+end
+preview[#preview + 1] = ("Remove %d duplicate line%s?"):format(#dropped, #dropped == 1 and "" or "s")
+
+if not input.confirm(table.concat(preview, nl), true) then return end
+
+local written, err = pcall(fs.write, p, table.concat(kept, nl) .. (trailing and nl or ""))
+if not written then
+  toast("error", "Unchanged: " .. path.base(p) .. " (" .. tostring(err) .. ")")
+  return
+end
+toast_push("success", ("Removed %d duplicate line%s: "):format(#dropped, #dropped == 1 and "" or "s"), path.base(p))
+"""

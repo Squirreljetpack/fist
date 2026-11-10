@@ -562,6 +562,25 @@ _arguments "${_arguments_options[@]}" : \
 '--alt-accept[]' \
 && ret=0
 ;;
+(action)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Destination directory for actions that write somewhere]:DIR:_files' \
+'--dest=[Destination directory for actions that write somewhere]:DIR:_files' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[]::ORIENTATION:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
+'--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
+'--format=[Output template for printed results]:FORMAT:_default' \
+'--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
+'--alt-accept[]' \
+':name -- Menu label, prefix included (`image\: to png`, `flatten`):_default' \
+'*::paths -- Paths to pass to the action; defaults to the current directory. Use `--` before paths that look like options:_files' \
+&& ret=0
+;;
 (showerror)
 _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
@@ -780,6 +799,25 @@ _arguments "${_arguments_options[@]}" : \
 '--alt-accept[]' \
 && ret=0
 ;;
+(action)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Destination directory for actions that write somewhere]:DIR:_files' \
+'--dest=[Destination directory for actions that write somewhere]:DIR:_files' \
+'--config=[config path]:PATH:_files' \
+'--mm-config=[matchmaker config path]:PATH:_files' \
+'--style=[]:STYLE:(icons icon-colors colors none all auto)' \
+'--fullscreen=[]::ORIENTATION:(true false)' \
+'--lock-prompt=[Lock the prompt at startup]:WHEN:(never auto always)' \
+'--output-sep=[Separator printed after each result]:OUTPUT_SEP:_default' \
+'--format=[Output template for printed results]:FORMAT:_default' \
+'--opener=[Program used to open files on accept]:OPENER:_default' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
+'--alt-accept[]' \
+':name -- Menu label, prefix included (`image\: to png`, `flatten`):_default' \
+'*::paths -- Paths to pass to the action; defaults to the current directory. Use `--` before paths that look like options:_files' \
+&& ret=0
+;;
 (showerror)
 _arguments "${_arguments_options[@]}" : \
 '--config=[config path]:PATH:_files' \
@@ -895,9 +933,15 @@ _fs__subcmd__:tool_commands() {
 'types:List mappings supported by the --type parameter' \
 'diskspace:Disk usage\: compute directory sizes concurrently and print them' \
 'check:Validate configuration and scripts; exits non-zero on errors' \
+'action:Run a menu action directly (name as shown in the menu)' \
 'showerror:Display an error message and wait for keypress' \
     )
     _describe -t commands 'fs :tool commands' commands "$@"
+}
+(( $+functions[_fs__subcmd__:tool__subcmd__action_commands] )) ||
+_fs__subcmd__:tool__subcmd__action_commands() {
+    local commands; commands=()
+    _describe -t commands 'fs :tool action commands' commands "$@"
 }
 (( $+functions[_fs__subcmd__:tool__subcmd__bump_commands] )) ||
 _fs__subcmd__:tool__subcmd__bump_commands() {

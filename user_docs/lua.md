@@ -1,52 +1,200 @@
-# Custom pane
+# Lua Scripting & Runtime Modules
 
-The custom pane (`fs :custom`) enables interactive fuzzy navigation and preview over arbitrary Unix streams, shell command outputs, or transformed file listings. Combined with Lua transforms via `--transform`, you can dynamically rewrite paths, modify display labels, populate context columns, or filter items on the fly.
+Fist embeds an isolated Lua 5.4 VM with bundled standard modules, terminal styling, and filesystem utilities. Lua scripts power two primary features in Fist:
 
-## Overview & Invocation
-
-`fs :custom` accepts input from standard input (via pipes) or directly runs a command:
-
-```bash
-# Read from a pipe:
-find . -name "*.md" | fs :custom
-
-# Run a command directly:
-fs :custom git status --short
-
-# Stream with delimiter splitting and Lua transformations:
-fs :custom --tail-sep $'\t' --transform @transform.lua -- my-generator-cmd
-```
-
-## CLI Options
-
-| Flag          | Short | Meaning                                                                                        |
-| ------------- | ----- | ---------------------------------------------------------------------------------------------- |
-| `[CMD]...`    | —     | Command to execute and stream stdout from. If omitted, reads stdin.                            |
-| `--transform` | —     | Lua script inline or `@file.lua` path to transform/filter each row.                            |
-| `--tail-sep`  | `-ts` | Delimiter character used to split each input line into `(path, tail)`.                         |
-| `--input-sep` | `-is` | Record separator character (defaults to newline `\n`; e.g., `\0` for null-terminated streams). |
-| `--sort`      | —     | Sort order applied to stream items (`mtime`, `ctime`, `atime`, `size`, `name`, `score`, etc.). |
-| `--opener`    | —     | Program or script used to open the selected entry.                                             |
-| `--cd`        | —     | Print first match to stdout and exit (useful for non-interactive scripting).                   |
+1. **[Menu & Queue Actions](actions.md)** — custom commands, converters, archivers, and tools executed against selected files or directories from the menu overlay (`ctrl-e`/`alt-e`).
+2. **[Custom Stream Transforms](#custom-stream-transforms-fs-custom)** — dynamic line filtering, path formatting, and context annotations in `fs :custom --transform` and `fs -u --transform`.
 
 ---
 
-## The Lua Transform Contract
+## Built-in Modules
 
-The `--transform` argument accepts either an inline Lua snippet or an `@path/to/script.lua` file reference (relative paths resolve against the current working directory).
+Every Lua execution context has access to pre-injected standard helper modules. They are accessible directly as globals (e.g. `path.join(...)`) or via `require("<name>")` (e.g. `local fs = require("fs")`):
 
-### Input Arguments
+### 1. `path` Module
 
-The script chunk is invoked per line. It receives positional arguments passed into `...`:
+Path manipulation, normalization, and query functions:
+
+| Function                 | Return Type     | Description                                                                                       |
+| ------------------------ | --------------- | ------------------------------------------------------------------------------------------------- |
+| `path.parent(p)`         | `string`        | Directory parent (`/` for root, `.` for relative basename).                                       |
+| `path.base(p)`           | `string`        | Trailing file or directory name component.                                                        |
+| `path.stem(p)`           | `string`        | File name stripped of final extension (e.g. `foo.tar.gz` -> `foo.tar`).                           |
+| `path.ext(p)`            | `string`        | File extension without leading dot (e.g. `"gz"`, or `""` if none).                                |
+| `path.join(...)`         | `string`        | Joins multiple path components together.                                                          |
+| `path.exists(p)`         | `bool`          | Tests whether `p` exists on the filesystem (follows symlinks).                                    |
+| `path.lexists(p)`        | `bool`          | Tests whether `p` exists without following symlinks (true for broken symlinks).                   |
+| `path.is_file(p)`        | `bool`          | Tests if `p` exists and is a regular file.                                                        |
+| `path.is_dir(p)`         | `bool`          | Tests if `p` exists and is a directory.                                                           |
+| `path.is_empty(p)`       | `bool`          | Tests if a file is 0 bytes or a directory contains 0 entries.                                     |
+| `path.rel(target, base)` | `string \| nil` | Relative path from `base` to `target`; `nil` if only `base` is absolute or contains `..`.         |
+| `path.mime(p)`           | `string`        | Inspects file header/extension and returns MIME type string (e.g. `"image/png"`, `"text/plain"`). |
+
+---
+
+### 2. `fs` Module
+
+Native filesystem and metadata operations:
+
+| Function                          | Return Type    | Description                                                                                             |
+| --------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------- |
+| `fs.stat(p)`                      | `table \| nil` | Returns table with `{ size, is_file, is_dir, is_symlink, readonly, mtime, mode, executable }`.          |
+| `fs.chmod(p, mode)`               | `bool`         | Modifies file permissions (`mode` accepts number like `0o755`, octal string `"755"`, or `"+x"`/`"-x"`). |
+| `fs.mkdir(p, [recursive=true])`   | `bool`         | Creates directory.                                                                                      |
+| `fs.readdir(p)`                   | `table`        | Returns array of filename strings in directory `p`.                                                     |
+| `fs.read(p)`                      | `string`       | Reads entire file into a string.                                                                        |
+| `fs.write(p, content)`            | `bool`         | Writes string content to a file.                                                                        |
+| `fs.remove(p, [recursive=false])` | `bool`         | Deletes file or directory.                                                                              |
+| `fs.copy(src, dst)`               | `bool`         | Copies file from `src` to `dst`.                                                                        |
+| `fs.rename(src, dst)`             | `bool`         | Moves/renames `src` to `dst`.                                                                           |
+| `fs.symlink(src, dst)`            | `bool`         | Creates a symbolic link at `dst` pointing to `src`.                                                     |
+| `fs.readlink(p)`                  | `string`       | Reads the target path of a symbolic link.                                                               |
+| `fs.canonicalize(p)`              | `string`       | Resolves all symlinks and relative components to an absolute path.                                      |
+| `fs.trash(path_or_paths)`         | `bool`         | Moves file(s) or directories to system trash. Accepts string or array of strings.                       |
+| `fs.tempdir([prefix])`            | `string`       | Creates and returns a unique temporary directory path.                                                  |
+| `fs.tempfile([prefix])`           | `string`       | Creates and returns a unique temporary empty file path.                                                 |
+
+```lua
+local st = fs.stat(p)
+if st and not st.executable then
+  fs.chmod(p, "+x")
+end
+```
+
+---
+
+### 3. `proc` Module
+
+Subprocess execution without shell interpolation:
+
+| Function                           | Return Type | Description                                                                                                                                                                                      |
+| ---------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `proc.run(prog, [args], [opts])`   | `table`     | Runs command and waits for output. Returns `{ ok = bool, code = number, stdout = string, stderr = string }`.                                                                                     |
+| `proc.spawn(prog, [args], [opts])` | `table`     | Spawns background process without waiting. Returns `{ ok = bool, pid = number }`.                                                                                                                |
+| `proc.has(prog)`                   | `bool`      | Fast in-process check if `prog` exists on `PATH`.                                                                                                                                                |
+| `proc.editor([path])`              | `table`     | Interactive only. Runs `$FS_EDITOR` (then `$EDITOR`, then `nano`) in the foreground with the terminal attached, waiting for it to exit. Returns `{ ok = bool, code = number, editor = string }`. |
+
+**Options table (`opts`)**:
+
+- `cwd` (string): Working directory for the child process.
+- `env` (table): Key-value map of environment variables.
+- `stdin` (string): Data to pipe into child process standard input.
+
+```lua
+if proc.has("ffmpeg") then
+  local res = proc.run("ffmpeg", {"-y", "-i", input_file, out_file}, { cwd = "/tmp" })
+  if not res.ok then
+    error("ffmpeg error (" .. res.code .. "): " .. res.stderr)
+  end
+end
+```
+
+---
+
+### 4. `util` Module
+
+Utility functions for serialization, time, clipboard, and shell quoting:
+
+| Function                           | Return Type     | Description                                                                                                                                 |
+| ---------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `util.sleep(ms)`                   | `nil`           | Pauses execution for `ms` milliseconds.                                                                                                     |
+| `util.uuid()`                      | `string`        | Generates a random v4 UUID string.                                                                                                          |
+| `util.timestamp([fmt])`            | `string`        | Current time. Default: ISO 8601 string. `"unix"`/`"epoch"`: seconds string. `"ms"`: milliseconds. Or custom strftime format (`"%Y-%m-%d"`). |
+| `util.json_encode(value)`          | `string`        | Serializes a Lua value/table into a JSON string.                                                                                            |
+| `util.json_decode(text)`           | `value`         | Parses a JSON string into Lua values/tables.                                                                                                |
+| `util.toml_encode(table)`          | `string`        | Serializes a Lua key-value table into a TOML string.                                                                                        |
+| `util.toml_decode(text)`           | `value`         | Parses a TOML string into Lua values/tables.                                                                                                |
+| `util.clipboard_get()`             | `string \| nil` | Reads text from system clipboard (integrates with terminal OSC 52).                                                                         |
+| `util.clipboard_set(text, [opts])` | `nil`           | Writes text to clipboard. Accepts optional `{ toast = false }` table.                                                                       |
+| `util.shq(str)`                    | `string`        | Quotes and escapes a string for POSIX shell commands.                                                                                       |
+
+---
+
+### 5. `input` Module *(Interactive Only)*
+
+> [!NOTE]
+> Active only in interactive foreground actions (`Exec` and `ExecWait`). In background or queued executions, `input` is `nil` to prevent workers from blocking.
+
+| Function                        | Return Type     | Description                                                                               |
+| ------------------------------- | --------------- | ----------------------------------------------------------------------------------------- |
+| `input.prompt(msg, [default])`  | `string \| nil` | Prompts user for a line of text via `/dev/tty`. Returns string or `default`.              |
+| `input.confirm(msg, [default])` | `bool`          | Displays `[Y/n]` or `[y/N]` prompt. Returns boolean `true`/`false`.                       |
+| `input.select(items, [prompt])` | `string \| nil` | Interactive fuzzy picker via Fist's matchmaker. Returns selected item or `nil` on cancel. |
+
+```lua
+local choice = input.select({"webp", "png", "avif"}, "Select format:")
+if not choice then return end
+
+local confirmed = input.confirm("Overwrite existing files?", false)
+```
+
+---
+
+### 6. `lunacolors` Module
+
+Terminal ANSI styling and formatting:
+
+```lua
+-- Directly styled functions:
+print(lunacolors.bold("Important Header"))
+print(lunacolors.green("Success: ") .. file)
+print(lunacolors.red(lunacolors.underline("Error!")))
+
+-- Template formatting with automatic reset:
+print(lunacolors.format("{bold}{yellow}Warning:{reset} file already exists"))
+```
+
+Available colors: `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `brightBlack` (`gray`), `brightRed`, `brightGreen`, `brightYellow`, `brightBlue`, `brightMagenta`, `brightCyan`, `brightWhite`. Background variants are suffixed with `Bg` (e.g. `redBg`).
+Available styles: `bold`, `dim`, `italic`, `underline`, `invert`, `hidden`, `strikethrough`.
+
+---
+
+## Global Functions & Action Environment
+
+When executing [Menu Actions](actions.md), scripts also receive context arguments and lifecycle globals:
+
+### Arguments & Globals
+
+- `paths` (table) — array of targeted absolute paths.
+- `dst` (string) — destination directory (empty for direct menu runs; populated for queued actions).
+- `nav_cwd` (string) — active Nav pane directory.
+
+### Host Integration Functions
+
+- `toast(style, msg)` — displays a footer notice toast (`"info"`, `"success"`, `"warning"`, `"error"`, or `"normal"`).
+- `toast_push(style, prefix, item)` — adds a bulleted item to a grouped toast summary.
+- `set_progress(0-255)` — updates the queue row's progress bar (0–255 scale). Defined only for queued actions (`Queue`, `QueueBatch`, `Enqueue`).
+- `os.exit(code)` — safely halts script execution with the given exit code without exiting Fist.
+- `error(...)` — stops execution with a runtime error toast.
+
+---
+
+## Custom Stream Transforms (`fs :custom`)
+
+The custom pane (`fs :custom`) enables fuzzy navigation and preview over arbitrary Unix streams or commands. Passing `--transform` lets you dynamically rewrite paths, format display titles, and populate secondary context columns.
+
+### Invocation
+
+```bash
+# Transform pipeline output:
+find . -name "*.md" | fs :custom --transform 'local p = ... return p, p:match("[^/]+$")'
+
+# Transform command output with external script:
+fs :custom --tail-sep $'\t' --transform @transform.lua -- my-generator-cmd
+```
+
+### Transform Function Contract
+
+The transform chunk is invoked per line with positional arguments passed to `...`:
 
 ```lua
 local path, tail = ...
 ```
 
-- `path` (string): The resolved absolute path (or the initial token before `--tail-sep`).
-- `tail` (string): The context remainder string after splitting on `--tail-sep` (or an empty string if `--tail-sep` was not specified or not found).
+- `path` (string): The resolved path (or token before `--tail-sep`).
+- `tail` (string): Context string after `--tail-sep` (or empty string).
 
-### Return Values
+#### Return Values
 
 Your transform chunk must return up to three values:
 
@@ -54,18 +202,13 @@ Your transform chunk must return up to three values:
 return path, display, tail
 ```
 
-1. **`path`** *(string or nil)*: The final filesystem path associated with the item (used for file operations, preview generation, and opening).
-   > **Filtering**: If `path` is `nil` or a non-string value, the entry is **omitted** from the listing entirely.
-2. **`display`** *(string or nil)*: The formatted string rendered in the primary column. If `nil`, fist falls back to the default display path.
-3. **`tail`** *(string or nil)*: The string rendered in the secondary context column. If `nil`, fist preserves the original `tail` string from `--tail-sep`.
+1. **`path`** *(string or nil)*: The filesystem path used for file preview and opening. Returning `nil` **filters out** the line completely.
+2. **`display`** *(string or nil)*: The string displayed in the primary column. If `nil`, falls back to `path`.
+3. **`tail`** *(string or nil)*: Context badge rendered in the secondary column.
 
----
+### Transform Examples
 
-## Examples
-
-### 1. Vault Slicing & Markdown Formatting
-
-Strip file extensions and display Obsidian vault-relative paths alongside a context tag:
+#### 1. Vault Slicing & Markdown Formatting
 
 ```bash
 fs -t .md --list --format '{=}\t{-1.}' . | \
@@ -78,9 +221,9 @@ return path, display:gsub("^/+", ""):gsub("%.md$", ""), tail
 '
 ```
 
-### 2. Filtering Items
+#### 2. Line Filtering
 
-Exclude temporary files and hidden directories by returning `nil`:
+Excludes `.git` and `.tmp` files by returning `nil`:
 
 ```bash
 find . -type f | fs :custom --transform '
@@ -92,9 +235,7 @@ return path
 '
 ```
 
-### 3. Mapping `.git` Folders to Project Roots
-
-Transform matches of `.git` directories so that selecting the row targets and displays the parent project folder:
+#### 3. Mapping `.git` Folders to Project Roots
 
 ```bash
 fs -u --transform '
@@ -107,9 +248,7 @@ return path, path
 ' --sort mtime ~/gh ~/projects '\\.git$'
 ```
 
-### 4. External Script File (`@file`)
-
-For complex formatting, maintain scripts in reusable `.lua` files:
+#### 4. External Transform Script (`@file`)
 
 ```lua
 -- ~/.config/fist/transforms/git_status.lua
@@ -117,11 +256,10 @@ local line = ...
 local status, file = line:match("^%s*(%S+)%s+(.+)$")
 if not status then return line end
 
--- display status badge in the context column and clean path in primary
 return file, file, "[" .. status .. "]"
 ```
 
-Invoke with `@`:
+Run with:
 
 ```bash
 git status --porcelain | fs :custom --transform @~/.config/fist/transforms/git_status.lua

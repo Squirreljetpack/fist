@@ -19,7 +19,11 @@ static VM: OnceLock<&'static Lua> = OnceLock::new();
 static LUA_LOCK: Mutex<()> = Mutex::new(());
 
 fn lua_vm() -> &'static Lua {
-    VM.get_or_init(|| Box::leak(Box::new(Lua::new())))
+    VM.get_or_init(|| {
+        let lua = Box::leak(Box::new(Lua::new()));
+        let _ = super::modules::register_lunacolors(lua);
+        lua
+    })
 }
 
 /// Compile `script` against the process-wide VM (leaked, thread-safe).
@@ -105,7 +109,7 @@ mod tests {
     fn test_transform_unaffected_by_execution_globals() {
         // a global set by an isolated menu-action execution is invisible to
         // the shared transform VM
-        let res = crate::lua::execute("leaked = 'x'", &[], "", None, None);
+        let res = crate::lua::execute("leaked = 'x'", &[], "", None, None, false);
         assert!(res.is_ok());
 
         let f = compile_script(

@@ -200,6 +200,9 @@ pub enum FsAction {
     /// Execute the lua command of a menu action; the payload is the action
     /// key, looked up in the global config (discriminant 7, waited).
     MenuAction(String),
+    /// Execute the lua command of a menu action and wait for Enter before redrawing;
+    /// the payload is the action key (discriminant 12, waited with continue prompt).
+    MenuActionWait(String),
     /// Execute the lua command of a menu action; the payload is the action's
     /// command itself (discriminant 8, not waited).
     MenuActionSilent(String),
@@ -1680,6 +1683,10 @@ pub fn fsaction_handler(
             state.discriminant_payload = Some(ExecutionMode::MenuAction.discriminant());
             state.set_interrupt(Interrupt::Execute, key);
         }
+        FsAction::MenuActionWait(key) => {
+            state.discriminant_payload = Some(ExecutionMode::MenuActionWait.discriminant());
+            state.set_interrupt(Interrupt::Execute, key);
+        }
         FsAction::MenuActionSilent(command) => {
             state.discriminant_payload = Some(ExecutionMode::LuaCommand.discriminant());
             state.set_interrupt(Interrupt::ExecuteSilent, command);
@@ -2105,7 +2112,7 @@ macro_rules! enum_from_str_display {
                                         write!(f, "ClearQueue({selector})")
                                     }
                                 }
-                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | ResortSizes | Refilter | AcceptPrompt(_) | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionSilent(_) | MenuActionExecPaged(_) | Unmount(_) => Ok(()), // internal
+                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | ResortSizes | Refilter | AcceptPrompt(_) | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionWait(_) | MenuActionSilent(_) | MenuActionExecPaged(_) | Unmount(_) => Ok(()), // internal
                                 Lessfilter { preset, paging, .. } => {
                                     if *paging {
                                         write!(f, "LFPaged({preset})")
