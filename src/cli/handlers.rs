@@ -145,7 +145,7 @@ async fn handle_info(
             let now = if cfg.history.lambda.is_some() {
                 conn.get_max_atime().await?
             } else {
-                chrono::Utc::now().timestamp()
+                jiff::Timestamp::now().as_second()
             };
             display_entries(&entries, cfg.history.lambda, now);
         }

@@ -1,9 +1,6 @@
 //! In-memory backing store of transient stash panes.
 
-use std::{
-    sync::Mutex,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::sync::Mutex;
 
 use cba::vecmap::VecMap;
 
@@ -19,10 +16,7 @@ use crate::{
 pub static MEM_STASHES: Mutex<VecMap<String, Vec<StashEntry>>> = Mutex::new(VecMap::new());
 
 fn now() -> Epoch {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as Epoch
+    jiff::Timestamp::now().as_second()
 }
 
 /// All entries of the named transient stash (newest first).
