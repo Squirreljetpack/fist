@@ -4,7 +4,6 @@ use cba::bait::ResultExt;
 use fist_types::filters::SortOrder;
 use log::trace;
 use sqlx::Acquire;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) const MAX_PLACEHOLDERS: usize = 200;
 
@@ -54,10 +53,7 @@ impl Connection {
         );
 
         let atime = if entry.atime == 0 {
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs() as Epoch
+            jiff::Timestamp::now().as_second()
         } else {
             entry.atime
         };
@@ -229,10 +225,7 @@ impl Connection {
             query.push_bind(&entry.path);
             query.build().execute(&mut *self.conn).await?;
         } else {
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs() as Epoch;
+            let now = jiff::Timestamp::now().as_second();
             let sql = format!(
                 "UPDATE {} SET count = count + ?, atime = ? WHERE path = ?",
                 self.table

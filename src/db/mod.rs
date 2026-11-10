@@ -11,7 +11,6 @@ use cba::{bait::ResultExt, bath::PathExt};
 use fist_types::filters::SortOrder;
 
 use crud::MAX_PLACEHOLDERS;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 pub type Epoch = i64;
 
@@ -231,10 +230,7 @@ impl Connection {
         name: &str,
         path: &AbsPath,
     ) -> Result<(), DbError> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as Epoch;
+        let now = jiff::Timestamp::now().as_second();
         sqlx::query("INSERT INTO stashes (name, stash, add_time) VALUES (?, ?, ?)")
             .bind(name)
             .bind(path)

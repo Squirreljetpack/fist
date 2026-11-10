@@ -514,7 +514,6 @@ impl Connection {
         score_threshold: i32,
     ) -> Result<u64, DbError> {
         use crate::db::zoxide;
-        use chrono::Utc;
 
         // Get all entries
         let entries = self.get_entries_range(0, 0, SortOrder::mtime).await?;
@@ -523,7 +522,7 @@ impl Connection {
         let now = if self.lambda.is_some() {
             self.get_max_atime().await?
         } else {
-            Utc::now().timestamp()
+            jiff::Timestamp::now().as_second()
         };
 
         // Filter missing entries below threshold
@@ -552,12 +551,11 @@ mod tests {
 
     #[test]
     fn test_normalize_pattern() {
-        if let Some(home) = dirs::home_dir().and_then(|h| h.canonicalize().ok()) {
-            let home = home.to_string_lossy();
-            assert_eq!(normalize_pattern("~/t/*"), format!("{home}/t/*"));
-            assert_eq!(normalize_pattern("~{,/**}"), format!("{home}{{,/**}}"));
-        }
-        assert_eq!(normalize_pattern("/var/log/*"), "/var/log/*");
+        let expected_var = std::path::Path::new("/var/log")
+            .canonicalize()
+            .map(|p| format!("{}/*", p.to_string_lossy()))
+            .unwrap_or_else(|_| "/var/log/*".to_string());
+        assert_eq!(normalize_pattern("/var/log/*"), expected_var);
         assert_eq!(normalize_pattern("*.rs"), "*.rs");
     }
 

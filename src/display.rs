@@ -1,5 +1,4 @@
-use cba::{bog::BogUnwrapExt, prints};
-use chrono::{DateTime, Local};
+use cba::prints;
 use comfy_table::{ContentArrangement, Row, Table, presets::UTF8_FULL};
 use fist_types::{FileCategory, filetypes::FileType};
 use std::str::FromStr;
@@ -174,9 +173,11 @@ fn reachable_aliases(cat: &FileCategory) -> Vec<&'static str> {
 }
 
 pub fn display_epoch(epoch: Epoch) -> String {
-    let naive = DateTime::from_timestamp(epoch, 0)._ebog("Invalid epoch");
-    let local_dt: DateTime<Local> = DateTime::from(naive);
-    local_dt.format("%d-%m-%y %H:%M:%S").to_string()
+    let Ok(ts) = jiff::Timestamp::from_second(epoch) else {
+        return "-".to_string();
+    };
+    let local_dt = ts.to_zoned(jiff::tz::TimeZone::system());
+    local_dt.strftime("%d-%m-%y %H:%M:%S").to_string()
 }
 
 /// Formats a byte count as a human-readable size, with a `decimal`
@@ -274,5 +275,22 @@ impl ActionToml {
             requires_dest: action.requires_dest,
             close: action.close,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_display_epoch_valid_and_fallback() {
+        // Valid epoch (0 = Unix epoch)
+        let s0 = display_epoch(0);
+        assert!(!s0.is_empty());
+        assert_ne!(s0, "-");
+
+        // Invalid / out-of-range epochs must safely return "-"
+        assert_eq!(display_epoch(i64::MAX), "-");
+        assert_eq!(display_epoch(i64::MIN), "-");
     }
 }

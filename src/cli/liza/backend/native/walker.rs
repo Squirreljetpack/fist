@@ -5,7 +5,6 @@ use std::{
     time::SystemTime,
 };
 
-use chrono::{DateTime, Local};
 use ignore::{DirEntry, WalkBuilder};
 
 use crate::display::human_size;
@@ -83,27 +82,32 @@ fn extract_metadata(
             file_meta.size = Some(human_size(m.len(), true));
         }
 
-        if config.show_time {
-            if let Ok(created) = m.created() {
-                let dt: DateTime<Local> = DateTime::from(created);
-                file_meta.btime = Some(dt.format("%Y-%m-%d %H:%M").to_string());
-            }
-            if let Ok(modified) = m.modified() {
-                let dt: DateTime<Local> = DateTime::from(modified);
-                file_meta.mtime = Some(dt.format("%Y-%m-%d %H:%M").to_string());
-            }
-            if let Ok(accessed) = m.accessed() {
-                let dt: DateTime<Local> = DateTime::from(accessed);
-                file_meta.atime = Some(dt.format("%Y-%m-%d %H:%M").to_string());
-            }
-        } else if !config.no_time
+        let needs_time = config.show_time
+            || !config.no_time
             || config.show_mtime
             || config.show_clean_long
-            || config.show_extensive
-        {
-            if let Ok(modified) = m.modified() {
-                let dt: DateTime<Local> = DateTime::from(modified);
-                file_meta.mtime = Some(dt.format("%Y-%m-%d %H:%M").to_string());
+            || config.show_extensive;
+
+        if needs_time {
+            let tz = jiff::tz::TimeZone::system();
+            let format_time = |time: SystemTime| {
+                let ts = jiff::Timestamp::try_from(time).ok()?;
+                let local_dt = ts.to_zoned(tz.clone());
+                Some(local_dt.strftime("%Y-%m-%d %H:%M").to_string())
+            };
+
+            if config.show_time {
+                if let Ok(created) = m.created() {
+                    file_meta.btime = format_time(created);
+                }
+                if let Ok(modified) = m.modified() {
+                    file_meta.mtime = format_time(modified);
+                }
+                if let Ok(accessed) = m.accessed() {
+                    file_meta.atime = format_time(accessed);
+                }
+            } else if let Ok(modified) = m.modified() {
+                file_meta.mtime = format_time(modified);
             }
         }
 
