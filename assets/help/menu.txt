@@ -1,4 +1,4 @@
-Fist — Menu
+F:st — Menu
 ===========
 
 The menu lists the actions available given the cursor item (or currently selected items).

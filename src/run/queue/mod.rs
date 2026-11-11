@@ -353,7 +353,7 @@ impl QUEUE {
         }
     }
 
-    /// `(src, dst)` for the entry at `index`; app entries have no dst.
+    /// `(src, destination)` for the entry at `index`; app entries have no destination.
     pub fn view_get(
         view: QueueView,
         index: usize,
@@ -398,7 +398,7 @@ impl QUEUE {
         view: QueueView,
         index: usize,
         path: Option<AbsPath>,
-        dst: Option<OsString>,
+        to: Option<OsString>,
     ) {
         match view {
             QueueView::Shared => {
@@ -407,8 +407,8 @@ impl QUEUE {
                     if let Some(p) = path {
                         item.src = vec![p];
                     }
-                    if let Some(d) = dst {
-                        item.data = d;
+                    if let Some(t) = to {
+                        item.data = t;
                     }
                 }
             }

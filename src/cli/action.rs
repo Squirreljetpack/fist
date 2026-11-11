@@ -3,7 +3,7 @@
 //!
 //! The name is the menu label, prefix included (`image: to png`, `flatten`).
 //! Actions that write somewhere need `--dest <dir>`; the script receives it as
-//! its `dst` argument exactly like a menu run. Options must precede the paths,
+//! its `to` argument exactly like a menu run. Options must precede the paths,
 //! and `--` separates a path that looks like an option. Toasts print to stderr
 //! since no UI is showing them.
 
@@ -88,7 +88,7 @@ pub fn run(
     };
 
     set_toasts_to_stderr(true);
-    let dst = dest.map(|d| d.to_string()).unwrap_or_default();
+    let to = dest.map(|d| d.to_string()).unwrap_or_default();
     let nav_cwd = AbsPath::initial();
     // only the strategies that own the terminal can prompt
     let interactive = matches!(action.strategy, MenuStrategy::Exec | MenuStrategy::ExecWait);
@@ -100,7 +100,7 @@ pub fn run(
     );
     let progress = AtomicU8::new(0);
     let progress = queued.then_some(&progress);
-    match execute(&source, &paths, &dst, Some(&nav_cwd), progress, interactive) {
+    match execute(&source, &paths, &to, Some(&nav_cwd), progress, interactive) {
         Ok(_) => 0,
         Err(e) => {
             eprintln!("error: {e}");

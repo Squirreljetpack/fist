@@ -22,7 +22,7 @@ side = "right"
 percentage = 40
 min = 30
 max = 120
-frame = { type = "LightDoubleDashed", fg = "DarkGray" }
+frame = { fg = "Black", modifier = "DIM" }
 
 # find
 [[preview.layout]]
@@ -30,7 +30,7 @@ side = "top"
 percentage = 50
 min = 5
 max = 50
-frame = { type = "LightDoubleDashed", fg = "DarkGray" }
+frame = { fg = "Black", modifier = "DIM" }
 
 # wide
 [[preview.layout]]
@@ -38,7 +38,7 @@ side = "right"
 percentage = 80
 min = 5
 max = 200
-frame = { type = "LightDoubleDashed", fg = "DarkGray" }
+frame = { fg = "Black", modifier = "DIM" }
 
 # app
 [[preview.layout]]
@@ -68,7 +68,7 @@ scroll_wrap = true
 frame = { type = "Rounded", fg = "DarkGray", padding = 1 }
 
 [query]
-frame = { sides = "BOTTOM", fg = "blue" }
+frame = { sides = "BOTTOM" }
 # word movement stops at these characters in addition to whitespace
 word_boundaries = ['.', '/']
 reset_cursor_on_query_change = true

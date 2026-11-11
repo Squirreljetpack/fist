@@ -81,7 +81,7 @@ impl Default for QueueConfig {
 
 /// Shared table-selection state for the queue overlays. The shared queue
 /// edits source/destination columns `[1, 2]`; the app view is a single
-/// editable path column `[0, 0]` (dst edits are not offered).
+/// editable path column `[0, 0]` (destination edits are not offered).
 pub struct TableSelection {
     pub state: TableState,
     pub selected: BTreeSet<usize>,
@@ -90,7 +90,7 @@ pub struct TableSelection {
     pub kind_filter: Option<String>,
 
     pub view: QueueView,
-    pub path_dst_cols: [usize; 2],
+    pub path_to_cols: [usize; 2],
     pub available_w: u16,
     pub initial_widths: Vec<u16>,
     pub dirty: bool,
@@ -99,7 +99,7 @@ pub struct TableSelection {
 
 impl TableSelection {
     pub fn new(view: QueueView) -> Self {
-        let path_dst_cols = match view {
+        let path_to_cols = match view {
             QueueView::Shared => [1, 2],
             QueueView::Apps => [0, 0],
         };
@@ -109,7 +109,7 @@ impl TableSelection {
             view,
             editing: None,
             kind_filter: None,
-            path_dst_cols,
+            path_to_cols,
             available_w: 0,
             initial_widths: vec![],
             dirty: false,
@@ -148,8 +148,8 @@ impl TableSelection {
     ) {
         self.dirty = false;
         if let Some((_, col, input)) = &mut self.editing {
-            // When editing dst column, ensure it starts at least at width 6
-            if *col == self.path_dst_cols[1] && widths[*col] < 6 {
+            // When editing the destination column, ensure it starts at least at width 6
+            if *col == self.path_to_cols[1] && widths[*col] < 6 {
                 widths[*col] = 6;
             }
 
@@ -164,9 +164,9 @@ impl TableSelection {
                     let diff = (val_width - original_col_w).min(self.available_w - current_total);
                     widths[*col] += diff;
                 }
-            // responsively shrink to initial width (at least 6 for dst while editing)
+            // responsively shrink to initial width (at least 6 for the destination while editing)
             } else if val_width < original_col_w {
-                let initial = if *col == self.path_dst_cols[1] {
+                let initial = if *col == self.path_to_cols[1] {
                     6
                 } else {
                     self.initial_widths.get(*col).cloned().unwrap_or(16)
@@ -220,7 +220,7 @@ impl TableSelection {
             if let Some(accepted) = input.handle_action(action) {
                 if accepted {
                     let value = input.value();
-                    if *col == self.path_dst_cols[0] {
+                    if *col == self.path_to_cols[0] {
                         let path = AbsPath::new_unchecked(std::path::PathBuf::from(value));
                         if std::fs::symlink_metadata(&path).is_ok() {
                             QUEUE::view_update(self.view, *row, Some(path), None);
@@ -229,7 +229,7 @@ impl TableSelection {
                             TOAST::notice(ToastStyle::Error, "Path does not exist");
                         }
                     } else {
-                        // dst was updated
+                        // destination was updated
                         QUEUE::view_update(self.view, *row, None, Some(value.into()));
                         self.editing = None;
                     }
@@ -378,7 +378,7 @@ impl TableSelection {
                     });
                     let val = p.to_string_lossy().into_owned();
                     input.set_value(val.clone());
-                    let col = self.path_dst_cols[0];
+                    let col = self.path_to_cols[0];
                     self.editing = Some((underlying, col, input));
                     self.dirty = true;
                     return OverlayEffect::None;
@@ -401,7 +401,7 @@ impl TableSelection {
                     });
                     let val = d.to_string_lossy().into_owned();
                     input.set_value(val.clone());
-                    let col = self.path_dst_cols[1];
+                    let col = self.path_to_cols[1];
                     self.editing = Some((visible[i], col, input));
                     self.dirty = true;
                     return OverlayEffect::None;
@@ -538,25 +538,25 @@ impl QueueOverlay {
             path_w = path_w.max(width);
         }
 
-        let mut dst_w = self.headers[2].len() as u16;
+        let mut to_w = self.headers[2].len() as u16;
         for item in items {
-            dst_w = dst_w.max(item.data.to_string_lossy().width() as u16);
+            to_w = to_w.max(item.data.to_string_lossy().width() as u16);
         }
 
         let mut size_w = 10;
 
         let available_path_w = available_ui_w
-            .saturating_sub(kind_w + dst_w + size_w)
+            .saturating_sub(kind_w + to_w + size_w)
             .max(16);
 
         path_w = path_w.min(available_path_w);
 
-        let mut dst_w_ = available_ui_w
+        let mut to_w_ = available_ui_w
             .saturating_sub(kind_w + path_w + size_w)
             .max(16)
-            .min(dst_w);
+            .min(to_w);
 
-        self.widths = [kind_w, path_w, dst_w_, size_w];
+        self.widths = [kind_w, path_w, to_w_, size_w];
         let mut extra = self
             .widths
             .iter()
@@ -574,16 +574,16 @@ impl QueueOverlay {
         };
 
         reduce(&mut path_w, 10);
-        reduce(&mut dst_w_, dst_w.min(6));
+        reduce(&mut to_w_, to_w.min(6));
         reduce(&mut size_w, 6);
         reduce(&mut kind_w, 5);
         reduce(&mut path_w, 6);
         reduce(&mut size_w, 3);
         reduce(&mut kind_w, 3);
-        reduce(&mut dst_w, 3);
+        reduce(&mut to_w, 3);
         reduce(&mut kind_w, 3);
 
-        self.widths = [kind_w, path_w, dst_w_, size_w];
+        self.widths = [kind_w, path_w, to_w_, size_w];
 
         self.state.initial_widths = self.widths.to_vec();
     }
@@ -729,7 +729,7 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
                             .ellipsize(self.widths[1] as usize, Alignment::Right),
                     )
                 };
-                let dst_cell = if is_editing && editing_info.unwrap().1 == 2 {
+                let to_cell = if is_editing && editing_info.unwrap().1 == 2 {
                     Cell::from("")
                 } else {
                     Cell::from(item.data.to_string_lossy().into_owned().pad(0, 1))
@@ -740,7 +740,7 @@ impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
                     item.src.len(),
                 ));
 
-                Row::new(vec![kind, path_cell, dst_cell, size]).style(row_style)
+                Row::new(vec![kind, path_cell, to_cell, size]).style(row_style)
             })
             .collect();
 
@@ -917,12 +917,12 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
             ];
 
             let mut path_w = 16u16;
-            let mut dst_w = 16u16;
+            let mut to_w = 16u16;
             for (p, d) in &dummy {
                 path_w = path_w.max(p.display_short(__home()).width() as u16);
-                dst_w = dst_w.max(d.width() as u16);
+                to_w = to_w.max(d.width() as u16);
             }
-            let widths = [path_w, dst_w];
+            let widths = [path_w, to_w];
 
             let editing_info = self.state.editing.as_ref().map(|(r, c, _)| (*r, *c));
             let rows: Vec<Row> = dummy
@@ -946,12 +946,12 @@ impl Overlay<FsAction, PathItem, ()> for AppOverlay {
                     } else {
                         Cell::from(p.display_short(__home()))
                     };
-                    let dst = if is_editing && editing_info.unwrap().1 == 1 {
+                    let to = if is_editing && editing_info.unwrap().1 == 1 {
                         Cell::from("")
                     } else {
                         Cell::from(d.as_str())
                     };
-                    Row::new(vec![path, dst]).style(row_style)
+                    Row::new(vec![path, to]).style(row_style)
                 })
                 .collect();
 

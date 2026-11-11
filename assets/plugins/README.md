@@ -1,6 +1,6 @@
-# F:ist agent skills
+# F:st agent skills
 
-This directory ships [Agent Skills](https://agentskills.io/specification)-format instructions that teach coding agents how to configure and operate [F:ist](https://github.com/Squirreljetpack/fist). The same files work in Codex, pi, OpenCode, and Claude Code; only the discovery directory differs. When installing, each file must be saved as `SKILL.md` inside a folder named after the skill.
+This directory ships [Agent Skills](https://agentskills.io/specification)-format instructions that teach coding agents how to configure and operate [F:st](https://github.com/Squirreljetpack/fist). The same files work in Codex, pi, OpenCode, and Claude Code; only the discovery directory differs. When installing, each file must be saved as `SKILL.md` inside a folder named after the skill.
 
 ## Install with curl
 
@@ -47,13 +47,13 @@ Review remote instructions before installing them in an environment where the ag
 
 ## What they cover
 
-- **Authoring**: menu-action plugins (Lua in TOML) and lessfilter rule tables — the two user-facing extension points of f:ist.
+- **Authoring**: menu-action plugins (Lua in TOML) and lessfilter rule tables — the two user-facing extension points of f:st.
 - **Operating**: launching panes non-interactively with the right filters/options, and driving the interactive interface (queue, copy/rename flows, pagers, metadata).
 - **Source of truth**: every skill points at the shipped config assets (`assets/config/*.toml`, `assets/actions/*.toml`) and the relevant subcommand help rather than duplicating them.
 
 ## References
 
-- [F:ist repository](https://github.com/Squirreljetpack/fist)
+- [F:st repository](https://github.com/Squirreljetpack/fist)
 - Shipped config defaults: [`assets/config/`](../config/) (`config.toml`, `mm.toml`, `lessfilter.toml`, `pager.toml`, `actions.toml`)
 - Shipped menu actions: [`assets/actions/`](../actions/)
 - [Matchmaker](https://github.com/Squirreljetpack/matchmaker) (the picker layer; bind/action semantics)

@@ -36,7 +36,7 @@ edition.workspace = true
 homepage.workspace = true
 license-file.workspace = true
 repository.workspace = true
-description = "Fist: Interactive Search Tool"
+description = "F:st: Interactive Search Tool"
 
 [dependencies]
 cli_boilerplate_automation = { workspace = true }

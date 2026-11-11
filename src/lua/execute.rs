@@ -29,10 +29,10 @@ thread_local! {
     static PROGRESS_TARGET: Cell<Option<NonNull<AtomicU8>>> = const { Cell::new(None) };
 }
 
-/// Run `source` with the `(paths, dst)` contract: `paths` is always a table
-/// of path strings (a one-element table for a single path) and `dst` is
+/// Run `source` with the `(paths, to)` contract: `paths` is always a table
+/// of path strings (a one-element table for a single path) and `to` is
 /// passed verbatim. When `nav_cwd` is given it is passed as the optional
-/// third argument — `(paths, dst)` without it, `(paths, dst, nav_cwd)` with
+/// third argument — `(paths, to)` without it, `(paths, to, nav_cwd)` with
 /// it. When `progress` is given, `set_progress` is defined and writes to it for
 /// the duration of the call; the target is cleared afterwards. Callers that
 /// pass `None` (menu runs) do not get a `set_progress` global at all, which
@@ -45,7 +45,7 @@ thread_local! {
 pub fn execute(
     source: &str,
     paths: &[AbsPath],
-    dst: &str,
+    to: &str,
     nav_cwd: Option<&AbsPath>,
     progress: Option<&AtomicU8>,
     allow_input: bool,
@@ -74,7 +74,7 @@ pub fn execute(
         .set("paths", table.clone())
         .map_err(|e| e.to_string())?;
     globals
-        .set("dst", dst.to_string())
+        .set("to", to.to_string())
         .map_err(|e| e.to_string())?;
     if let Some(cwd) = nav_cwd {
         globals
@@ -86,9 +86,9 @@ pub fn execute(
     }
     let res = match nav_cwd {
         Some(cwd) => {
-            f.call::<MultiValue>((table, dst.to_string(), cwd.to_string_lossy().into_owned()))
+            f.call::<MultiValue>((table, to.to_string(), cwd.to_string_lossy().into_owned()))
         }
-        None => f.call::<MultiValue>((table, dst.to_string())),
+        None => f.call::<MultiValue>((table, to.to_string())),
     };
     PROGRESS_TARGET.with(|t| t.set(None));
     res.map_err(|e| e.to_string())

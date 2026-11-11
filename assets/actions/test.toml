@@ -6,11 +6,11 @@ prefix = ""
 strategy = "ExecWait"
 condition = { selected = "active" }
 command = """
-local arg_paths, arg_dst, arg_nav_cwd = ...
+local arg_paths, arg_to, arg_nav_cwd = ...
 
 -- 1. The globals and varargs agree
 assert(arg_paths == paths, "arg_paths must match global paths")
-assert(arg_dst == dst, "arg_dst must match global dst")
+assert(arg_to == to, "arg_to must match global to")
 assert(arg_nav_cwd == nav_cwd, "arg_nav_cwd must match global nav_cwd")
 assert(set_progress == nil, "set_progress is only defined for queued actions")
 
@@ -118,7 +118,7 @@ print(lunacolors.green("paths count: ") .. tostring(#paths))
 for i, p in ipairs(paths) do
   print(string.format("  [%d]: %s", i, p))
 end
-print(lunacolors.blue("dst: ") .. dst)
+print(lunacolors.blue("to: ") .. to)
 print(lunacolors.yellow("nav_cwd: ") .. tostring(nav_cwd))
 print("stdin: " .. tostring(stdin_line or "<empty/eof>"))
 

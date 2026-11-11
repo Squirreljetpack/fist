@@ -4,10 +4,10 @@
 # menu overlay. Actions are gated with `have:program` rules so a format only
 # appears when its compressor is on PATH (evaluated when the menu opens).
 #
-# The command is a lua script executed with (paths, dst, nav_cwd): the
-# targeted absolute paths as a lua table `paths`, the destination `dst`
+# The command is a lua script executed with (paths, to, nav_cwd): the
+# targeted absolute paths as a lua table `paths`, the destination `to`
 # (empty for direct menu calls), and the navigation directory `nav_cwd` (optional).
-# The archive is written next to the first target, or into `dst` when it is
+# The archive is written next to the first target, or into `to` when it is
 # non-empty.
 
 ["zip"]
@@ -16,7 +16,7 @@ help = "Select an existing .zip archive first to append to it; otherwise a new a
 condition = { selected = "active", condition = "have:zip" }
 command = """
 local is_archive = paths[1]:lower():match("%.zip$") ~= nil
-local archive = is_archive and paths[1] or path.join(dst ~= "" and dst or path.parent(paths[1]), path.base(paths[1]) .. ".zip")
+local archive = is_archive and paths[1] or path.join(to ~= "" and to or path.parent(paths[1]), path.base(paths[1]) .. ".zip")
 if is_archive and path.is_empty(archive) then os.remove(archive) end
 local first_idx = is_archive and 2 or 1
 local same_parent = true
@@ -48,7 +48,7 @@ help = "Select an existing .cbz archive first to append to it; otherwise a new a
 condition = { selected = "active", condition = "have:zip" }
 command = """
 local is_archive = paths[1]:lower():match("%.cbz$") ~= nil
-local archive = is_archive and paths[1] or path.join(dst ~= "" and dst or path.parent(paths[1]), path.base(paths[1]) .. ".cbz")
+local archive = is_archive and paths[1] or path.join(to ~= "" and to or path.parent(paths[1]), path.base(paths[1]) .. ".cbz")
 if is_archive and path.is_empty(archive) then os.remove(archive) end
 local first_idx = is_archive and 2 or 1
 local same_parent = true
@@ -80,7 +80,7 @@ help = "Select an existing .tar.gz/.tgz archive first to append to it; otherwise
 condition = { selected = "active", condition = "have:tar" }
 command = """
 local is_archive = paths[1]:lower():match("%.tar%.gz$") ~= nil or paths[1]:lower():match("%.tgz$") ~= nil
-local archive = is_archive and paths[1] or path.join(dst ~= "" and dst or path.parent(paths[1]), path.base(paths[1]) .. ".tar.gz")
+local archive = is_archive and paths[1] or path.join(to ~= "" and to or path.parent(paths[1]), path.base(paths[1]) .. ".tar.gz")
 local empty = is_archive and path.is_empty(archive)
 local first_idx = is_archive and 2 or 1
 local same_parent = true
@@ -119,7 +119,7 @@ help = "Select an existing .tar.xz/.txz archive first to append to it; otherwise
 condition = { selected = "active", condition = "have:xz" }
 command = """
 local is_archive = paths[1]:lower():match("%.tar%.xz$") ~= nil or paths[1]:lower():match("%.txz$") ~= nil
-local archive = is_archive and paths[1] or path.join(dst ~= "" and dst or path.parent(paths[1]), path.base(paths[1]) .. ".tar.xz")
+local archive = is_archive and paths[1] or path.join(to ~= "" and to or path.parent(paths[1]), path.base(paths[1]) .. ".tar.xz")
 local empty = is_archive and path.is_empty(archive)
 local first_idx = is_archive and 2 or 1
 local same_parent = true
@@ -158,7 +158,7 @@ help = "Select an existing .7z archive first to append to it; otherwise a new ar
 condition = { selected = "active", condition = "have:7z" }
 command = """
 local is_archive = paths[1]:lower():match("%.7z$") ~= nil
-local archive = is_archive and paths[1] or path.join(dst ~= "" and dst or path.parent(paths[1]), path.base(paths[1]) .. ".7z")
+local archive = is_archive and paths[1] or path.join(to ~= "" and to or path.parent(paths[1]), path.base(paths[1]) .. ".7z")
 if is_archive and path.is_empty(archive) then os.remove(archive) end
 -- Absolute paths let one archive hold selections from different directories.
 -- 7z stores the basenames, not the temporary directory prefixes.

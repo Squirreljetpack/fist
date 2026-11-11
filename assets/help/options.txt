@@ -1,4 +1,4 @@
-Fist — Options
+F:st — Options
 ==============
 
 The options overlay edits the visibility, sort, and pane settings of the

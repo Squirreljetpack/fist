@@ -44,8 +44,8 @@
 # file's stem, "" drops it) and `help` is a free-form description that is not
 # rendered yet.
 # The command is a lua script (supports the @file syntax), executed with
-# (paths, dst, nav_cwd): the targeted absolute paths as a lua table `paths`,
-# the destination `dst` (passed from the _to_ column of the queue, empty otherwise), and the
+# (paths, to, nav_cwd): the targeted absolute paths as a lua table `paths`,
+# the destination `to` (passed from the _to_ column of the queue, empty otherwise), and the
 # navigation directory `nav_cwd` (optional).
 #
 # Queued actions (`strategy = "Queue"`/`"QueueBatch"`/`"Enqueue"`) may call

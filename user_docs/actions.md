@@ -1,274 +1,259 @@
-# Menu Actions
+# Actions
 
-Menu actions are user-defined commands shown in the menu overlay (`ctrl-e`/`alt-e`).
-They are declared as TOML tables keyed by name; the insertion order is the
-menu display order.
-
-Actions live in `actions.toml` next to `config.toml`, plus every `*.toml` file
-in the `actions/` folder next to it, merged in sorted filename order (numeric
-prefixes order them). `--dump-config` writes the shipped `actions.toml`.
-
-The action key serves two roles:
-
-- the **queue kind**: `ExecuteQueue(kind)` / `ClearQueue(kind)` select queue
-  rows by the exact key,
-- the second half of the **name** shown in the menu, `{prefix}: {key}` (see
-  `prefix` below).
-
-The following keys are reserved and rejected (case-insensitively): the
-builtin queue kinds `copy`, `move`, `symlink`, `none`, the selectors `all`,
-`builtins`, `first`, `last`, and the empty key.
-
-## Fields
-
-| Field           | Type           | Default          | Meaning                                            |
-| --------------- | -------------- | ---------------- | -------------------------------------------------- |
-| `command`       | string         | required         | The lua script (`@file` syntax supported).         |
-| `prefix`        | string         | file stem        | Menu group label; `""` drops it. See below.        |
-| `alias`         | string         | none             | The alias shown in the menu's second column.       |
-| `help`          | string         | `""`             | Description of the action; not rendered yet.       |
-| `strategy`      | string         | `"ExecSilent"`   | How the command runs; see below.                   |
-| `condition`     | list or object | always visible   | Visibility rules; see below.                       |
-| `requires_dest` | bool           | `false`          | Queued executions require a non-empty destination. |
-| `close`         | bool           | strategy default | Override the strategy's menu-closing behavior.     |
-
-### Prefixes
-
-The menu row reads `{prefix}: {key}`, so `["merge"]` with `prefix = "pdf"`
-shows as `pdf: merge`. The default value `:` is replaced at load time with the
-stem of the file that declared the action (`actions/pdf.toml` → `pdf`), which
-groups actions by file. An empty prefix renders the key alone. Two actions may
-not render the same row; `fs :tool check` reports such pairs as errors.
-
-`@file` commands load the script from disk (`~/` and absolute paths work; relative paths resolve against the actions folder).
-
-## Strategies
-
-| Strategy     | Waits | Closes menu | Effect                                                  |
-| ------------ | ----- | ----------- | ------------------------------------------------------- |
-| `Exec`       | yes   | yes         | Run the lua command and wait for it.                    |
-| `ExecWait`   | yes   | yes         | Run the lua command, wait for it, and prompt for Enter. |
-| `ExecSilent` | no    | yes         | Run in background.                                      |
-| `ExecPaged`  | yes   | yes         | Run and page its stdout.                                |
-| `Queue`      | —     | no          | Enqueue all targets as one multi-path queue item.       |
-| `QueueBatch` | —     | no          | Enqueue the targets in chunks of at most *n* paths.     |
-| `Enqueue`    | —     | yes         | Enqueue all targets as one queue item and start it.     |
-
-`Queue`/`QueueBatch`/`Enqueue` create queue rows of the action's key; the row's
-destination is editable in the queue overlay (`alt-u`). `requires_dest` cannot
-be combined with `Enqueue`, whose row starts immediately with no destination.
-
-## The Lua Environment & Global Contract
-
-Commands run inside an isolated Lua 5.4 VM per execution. Arguments are provided both as function arguments `(...)` and directly as globals.
-
-For the exhaustive API reference and module documentation, see [Lua Scripting & Runtime Modules](lua.md).
-
-### Provided Globals & Arguments
-
-- `paths` (table) — array of targeted absolute paths as strings.
-- `dst` (string) — the destination string (empty for direct menu calls; the queue row's destination for queued runs).
-- `nav_cwd` (string) — the Nav pane directory (injected if present).
-
-### Built-in Global Functions
-
-- `toast(style, msg)` — displays a footer notice toast. `style` accepts `"info"`, `"success"`, `"warning"` (`"warn"`), `"error"` (`"err"`), or `"normal"` (`nil`).
-- `toast_push(style, prefix, item)` — appends an item to a grouped list with a styled prefix (e.g. `toast_push("success", "set +x: ", "script.sh")` or `toast_push("success", "Compressed: ", "archive.zip")`).
-- `set_progress(0-255)` — updates the executing queue item's progress bar (0–255 scale). Defined only for queued actions (`Queue`, `QueueBatch`, `Enqueue`).
-- `os.exit(code)` — safely stops script execution with the given exit code without terminating the host `fs` process.
-- `error(...)` — raises a runtime error, stopping execution and displaying a failure notice toast.
-
-Every action also has access to pre-injected standard helper modules, see [Lua Scripting & Runtime Modules](lua.md).
-
-## Conditions
-
-An action is visible iff at least one condition passes; an empty list means
-always visible. A single condition is accepted without the outer array wrapper.
-Conditions are evaluated once when the menu opens.
-
-Alternatives that can never pass because they require a program that is not
-installed (`have:qpdf`) are removed while loading; an action whose alternatives
-are all removed is dropped, so `:tool check` (which loads unfiltered) is the
-only place those rows appear. Omission is the only way to spell an
-unconditional action: a written list always holds at least one alternative.
-
-There are two forms:
-
-### 1. Positional Sequence (`["type:f", "type:d"]`)
-
-Direct array of file rules evaluated positionally against selections in order:
+Key bindings live in the `[binds]` table of `mm.toml`. Each entry maps a
+trigger to one action string, or to a list of actions that run in order:
 
 ```toml
-condition = ["type:f", "type:d"]
+[binds]
+"ctrl-n" = "New"
+"tab" = ["ToggleSelection", "Down"]
 ```
 
-Exactly as many items must be selected as there are rules, and rule *i*
-must match the *i*-th selected item in selection order. Multiple sequence alternatives
-can be supplied in an array (`condition = [["type:text", "type:text"], ["type:text", "type:d"]]`).
+Action names are case-insensitive. Arguments are written in parentheses and
+may be omitted when an action has a default: `Down` and `Down(1)` are the
+same. Strings inside arguments are passed through literally, so
+`Execute(echo hello)` runs `echo hello` in your shell.
 
-### 2. Scoped Rule Table (`{ selected = "...", condition = "...", strict = bool }`)
+Menu actions (`actions.toml`) are a separate, Lua-based mechanism; see
+[Menu Actions](menu-actions.md).
 
-Flat table evaluated against the target set chosen by `selected`:
+## Panes & navigation
+
+| Action               | Description                                                                                                                                                                                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Advance`            | Enter the current file or directory. Files open through the lessfilter edit preset by default.                                                                                                                                                             |
+| `Parent`             | Go to the parent of the current directory, or of the current item when the pane has no directory.                                                                                                                                                          |
+| `Find`               | Open the find pane in the current directory.                                                                                                                                                                                                        |
+| `Search`             | Open the full-text search pane. Inside the search pane, toggle between query mode and filter mode.                                                                                                                                                         |
+| `History`            | Open recent files. Inside a history pane, switch between the file and folder lists.                                                                                                                                                                        |
+| `App`                | Open the application launcher pane. No-op when already in it.                                                                                                                                                                                              |
+| `Undo`               | Go back in the pane stack.                                                                                                                                                                                                                                 |
+| `Redo`               | Go forward in the pane stack.                                                                                                                                                                                                                              |
+| `Jump(paths)`        | Jump to one of the given directories, cycling to the next path when the current directory is already one of them. Paths are comma-separated and resolve relative to your home directory: `Jump(notes, src)`. With no argument, cycles between `~` and `/`. |
+| `JumpOrAccept(n)`    | Jump to the *n*-th item and accept it when the cursor is already there. `JumpOrAccept(0)` targets the current directory. The `ctrl-1`…`ctrl-9` defaults use this.                                                                                          |
+| `LockPrompt([bool])` | Enter or leave the query bar. With no argument, toggles it.                                                                                                                                                                                                |
+| `ShowMounts`         | Show the mounts picker: the volumes a mounted image or extracted archive was split into.                                                                                                                                                                   |
+| `SetSort(label)`     | Set the sort order by its display label: `name`, `mtime`, `atime`, `size`, or `none`. Database panes label `none` as `frecency`, `size` as `count`, and `mtime` as `none`.                                                                                 |
+
+## Display & overlays
+
+| Action         | Description                                                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `ShowMenu`     | Open the menu of contextual and custom actions.                                                                                       |
+| `ShowOptions`  | Open the options overlay (visibility, sorting, pane settings).                                                                        |
+| `ShowQueue`    | Open the queue overlay. In the app pane, opens the pending-files view instead.                                                        |
+| `Help`         | Show the keybinding help for the current context.                                                                                     |
+| `CycleFilter`  | Next filter: file/directory visibility in filesystem panes, sort order in history and stash panes, case mode in the search pane.      |
+| `ToggleFilter` | Toggle hidden-file visibility in filesystem panes, frecency/recency in history panes, regex/fixed-string matching in the search pane. |
+
+## Files & directories
+
+| Action                 | Description                                                                                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Move`                 | Enqueue the selection (or the current directory in prompt mode) under the `move` kind, and cut the paths to the system clipboard when `interface.move_files_to_clipboard` is enabled. |
+| `Copy`                 | Enqueue the selection under the `copy` kind, and copy the files to the system clipboard when `interface.copy_files_to_clipboard` is enabled.                                          |
+| `CopyPath`             | Copy the selected paths as text.                                                                                                                                                      |
+| `CopyFiles`            | Copy the selected files themselves, for pasting into a file manager.                                                                                                                  |
+| `New`                  | Create a file relative to the current item's parent. A trailing separator creates a directory.                                                                                        |
+| `NewFolder`            | Create a directory relative to the current item's parent.                                                                                                                             |
+| `Rename`               | Rename the item under the cursor, or the current directory in prompt mode.                                                                                                            |
+| `Trash([no_confirm])`  | Move the item to the system trash. Pass `true` to skip the confirmation prompt: `Trash(true)`.                                                                                        |
+| `Delete([no_confirm])` | Permanently delete the item. Pass `true` to skip the confirmation prompt.                                                                                                             |
+| `Paste([destination])` | Execute all pending `copy`, `move`, and `symlink` rows into the current directory, or into an absolute destination path.                                                              |
+
+In the database-backed panes (history and stashes), `Trash` and `Delete` can
+remove the database record instead of touching the filesystem; see
+`interface.remove_db_record_action` in [config.toml](config.md).
+
+## Queue & stashes
+
+| Action                     | Description                                                                                                                       |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `Enqueue(kind)`            | Enqueue the current selection under `kind`: a builtin queue kind (`copy`, `move`, `symlink`, `none`) or the key of a menu action. |
+| `ExecuteQueue([selector])` | Execute the queued rows selected by `selector` into the current directory.                                                        |
+| `ClearQueue([selector])`   | Remove the queued rows selected by `selector`, after confirmation.                                                                |
+| `Paste([destination])`     | Execute the builtin transfer rows. Listed here because it is the ordinary way to drain the queue.                                 |
+| `OpenStash([name])`        | Switch to the named stash pane. The unnamed stash is `OpenStash` or `OpenStash("")`.                                              |
+| `PushStash([name])`        | Add the selection, or the current directory in prompt mode, to the named stash without switching panes.                           |
+| `Stash([name])`            | Smart stash: push the selection when there is one; otherwise open the stash, or leave it when already there.                      |
+
+`selector` defaults to `all` and may also be `builtins` (the `copy`, `move`,
+and `symlink` kinds), `first`, `last`, or a specific queue kind such as
+`ExecuteQueue(copy)` or `ExecuteQueue(my-action)`.
+
+## Shell commands
+
+Commands are formatted with the [output templates](../docs/TEMPLATING.md)
+before they run, so they can refer to the current item and environment.
+
+| Action                  | Description                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `Execute(cmd)`          | Run the command in the current directory and wait for it to exit. `Exec(cmd)` is an alias.                          |
+| `ExecuteOrConfirm(cmd)` | Run and wait; when it exits non-zero, wait for Enter before returning to the TUI. `ExecOrConfirm(cmd)` is an alias. |
+| `ExecPaged(cmd)`        | Run with stdout streamed into the pager. `ExecutePaged(cmd)` is an alias.                                           |
+| `ExecTTY(cmd)`          | Run with stdin, stdout, and stderr connected to the terminal. `ExecuteTTY(cmd)` is an alias.                        |
+| `ExecDetached(cmd)`     | Run detached with no output and return immediately. `ExecuteDetached(cmd)` is an alias.                             |
+| `ExecSilent(cmd)`       | Run with no output and return immediately, without detaching. `ExecuteSilent(cmd)` is an alias.                     |
+| `CopyCommand(cmd)`      | Run the command and copy its stdout to the clipboard.                                                               |
+| `CopyCommandAsync(cmd)` | Run the command in the background and copy its stdout when it completes.                                            |
+
+`ExecuteWait(cmd)` also exists but is not accepted in `[binds]`; the
+confirmation behavior is reached through `ExecuteOrConfirm`.
+
+## Lessfilter
+
+A bare preset name is the shorthand for running that preset as a lessfilter
+action. The presets are `preview`, `display`, `extended`, `info`, `open`,
+`alternate`, `alternate2`, and `edit`.
+
+| Action                         | Description                                                                                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Preview` (or any preset name) | Run the preset on the current item and show its output normally.                                                                              |
+| `Lessfilter(preset)`           | Explicit form of the above.                                                                                                                   |
+| `LFPaged(preset)`              | Run the preset and page its output. `LessfilterPaged(preset)` is an alias.                                                                    |
+| `LFPreview(preset)`            | Run the preset into the preview pane, toggling back to the default preview when it is already shown. `LessfilterPreview(preset)` is an alias. |
+
+## Selection & exit
+
+| Action                       | Description                                                                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `Select`                     | Add the current item to the selection.                                                                                        |
+| `Deselect`                   | Remove the current item from the selection.                                                                                   |
+| `ToggleSelection` / `Toggle` | Toggle the current item's selection state.                                                                                    |
+| `CycleSelections` / `Cycle`  | Toggle every visible item's selection state.                                                                                  |
+| `ClearSelections` / `Clear`  | Clear all selections.                                                                                                         |
+| `Accept`                     | Accept the current item or selection and exit.                                                                                |
+| `Quit([code])`               | Exit with an optional status code, default `0`.                                                                               |
+| `Print([text])`              | Print the current item or selection through the output template and exit. With a non-empty argument, print that text instead. |
+| `PrintKey`                   | Print the key that triggered the binding.                                                                                     |
+
+## Result navigation
+
+| Action                        | Description                                              |
+| ----------------------------- | -------------------------------------------------------- |
+| `Up([n])`                     | Move the cursor up by `n` rows, default `1`.             |
+| `Down([n])`                   | Move the cursor down by `n` rows, default `1`.           |
+| `Pos(idx)`                    | Move to an absolute row. `-1` selects the last row.      |
+| `HalfPageUp` / `HalfPageDown` | Move by half a screen.                                   |
+| `HScroll([n])`                | Scroll horizontally by `n`; `0` resets.                  |
+| `VScroll([n])`                | Scroll the current result vertically by `n`; `0` resets. |
+| `ToggleWrap`                  | Toggle wrapping in the results list.                     |
+| `ToggleHeaderWrap`            | Toggle wrapping in the header.                           |
+
+## Preview
+
+| Action                                      | Description                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `NextPreview` / `PrevPreview`               | Cycle through the configured preview layouts.                                              |
+| `Preview(cmd)`                              | Show the given command's output in the preview.                                            |
+| `SetPreview([idx])`                         | Set the preview layout by index; without an index, restore the current layout's command.   |
+| `SwitchPreview([idx])`                      | Switch to a layout; without an index, toggle preview visibility.                           |
+| `TogglePreviewWrap`                         | Toggle wrapping in the preview.                                                            |
+| `PreviewUp([n])` / `PreviewDown([n])`       | Scroll the preview by `n` rows, default `1`.                                               |
+| `PreviewHalfPageUp` / `PreviewHalfPageDown` | Scroll the preview by half a screen.                                                       |
+| `ExpandPreview([n])` / `ShrinkPreview([n])` | Grow or shrink the preview by `n`, default `1`.                                            |
+| `PreviewHScroll([n])`                       | Persistently scroll the preview horizontally; `0` resets. Pans a shown image.              |
+| `PreviewScroll([n])`                        | Persistently scroll the preview vertically; `0` resets. Zooms a shown image by `n` tenths. |
+| `PreviewJump`                               | Jump between the preview's start, end, and initial position.                               |
+
+## Input editing
+
+| Action                               | Description                                                   |
+| ------------------------------------ | ------------------------------------------------------------- |
+| `ForwardChar` / `BackwardChar`       | Move the query cursor by one character.                       |
+| `ForwardWord` / `BackwardWord`       | Move the query cursor by one word.                            |
+| `DeleteChar` / `DeleteWord`          | Delete the character or word at the cursor.                   |
+| `DeleteLineStart` / `DeleteLineEnd`  | Delete from the cursor to the start or end of the query.      |
+| `ClearQuery` / `Cancel`              | Clear the query.                                              |
+| `ClearQueryLeft` / `ClearQueryRight` | Clear the query before or after the cursor.                   |
+| `SetQuery(text)`                     | Replace the query.                                            |
+| `InsertQuery(text)`                  | Insert text at the query cursor.                              |
+| `QueryPos(n)`                        | Move the query cursor to position `n`; `-1` moves to the end. |
+
+## Columns
+
+| Action                                        | Description                                                                              |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `NextColumn` / `PrevColumn`                   | Focus the next or previous column.                                                       |
+| `SwitchColumn(name)`                          | Focus a column by name or index.                                                         |
+| `HideColumn([name])` / `UnhideColumn([name])` | Hide or unhide a column; without an argument, the active or most recently hidden column. |
+| `ExpandColumn([n])` / `ShrinkColumn([n])`     | Widen or narrow a column by one, or the *n*-th non-hidden column when given.             |
+
+## Scripting & state
+
+| Action              | Description                                                                   |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `ExecuteAsync(cmd)` | Run in the background; the next action in the batch starts when it completes. |
+| `ExecuteThen(cmd)`  | Like `ExecuteAsync`, but subsequent actions run only when it succeeds.        |
+| `Become(cmd)`       | Replace the f:st process with the command.                                    |
+| `BecomeSilent(cmd)` | Replace the process without clearing the screen first.                        |
+| `Reload([cmd])`     | Reload the current pane. With a command, rerun the pane using it.             |
+| `Store(value)`      | Set `MM_STORE`, the value available to command templates.                     |
+| `Redraw`            | Force a full redraw.                                                          |
+
+## Advanced
+
+f:st uses the same system for bindings as matchmaker, with only the app-specific actions differing. This entails some niche but maybe cool features:
+
+#### Triggers
+
+A trigger is the key, mouse event, event, or named alias that activates a
+binding.
+
+- **Keys** use `ctrl-`, `alt-`, `shift-`, and `super-` prefixes:
+  `ctrl-c`, `alt-enter`, `shift-up`, `alt-shift-right`, `f2`, `enter`, `esc`,
+  `space`, `tab`, `backspace`, `pageup`, `pagedown`, `home`, `end`. A literal
+  key is written as itself: `?`, `/`, `` ` ``.
+- **Mouse** triggers are `left`, `middle`, `right`, `scrollup`, `scrolldown`,
+  `scrollleft`, and `scrollright`, optionally with `ctrl+`, `alt+`, or
+  `shift+` (for example `ctrl+scrollup`).
+- **Semantic aliases** start with `@`. Define one by binding the alias, then
+  use it from keys or other actions:
+
+  ```toml
+  [binds]
+  "@open-config" = "ExecTTY($EDITOR ~/.config/fist/config.toml)"
+  "ctrl-o" = "@open-config"
+  ```
+
+- **Events** are named after the point in the UI they describe: `Start`,
+  `Synced`, `Resynced`, `Reloaded`, `Restarted`, `QueryChange`,
+  `CursorChange`, `CursorLost`, `PreviewChange`, `PreviewSet`,
+  `OverlayChange`, `PreviewStarted`, `PreviewFinished`, `Resize`, `Redraw`,
+  `Tick`, `Pause`, and `Resume`.
+
+`fs :tool showbinds` prints the resolved bindings; `alt-h` shows them in the
+app.
+
+#### Modes
+
+A trigger can be restricted to a pane or UI state by prefixing it with a mode
+pattern and `^^`:
 
 ```toml
-condition = { selected = "active", condition = "type:f", strict = true }
+[binds]
+"nav^^alt-n" = "Execute($EDITOR .)"
+"prompt^^ctrl-h" = "DeleteWord"
 ```
 
-The rule must match **every** path in the target set:
+f:st sets the active mode from the pane:
 
-| `selected`           | strict = false                                                                                                | strict = true                                     |
-| -------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `"cursor"` (default) | an enabled cursor with an item (selections are ignored)                                                       | additionally: nothing selected                    |
-| `"cwd"`              | a current directory **while the cursor is disabled** (the prompt state)                                       | the Nav pane directory, regardless of the cursor  |
-| *n*                  | at least *n* selected items                                                                                   | exactly *n* selected items                        |
-| `"active"`           | the selection when any items are selected, else the cursor item, else (cursor disabled) the current directory | the resolved target set contains exactly one path |
+| Mode     | Active in                      |
+| -------- | ------------------------------ |
+| `custom` | Custom stream panes.           |
+| `find`   | The find pane.                 |
+| `app`    | The application launcher pane. |
+| `search` | The full-text search pane.     |
+| `files`  | The recent-files pane.         |
+| `dirs`   | The recent-folders pane.       |
+| `nav`    | The navigation pane.           |
+| `stash`  | Stash panes.                   |
+| `mount`  | The mounts pane.               |
 
-For `"cursor"` the rule is evaluated against the cursor item; for `"cwd"`
-against the current directory (strict: the Nav directory); for *n* and
-`"active"` against every resolved path. `strict` defaults to `false`;
-`selected` defaults to `"cursor"` and `condition` to `*` (any target) when
-omitted, so `{ selected = "active" }` shows the action for whatever is
-targeted.
+The `prompt` tag is added while the query bar is active. Patterns may be
+combined with commas (all must match) and negated with `!`: `nav,!prompt^^j`
+only applies in the nav pane when the query bar is closed.
 
-### Rule syntax
-
-| Rule                                                    | Matches                                                             |
-| ------------------------------------------------------- | ------------------------------------------------------------------- |
-| `ext:rs`                                                | File extension (`rs`). Bare `.ext` is shorthand (`.rs`).            |
-| `glob:*.rs`                                             | The full path against the glob.                                     |
-| `child:src`                                             | A child of the directory (or of a file's parent) matching the glob. |
-| `mime:image/*`                                          | MIME type (type may be a wildcard; e.g. `mime:image/png`).          |
-| `type:f` / `type:d` / `type:l` / `type:x` / `type:text` | File / directory / symlink / executable / text file.                |
-| `have:program`                                          | The program exists on PATH.                                         |
-| `cat:name`                                              | A file category (builtin or user-defined).                          |
-| `application`                                           | Platform app bundle / launcher / executable.                        |
-| `git`                                                   | The path is inside a git work tree.                                 |
-| `*`                                                     | Anything.                                                           |
-
-Prefix with `!` to invert (`!ext:rs`).
-
-## Examples
-
-To view or use the ready-to-use action plugins shipped with fist (including compression, directory/file diffing, and image/video conversion), see [assets/actions](https://github.com/Squirreljetpack/fist/tree/main/assets/actions).
-
-### 1. Direct Execution on Active Targets (`ExecSilent` + `fs`)
-
-Runs in background. Toggles executability on targeted paths using the native `fs` module:
-
-```toml
-["chmod +x"]
-strategy = "ExecSilent"
-condition = { selected = "active", condition = "*" }
-command = """
-local all_exec = true
-for _, p in ipairs(paths) do
-  local st = fs.stat(p)
-  if not (st and st.executable) then
-    all_exec = false
-    break
-  end
-end
-local mode = all_exec and "-x" or "+x"
-for _, p in ipairs(paths) do
-  fs.chmod(p, mode)
-end
-toast_push("success", "set " .. mode .. ": ", #paths == 1 and path.base(paths[1]) or (#paths .. " items"))
-"""
-```
-
-### 2. Interactive Input & Prompting (`Exec` + `input`)
-
-Prompts the user interactively before performing an action:
-
-```toml
-["rename-timestamp"]
-strategy = "Exec"
-condition = { selected = "active", condition = "type:f" }
-command = """
-local prefix = input.prompt("Enter filename prefix:", path.stem(paths[1]))
-if not prefix or prefix == "" then return end
-
-local new_name = prefix .. "_" .. util.timestamp("epoch") .. "." .. path.ext(paths[1])
-local target = path.join(path.parent(paths[1]), new_name)
-
-fs.rename(paths[1], target)
-toast("success", "Renamed to " .. new_name)
-"""
-```
-
-### 3. Styled Paged Output on Positional Pair (`ExecPaged` + `lunacolors`)
-
-Requires exactly two files selected in order; runs diff and styles headers:
-
-```toml
-["diff"]
-strategy = "ExecPaged"
-condition = ["type:f", "type:f"]
-command = """
-local p1, p2 = paths[1], paths[2]
-print(lunacolors.bold(lunacolors.underline(path.base(p1) .. " <-> " .. path.base(p2))))
-os.execute("diff -u --color=always " .. util.shq(p1) .. " " .. util.shq(p2))
-"""
-```
-
-### 4. Prompt-Scoped Command (`selected = "cwd"`)
-
-Visible only when in the prompt state (cursor disabled) inside a git repo:
-
-```toml
-["git: log"]
-strategy = "ExecPaged"
-condition = { selected = "cwd", condition = "git" }
-command = "os.execute('cd ' .. util.shq(paths[1]) .. ' && git log')"
-```
-
-### 5. Gated on External Tool (`{ condition = "have:..." }`)
-
-Visible only when `tar` is installed on `PATH`:
-
-```toml
-["tar.gz"]
-strategy = "Exec"
-condition = { condition = "have:tar" }
-command = "print('compressing ' .. #paths .. ' items to ' .. dst)"
-```
-
-### 6. Queued Action Requiring Destination (`Queue` + `requires_dest`)
-
-Enqueues matching targets as a custom queue item; requires destination to execute:
-
-```toml
-["stash-logs"]
-strategy = "Queue"
-condition = { selected = "active", condition = "ext:log" }
-requires_dest = true
-command = "print('processing log ' .. paths[1] .. ' -> ' .. dst)"
-```
-
-## Running an Action from the Shell
-
-```
-fs :tool action <name> [--dest <dir>] [--] [paths...]
-```
-
-`<name>` is the menu label including its prefix (`image: to png`, `flatten`);
-a key without its prefix is accepted too. Paths default to the current
-directory. Actions with `requires_dest = true` demand `--dest`, and the
-directory must exist; other actions accept it as well and receive it as `dst`.
-Options must precede the paths; use `--` before a path that would otherwise
-be parsed as an option. Both globals are set exactly as in a menu run —
-`nav_cwd` is the current directory — and `toast`/`toast_push` print to stderr
-instead of the overlay. Interactive strategies (`Exec`, `ExecWait`) can prompt
-on the terminal; `Queue`/`QueueBatch` run the script once with every path,
-like an immediate row. The exit code is the script's `os.exit` status when it
-exits that way, and non-zero when the script fails.
-
-## Interaction with the Queue
-
-- `Queue`/`QueueBatch` rows execute the action's lua command once per row
-  with the row's stored `dst` as the second argument.
-- `requires_dest = true` rows need a non-empty destination: `All`
-  (`ExecuteQueue` with no argument) silently skips such rows with an empty
-  destination, exact selectors report an error.
-- The queue overlay's `[kind: x]` filter cycles the shared queue by kind;
-  `Paste` executes all pending `copy`, `move`, and `symlink` rows.
+A binding without a mode is a fallback. When several bindings match the same
+trigger, the one with more mode patterns wins; ties go to the definition that
+appears later in the file, so your `mm.toml` overrides the built-in defaults.
