@@ -499,7 +499,6 @@ mod tests {
         let res = execute(cmd, &[], "", None, None, true);
         assert!(res.is_ok(), "interactive modules test failed: {res:?}");
 
-
         // ExecSilent & ExecPaged executions (allow_input = false) omit input module
         let non_interactive_cmd = r#"
             assert(input == nil, "input module must NOT be injected into non-interactive actions")

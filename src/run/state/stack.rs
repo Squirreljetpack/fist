@@ -88,7 +88,7 @@ impl STACK {
 
     pub fn stack_prev() -> bool {
         let moved = STACK.with(|cell| {
-            let Self { index, .. } = &mut *cell.borrow_mut();
+            let Self { stack, index, .. } = &mut *cell.borrow_mut();
             if *index > 0 {
                 *index -= 1;
                 true
@@ -323,8 +323,9 @@ impl STACK {
     /// Drop every pane listing a directory inside `prefix`, so panes do not
     /// outlive a volume that is about to be unmounted. The pane the user is on
     /// is kept while it survives, and the stack never ends up empty.
-    /// Returns how many panes were removed.
-    pub fn remove_within(prefix: &Path) -> usize {
+    /// Returns how many panes were removed and whether the current pane was one
+    /// of them (the caller must then reload the surviving pane).
+    pub fn remove_within(prefix: &Path) -> (usize, bool) {
         STACK.with(|cell| {
             let Self { stack, index } = &mut *cell.borrow_mut();
             let current = *index;
@@ -355,9 +356,10 @@ impl STACK {
             }
 
             let removed = drop.len();
+            let current_removed = drop.contains(&current);
             *stack = kept;
             *index = new_index;
-            removed
+            (removed, current_removed)
         })
     }
 
@@ -429,6 +431,7 @@ mod tests {
 
     #[test]
     fn test_cwd() {
+        GLOBAL::init_test_senders();
         let p1 = AbsPath::new_unchecked(Path::new("/tmp/test_dir1"));
         let p2 = AbsPath::new_unchecked(Path::new("/tmp/test_dir2"));
 
@@ -464,6 +467,7 @@ mod tests {
 
     #[test]
     fn test_stack_visibility() {
+        GLOBAL::init_test_senders();
         let p1 = AbsPath::new_unchecked(Path::new("/tmp/test_dir1"));
         let mut vis1 = Visibility::DEFAULT;
         vis1.hidden = true;
@@ -520,6 +524,7 @@ mod tests {
 
     #[test]
     fn remove_within_drops_panes_inside_a_volume() {
+        GLOBAL::init_test_senders();
         let volume = Path::new("/volumes/foo");
 
         STACK::init(nav("/home"));
@@ -528,7 +533,7 @@ mod tests {
         STACK::push(nav("/tmp"));
 
         // panes inside are dropped, the current pane and its position stay
-        assert_eq!(STACK::remove_within(volume), 2);
+        assert_eq!(STACK::remove_within(volume), (2, false));
         assert_eq!(STACK::len(), 2);
         assert_eq!(
             STACK::nav_cwd(),
@@ -538,7 +543,7 @@ mod tests {
 
         // a current pane inside is dropped too: the nearest pane below it takes over
         STACK::push(nav("/volumes/foo/other"));
-        assert_eq!(STACK::remove_within(volume), 1);
+        assert_eq!(STACK::remove_within(volume), (1, true));
         assert_eq!(STACK::len(), 2);
         assert_eq!(
             STACK::nav_cwd(),
@@ -548,7 +553,7 @@ mod tests {
         // the whole stack inside: one pane survives
         STACK::init(nav("/volumes/foo"));
         STACK::push(nav("/volumes/foo/sub"));
-        assert_eq!(STACK::remove_within(volume), 1);
+        assert_eq!(STACK::remove_within(volume), (1, false));
         assert_eq!(STACK::len(), 1);
         assert_eq!(
             STACK::nav_cwd(),

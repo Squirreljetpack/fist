@@ -1,15 +1,18 @@
 //! The query prompt: its declarative definition, the prompt-mode toggle
 //! ([`lock_prompt`]), the cwd-lock entry ([`enter_prompt`]), and the
-//! matchmaker-mode mirror ([`prompt_mode`]).
+//! matchmaker-mode sync ([`sync_mode`]).
 
 use cba::_trace;
-use matchmaker::{config::RenderConfig, message::BindDirective};
+use matchmaker::config::RenderConfig;
 use ratatui::text::Line;
 
 use crate::run::state::GLOBAL::cfg;
 use crate::{
     aliases::MMState,
-    run::state::{GLOBAL, InPrompt, STACK, STORE, ui::prompt_main_style},
+    run::{
+        reload::sync_mode,
+        state::{GLOBAL, InPrompt, STACK, STORE, ui::prompt_main_style},
+    },
     utils::formatter::format_prompt,
 };
 
@@ -110,7 +113,7 @@ pub fn lock_prompt(
     }
     // mirror only on real transitions so the mode stack stays balanced
     if was_in_prompt != enter {
-        prompt_mode(enter);
+        sync_mode();
         swap_config(state);
     }
     if !enter {
@@ -122,18 +125,6 @@ pub fn lock_prompt(
         }
     }
     refresh_prompt(state);
-}
-
-/// Mirror the prompt state into the matchmaker mode stack so that
-/// mode-tagged binds (`prompt^^...` in mm.toml) apply while the prompt is
-/// active and fall back to the unconditional binds on leave.
-fn prompt_mode(enter: bool) {
-    let directive = if enter {
-        BindDirective::PushMode("prompt".into())
-    } else {
-        BindDirective::PopMode("prompt".into())
-    };
-    GLOBAL::send_bind(directive);
 }
 
 /// Whether the query bar is active (the raw prompt state).
@@ -162,7 +153,7 @@ pub fn enter_prompt(state: &mut MMState<'_>) -> bool {
     let was_in_prompt = STORE::contains::<InPrompt>();
     STORE::set(InPrompt);
     if !was_in_prompt {
-        prompt_mode(true);
+        sync_mode();
         swap_config(state);
     }
     state.picker_ui.results.disable_cursor(true);
