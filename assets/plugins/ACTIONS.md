@@ -1,16 +1,16 @@
 ---
 name: fist-menu-actions
-description: Defines F:ist menu actions - context-aware Lua plugins shown in fs's alt-e menu and reusable as queueable bulk operations. Use when adding a custom action to the fs menu, gating visibility on file properties or installed programs, wiring queued multi-step operations with editable destinations, or debugging an action's strategy, conditions, or script.
-compatibility: Requires the F:ist CLI (`fs`) with an initialized config directory (run `fs --dump-config` once). Action commands are Lua scripts executed by fs's embedded VM; no system Lua is required.
+description: Defines F:st menu actions - context-aware Lua plugins shown in fs's alt-e menu and reusable as queueable bulk operations. Use when adding a custom action to the fs menu, gating visibility on file properties or installed programs, wiring queued multi-step operations with editable destinations, or debugging an action's strategy, conditions, or script.
+compatibility: Requires the F:st CLI (`fs`) with an initialized config directory (run `fs --dump-config` once). Action commands are Lua scripts executed by fs's embedded VM; no system Lua is required.
 ---
 
-# F:ist menu action authoring
+# F:st menu action authoring
 
 Use this skill to write, review, or debug a **menu action**: a named TOML entry whose Lua command runs against the items under the cursor or the current selection. Menu actions appear in the menu overlay (`alt-e`), can be bound to keys directly, and can feed the background queue for batch execution with per-row destinations.
 
 ## Source of truth
 
-Before inventing fields or syntax, consult the version of F:ist being used:
+Before inventing fields or syntax, consult the version of F:st being used:
 
 ```sh
 fs --dump-config            # writes the default actions.toml next to config.toml on first run
@@ -71,7 +71,7 @@ Prefer `ExecPaged` for read-only reporting (`git log`, diffs, listings), `ExecSi
 Each execution gets an isolated VM. Arguments arrive both as varargs and globals:
 
 - `paths` (table of strings) — targeted absolute paths.
-- `dst` (string) — empty for direct menu calls; the queue row's destination when run from the queue.
+- `to` (string) — empty for direct menu calls; the queue row's destination when run from the queue.
 - `nav_cwd` (string) — the Nav pane directory, injected when present.
 
 Built-in functions:
@@ -157,7 +157,7 @@ Prefix `!` to invert (`!ext:log`).
 ## Interaction with the queue
 
 - `Queue`/`QueueBatch` create rows keyed by the action name; each row's destination is editable in the queue overlay (`alt-u`, `To` column). `Enqueue` does the same and starts the row immediately, so it cannot be combined with `requires_dest`.
-- On execution the script runs once **per row** with that row's stored `dst`; multi-path rows receive all their paths in `paths`.
+- On execution the script runs once **per row** with that row's stored `to`; multi-path rows receive all their paths in `paths`.
 - `requires_dest = true`: executing via `All` silently skips rows with empty destinations; exact selectors report an error instead.
 - Binds compose with selectors: `Enqueue(my-action)`, `ExecuteQueue(my-action)`, `ClearQueue(my-action)`, `Paste` (= `ExecuteQueue(builtins)`).
 
@@ -174,7 +174,7 @@ Prefix `!` to invert (`!ext:log`).
 ## Common failure modes
 
 - **Action never shows:** the condition is too strict (e.g. `strict = true` with selections present under `cursor`), or a `have:` dependency is missing.
-- **Action shows but errors:** the script assumed `dst` or `nav_cwd` exists — both may be empty strings.
+- **Action shows but errors:** the script assumed `to` or `nav_cwd` exists — both may be empty strings.
 - **Paths break on spaces/quotes:** values were concatenated without shell quoting.
 - **Wrong working directory:** scripts run in the process cwd; `cd` to the target explicitly.
 - **Duplicate key error at startup:** two action files define the same key; rename one.

@@ -92,7 +92,7 @@ pub(super) fn menu_lua_command(
     }
 }
 
-/// Run a menu action's lua command with the `(paths, dst)` contract: the
+/// Run a menu action's lua command with the `(paths, to)` contract: the
 /// targeted paths table and an empty destination. The navigation directory
 /// is passed as the third argument when present. `set_progress` is not
 /// defined here (only queued runs have a progress cell to drive). The command

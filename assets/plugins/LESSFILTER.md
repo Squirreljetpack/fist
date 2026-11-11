@@ -1,10 +1,10 @@
 ---
 name: fist-lessfilter
-description: Customizes F:ist's lessfilter.toml - the scored rule table deciding how each file is previewed, displayed, opened, edited, and summarized. Use when changing previews for specific file types, adding custom preview commands or categories, wiring the alternate/edit/open presets, or debugging why a file previews wrongly.
-compatibility: Requires the F:ist CLI (`fs`). Rule quality depends on optional tools being on PATH (bat, eza, chafa, kreuzberg, mediainfo, sqlite3, ...); rules can gate on them with `have:`.
+description: Customizes F:st's lessfilter.toml - the scored rule table deciding how each file is previewed, displayed, opened, edited, and summarized. Use when changing previews for specific file types, adding custom preview commands or categories, wiring the alternate/edit/open presets, or debugging why a file previews wrongly.
+compatibility: Requires the F:st CLI (`fs`). Rule quality depends on optional tools being on PATH (bat, eza, chafa, kreuzberg, mediainfo, sqlite3, ...); rules can gate on them with `have:`.
 ---
 
-# F:ist lessfilter configuration
+# F:st lessfilter configuration
 
 Use this skill to edit `lessfilter.toml`: the file that maps files to **presets** (preview, display, open, edit, ...), where each preset is a list of scored `(actions, patterns)` rules. The highest-scoring rule wins and its actions run on the target file.
 

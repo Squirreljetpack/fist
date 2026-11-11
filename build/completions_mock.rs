@@ -16,7 +16,7 @@ mod lessfilter {
     #[strum(serialize_all = "lowercase")]
     pub enum Preset {
         #[clap(alias = "p")]
-        /// For the f:ist preview pane.
+        /// For the f:st preview pane.
         ///
         /// see [`matchmaker::preview`]
         Preview,

@@ -1,8 +1,8 @@
 # Lua Scripting & Runtime Modules
 
-Fist embeds an isolated Lua 5.4 VM with bundled standard modules, terminal styling, and filesystem utilities. Lua scripts power two primary features in Fist:
+F:st embeds an isolated Lua 5.4 VM with bundled standard modules, terminal styling, and filesystem utilities. Lua scripts power two primary features in F:st:
 
-1. **[Menu & Queue Actions](actions.md)** — custom commands, converters, archivers, and tools executed against selected files or directories from the menu overlay (`ctrl-e`/`alt-e`).
+1. **[Menu & Queue Actions](menu-actions.md)** — custom commands, converters, archivers, and tools executed against selected files or directories from the menu overlay (`ctrl-e`/`alt-e`).
 2. **[Custom Stream Transforms](#custom-stream-transforms-fs-custom)** — dynamic line filtering, path formatting, and context annotations in `fs :custom --transform` and `fs -u --transform`.
 
 ---
@@ -119,7 +119,7 @@ Utility functions for serialization, time, clipboard, and shell quoting:
 | ------------------------------- | --------------- | ----------------------------------------------------------------------------------------- |
 | `input.prompt(msg, [default])`  | `string \| nil` | Prompts user for a line of text via `/dev/tty`. Returns string or `default`.              |
 | `input.confirm(msg, [default])` | `bool`          | Displays `[Y/n]` or `[y/N]` prompt. Returns boolean `true`/`false`.                       |
-| `input.select(items, [prompt])` | `string \| nil` | Interactive fuzzy picker via Fist's matchmaker. Returns selected item or `nil` on cancel. |
+| `input.select(items, [prompt])` | `string \| nil` | Interactive fuzzy picker via F:st's matchmaker. Returns selected item or `nil` on cancel. |
 
 ```lua
 local choice = input.select({"webp", "png", "avif"}, "Select format:")
@@ -151,12 +151,12 @@ Available styles: `bold`, `dim`, `italic`, `underline`, `invert`, `hidden`, `str
 
 ## Global Functions & Action Environment
 
-When executing [Menu Actions](actions.md), scripts also receive context arguments and lifecycle globals:
+When executing [Menu Actions](menu-actions.md), scripts also receive context arguments and lifecycle globals:
 
 ### Arguments & Globals
 
 - `paths` (table) — array of targeted absolute paths.
-- `dst` (string) — destination directory (empty for direct menu runs; populated for queued actions).
+- `to` (string) — destination directory (empty for direct menu runs; populated for queued actions).
 - `nav_cwd` (string) — active Nav pane directory.
 
 ### Host Integration Functions
@@ -164,7 +164,7 @@ When executing [Menu Actions](actions.md), scripts also receive context argument
 - `toast(style, msg)` — displays a footer notice toast (`"info"`, `"success"`, `"warning"`, `"error"`, or `"normal"`).
 - `toast_push(style, prefix, item)` — adds a bulleted item to a grouped toast summary.
 - `set_progress(0-255)` — updates the queue row's progress bar (0–255 scale). Defined only for queued actions (`Queue`, `QueueBatch`, `Enqueue`).
-- `os.exit(code)` — safely halts script execution with the given exit code without exiting Fist.
+- `os.exit(code)` — safely halts script execution with the given exit code without exiting F:st.
 - `error(...)` — stops execution with a runtime error toast.
 
 ---

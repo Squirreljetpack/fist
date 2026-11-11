@@ -1,6 +1,6 @@
 # The Pager
 
-`fs` includes a pager which wraps [bat](https://github.com/sharkdp/bat) when present, feeding it into a fork of [minus](https://github.com/AMythicDev/minus). This pager includes a few modifications required by `fs` for a smooth experience: it skips starting on empty (non-file) inputs, writes to /dev/tty in `fist` (so that `fs` can still write to stdout), and reads environment variables to propogate options such as bat arguments so that it fits as a configurable `$PAGER` in scripts (if so desired) with maximal compatibility.
+`fs` includes a custom pager built on [minus](https://github.com/AMythicDev/minus). This pager includes a few modifications required by `fs` for a smooth experience: it wraps [bat](https://github.com/sharkdp/bat) when present, skips starting on empty (non-file) inputs, writes to /dev/tty in `fist` (so that `fs` can still write to stdout), and reads environment variables to propogate options such as bat arguments so that it fits as a configurable `$PAGER` in scripts (if so desired) with maximal compatibility.
 
 ## When output gets paged
 

@@ -42,10 +42,6 @@ define_const_default!(
 
         /// Style configuration based on file type
         pub file_styles: FileStyles,
-
-        // Experimental
-        pub symlink: Option<bool> = None, // hide/normal/fancy(target/color?)
-        pub invalid: Option<bool> = None, // hide/normal/fancy(color)
     }
 );
 

@@ -7,11 +7,11 @@ strategy = "ExecSilent"
 condition = { selected = "active", condition = ["mime:image/*", "have:cwebp"] }
 command = """
 for _, p in ipairs(paths) do
-  local out_dir = dst ~= "" and dst or path.parent(p)
+  local out_dir = to ~= "" and to or path.parent(p)
   local out_file = path.join(out_dir, path.stem(p) .. ".webp")
   if out_file == p then
     out_file = path.unique(path.join(out_dir, path.stem(p) .. "_converted.webp"))
-  elseif dst == "" and path.exists(out_file) then
+  elseif to == "" and path.exists(out_file) then
     out_file = path.unique(out_file)
   end
   local res = proc.run("cwebp", {"-q", "85", p, "-o", out_file})
@@ -30,11 +30,11 @@ strategy = "ExecSilent"
 condition = { selected = "active", condition = ["mime:image/*", "have:magick"] }
 command = """
 for _, p in ipairs(paths) do
-  local out_dir = dst ~= "" and dst or path.parent(p)
+  local out_dir = to ~= "" and to or path.parent(p)
   local out_file = path.join(out_dir, path.stem(p) .. ".png")
   if out_file == p then
     out_file = path.unique(path.join(out_dir, path.stem(p) .. "_converted.png"))
-  elseif dst == "" and path.exists(out_file) then
+  elseif to == "" and path.exists(out_file) then
     out_file = path.unique(out_file)
   end
   local res = proc.run("magick", {p, out_file})
@@ -88,11 +88,11 @@ condition = { selected = "active", condition = ["mime:video/*", "have:ffmpeg"] }
 command = """
 for i, p in ipairs(paths) do
   set_progress(math.floor((i - 1) / #paths * 255))
-  local out_dir = dst ~= "" and dst or path.parent(p)
+  local out_dir = to ~= "" and to or path.parent(p)
   local out_file = path.join(out_dir, path.stem(p) .. ".webp")
   if out_file == p then
     out_file = path.unique(path.join(out_dir, path.stem(p) .. "_animated.webp"))
-  elseif dst == "" and path.exists(out_file) then
+  elseif to == "" and path.exists(out_file) then
     out_file = path.unique(out_file)
   end
   local res = proc.run("ffmpeg", {"-y", "-hide_banner", "-loglevel", "error", "-i", p, "-vcodec", "libwebp", "-filter:v", "fps=15", "-lossless", "0", "-q:v", "70", "-loop", "0", "-an", out_file})
@@ -112,11 +112,11 @@ strategy = "ExecSilent"
 condition = { selected = "active", condition = ["mime:video/*", "have:ffmpeg"] }
 command = """
 for _, p in ipairs(paths) do
-  local out_dir = dst ~= "" and dst or path.parent(p)
+  local out_dir = to ~= "" and to or path.parent(p)
   local out_file = path.join(out_dir, path.stem(p) .. ".mp3")
   if out_file == p then
     out_file = path.unique(path.join(out_dir, path.stem(p) .. "_extracted.mp3"))
-  elseif dst == "" and path.exists(out_file) then
+  elseif to == "" and path.exists(out_file) then
     out_file = path.unique(out_file)
   end
   local res = proc.run("ffmpeg", {"-y", "-hide_banner", "-loglevel", "error", "-i", p, "-vn", "-c:a", "libmp3lame", "-q:a", "2", out_file})
@@ -135,11 +135,11 @@ strategy = "ExecSilent"
 condition = { selected = "active", condition = ["mime:audio/*", "have:ffmpeg"] }
 command = """
 for _, p in ipairs(paths) do
-  local out_dir = dst ~= "" and dst or path.parent(p)
+  local out_dir = to ~= "" and to or path.parent(p)
   local out_file = path.join(out_dir, path.stem(p) .. ".mp3")
   if out_file == p then
     out_file = path.unique(path.join(out_dir, path.stem(p) .. "_converted.mp3"))
-  elseif dst == "" and path.exists(out_file) then
+  elseif to == "" and path.exists(out_file) then
     out_file = path.unique(out_file)
   end
   local res = proc.run("ffmpeg", {"-y", "-hide_banner", "-loglevel", "error", "-i", p, "-c:a", "libmp3lame", "-b:a", "320k", out_file})

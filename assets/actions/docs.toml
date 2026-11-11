@@ -7,7 +7,7 @@ strategy = "Queue"
 condition = { selected = 2, condition = ["mime:application/pdf", "have:qpdf"] }
 command = """
 -- merge the selected pdfs, in selection order, into one file
-local out_dir = dst ~= "" and dst or path.parent(paths[1])
+local out_dir = to ~= "" and to or path.parent(paths[1])
 local out_file = path.unique(path.join(out_dir, path.stem(paths[1]) .. "-merged.pdf"))
 local args = { "--empty", "--pages" }
 for _, p in ipairs(paths) do args[#args + 1] = p end
@@ -31,7 +31,7 @@ command = """
 -- one pdf per page, named <stem>-<page>.pdf
 for i, p in ipairs(paths) do
   set_progress(math.floor((i - 1) / #paths * 255))
-  local out_dir = dst ~= "" and dst or path.parent(p)
+  local out_dir = to ~= "" and to or path.parent(p)
   -- the page number comes from qpdf's pattern, so uniquify the stem instead
   local stem = path.stem(p)
   local base, n = stem, 1

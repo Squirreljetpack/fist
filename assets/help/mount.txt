@@ -1,4 +1,4 @@
-Fist — Mounts
+F:st — Mounts
 =============
 
 The mounts picker lists every directory this process made navigable —

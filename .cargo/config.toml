@@ -5,3 +5,6 @@ MACOSX_DEPLOYMENT_TARGET = "14.0"
 LIBSQLITE3_FLAGS = "-DSQLITE_ENABLE_MATH_FUNCTIONS=1"
 CXXFLAGS_aarch64_apple_darwin = "-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1"
 CXXFLAGS_x86_64_apple_darwin = "-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1"
+
+[alias]
+"@clip" = ["exec", "./%%CLIPS/tools/film.sh"] # provide a clip name, 'all' to refilm all
