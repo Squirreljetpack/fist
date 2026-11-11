@@ -1,6 +1,6 @@
 use cba::{_trace, bring::split::split_whitespace_preserve_single_quotes};
 use fist_types::{When, filters::SortOrder, git::in_git_repo};
-use matchmaker::{config::StringOrInt, ui::StatusUI};
+use matchmaker::{config::StringOrInt, message::BindDirective, ui::StatusUI};
 
 use crate::run::state::GLOBAL::db;
 use crate::{
@@ -8,7 +8,10 @@ use crate::{
     aliases::MMState,
     run::{
         FsPane, query_prompt, selection,
-        state::{GLOBAL, LockPromptSetting, STACK, STORE, SmartGitVisibility, sort, ui::global_ui},
+        state::{
+            GLOBAL, InPrompt, LockPromptSetting, STACK, STORE, SmartGitVisibility, sort,
+            ui::global_ui,
+        },
     },
 };
 
@@ -80,8 +83,9 @@ pub fn fs_reload(
     is_new: bool,
     // whether the reload re-reads a different directory than
     // the pane currently shows. is_new || dir_changed gates the selection refill and dir-size clear.
-    // is_new && dir_changed (Undo/Redo): don't apply default visibility/sort.
-    // dir_changed matters only for `enter_dir` and `undo/redo`
+    // is_new && dir_changed (Undo/Redo, unmounting into a surviving pane):
+    // don't apply default visibility/sort.
+    // dir_changed matters for enter_dir, undo/redo, and unmount.
     dir_changed: bool,
 ) {
     // apply vis/sort changes
@@ -173,6 +177,22 @@ pub fn fs_reload(
         // selections can't be revalidated across a worker restart — clear them
         fs_post_reload(state);
     }
+
+    sync_mode();
+}
+
+/// Replace the matchmaker mode stack with the current pane's mode, keeping
+/// the `prompt` tag while the query bar is active. Called from [`fs_reload`]
+/// and the prompt transitions; startup calls it once for the initial pane.
+pub fn sync_mode() {
+    let mode = STACK::with_current(|pane| {
+        if STORE::contains::<InPrompt>() {
+            format!("{},prompt", pane.mode())
+        } else {
+            pane.mode().to_string()
+        }
+    });
+    GLOBAL::send_bind(BindDirective::SetMode(mode));
 }
 
 /// Call iff the pane type changes.

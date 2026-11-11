@@ -770,18 +770,23 @@ pub fn fsaction_handler(
         FsAction::Unmount(mount_point) => {
             // panes inside the volume would outlive it, and the watcher follows
             // the pane: drop them, then leave for the stack's cwd
-            STACK::remove_within(&mount_point);
+            let (_, current_removed) = STACK::remove_within(&mount_point);
 
-            let target = STACK::_cwd();
-            let target = if target.starts_with(&mount_point) {
-                // every pane was inside it, so there is nothing to return to
-                AbsPath::new_unchecked(__home())
+            if current_removed {
+                // the nearest surviving pane is now current; restore it
+                fs_reload(state, true, true);
             } else {
-                target
-            };
+                let target = STACK::_cwd();
+                let target = if target.starts_with(&mount_point) {
+                    // every pane was inside it, so there is nothing to return to
+                    AbsPath::new_unchecked(__home())
+                } else {
+                    target
+                };
 
-            if STACK::cwd().as_ref() != Some(&target) {
-                enter_dir_pane(state, target);
+                if STACK::cwd().as_ref() != Some(&target) {
+                    enter_dir_pane(state, target);
+                }
             }
 
             TASKS::spawn_blocking("unmount image", move || {

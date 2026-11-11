@@ -31,7 +31,7 @@ use crate::{
         previewer::make_previewer,
         query_prompt,
         register::{MMExt, emit_print, paste_handler, query_handler, sync_handler},
-        reload::fs_post_reload_new,
+        reload::{fs_post_reload_new, sync_mode},
         state::{
             AcceptAsPrint, DB_FILTER, GLOBAL, HideMetadata, LockPromptSetting, MENU_ACTIONS, STACK,
             STORE, SmartGitVisibility, TASKS, context::ActionContext, sort, ui::global_ui_init,
@@ -335,6 +335,7 @@ pub async fn start(
         .set(cfg.history.clone())
         .expect("DB_FILTER initialized more than once");
     GLOBAL::init(cfg.global, render_tx, watcher_tx, db_pool, pane, bind_tx);
+    sync_mode();
     if GLOBAL::cfg().smart_visibility.git_repo == When::Always {
         STORE::set(SmartGitVisibility);
     }

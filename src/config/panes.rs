@@ -559,7 +559,7 @@ impl PanesConfig {
             // todo: lowpri: maybe we aggregate more than just apps later, and add visibility
             FsPane::Nav { .. } => self.nav.default_sort,
             FsPane::Search { .. } => self.search.default_sort,
-            FsPane::Find { .. } => self.search.default_sort,
+            FsPane::Find { .. } => self.find.default_sort,
             FsPane::Files { .. } => self.files.default_sort,
             FsPane::Folders { .. } => self.dirs.default_sort,
             _ => None,

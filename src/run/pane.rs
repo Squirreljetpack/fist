@@ -362,6 +362,20 @@ impl FsPane {
         Ok(self)
     }
 
+    /// Mode tag used by mode-tagged binds (`nav^^...`).
+    pub fn mode(&self) -> &'static str {
+        match self {
+            FsPane::Custom { .. } => "custom",
+            FsPane::Find { .. } => "find",
+            FsPane::Search { .. } => "search",
+            FsPane::Files { .. } => "files",
+            FsPane::Folders { .. } => "dirs",
+            FsPane::Apps { .. } => "app",
+            FsPane::Stash { .. } => "stash",
+            FsPane::Nav { .. } => "nav",
+        }
+    }
+
     /// Static pane name used in CLI error messages.
     fn pane_name(&self) -> &'static str {
         match self {
