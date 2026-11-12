@@ -73,16 +73,4 @@ pub enum SubTool {
     Check,
     /// Run a menu action directly (name as shown in the menu).
     Action(ActionCommand),
-    /// Display an error message and wait for keypress.
-    #[command(
-        name = "showerror",
-        alias = "show_error",
-        alias = "show-error",
-        alias = "se"
-    )]
-    #[strum(serialize = "showerror")]
-    ShowError {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<OsString>,
-    },
 }

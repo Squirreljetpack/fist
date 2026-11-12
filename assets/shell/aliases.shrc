@@ -27,6 +27,7 @@ n() {
     fs :tool lessfilter edit "$@"
   else
     $__n__editor "$@"
+    [ -s "$1" ] && fs :tool bump "$1"
   fi
 }
 
