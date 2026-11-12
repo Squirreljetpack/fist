@@ -1421,14 +1421,6 @@ async fn handle_tools(
             }
             Ok(())
         }
-        SubTool::ShowError { args } => {
-            let msgs: Vec<String> = args
-                .iter()
-                .map(|a| a.to_string_lossy().into_owned())
-                .collect();
-            crate::utils::prompt::show_error(&msgs);
-            Ok(())
-        }
     }
 }
 

@@ -430,39 +430,38 @@ complete -c fs -n "__fish_fs_using_subcommand :" -l help
 complete -c fs -n "__fish_fs_using_subcommand :" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l config -d 'config path' -r -F
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l mm-config -d 'matchmaker config path' -r -F
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l style -r -f -a "icons\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l config -d 'config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l mm-config -d 'matchmaker config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l style -r -f -a "icons\t''
 icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l fullscreen -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
 auto\t''
 always\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l output-sep -d 'Separator printed after each result' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l format -d 'Output template for printed results' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l opener -d 'Program used to open files on accept' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l help
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -s q -d 'Reduce the verbosity level'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -s v -d 'Increase the verbosity level'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "colors"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "liza" -d 'List directory (eza wrapper)'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "shell" -d 'Dump the initialization code for your shell'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "lessfilter" -d 'Context and preset dependent file handler'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "pager" -d 'Page a file or stdin through bat into minus (single optional path)'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "bump" -d 'Bump history entries'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "trash" -d 'Trash files with timed fallback prompts'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "showbinds" -d 'Show binds'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "types" -d 'List mappings supported by the --type parameter'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "diskspace" -d 'Disk usage: compute directory sizes concurrently and print them'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "check" -d 'Validate configuration and scripts; exits non-zero on errors'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "action" -d 'Run a menu action directly (name as shown in the menu)'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "showerror" -d 'Display an error message and wait for keypress'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l output-sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l format -d 'Output template for printed results' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l help
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -s v -d 'Increase the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l alt-accept
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "colors"
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "liza" -d 'List directory (eza wrapper)'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "shell" -d 'Dump the initialization code for your shell'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "lessfilter" -d 'Context and preset dependent file handler'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "pager" -d 'Page a file or stdin through bat into minus (single optional path)'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "bump" -d 'Bump history entries'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "trash" -d 'Trash files with timed fallback prompts'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "showbinds" -d 'Show binds'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "types" -d 'List mappings supported by the --type parameter'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "diskspace" -d 'Disk usage: compute directory sizes concurrently and print them'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "check" -d 'Validate configuration and scripts; exits non-zero on errors'
+complete -c fs -n "__fish_fs_using_subcommand :tool; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "action" -d 'Run a menu action directly (name as shown in the menu)'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from colors" -l style -r -f -a "icons\t''
@@ -692,58 +691,38 @@ complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from action" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from action" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from action" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l config -d 'config path' -r -F
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l mm-config -d 'matchmaker config path' -r -F
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l style -r -f -a "icons\t''
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l config -d 'config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l mm-config -d 'matchmaker config path' -r -F
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l style -r -f -a "icons\t''
 icon-colors\t''
 colors\t''
 none\t''
 all\t''
 auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l fullscreen -r -f -a "true\t''
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l fullscreen -r -f -a "true\t''
 false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
 auto\t''
 always\t''"
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l output-sep -d 'Separator printed after each result' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l format -d 'Output template for printed results' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l opener -d 'Program used to open files on accept' -r
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -s q -d 'Reduce the verbosity level'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -s v -d 'Increase the verbosity level'
-complete -c fs -n "__fish_fs_using_subcommand :tool; and __fish_seen_subcommand_from showerror" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l config -d 'config path' -r -F
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l mm-config -d 'matchmaker config path' -r -F
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l style -r -f -a "icons\t''
-icon-colors\t''
-colors\t''
-none\t''
-all\t''
-auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l fullscreen -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
-auto\t''
-always\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l output-sep -d 'Separator printed after each result' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l format -d 'Output template for printed results' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l opener -d 'Program used to open files on accept' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l help
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -s q -d 'Reduce the verbosity level'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -s v -d 'Increase the verbosity level'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "colors"
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "liza" -d 'List directory (eza wrapper)'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "shell" -d 'Dump the initialization code for your shell'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "lessfilter" -d 'Context and preset dependent file handler'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "pager" -d 'Page a file or stdin through bat into minus (single optional path)'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "bump" -d 'Bump history entries'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "trash" -d 'Trash files with timed fallback prompts'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "showbinds" -d 'Show binds'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "types" -d 'List mappings supported by the --type parameter'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "diskspace" -d 'Disk usage: compute directory sizes concurrently and print them'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "check" -d 'Validate configuration and scripts; exits non-zero on errors'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "action" -d 'Run a menu action directly (name as shown in the menu)'
-complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action showerror" -a "showerror" -d 'Display an error message and wait for keypress'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l output-sep -d 'Separator printed after each result' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l format -d 'Output template for printed results' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l opener -d 'Program used to open files on accept' -r
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l help
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -s q -d 'Reduce the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -s v -d 'Increase the verbosity level'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -l alt-accept
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "colors"
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "liza" -d 'List directory (eza wrapper)'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "shell" -d 'Dump the initialization code for your shell'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "lessfilter" -d 'Context and preset dependent file handler'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "pager" -d 'Page a file or stdin through bat into minus (single optional path)'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "bump" -d 'Bump history entries'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "trash" -d 'Trash files with timed fallback prompts'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "showbinds" -d 'Show binds'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "types" -d 'List mappings supported by the --type parameter'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "diskspace" -d 'Disk usage: compute directory sizes concurrently and print them'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "check" -d 'Validate configuration and scripts; exits non-zero on errors'
+complete -c fs -n "__fish_fs_using_subcommand :t; and not __fish_seen_subcommand_from colors liza shell lessfilter pager bump trash showbinds types diskspace check action" -a "action" -d 'Run a menu action directly (name as shown in the menu)'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l config -d 'config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l mm-config -d 'matchmaker config path' -r -F
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from colors" -l style -r -f -a "icons\t''
@@ -973,25 +952,6 @@ complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_fro
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from action" -s q -d 'Reduce the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from action" -s v -d 'Increase the verbosity level'
 complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from action" -l alt-accept
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l config -d 'config path' -r -F
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l mm-config -d 'matchmaker config path' -r -F
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l style -r -f -a "icons\t''
-icon-colors\t''
-colors\t''
-none\t''
-all\t''
-auto\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l fullscreen -r -f -a "true\t''
-false\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l lock-prompt -d 'Lock the prompt at startup' -r -f -a "never\t''
-auto\t''
-always\t''"
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l output-sep -d 'Separator printed after each result' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l format -d 'Output template for printed results' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l opener -d 'Program used to open files on accept' -r
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -s q -d 'Reduce the verbosity level'
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -s v -d 'Increase the verbosity level'
-complete -c fs -n "__fish_fs_using_subcommand :t; and __fish_seen_subcommand_from showerror" -l alt-accept
 complete -c fs -n "__fish_fs_using_subcommand :info" -l sort -d 'history sort order' -r -f -a "name\t''
 mtime\t''
 atime\t''
