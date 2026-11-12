@@ -66,7 +66,7 @@ impl TaskHandle {
     }
 }
 
-use cba::claim::{self as cba_claim, ClaimError, DirClaim, FileClaim};
+use cba::blaim::{self, ClaimError, DirClaim, FileClaim};
 
 pub(crate) enum RootClaim {
     File(FileClaim),
@@ -696,7 +696,7 @@ fn claim_root(
 
     if !src_is_dir {
         if is_move {
-            match cba_claim::replace_file(source, dest, policy).map_err(err)? {
+            match blaim::replace_file(source, dest, policy).map_err(err)? {
                 None => Ok(RootOutcome::DoneOk),
                 Some(claim) => Ok(RootOutcome::Proceed(CollectorPlan {
                     source: source.to_path_buf(),
@@ -705,7 +705,7 @@ fn claim_root(
                 })),
             }
         } else {
-            let claim = cba_claim::reserve_file_all(dest, policy).map_err(err)?;
+            let claim = blaim::reserve_file_all(dest, policy).map_err(err)?;
             Ok(RootOutcome::Proceed(CollectorPlan {
                 source: source.to_path_buf(),
                 claim: RootClaim::File(claim),
@@ -714,7 +714,7 @@ fn claim_root(
         }
     } else {
         if is_move && (root != RootStrategy::Merge) {
-            match cba_claim::replace_dir(source, dest, policy).map_err(err)? {
+            match blaim::replace_dir(source, dest, policy).map_err(err)? {
                 None => Ok(RootOutcome::DoneOk),
                 Some(claim) => {
                     let clear_dest = root == RootStrategy::Overwrite;
@@ -726,7 +726,7 @@ fn claim_root(
                 }
             }
         } else {
-            let claim = cba_claim::reserve_dir_all(dest, policy).map_err(err)?;
+            let claim = blaim::reserve_dir_all(dest, policy).map_err(err)?;
             let clear_dest = root == RootStrategy::Overwrite;
             Ok(RootOutcome::Proceed(CollectorPlan {
                 source: source.to_path_buf(),

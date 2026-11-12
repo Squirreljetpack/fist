@@ -23,20 +23,13 @@ use std::path::Path;
 /// `@path` → file contents; anything else → the string itself. A relative
 /// `@path` resolves against `base` when given (menu actions use the actions
 /// folder); the base-less form keeps cwd-relative resolution (`--transform`
-/// panes, lessfilter presets). `~/` is expanded to the home directory.
+/// panes, lessfilter presets).
 pub fn load_script(
     s: &str,
     base: Option<&Path>,
 ) -> Option<String> {
     match s.strip_prefix('@') {
-        Some(mut p) => {
-            let expanded;
-            if let Some(rest) = p.strip_prefix("~/") {
-                if let Some(home) = dirs::home_dir() {
-                    expanded = home.join(rest).to_string_lossy().into_owned();
-                    p = &expanded;
-                }
-            }
+        Some(p) => {
             let path = {
                 let p_path = Path::new(p);
                 if p_path.is_absolute() {

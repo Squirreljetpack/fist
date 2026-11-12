@@ -1,7 +1,12 @@
 #![allow(clippy::upper_case_acronyms)]
 #![allow(unused_variables)]
 
-use std::{cell::RefCell, mem::discriminant, path::Path, sync::RwLock};
+use std::{
+    cell::RefCell,
+    mem::discriminant,
+    path::{Path, PathBuf},
+    sync::RwLock,
+};
 
 use log::{self};
 use matchmaker::SSS;
@@ -10,6 +15,7 @@ use fist_types::filters::Visibility;
 
 use crate::{
     abspath::AbsPath,
+    cli::paths::__home,
     run::{
         FsInjector, FsPane,
         state::{GLOBAL, InitialNoRelative, STORE, TOAST},
@@ -322,11 +328,13 @@ impl STACK {
 
     /// Drop every pane listing a directory inside `prefix`, so panes do not
     /// outlive a volume that is about to be unmounted. The pane the user is on
-    /// is kept while it survives, and the stack never ends up empty.
-    /// Returns how many panes were removed and whether the current pane was one
-    /// of them (the caller must then reload the surviving pane).
-    pub fn remove_within(prefix: &Path) -> (usize, bool) {
-        STACK.with(|cell| {
+    /// is kept while it survives; when every pane is inside `prefix` the
+    /// current pane is replaced by one for the home directory (or the root,
+    /// when home is on the volume too), so the stack never ends up empty.
+    /// Returns whether the current pane changed and must be reloaded
+    /// (`fs_reload(state, true, true)`).
+    pub fn remove_within(prefix: &Path) -> bool {
+        let (all_inside, current_removed) = STACK.with(|cell| {
             let Self { stack, index } = &mut *cell.borrow_mut();
             let current = *index;
 
@@ -336,9 +344,10 @@ impl STACK {
                     drop.push(i);
                 }
             }
+            let all_inside = drop.len() == stack.len();
             // the stack is never empty: the current pane stays as the
-            // placeholder the caller navigates away from
-            if drop.len() == stack.len() {
+            // placeholder replaced below
+            if all_inside {
                 drop.retain(|&i| i != current);
             }
 
@@ -355,12 +364,41 @@ impl STACK {
                 kept.push(pane);
             }
 
-            let removed = drop.len();
             let current_removed = drop.contains(&current);
             *stack = kept;
             *index = new_index;
-            (removed, current_removed)
-        })
+            (all_inside, current_removed)
+        });
+
+        if all_inside {
+            // the placeholder lists the volume itself: move it somewhere that
+            // survives the unmount rather than leave a dead history entry
+            let home = __home();
+            let fallback = if home.starts_with(prefix) {
+                // home is on the volume too
+                PathBuf::from(std::path::MAIN_SEPARATOR_STR)
+            } else {
+                home.to_path_buf()
+            };
+
+            let pane = FsPane::new_nav(
+                AbsPath::new_unchecked(fallback),
+                Self::visibility(),
+                Default::default(),
+            )
+            .set_initial_sort();
+
+            STACK.with(|cell| {
+                let Self { stack, index, .. } = &mut *cell.borrow_mut();
+                log::debug!(
+                    "Replaced placeholder at {index} (inside {})",
+                    prefix.display()
+                );
+                stack[*index] = pane;
+            });
+        }
+
+        all_inside || current_removed
     }
 
     // don't save index for rg and find because order is not guaranteed
@@ -526,6 +564,7 @@ mod tests {
     fn remove_within_drops_panes_inside_a_volume() {
         GLOBAL::init_test_senders();
         let volume = Path::new("/volumes/foo");
+        let outside = AbsPath::new_unchecked(Path::new("/tmp"));
 
         STACK::init(nav("/home"));
         STACK::push(nav("/volumes/foo"));
@@ -533,31 +572,22 @@ mod tests {
         STACK::push(nav("/tmp"));
 
         // panes inside are dropped, the current pane and its position stay
-        assert_eq!(STACK::remove_within(volume), (2, false));
+        assert!(!STACK::remove_within(volume));
         assert_eq!(STACK::len(), 2);
-        assert_eq!(
-            STACK::nav_cwd(),
-            Some(AbsPath::new_unchecked(Path::new("/tmp")))
-        );
+        assert_eq!(STACK::nav_cwd(), Some(outside.clone()));
         assert!(STACK::is_last());
 
         // a current pane inside is dropped too: the nearest pane below it takes over
         STACK::push(nav("/volumes/foo/other"));
-        assert_eq!(STACK::remove_within(volume), (1, true));
+        assert!(STACK::remove_within(volume));
         assert_eq!(STACK::len(), 2);
-        assert_eq!(
-            STACK::nav_cwd(),
-            Some(AbsPath::new_unchecked(Path::new("/tmp")))
-        );
+        assert_eq!(STACK::nav_cwd(), Some(outside));
 
-        // the whole stack inside: one pane survives
+        // the whole stack inside: the placeholder is moved out of the volume
         STACK::init(nav("/volumes/foo"));
         STACK::push(nav("/volumes/foo/sub"));
-        assert_eq!(STACK::remove_within(volume), (1, false));
+        assert!(STACK::remove_within(volume));
         assert_eq!(STACK::len(), 1);
-        assert_eq!(
-            STACK::nav_cwd(),
-            Some(AbsPath::new_unchecked(Path::new("/volumes/foo/sub")))
-        );
+        assert!(!STACK::nav_cwd().unwrap().starts_with(volume));
     }
 }

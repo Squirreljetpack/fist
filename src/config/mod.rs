@@ -10,6 +10,14 @@ use crate::{
 };
 use fist_types::When;
 
+fn state_dir() -> PathBuf {
+    crate::cli::paths::state_dir().to_path_buf()
+}
+
+fn cache_dir() -> PathBuf {
+    crate::cli::paths::cache_dir().to_path_buf()
+}
+
 mod pager;
 mod panes;
 mod styles;

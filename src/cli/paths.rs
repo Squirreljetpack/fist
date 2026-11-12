@@ -1,8 +1,10 @@
 use cba::{
     bath::find_root,
+    birs,
     bog::{BogOkExt, BogUnwrapExt, wbog},
     ebog, expr_as_path_fn,
 };
+
 use std::{
     env,
     ffi::OsString,
@@ -14,24 +16,20 @@ pub const BINARY_FULL: &str = "fist";
 pub const BINARY_SHORT: &str = "fs";
 
 // ---------------------- DIRS ----------------------
-// config defaults
-pub fn cache_dir() -> PathBuf {
-    dirs::cache_dir()
-        ._ebog("Failed to determine cache directory") // exit if failed to determine
-        .join(BINARY_FULL)
-}
+expr_as_path_fn!(
+    cache_dir,
+    birs::cache_dir(BINARY_FULL)._ebog("Failed to determine cache directory")
+);
 
-pub fn state_dir() -> PathBuf {
-    if let Some(ret) = dirs::state_dir() {
-        ret.join(BINARY_FULL)
-    } else {
-        dirs::home_dir()
-            ._ebog("Failed to determine state directory")
-            .join(".local")
-            .join("state")
-            .join(BINARY_FULL)
-    }
-}
+expr_as_path_fn!(
+    state_dir,
+    birs::state_dir(BINARY_FULL)._ebog("Failed to determine state directory")
+);
+
+expr_as_path_fn!(
+    config_dir,
+    birs::config_dir(BINARY_FULL).unwrap_or_default()
+);
 
 /// The per-process temp parent (`<tmp>/fist/<pid>-<nanos>`), created on first use.
 pub fn tmp_dir() -> Result<PathBuf, String> {
@@ -53,18 +51,6 @@ fn process_unique_id() -> String {
     format!("{pid}-{nanos}")
 }
 // --------------------------------
-pub fn config_dir() -> PathBuf {
-    if let Some(home) = dirs::home_dir() {
-        let config = home.join(".config").join(BINARY_FULL);
-        if config.exists() {
-            return config;
-        }
-    };
-
-    dirs::config_dir()
-        ._ebog("Failed to determine config directory")
-        .join(BINARY_FULL)
-}
 
 pub fn current_exe() -> std::ffi::OsString {
     std::env::current_exe()
@@ -116,7 +102,7 @@ expr_as_path_fn!(__cwd, cwd());
 // the absolute home directory, or root
 expr_as_path_fn!(
     __home,
-    dirs::home_dir().unwrap_or(find_root().unwrap_or(PathBuf::from(std::path::MAIN_SEPARATOR_STR)))
+    birs::home_dir().unwrap_or(find_root().unwrap_or(PathBuf::from(std::path::MAIN_SEPARATOR_STR)))
 );
 
 // the per-process temp parent (`<tmp>/fist/<pid>-<nanos>`), created on first use
