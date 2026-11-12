@@ -17,7 +17,7 @@ use std::{
     sync::OnceLock,
 };
 
-use cba::claim::{ClaimPolicy, reserve_dir};
+use cba::blaim::{ClaimPolicy, reserve_dir};
 
 use crate::{
     abspath::AbsPath,

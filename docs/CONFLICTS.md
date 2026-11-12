@@ -5,7 +5,7 @@ actually happens. Three separate layers exist on purpose:
 
 | Layer                         | Where                                                            | Governs                                                                                               |
 | ----------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| **Atomic reservation**        | `cba::claim` (`reserve_file` / `reserve_dir`)                    | The mechanism. Wins names via `O_EXCL`/`create_dir`; no policy, only outcomes (`Reserved` / `Taken`). |
+| **Atomic reservation**        | `cba::blaim` (`reserve_file` / `reserve_dir`)                    | The mechanism. Wins names via `O_EXCL`/`create_dir`; no policy, only outcomes (`Reserved` / `Taken`). |
 | **Per-entry conflict**        | `fist_copy::ConflictStrategy` (`QueueConfig.copy/move.conflict`) | File-level collisions while a transfer writes entries.                                                |
 | **Root destination strategy** | `fist_copy::RootStrategy` (`QueueConfig.copy/move.root`)         | What a transfer does when the target root itself exists.                                              |
 
@@ -42,7 +42,7 @@ Inner-entry collisions only; the root is decided by §1.1 and marked
 | `Overwrite`    | truncated and replaced | `CompleteOk`  | Never claims; if the target is a **directory**, fails honestly with *"cannot overwrite: destination is a directory"* instead of a downstream `EISDIR`. |
 | `Fail`         | untouched              | `CompleteErr` | Error names the blocking path.                                                                                                                         |
 | `Skip`         | untouched              | `CompleteOk`  | Counted as `files_skipped` only (not `files_ok`).                                                                                                      |
-| `RenameSuffix` | untouched              | `CompleteOk`  | Writes `name_1.ext`, `name_2.ext`, … claimed atomically via `cba::claim`; up to 9999 alternatives, then error.                                         |
+| `RenameSuffix` | untouched              | `CompleteOk`  | Writes `name_1.ext`, `name_2.ext`, … claimed atomically via `cba::blaim`; up to 9999 alternatives, then error.                                         |
 | `Abort`        | untouched              | `Canceled`    | First collision cancels the whole task.                                                                                                                |
 
 Quirk: `RenameSuffix` against a target that is an existing *directory*
@@ -105,7 +105,7 @@ failed archive surfaces a `.failed` marker instead of retrying or merging.
 
 ## 5. Guarantees summary
 
-- Every `Claim` from `cba::claim` was won by an exclusive syscall — no
+- Every `Claim` from `cba::blaim` was won by an exclusive syscall — no
   check-then-create windows anywhere reservations are used.
 - Engine-side claiming happens at *write time*, on worker threads, so
   concurrent transfers can never interleave two entries onto one name.
@@ -120,9 +120,9 @@ The small functions everything above is built from:
 
 | Helper                                 | Location                          | Role                                                                                                                                                                                                                                          |
 | -------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `reserve_file` / `reserve_dir`         | `cba::claim`                      | The atomic primitive: win a name via `O_EXCL`/`create_dir`, optionally walking suffixed alternatives (`Naming`). Returns a held handle / path, or `Taken`.                                                                                    |
-| `reserve_file_all` / `reserve_dir_all` | `cba::claim`                      | The same claim with missing ancestor directories invented first (`create_dir_all` on the parent). Invented levels ride on the claim; `FileClaim::rollback` / `DirClaim::rollback` remove the untouched leaf and repay them while still empty. |
-| `Naming`                               | `cba::claim`                      | Fallback format for reservations (`prefix`, `suffix`; default `_` / ``). Most call sites pass `None` — exact name or skip.                                                                                                                    |
+| `reserve_file` / `reserve_dir`         | `cba::blaim`                      | The atomic primitive: win a name via `O_EXCL`/`create_dir`, optionally walking suffixed alternatives (`Naming`). Returns a held handle / path, or `Taken`.                                                                                    |
+| `reserve_file_all` / `reserve_dir_all` | `cba::blaim`                      | The same claim with missing ancestor directories invented first (`create_dir_all` on the parent). Invented levels ride on the claim; `FileClaim::rollback` / `DirClaim::rollback` remove the untouched leaf and repay them while still empty. |
+| `Naming`                               | `cba::blaim`                      | Fallback format for reservations (`prefix`, `suffix`; default `_` / ``). Most call sites pass `None` — exact name or skip.                                                                                                                    |
 | `auto_dest`                            | `utils/path.rs`                   | Interactive-input splitter: absolute-ifies a prompt value against the pane's cwd; `Err(dir)` when the input ends in a separator (directory intent). Feeds New/NewFolder.                                                                      |
 | `desired_path`                         | `utils/path.rs`                   | Transfer inference: empty `dst` ⇒ into nav; directory-ish `dst` ⇒ append source file name; otherwise `dst` as-is. No policy, no existence checks — collisions are claimed later at write time.                                                |
 | `transfer_dest`                        | `queue/execute.rs` (`pub(crate)`) | Combines `data` + nav per the dispatch rules of §2, then delegates to `desired_path`.                                                                                                                                                         |

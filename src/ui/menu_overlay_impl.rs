@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-use cba::{bath::PathExt, claim as cba_claim};
+use cba::{bath::PathExt, blaim};
 use matchmaker::{
     nucleo::{Color, Span},
     render::MMState,
@@ -130,11 +130,9 @@ impl MenuOverlay {
                     // name is reported as skipped instead of truncated or
                     // silently merged
                     let reserved = if into_dir {
-                        cba_claim::reserve_dir_all(&dest, cba_claim::ClaimPolicy::Strict)
-                            .map(|_| ())
+                        blaim::reserve_dir_all(&dest, blaim::ClaimPolicy::Strict).map(|_| ())
                     } else {
-                        cba_claim::reserve_file_all(&dest, cba_claim::ClaimPolicy::Strict)
-                            .map(|_| ())
+                        blaim::reserve_file_all(&dest, blaim::ClaimPolicy::Strict).map(|_| ())
                     };
                     match reserved {
                         Ok(()) => {
@@ -145,7 +143,7 @@ impl MenuOverlay {
                                 ToastFlags::SUSTAINED,
                             );
                         }
-                        Err(cba_claim::ClaimError::Taken) => TOAST::push_skipped(),
+                        Err(blaim::ClaimError::Taken) => TOAST::push_skipped(),
                         Err(e) => {
                             log::error!("Failed to create {dest:?}: {e:?}");
                             TOAST::push(
@@ -166,7 +164,7 @@ impl MenuOverlay {
                 TASKS::spawn("mkdir", async move {
                     // parents first, then an atomic claim on the final name:
                     // a taken name is reported instead of merged into
-                    match cba_claim::reserve_dir_all(&dest, cba_claim::ClaimPolicy::default()) {
+                    match blaim::reserve_dir_all(&dest, blaim::ClaimPolicy::default()) {
                         Ok(reserved) => {
                             if let Some(path) = reserved.into_path() {
                                 TOAST::push_with_flag(
@@ -180,14 +178,14 @@ impl MenuOverlay {
                                 }
                             }
                         }
-                        Err(cba_claim::ClaimError::Taken) => {
+                        Err(blaim::ClaimError::Taken) => {
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Already exists: ",
                                 [short_display(&dest)],
                             );
                         }
-                        Err(cba_claim::ClaimError::Io(e)) => {
+                        Err(blaim::ClaimError::Io(e)) => {
                             log::error!("Failed to create {dest:?}: {e}");
                             TOAST::push(
                                 ToastStyle::Error,
@@ -227,15 +225,15 @@ impl MenuOverlay {
                         .map(|m| m.is_dir())
                         .unwrap_or(false);
 
-                    let handle_claim_err = |e: cba_claim::ClaimError| match e {
-                        cba_claim::ClaimError::Taken => {
+                    let handle_claim_err = |e: blaim::ClaimError| match e {
+                        blaim::ClaimError::Taken => {
                             TOAST::push(
                                 ToastStyle::Error,
                                 "Already exists: ",
                                 [short_display(&dest)],
                             );
                         }
-                        cba_claim::ClaimError::Io(e) => {
+                        blaim::ClaimError::Io(e) => {
                             log::error!("Failed to rename target {dest:?}: {e}");
                             TOAST::push(
                                 ToastStyle::Error,
@@ -246,11 +244,7 @@ impl MenuOverlay {
                     };
 
                     let replaced = if is_dir {
-                        match cba_claim::replace_dir(
-                            &old_path,
-                            &dest,
-                            cba_claim::ClaimPolicy::Strict,
-                        ) {
+                        match blaim::replace_dir(&old_path, &dest, blaim::ClaimPolicy::Strict) {
                             Ok(None) => Ok(()),
                             Ok(Some(claim)) => {
                                 claim.rollback();
@@ -261,11 +255,7 @@ impl MenuOverlay {
                             Err(e) => return handle_claim_err(e),
                         }
                     } else {
-                        match cba_claim::replace_file(
-                            &old_path,
-                            &dest,
-                            cba_claim::ClaimPolicy::Strict,
-                        ) {
+                        match blaim::replace_file(&old_path, &dest, blaim::ClaimPolicy::Strict) {
                             Ok(None) => Ok(()),
                             Ok(Some(claim)) => {
                                 claim.rollback();

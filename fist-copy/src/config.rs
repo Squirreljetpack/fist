@@ -15,7 +15,7 @@ pub enum ConflictStrategy {
     Abort,
 }
 
-use cba::claim::ClaimPolicy;
+use cba::blaim::ClaimPolicy;
 
 /// What a transfer does when its root destination already exists — for
 /// directory sources *and* single-file sources. [`ConflictStrategy`] only

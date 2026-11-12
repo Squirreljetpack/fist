@@ -15,7 +15,7 @@ license-file = "LICENSE"
 repository = "https://github.com/Squirreljetpack/fist"
 
 [workspace.dependencies]
-cli_boilerplate_automation = { version = "0.8.2", features = ["bring", "serde", "claim"] }
+cli_boilerplate_automation = { version = "0.8.2", features = ["bring", "serde", "blaim", "dirs"] }
 fist-types = { version = "0.*", path = "fist-types" }
 
 phf = { version = "0.14", features = ["macros", "phf_macros"] }
@@ -138,7 +138,6 @@ clap_complete = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { workspace = true }
-dirs = { workspace = true }
 cli_boilerplate_automation = { workspace = true }
 
 [[bin]]

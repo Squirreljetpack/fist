@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cba::claim::ClaimError;
+use cba::blaim::ClaimError;
 
 use super::config::TransferParams;
 
