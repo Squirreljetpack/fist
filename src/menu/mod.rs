@@ -221,8 +221,8 @@ pub struct MenuAction {
     /// Alias shown in the second column of the menu (e.g. `w`).
     #[serde(default)]
     pub alias: Option<String>,
-    /// Free-form description of the action. Not rendered anywhere yet, it is
-    /// there for documentation and tooling.
+    /// Free-form description of the action, shown in the menu help's Action
+    /// Guidance section when the action is listed.
     #[serde(default)]
     pub help: String,
     #[serde(default)]

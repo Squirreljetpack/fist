@@ -25,16 +25,16 @@ builtin queue kinds `copy`, `move`, `symlink`, `none`, the selectors `all`,
 
 ## Fields
 
-| Field           | Type           | Default          | Meaning                                            |
-| --------------- | -------------- | ---------------- | -------------------------------------------------- |
-| `command`       | string         | required         | The lua script (`@file` syntax supported).         |
-| `prefix`        | string         | file stem        | Menu group label; `""` drops it. See below.        |
-| `alias`         | string         | none             | The alias shown in the menu's second column.       |
-| `help`          | string         | `""`             | Description of the action; not rendered yet.       |
-| `strategy`      | string         | `"ExecSilent"`   | How the command runs; see below.                   |
-| `condition`     | list or object | always visible   | Visibility rules; see below.                       |
-| `requires_dest` | bool           | `false`          | Queued executions require a non-empty destination. |
-| `close`         | bool           | strategy default | Override the strategy's menu-closing behavior.     |
+| Field           | Type           | Default          | Meaning                                                |
+| --------------- | -------------- | ---------------- | ------------------------------------------------------ |
+| `command`       | string         | required         | The lua script (`@file` syntax supported).             |
+| `prefix`        | string         | file stem        | Menu group label; `""` drops it. See below.            |
+| `alias`         | string         | none             | The alias shown in the menu's second column.           |
+| `help`          | string         | `""`             | Shown under Action Guidance when the action is listed. |
+| `strategy`      | string         | `"ExecSilent"`   | How the command runs; see below.                       |
+| `condition`     | list or object | always visible   | Visibility rules; see below.                           |
+| `requires_dest` | bool           | `false`          | Queued executions require a non-empty destination.     |
+| `close`         | bool           | strategy default | Override the strategy's menu-closing behavior.         |
 
 ### Prefixes
 

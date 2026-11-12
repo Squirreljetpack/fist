@@ -43,7 +43,7 @@ A minimal action is a table with a `command`. Insertion order is menu display or
 | --------------- | ------------ | ---------------- | ----------------------------------------------------- |
 | `command`       | string       | required         | Lua script (`@file` reference supported).             |
 | `alias`         | string       | none             | Letter shown/typed in the menu to trigger the item.   |
-| `help`          | string       | `""`             | Description of the action; not rendered yet.          |
+| `help`          | string       | `""`             | Shown in the menu help's Action Guidance when listed. |
 | `strategy`      | string       | `"ExecSilent"`   | How the command runs; see below.                      |
 | `prefix`        | string       | declaring file   | Row group label: `{prefix}: {key}`; `""` drops it.    |
 | `condition`     | object/`any` | always visible   | Visibility rules; see below.                          |
