@@ -4,7 +4,7 @@ pub mod help;
 use execute::*;
 pub use execute::{ExecutionMode, resolve_target};
 pub use handlers::{paste_handler, query_handler, sync_handler};
-pub use help::{OverlayHelp, request_overlay_help};
+pub use help::{OverlayHelp, request_menu_help, request_overlay_help};
 
 use std::{ffi::OsString, process::Stdio};
 

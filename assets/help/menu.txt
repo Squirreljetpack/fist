@@ -16,3 +16,14 @@ Keys
 | Down(1) | | move down |
 | Help | | show this document |
 | Quit(1) | | close the menu |
+
+Action Guidance
+---------------
+Execute
+  The prompt is a command template: {} is the current item and {+} every
+  selected item.
+
+New / New folder
+  New creates a file unless the name ends in a separator, which creates a
+  directory. New folder always creates a directory; a trailing separator also
+  jumps into it.

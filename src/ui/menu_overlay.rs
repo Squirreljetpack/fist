@@ -664,6 +664,21 @@ impl MenuOverlay {
             OverlayEffect::None
         }
     }
+
+    /// Guidance for the custom actions currently listed in the menu, in menu
+    /// order, with their non-empty `help` field.
+    fn action_guidance(&self) -> Vec<(String, String)> {
+        self.menu_items
+            .iter()
+            .filter_map(|entry| {
+                let MenuItem::Custom { name, action, .. } = &entry.item else {
+                    return None;
+                };
+                let help = self.actions.get(action)?.help.clone();
+                (!help.trim().is_empty()).then_some((name.clone(), help))
+            })
+            .collect()
+    }
 }
 
 impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
@@ -731,7 +746,8 @@ impl Overlay<FsAction, PathItem, ()> for MenuOverlay {
         // help is available even while a prompt is open; opening it closes
         // the menu (the pager is requested by re-queued help)
         if let Action::Custom(FsAction::Help) = action {
-            crate::run::register::request_overlay_help(crate::run::register::OverlayHelp::Menu);
+            let guidance = self.action_guidance();
+            crate::run::register::request_menu_help(guidance);
             return OverlayEffect::Disable;
         }
 

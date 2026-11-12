@@ -14,15 +14,16 @@ use std::{io::Cursor, sync::Arc};
 use arc_swap::ArcSwap;
 use comfy_table::{ContentArrangement, Row, Table, presets::UTF8_FULL};
 use matchmaker::{
-    HelpFactory, Text, action::Action, binds::ResolvedBindMap, config::HelpDisplayConfig,
+    HelpFactory, Line, Text, action::Action, binds::ResolvedBindMap, config::HelpDisplayConfig,
     message::Interrupt, resolve_static_preview, utils::text_to_ansi,
 };
 
 use crate::{
     pager::PagerOpts,
     run::{
+        FsAction, FsPane,
         register::ExecutionMode,
-        state::{GLOBAL, STORE},
+        state::{GLOBAL, STACK, STORE},
     },
 };
 
@@ -70,10 +71,33 @@ impl OverlayHelp {
     }
 }
 
+/// Help entries appended to the menu's Action Guidance section: the visible
+/// custom actions, with their non-empty `help` field.
+#[derive(Debug, Clone)]
+pub struct MenuActionHelp(pub Vec<(String, String)>);
+
 /// Open this overlay's help document: the focused overlay closes and the
 /// pager is requested through the main help interrupt (an overlay's own
 /// action stream never reaches the interrupt handler).
 pub fn request_overlay_help(document: OverlayHelp) {
+    request_overlay_help_with(document, None);
+}
+
+/// Open the menu help with the visible custom actions' guidance appended.
+pub fn request_menu_help(actions: Vec<(String, String)>) {
+    request_overlay_help_with(OverlayHelp::Menu, Some(actions));
+}
+
+fn request_overlay_help_with(
+    document: OverlayHelp,
+    menu_help: Option<Vec<(String, String)>>,
+) {
+    match menu_help {
+        Some(actions) => STORE::set(MenuActionHelp(actions)),
+        None => {
+            STORE::take::<MenuActionHelp>();
+        }
+    }
     STORE::set(document);
     GLOBAL::send_action(crate::run::FsAction::Help);
 }
@@ -93,7 +117,16 @@ pub(super) fn register_help_handler(
             state.discriminant_payload = None;
             state.clear_interrupt();
 
-            let resolved = resolve_static_preview(&Text::default(), &help_factory, &help_config);
+            let mut resolved =
+                resolve_static_preview(&Text::default(), &help_factory, &help_config);
+            // Pane-specific guidance follows the binds, separated by a rule.
+            if let Some(extra) = pane_extra_help(&binds.load()) {
+                resolved.lines.push(Line::from(""));
+                resolved.lines.push(Line::from("---"));
+                resolved
+                    .lines
+                    .extend(extra.lines().map(|line| Line::from(line.to_string())));
+            }
             let ansi_text = text_to_ansi(&resolved);
             let _ = crate::pager::page_reader(
                 Cursor::new(ansi_text.into_bytes()),
@@ -110,7 +143,13 @@ pub(super) fn register_help_handler(
         state.discriminant_payload = None;
         state.clear_interrupt();
 
-        let page = fill_bind_column(document.contents(), &binds.load());
+        let mut page = fill_bind_column(document.contents(), &binds.load());
+        if document == OverlayHelp::Menu {
+            let actions = STORE::take::<MenuActionHelp>()
+                .map(|help| help.0)
+                .unwrap_or_default();
+            page = append_menu_action_help(page, actions);
+        }
         let _ = crate::pager::page_reader(
             Cursor::new(page.into_bytes()),
             true,
@@ -120,6 +159,112 @@ pub(super) fn register_help_handler(
         // return to the overlay that asked for the document
         GLOBAL::send_action(Action::Overlay(document.overlay_index()));
     });
+}
+
+/// Append the visible custom menu actions' guidance to the authored menu
+/// document. Each entry is an action name followed by its indented help and a
+/// blank line.
+fn append_menu_action_help(
+    mut doc: String,
+    actions: Vec<(String, String)>,
+) -> String {
+    if actions.is_empty() {
+        return doc;
+    }
+    if !doc.ends_with('\n') {
+        doc.push('\n');
+    }
+    if !doc.ends_with("\n\n") {
+        doc.push('\n');
+    }
+    for (name, help) in actions {
+        doc.push_str(&name);
+        doc.push('\n');
+        for line in help.lines() {
+            doc.push_str("  ");
+            doc.push_str(line);
+            doc.push('\n');
+        }
+        doc.push('\n');
+    }
+    doc
+}
+
+/// Extra guidance for panes whose behavior is not obvious from the binds
+/// alone. The text follows the bind list, separated by a rule.
+fn pane_extra_help(binds: &ResolvedBindMap<FsAction>) -> Option<String> {
+    STACK::with_current(|pane| match pane {
+        FsPane::Nav { .. } => Some(nav_extra_help(binds)),
+        FsPane::Search { .. } => Some(search_extra_help(binds)),
+        _ => None,
+    })
+}
+
+fn nav_extra_help(binds: &ResolvedBindMap<FsAction>) -> String {
+    let options = bind_keys(&FsAction::ShowOptions.into(), binds);
+    let lock = bind_keys(&FsAction::LockPrompt(None).into(), binds);
+    let parent = keys_or_unbound(FsAction::Parent.into(), binds);
+    let advance = keys_or_unbound(FsAction::Advance.into(), binds);
+    let backward = keys_or_unbound(Action::BackwardChar, binds);
+    let forward = keys_or_unbound(Action::ForwardChar, binds);
+
+    let mut out = String::from(
+        "The simplest pane in f:st, listing the contents of a directory. Type \
+         to filter the list; Enter accepts the highlighted item.",
+    );
+
+    out.push_str("\n\n");
+    if options.is_empty() {
+        out.push_str("The options overlay adjusts filters and sorting.");
+    } else {
+        out.push_str(&format!(
+            "The options overlay ({options}) adjusts filters and sorting."
+        ));
+    }
+    out.push_str(
+        " Press up on the first result to focus the current directory: the \
+         prompt then shows that directory and actions apply to it instead of \
+         the highlighted item.",
+    );
+    if !lock.is_empty() {
+        out.push_str(&format!(" Toggle the prompt lock with {lock}."));
+    }
+
+    out.push_str("\n\n");
+    out.push_str(&format!(
+        "A note on the arrow keys: {parent} / {advance} are bound to Parent / \
+         Advance (move between directories), while {backward} / {forward} are \
+         bound to BackwardChar / ForwardChar (move within the query). The two \
+         pairs are easy to confuse."
+    ));
+    out
+}
+
+fn search_extra_help(binds: &ResolvedBindMap<FsAction>) -> String {
+    let toggle = bind_keys(&FsAction::Search.into(), binds);
+    let toggle = if toggle.is_empty() {
+        "The Search binding".to_string()
+    } else {
+        toggle
+    };
+    format!(
+        "{toggle} toggles between searching for a new pattern and filtering \
+         the matches already found. Filtering narrows the existing results \
+         without rerunning rg."
+    )
+}
+
+/// The printable triggers bound to exactly `action`, or `unbound` when none.
+fn keys_or_unbound(
+    action: Action<FsAction>,
+    binds: &ResolvedBindMap<FsAction>,
+) -> String {
+    let keys = bind_keys(&action, binds);
+    if keys.is_empty() {
+        "unbound".to_string()
+    } else {
+        keys
+    }
 }
 
 /// Replace the bind column of every markdown table in `doc` with the
