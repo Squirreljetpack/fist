@@ -328,6 +328,7 @@ impl FsMatchmaker {
 
     pub fn register_become_handler(&mut self) {
         self.register_interrupt_handler(Interrupt::Become, move |state| {
+            state.discriminant_payload = None;
             if state.payload().is_empty() {
                 return;
             }

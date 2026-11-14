@@ -119,6 +119,7 @@ async fn main() {
             let code = match e {
                 CliError::MatchError(MatchError::EventLoopClosed) => 127,
                 CliError::MatchError(MatchError::Abort(i)) => exit(i),
+                CliError::MatchError(MatchError::Become(code)) => exit(code as i32),
                 CliError::MatchError(MatchError::NoMatch) => {
                     if verbosity >= 1 {
                         ebog!("{e}")

@@ -125,6 +125,7 @@ pub fn get_mm_cfg(
         preview,
         footer,
         header: _,
+        toast: _,
     } = &mut mm_cfg.render;
 
     // disable some configuration settings for consistency
