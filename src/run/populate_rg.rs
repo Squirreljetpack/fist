@@ -260,7 +260,7 @@ mod tests {
 
         assert_eq!(items.len(), 1);
         let item = &items[0];
-        assert_eq!(item.loc(), (42, 10));
+        assert_eq!(item.loc(), Some((42, 10)));
         assert_eq!(item.tail_text().to_string(), "pub fn test() {");
     }
 
@@ -316,7 +316,7 @@ mod tests {
         assert_eq!(items.len(), 1);
 
         let item = &items[0];
-        assert_eq!(item.loc(), (42, 10));
+        assert_eq!(item.loc(), Some((42, 10)));
         assert_eq!(item.tail_text().lines.len(), 3);
     }
 
@@ -345,7 +345,7 @@ mod tests {
             item.path.inner(),
             PathBuf::from("/workspace/src/run/start.rs")
         );
-        assert_eq!(item.loc(), (28, 20));
+        assert_eq!(item.loc(), Some((28, 20)));
         let tail_str = item.tail_text().to_string();
         assert!(tail_str.contains("previewer::make_previewer,"));
         assert!(tail_str.contains("let previewer = make_previewer("));
@@ -388,7 +388,7 @@ mod tests {
             item1.path.inner(),
             PathBuf::from("/workspace/src/run/start.rs")
         );
-        assert_eq!(item1.loc(), (28, 20));
+        assert_eq!(item1.loc(), Some((28, 20)));
         assert_eq!(item1.tail_text().lines.len(), 3);
         let tail1 = item1.tail_text().to_string();
         assert!(tail1.contains("// queue::QUEUE,"));
@@ -401,7 +401,7 @@ mod tests {
             item2.path.inner(),
             PathBuf::from("/workspace/src/run/previewer.rs")
         );
-        assert_eq!(item2.loc(), (18, 8));
+        assert_eq!(item2.loc(), Some((18, 8)));
         assert_eq!(item2.tail_text().lines.len(), 1);
         let tail2 = item2.tail_text().to_string();
         assert!(tail2.contains("pub fn make_previewer("));
@@ -435,7 +435,7 @@ mod tests {
             item.path.inner(),
             PathBuf::from("/workspace/foo\nbar/baz.rs")
         );
-        assert_eq!(item.loc(), (42, 10));
+        assert_eq!(item.loc(), Some((42, 10)));
         assert_eq!(item.tail_text().to_string(), "pub fn test() {");
     }
 
@@ -477,7 +477,7 @@ mod tests {
             item1.path.inner(),
             PathBuf::from("/workspace/deep/nested\nfolder/my\nfile.rs")
         );
-        assert_eq!(item1.loc(), (10, 5));
+        assert_eq!(item1.loc(), Some((10, 5)));
         assert_eq!(item1.tail_text().lines.len(), 2);
         let tail1 = item1.tail_text().to_string();
         assert!(tail1.contains("first line"));
@@ -488,7 +488,7 @@ mod tests {
             item2.path.inner(),
             PathBuf::from("/workspace/another/sub\npath.rs")
         );
-        assert_eq!(item2.loc(), (99, 1));
+        assert_eq!(item2.loc(), Some((99, 1)));
         assert_eq!(item2.tail_text().lines.len(), 1);
         let tail2 = item2.tail_text().to_string();
         assert!(tail2.contains("final match"));

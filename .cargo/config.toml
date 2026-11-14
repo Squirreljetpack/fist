@@ -7,4 +7,8 @@ CXXFLAGS_aarch64_apple_darwin = "-isysroot /Library/Developer/CommandLineTools/S
 CXXFLAGS_x86_64_apple_darwin = "-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1"
 
 [alias]
-"@clip" = ["exec", "./%%CLIPS/tools/film.sh"] # provide a clip name, 'all' to refilm all
+"@clip" = [
+    "exec",
+    "-s",
+    "./%%CLIPS/tools/film.sh $1 && python ../fist-docs/scripts/sync-clips.py",
+] # provide a clip name, 'all' to refilm all

@@ -18,8 +18,171 @@ use crate::{
 };
 use fist_types::{
     FileCategory,
-    icons::{Icons, icon_for_file},
+    icons::{Icons, icon_for_entry},
 };
+
+/// Cached filesystem kind for a [`PathItem`], stored in the top byte of [`ItemMeta`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum EntryKind {
+    Unknown = 0,
+    File = 1,
+    Dir = 2,
+    SymlinkToFile = 3,
+    SymlinkToDir = 4,
+    BrokenSymlink = 5,
+}
+
+impl EntryKind {
+    fn from_bits(bits: u8) -> Self {
+        match bits {
+            1 => Self::File,
+            2 => Self::Dir,
+            3 => Self::SymlinkToFile,
+            4 => Self::SymlinkToDir,
+            5 => Self::BrokenSymlink,
+            _ => Self::Unknown,
+        }
+    }
+
+    /// Resolve the entry kind from filesystem metadata in at most one `lstat`
+    /// (plus one `stat` when the entry is a symlink).
+    pub fn probe(path: &Path) -> Self {
+        let Ok(sym) = std::fs::symlink_metadata(path) else {
+            return Self::File;
+        };
+        if sym.file_type().is_symlink() {
+            match std::fs::metadata(path) {
+                Ok(target) if target.is_dir() => Self::SymlinkToDir,
+                Ok(_) => Self::SymlinkToFile,
+                Err(_) => Self::BrokenSymlink,
+            }
+        } else if sym.is_dir() {
+            Self::Dir
+        } else {
+            Self::File
+        }
+    }
+
+    pub fn is_known(self) -> bool {
+        self != Self::Unknown
+    }
+
+    pub fn is_dir(self) -> bool {
+        matches!(self, Self::Dir | Self::SymlinkToDir)
+    }
+
+    pub fn is_symlink(self) -> bool {
+        matches!(
+            self,
+            Self::SymlinkToFile | Self::SymlinkToDir | Self::BrokenSymlink
+        )
+    }
+
+    pub fn is_broken_symlink(self) -> bool {
+        self == Self::BrokenSymlink
+    }
+}
+
+/// Packed atomic metadata for a [`PathItem`].
+///
+/// Reserves the top 8 bits (`56..63`) for render/status flags ([`EntryKind`] in
+/// bits `56..58`, with bits `59..63` reserved) and uses the lower 56 bits
+/// (`0..55`) for the mutually exclusive payload (sort timestamp or `rg` location).
+#[derive(Debug)]
+pub struct ItemMeta(AtomicU64);
+
+impl ItemMeta {
+    const FLAGS_SHIFT: u32 = 56;
+    const FLAGS_MASK: u64 = 0xFF << Self::FLAGS_SHIFT;
+    const PAYLOAD_MASK: u64 = !Self::FLAGS_MASK;
+    const PAYLOAD_UNSET: u64 = Self::PAYLOAD_MASK;
+
+    const KIND_MASK: u8 = 0b0000_0111;
+
+    const COL_BITS: u32 = 24;
+    const COL_MASK: u64 = (1 << Self::COL_BITS) - 1;
+
+    pub fn new() -> Self {
+        Self(AtomicU64::new(Self::PAYLOAD_UNSET))
+    }
+
+    fn set_payload(
+        &self,
+        payload: u64,
+    ) {
+        let payload = payload.min(Self::PAYLOAD_UNSET - 1);
+        let _ = self
+            .0
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |cur| {
+                Some((cur & Self::FLAGS_MASK) | payload)
+            });
+    }
+
+    fn update_flags(
+        &self,
+        clear_byte_mask: u8,
+        set_byte_bits: u8,
+    ) {
+        let clear = (clear_byte_mask as u64) << Self::FLAGS_SHIFT;
+        let set = ((set_byte_bits & clear_byte_mask) as u64) << Self::FLAGS_SHIFT;
+        let _ = self
+            .0
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |cur| {
+                Some((cur & !clear) | set)
+            });
+    }
+
+    pub fn value(&self) -> Option<u64> {
+        let payload = self.0.load(Ordering::Relaxed) & Self::PAYLOAD_MASK;
+        (payload != Self::PAYLOAD_UNSET).then_some(payload)
+    }
+
+    pub fn set_value(
+        &self,
+        v: u64,
+    ) {
+        self.set_payload(v);
+    }
+
+    pub fn loc(&self) -> Option<(u32, u32)> {
+        let payload = self.0.load(Ordering::Relaxed) & Self::PAYLOAD_MASK;
+        if payload == Self::PAYLOAD_UNSET {
+            return None;
+        }
+        Some((
+            (payload >> Self::COL_BITS) as u32,
+            (payload & Self::COL_MASK) as u32,
+        ))
+    }
+
+    pub fn set_loc(
+        &self,
+        line: u32,
+        col: u32,
+    ) {
+        let packed = ((line as u64) << Self::COL_BITS) | (col as u64).min(Self::COL_MASK);
+        self.set_payload(packed);
+    }
+
+    pub fn kind(&self) -> EntryKind {
+        let flags = (self.0.load(Ordering::Relaxed) >> Self::FLAGS_SHIFT) as u8;
+        EntryKind::from_bits(flags & Self::KIND_MASK)
+    }
+
+    pub fn set_kind(
+        &self,
+        kind: EntryKind,
+    ) {
+        self.update_flags(Self::KIND_MASK, kind as u8);
+    }
+}
+
+impl Clone for ItemMeta {
+    fn clone(&self) -> Self {
+        Self(AtomicU64::new(self.0.load(Ordering::Relaxed)))
+    }
+}
 
 /// The basic item underyling a line in the matchmaker
 ///
@@ -27,11 +190,8 @@ use fist_types::{
 #[derive(Debug)]
 pub struct PathItem {
     pub path: AbsPath,
-    /// rg panes: (line << 32) | col   (top 32 = line, low 32 = col)
-    /// sorted panes: the sort value (mtime/atime unix seconds, or size in bytes)
-    /// default `u64::MAX` = unset (empty sort cell / col-3 guard, stage 4.2)
-    /// the two never coexist — rg panes never hard-sort (stage 5.8)
-    pub metadata: AtomicU64,
+    /// Packed sort/`rg` payload + cached entry-kind flags.
+    metadata: ItemMeta,
     /// column-2 text. `Ok([tail, override])`: plain strings — `[0]` is the tail (col 2),
     /// nonempty `[1]` is the col-1 display override (app name). `Err(Text)`: pre-rendered
     /// styled text (rg context blocks).
@@ -42,7 +202,7 @@ impl Clone for PathItem {
     fn clone(&self) -> Self {
         Self {
             path: self.path.clone(),
-            metadata: AtomicU64::new(self.value()),
+            metadata: self.metadata.clone(),
             tail: match &self.tail {
                 Ok([a, b]) => Ok([a.clone(), b.clone()]),
                 Err(t) => Err(t.clone()),
@@ -60,7 +220,7 @@ impl PathItem {
         let path = AbsPath::new_unchecked(path_);
         Self {
             path,
-            metadata: AtomicU64::new(u64::MAX),
+            metadata: ItemMeta::new(),
             tail: Ok([String::new(), String::new()]),
         }
     }
@@ -68,7 +228,7 @@ impl PathItem {
     pub fn new_app(entry: Entry) -> Self {
         Self {
             path: entry.path,
-            metadata: AtomicU64::new(u64::MAX),
+            metadata: ItemMeta::new(),
             tail: Ok([entry.alias, entry.name]),
         }
     }
@@ -78,13 +238,18 @@ impl PathItem {
         let path = AbsPath::new_unchecked(path);
         Self {
             path,
-            metadata: AtomicU64::new(u64::MAX),
+            metadata: ItemMeta::new(),
             tail: Ok([String::new(), String::new()]),
         }
     }
 
     pub fn render(&self) -> Text<'static> {
-        render(&self.path, render_path().as_ref().map(|p| p.as_ref()))
+        let mut kind = self.kind();
+        if !kind.is_known() {
+            kind = EntryKind::probe(&self.path.inner());
+            self.set_kind(kind);
+        }
+        render(&self.path, render_path().as_ref().map(|p| p.as_ref()), kind)
     }
 
     pub fn tail_text(&self) -> Text<'static> {
@@ -139,24 +304,33 @@ impl PathItem {
         line: u32,
         col: u32,
     ) {
-        let v = ((line as u64) << 32) | (col as u64);
-        self.metadata.store(v, Ordering::Relaxed);
+        self.metadata.set_loc(line, col);
     }
 
-    pub fn loc(&self) -> (u32, u32) {
-        let v = self.value();
-        ((v >> 32) as u32, (v & 0xFFFF_FFFF) as u32)
+    pub fn loc(&self) -> Option<(u32, u32)> {
+        self.metadata.loc()
     }
 
     pub fn set_value(
         &self,
         v: u64,
     ) {
-        self.metadata.store(v, Ordering::Relaxed);
+        self.metadata.set_value(v);
     }
 
-    pub fn value(&self) -> u64 {
-        self.metadata.load(Ordering::Relaxed)
+    pub fn value(&self) -> Option<u64> {
+        self.metadata.value()
+    }
+
+    pub fn kind(&self) -> EntryKind {
+        self.metadata.kind()
+    }
+
+    pub fn set_kind(
+        &self,
+        kind: EntryKind,
+    ) {
+        self.metadata.set_kind(kind);
     }
 }
 
@@ -174,8 +348,9 @@ pub fn short_display(path: &Path) -> Span<'static> {
 fn render(
     path: &Path,
     cwd: Option<&Path>,
+    kind: EntryKind,
 ) -> Text<'static> {
-    render_with(&global_ui().path, path, cwd)
+    render_with(&global_ui().path, path, cwd, kind)
 }
 
 /// The clean path shown in the UI and scored by the matcher, before
@@ -217,20 +392,21 @@ fn render_with(
     cfg: &PathDisplayConfig,
     path: &Path,
     cwd: Option<&Path>,
+    kind: EntryKind,
 ) -> Text<'static> {
     let full_path = path;
     let path = display_path(cfg, path, cwd);
 
-    match full_path.is_dir() {
+    match kind.is_dir() {
         true => {
             let icon = if path.as_ref() == Path::new("~") {
                 Icons::HOME
             } else {
-                icon_for_file(full_path)
+                icon_for_entry(full_path, true)
             };
             let path_str = path.to_string_lossy();
             let style = if cfg.dir_colors {
-                let style = if full_path.is_symlink() {
+                let style = if kind.is_symlink() {
                     Style::default().fg(Color::LightCyan)
                 } else {
                     Style::default().fg(Color::LightBlue)
@@ -267,18 +443,18 @@ fn render_with(
             }
         }
         _ => {
-            let icon = icon_for_file(full_path);
+            let icon = icon_for_entry(full_path, false);
             let path_str = path.to_string_lossy();
             let style = if cfg.file_colors {
                 let mut style = FileCategory::get(path.as_ref())
                     .map(|c| cfg.file_styles.style(&c))
                     .unwrap_or_default();
 
-                if full_path.is_symlink() {
-                    style = if full_path.exists() {
-                        style.fg(Color::LightCyan)
-                    } else {
+                if kind.is_symlink() {
+                    style = if kind.is_broken_symlink() {
                         style.fg(Color::Red)
+                    } else {
+                        style.fg(Color::LightCyan)
                     }
                 }
                 Some(style)
@@ -333,6 +509,7 @@ mod tests {
     use crate::config::ui::{PathDisplayConfig, StyleConfig};
     use crate::run::state::set_render_path;
     use crate::run::state::ui::global_ui_init;
+    use fist_types::icons::icon_for_file;
     use std::path::Path;
     use std::sync::Once;
 
@@ -355,17 +532,32 @@ mod tests {
         let config = PathDisplayConfig::DEFAULT;
 
         eprintln!();
-        let rendered = render_with(&config, &path_in_cwd, Some(cwd));
+        let rendered = render_with(
+            &config,
+            &path_in_cwd,
+            Some(cwd),
+            EntryKind::probe(&path_in_cwd),
+        );
         eprintln!("{}", rendered);
         let icon = icon_for_file(&path_in_cwd);
         assert_eq!(rendered.to_string(), format!("{} src/main.rs", icon));
 
-        let rendered = render_with(&config, &path_in_home, Some(cwd));
+        let rendered = render_with(
+            &config,
+            &path_in_home,
+            Some(cwd),
+            EntryKind::probe(&path_in_home),
+        );
         eprintln!("{}", rendered);
         let icon = icon_for_file(&path_in_home);
         assert_eq!(rendered.to_string(), format!("{} ~/.config/app.conf", icon));
 
-        let rendered = render_with(&config, absolute_path, Some(cwd));
+        let rendered = render_with(
+            &config,
+            absolute_path,
+            Some(cwd),
+            EntryKind::probe(absolute_path),
+        );
         eprintln!("{}", rendered);
         let icon = icon_for_file(absolute_path);
         assert_eq!(rendered.to_string(), format!("{} /var/log/syslog", icon));
@@ -379,13 +571,23 @@ mod tests {
             dir_colors: false,
             ..Default::default()
         };
-        let rendered = render_with(&config, &path_in_home, Some(cwd));
+        let rendered = render_with(
+            &config,
+            &path_in_home,
+            Some(cwd),
+            EntryKind::probe(&path_in_home),
+        );
         assert_eq!(
             rendered.to_string(),
             path_in_home.to_string_lossy().to_string()
         );
 
-        let rendered = render_with(&config, &path_in_cwd, Some(cwd));
+        let rendered = render_with(
+            &config,
+            &path_in_cwd,
+            Some(cwd),
+            EntryKind::probe(&path_in_cwd),
+        );
         assert_eq!(
             rendered.to_string(),
             path_in_cwd.to_string_lossy().to_string()
@@ -400,10 +602,15 @@ mod tests {
             dir_colors: false,
             ..Default::default()
         };
-        let rendered = render_with(&config, &path_in_cwd, Some(cwd));
+        let rendered = render_with(
+            &config,
+            &path_in_cwd,
+            Some(cwd),
+            EntryKind::probe(&path_in_cwd),
+        );
         assert_eq!(rendered.to_string(), "src/main.rs");
 
-        let rendered = render_with(&config, home, Some(cwd));
+        let rendered = render_with(&config, home, Some(cwd), EntryKind::probe(home));
         assert_eq!(rendered.to_string(), "~");
     }
 
@@ -418,7 +625,12 @@ mod tests {
             file_icons: true,
             ..PathDisplayConfig::DEFAULT
         };
-        let rendered = render_with(&config, &path_in_cwd, Some(cwd));
+        let rendered = render_with(
+            &config,
+            &path_in_cwd,
+            Some(cwd),
+            EntryKind::probe(&path_in_cwd),
+        );
         assert_eq!(rendered.lines.len(), 1);
         let line = &rendered.lines[0];
         assert_eq!(line.spans.len(), 2);
@@ -432,7 +644,12 @@ mod tests {
             file_icons: true,
             ..PathDisplayConfig::DEFAULT
         };
-        let rendered = render_with(&config, &path_in_cwd, Some(cwd));
+        let rendered = render_with(
+            &config,
+            &path_in_cwd,
+            Some(cwd),
+            EntryKind::probe(&path_in_cwd),
+        );
         assert_eq!(rendered.lines.len(), 1);
         let line = &rendered.lines[0];
         assert_eq!(line.spans.len(), 1);
@@ -451,7 +668,7 @@ mod tests {
             dir_icons: true,
             ..PathDisplayConfig::DEFAULT
         };
-        let rendered = render_with(&config, home, Some(cwd));
+        let rendered = render_with(&config, home, Some(cwd), EntryKind::probe(home));
         assert_eq!(rendered.lines.len(), 1);
         let line = &rendered.lines[0];
         assert_eq!(line.spans.len(), 2);
@@ -481,5 +698,30 @@ mod tests {
                 .match_name()
                 .contains(&cwd.to_string_lossy().to_string())
         );
+    }
+
+    #[test]
+    fn test_item_meta_preserves_flags_and_payload() {
+        let meta = ItemMeta::new();
+        assert_eq!(meta.value(), None);
+        assert_eq!(meta.loc(), None);
+        assert_eq!(meta.kind(), EntryKind::Unknown);
+
+        meta.set_kind(EntryKind::SymlinkToDir);
+        meta.set_value(1_700_000_000);
+        assert_eq!(meta.kind(), EntryKind::SymlinkToDir);
+        assert_eq!(meta.value(), Some(1_700_000_000));
+
+        meta.set_kind(EntryKind::BrokenSymlink);
+        assert_eq!(meta.value(), Some(1_700_000_000));
+
+        meta.set_loc(42, 10);
+        assert_eq!(meta.kind(), EntryKind::BrokenSymlink);
+        assert_eq!(meta.loc(), Some((42, 10)));
+
+        // Saturated loc still stays distinct from unset sentinel.
+        meta.set_loc(u32::MAX, u32::MAX);
+        assert!(meta.loc().is_some());
+        assert_eq!(meta.kind(), EntryKind::BrokenSymlink);
     }
 }

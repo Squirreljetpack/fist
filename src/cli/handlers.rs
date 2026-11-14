@@ -301,8 +301,8 @@ async fn handle_rg(
             .lock()
             .lines()
             .map_while(Result::ok)
-            .map(PathBuf::from)
-            .filter(|path| vis.filter(path));
+            .map(PathBuf::from);
+        // .filter(|path| vis.filter(path));
 
         cmd.paths.extend(valid_paths);
     }

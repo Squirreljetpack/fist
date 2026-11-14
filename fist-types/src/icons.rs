@@ -1110,7 +1110,14 @@ const EXTENSION_ICONS: Map<&'static str, char> = phf_map! {
 };
 
 pub fn icon_for_file(path: &Path) -> char {
-    if path.is_dir() {
+    icon_for_entry(path, path.is_dir())
+}
+
+pub fn icon_for_entry(
+    path: &Path,
+    is_dir: bool,
+) -> char {
+    if is_dir {
         path.filename()
             .ok()
             .and_then(|s| DIRECTORY_ICONS.get(s).cloned())

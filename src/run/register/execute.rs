@@ -357,8 +357,9 @@ pub(super) fn collect_exec_env(
     let mut vars = state.make_env_vars();
 
     if STACK::in_rg() {
-        if let Some(item) = state.current_raw() {
-            let (line, col) = item.loc();
+        if let Some(item) = state.current_raw()
+            && let Some((line, col)) = item.loc()
+        {
             vars.push(("HIGHLIGHT_LINE".to_string(), line.to_string()));
             if col != 0 {
                 vars.push(("HIGHLIGHT_COLUMN".to_string(), col.to_string()));

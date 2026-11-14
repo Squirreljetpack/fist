@@ -136,13 +136,13 @@ fn sort_fn_for(order: SortOrder) -> Option<SortFn> {
                 other => other.is_lt(),
             }
         })),
-        // descending (newest first); unset values stored as 0 sort last; tie-breaker preserves insertion order
-        SortOrder::mtime | SortOrder::atime => {
-            Some(Arc::new(|(i, a), (j, b)| match b.value().cmp(&a.value()) {
+        // descending (newest first); unset values sort as 0 (last); tie-breaker preserves insertion order
+        SortOrder::mtime | SortOrder::atime => Some(Arc::new(|(i, a), (j, b)| {
+            match b.value().unwrap_or(0).cmp(&a.value().unwrap_or(0)) {
                 Ordering::Equal => i < j,
                 other => other.is_lt(),
-            }))
-        }
+            }
+        })),
         // descending (largest first); missing cache entries read as 0 → sort last; tie-breaker preserves insertion order
         SortOrder::size => Some(Arc::new(|(i, a), (j, b)| {
             let sa = size_of(&a.path).unwrap_or(0);

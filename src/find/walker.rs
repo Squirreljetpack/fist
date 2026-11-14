@@ -8,13 +8,24 @@ use ignore::{
 
 use fist_types::{filters::Visibility, git::is_vcs_dir};
 
+use crate::run::item::EntryKind;
+
 // paths are relative to root
 pub fn list_dir(
+    cwd: &Path,
+    vis: Visibility,
+    depth: usize,
+    ignore_patterns: &[String],
+) -> impl Iterator<Item = PathBuf> {
+    list_dir_entries(cwd, vis, depth, ignore_patterns).map(|(path, _)| path)
+}
+
+pub fn list_dir_entries(
     cwd: &Path,
     mut vis: Visibility,
     _depth: usize, // todo
     ignore_patterns: &[String],
-) -> impl Iterator<Item = PathBuf> {
+) -> impl Iterator<Item = (PathBuf, EntryKind)> {
     let mut builder = WalkBuilder::new(cwd);
     if vis.all() {
         vis.hidden = true;
@@ -64,7 +75,18 @@ pub fn list_dir(
             let path = e.path();
             vis.post_nav_filter(path)
         })
-        .map(|e| e.into_path())
+        .map(|e| {
+            let kind = if e.path_is_symlink() {
+                EntryKind::Unknown
+            } else if e.file_type().is_some_and(|ft| ft.is_dir()) {
+                EntryKind::Dir
+            } else if e.file_type().is_some() {
+                EntryKind::File
+            } else {
+                EntryKind::Unknown
+            };
+            (e.into_path(), kind)
+        })
 }
 
 pub fn build_overrides<'a>(

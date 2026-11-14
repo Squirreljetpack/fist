@@ -49,9 +49,14 @@ pub fn make_previewer(
                 && !cmd.is_empty()
             {
                 // rg panes: jump the preview to the match line
-                let target = STACK::in_rg().then(|| {
-                    state.current_raw().filter(|it| it.value() != u64::MAX).map(|item| item.loc().0 as isize)
-                }).flatten();
+                let target = STACK::in_rg()
+                    .then(|| {
+                        state
+                            .current_raw()
+                            .and_then(|item| item.loc())
+                            .map(|(line, _)| line as isize)
+                    })
+                    .flatten();
                 if let Some(p) = state.preview_ui {
                     p.set_target(target);
                     p.jump = Default::default();
@@ -65,11 +70,11 @@ pub fn make_previewer(
                 envs.extend(extra);
                 if let Some(t) = target {
                     envs.push(("HIGHLIGHT_LINE".to_string(), t.to_string()));
-                    if let Some(item) = state.current_raw() {
-                        let (_, col) = item.loc();
-                        if col != 0 {
-                            envs.push(("HIGHLIGHT_COLUMN".to_string(), col.to_string()));
-                        }
+                    if let Some(item) = state.current_raw()
+                        && let Some((_, col)) = item.loc()
+                        && col != 0
+                    {
+                        envs.push(("HIGHLIGHT_COLUMN".to_string(), col.to_string()));
                     }
                 }
 

@@ -30,7 +30,7 @@ use crate::run::state::GLOBAL::db;
 use crate::{
     abspath::AbsPath,
     db::DbTable,
-    find::{apps::collect_apps, fd::build_fd_args, walker::list_dir},
+    find::{apps::collect_apps, fd::build_fd_args, walker::list_dir_entries},
     lua::call_transform,
     run::{
         FsAction,
@@ -570,9 +570,10 @@ impl FsPane {
                 spawn_blocking(move || {
                     let mut empty = toast_on_empty;
 
-                    for path in list_dir(&cwd, vis, depth, &ignore_patterns) {
+                    for (path, kind) in list_dir_entries(&cwd, vis, depth, &ignore_patterns) {
                         empty = false;
                         let item = PathItem::new_unchecked(path);
+                        item.set_kind(kind);
                         sort::store_sort_value(&item, sort::get_sort().order);
                         injector.push(item)?
                     }

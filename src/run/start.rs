@@ -79,8 +79,10 @@ fn make_mm(
                 .highlight_if(|item: &PathItem, _: &()| !tail_shows_metadata(item)),
             Column::new("3", |item: &PathItem, _d: &()| {
                 // rg panes only: there the sort is none and metadata holds the packed loc
-                if sort::order_is_none() && item.value() != u64::MAX {
-                    Text::from(item.loc().0.to_string())
+                if sort::order_is_none()
+                    && let Some((line, _)) = item.loc()
+                {
+                    Text::from(line.to_string())
                 } else {
                     Text::from("")
                 }
@@ -160,8 +162,8 @@ fn make_mm(
 /// and consumed by `ReSort`): the pane renders the plain tail until the first
 /// explicit re-sort.
 ///
-/// mtime/atime values live on the item ([`PathItem::value`], unset =
-/// `u64::MAX` → blank). Size is deliberately NOT stored on the item — the
+/// mtime/atime values live on the item ([`PathItem::value`], `None` →
+/// blank). Size is deliberately NOT stored on the item — the
 /// sort reads the [`fist_size::DirSizeCache`] directly, so the display must
 /// too ([`sort::size_of`]): `None` = dir not computed yet → blank; `Some(0)`
 /// = genuinely empty file/dir → "0 B".
@@ -184,11 +186,9 @@ fn format_tail(item: &PathItem) -> Text<'static> {
     if tail_shows_metadata(item) {
         return match order {
             SortOrder::mtime | SortOrder::atime => {
-                let v = item.value();
-                if v == u64::MAX {
-                    // unset — render nothing
+                let Some(v) = item.value() else {
                     return Text::from("");
-                }
+                };
                 Text::from(display_epoch(v as i64))
             }
             SortOrder::size => match sort::size_of(&item.path) {
@@ -450,7 +450,7 @@ fn set_envs(lines: &[PathItem]) {
             if lines.len() > 1 {
                 return None;
             }
-            let (line, col) = lines[0].loc();
+            let (line, col) = lines[0].loc()?;
             Some((line as usize, (col != 0).then_some(col as usize)))
         }
         _ => None,
