@@ -210,197 +210,308 @@ impl FsWatcher {
         )
     }
 
-    /// Start the filesystem watcher on a separate thread, then listen for events to change the watched directory.
-    pub fn spawn(mut self) -> notify::Result<()> {
-        let mut watcher = self.start_watcher()?;
+    /// Start the filesystem watcher on a separate blocking worker thread for
+    /// OS watch registration/path checks, and an async task for debounce and
+    /// thrash-throttle timers.
+    pub fn spawn(self) -> notify::Result<()> {
+        let watcher = self.start_watcher()?;
+        let (timer_tx, timer_rx) = mpsc::unbounded_channel();
 
+        let worker = WatcherWorker {
+            path_rx: self.path_rx,
+            timer_tx,
+            watcher,
+            current_path: self.current_path,
+            must_watch: self.must_watch,
+            current_options: None,
+            current_gitignore: None,
+            is_paused: true,
+            pending: None,
+        };
+
+        std::thread::Builder::new()
+            .name("fs-watcher".into())
+            .spawn(move || worker.run())
+            .map_err(notify::Error::io)?;
+
+        let config = self.config;
+        let render_tx = self.render_tx;
         tokio::spawn(async move {
-            const FAR_FUTURE: Duration = Duration::from_secs(3600 * 24 * 365);
-            let far_future = || tokio::time::Instant::now() + FAR_FUTURE;
+            run_timer_loop(config, render_tx, timer_rx).await;
+        });
+        Ok(())
+    }
+}
 
-            let debounce_timer = tokio::time::sleep(FAR_FUTURE);
-            tokio::pin!(debounce_timer);
-            let mut pending_reload = false;
+enum TimerMessage {
+    MustWatch,
+    Switched { reset: bool, must_watch: bool },
+    Pause,
+    Reload,
+}
 
-            // thrash throttle: raw event timestamps within the sliding
-            // window, plus a resume timer that is (re)armed on every event
-            // while throttled — so it fires resume_delay after the FS goes
-            // quiet, and the settle reload is the one authoritative
-            // recompute per storm.
-            let thrash = self.config.thrash_threshold.clone();
-            let mut events: VecDeque<tokio::time::Instant> = VecDeque::new();
-            let resume_timer = tokio::time::sleep(FAR_FUTURE);
-            tokio::pin!(resume_timer);
-            let mut throttled = false;
+struct WatcherWorker {
+    path_rx: mpsc::UnboundedReceiver<WatcherMessage>,
+    timer_tx: mpsc::UnboundedSender<TimerMessage>,
+    watcher: RecommendedWatcher,
+    current_path: Option<PathBuf>,
+    must_watch: Option<PathBuf>,
+    current_options: Option<WatchOptions>,
+    current_gitignore: Option<Gitignore>,
+    is_paused: bool,
+    pending: Option<WatcherMessage>,
+}
 
-            let mut current_options: Option<WatchOptions> = None;
-            let mut current_gitignore: Option<Gitignore> = None;
-            let mut is_paused = true;
+impl WatcherWorker {
+    fn run(mut self) {
+        while let Some(msg) = self.next_message() {
+            if !self.handle_message(msg) {
+                break;
+            }
+        }
+    }
 
-            loop {
-                tokio::select! {
-                    msg = self.path_rx.recv() => {
-                        let Some(msg) = msg else { break };
-                        match msg {
-                            WatcherMessage::MustWatch(path) => {
-                                self.must_watch = Some(watch_root(path));
-                                throttled = false;
-                                pending_reload = false;
-                                events.clear();
-                                resume_timer.as_mut().reset(far_future());
-                            }
-                            WatcherMessage::Switch(new_path, options) => {
-                                let new_path = watch_root(new_path);
-                                let same_path = self.current_path.as_ref() == Some(&new_path);
-                                let recursive_mode = if self
-                                    .must_watch
-                                    .as_ref()
-                                    .is_some_and(|mw| new_path.starts_with(mw))
-                                {
-                                    RecursiveMode::NonRecursive
-                                } else if options.recursive {
-                                    RecursiveMode::Recursive
-                                } else {
-                                    RecursiveMode::NonRecursive
-                                };
+    fn next_message(&mut self) -> Option<WatcherMessage> {
+        let mut msg = self
+            .pending
+            .take()
+            .or_else(|| self.path_rx.blocking_recv())?;
 
-                                if !same_path {
-                                    if let Some(old_path) = self.current_path.take() {
-                                        if !is_paused {
-                                            let _ = watcher.unwatch(&old_path);
-                                        }
-                                    }
-                                    let _ = watcher.watch(&new_path, recursive_mode);
-                                    is_paused = false;
-                                    self.current_path = Some(new_path.clone());
-                                    log::debug!("Watching: {:?}", new_path);
+        // Drop intermediate queued Switch targets when navigation jumps ahead while
+        // the previous watch/canonicalize call was blocked.
+        while let WatcherMessage::Switch(_, _) = &msg {
+            match self.path_rx.try_recv() {
+                Ok(next @ WatcherMessage::Switch(_, _)) => msg = next,
+                Ok(next @ WatcherMessage::Pause) => {
+                    msg = next;
+                    break;
+                }
+                Ok(other) => {
+                    self.pending = Some(other);
+                    break;
+                }
+                Err(_) => break,
+            }
+        }
 
-                                    pending_reload = false;
-                                    events.clear();
-                                    throttled = false;
-                                    debounce_timer.as_mut().reset(far_future());
-                                    resume_timer.as_mut().reset(far_future());
-                                } else {
-                                    if is_paused {
-                                        let _ = watcher.watch(&new_path, recursive_mode);
-                                        is_paused = false;
-                                    } else if current_options.as_ref().map(|o| o.recursive)
-                                        != Some(options.recursive)
-                                    {
-                                        let _ = watcher.unwatch(&new_path);
-                                        let _ = watcher.watch(&new_path, recursive_mode);
-                                    }
-                                }
+        Some(msg)
+    }
 
-                                if self.must_watch.as_ref().is_some_and(|mw| !new_path.starts_with(mw)) {
-                                    self.must_watch = None;
-                                }
-
-                                current_gitignore = if options.ignore {
-                                    Some(build_gitignore(&new_path))
-                                } else {
-                                    None
-                                };
-                                current_options = Some(options);
-                            }
-                            WatcherMessage::Pause => {
-                                if !is_paused {
-                                    if let Some(old_path) = &self.current_path {
-                                        let _ = watcher.unwatch(old_path);
-                                    }
-                                    is_paused = true;
-                                }
-                                self.must_watch = None;
-                                pending_reload = false;
-                                debounce_timer.as_mut().reset(far_future());
-                            }
-                            WatcherMessage::Reload(paths) => {
-                                if is_paused {
-                                    continue;
-                                }
-                                let Some(current_path) = &self.current_path else {
-                                    continue;
-                                };
-                                let Some(options) = &current_options else {
-                                    continue;
-                                };
-
-                                if !paths.is_empty()
-                                    && paths.iter().all(|p| {
-                                        is_path_ignored(
-                                            p,
-                                            current_path,
-                                            options,
-                                            current_gitignore.as_ref(),
-                                        )
-                                    })
-                                {
-                                    continue;
-                                }
-
-                                let now = tokio::time::Instant::now();
-
-                                if self.must_watch.is_some() {
-                                    pending_reload = true;
-                                    debounce_timer.as_mut().reset(now + self.config.debounce_ms);
-                                } else if throttled {
-                                    resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
-                                    continue;
-                                } else {
-                                    pending_reload = true;
-                                    debounce_timer.as_mut().reset(now + self.config.debounce_ms);
-                                }
-                            }
-                        }
+    fn handle_message(
+        &mut self,
+        msg: WatcherMessage,
+    ) -> bool {
+        let timer_msg = match msg {
+            WatcherMessage::MustWatch(path) => {
+                self.must_watch = Some(watch_root(path));
+                TimerMessage::MustWatch
+            }
+            WatcherMessage::Switch(new_path, options) => self.switch_watch(new_path, options),
+            WatcherMessage::Pause => {
+                if !self.is_paused {
+                    if let Some(old_path) = &self.current_path {
+                        let _ = self.watcher.unwatch(old_path);
                     }
-                    _ = &mut debounce_timer, if pending_reload && !throttled => {
-                        pending_reload = false;
-                        debounce_timer.as_mut().reset(far_future());
+                    self.is_paused = true;
+                }
+                self.must_watch = None;
+                TimerMessage::Pause
+            }
+            WatcherMessage::Reload(paths) => {
+                if self.is_paused {
+                    return true;
+                }
+                let Some(current_path) = &self.current_path else {
+                    return true;
+                };
+                let Some(options) = &self.current_options else {
+                    return true;
+                };
+                if !paths.is_empty()
+                    && paths.iter().all(|p| {
+                        is_path_ignored(p, current_path, options, self.current_gitignore.as_ref())
+                    })
+                {
+                    return true;
+                }
+                TimerMessage::Reload
+            }
+        };
 
-                        let now = tokio::time::Instant::now();
-                        while events.front().is_some_and(|t| now - *t > thrash.duration_ms) {
-                            events.pop_front();
-                        }
-                        events.push_back(now);
+        self.timer_tx.send(timer_msg).is_ok()
+    }
 
-                        if self.must_watch.is_none() && events.len() >= thrash.count {
-                            log::debug!(
-                                "Watcher throttling: {} reloads in {:?}",
-                                events.len(),
-                                thrash.duration_ms
-                            );
-                            throttled = true;
-                            resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
-                            TOAST::replace(
-                                ToastStyle::Normal,
-                                "file watcher ",
-                                Span::styled("paused", ToastStyle::Warning),
-                            );
-                            continue;
-                        }
+    fn switch_watch(
+        &mut self,
+        new_path: PathBuf,
+        options: WatchOptions,
+    ) -> TimerMessage {
+        let new_path = watch_root(new_path);
+        let same_path = self.current_path.as_ref() == Some(&new_path);
+        let recursive_mode = if self
+            .must_watch
+            .as_ref()
+            .is_some_and(|mw| new_path.starts_with(mw))
+        {
+            RecursiveMode::NonRecursive
+        } else if options.recursive {
+            RecursiveMode::Recursive
+        } else {
+            RecursiveMode::NonRecursive
+        };
 
-                        let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::SaveInput)));
-                        let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::Reload)));
-                    }
-                    _ = &mut resume_timer, if throttled => {
-                        // the FS settled after a storm: one authoritative reload
+        if !same_path {
+            if let Some(old_path) = self.current_path.take()
+                && !self.is_paused
+            {
+                let _ = self.watcher.unwatch(&old_path);
+            }
+            let _ = self.watcher.watch(&new_path, recursive_mode);
+            self.is_paused = false;
+            self.current_path = Some(new_path.clone());
+            log::debug!("Watching: {:?}", new_path);
+        } else if self.is_paused {
+            let _ = self.watcher.watch(&new_path, recursive_mode);
+            self.is_paused = false;
+        } else if self.current_options.as_ref().map(|o| o.recursive) != Some(options.recursive) {
+            let _ = self.watcher.unwatch(&new_path);
+            let _ = self.watcher.watch(&new_path, recursive_mode);
+        }
+
+        if self
+            .must_watch
+            .as_ref()
+            .is_some_and(|mw| !new_path.starts_with(mw))
+        {
+            self.must_watch = None;
+        }
+
+        self.current_gitignore = if options.ignore {
+            Some(build_gitignore(&new_path))
+        } else {
+            None
+        };
+        self.current_options = Some(options);
+
+        TimerMessage::Switched {
+            reset: !same_path,
+            must_watch: self.must_watch.is_some(),
+        }
+    }
+}
+
+fn emit_reload(render_tx: &RenderSender<FsAction>) {
+    let _ = render_tx.send(RenderCommand::Action(Action::Custom(FsAction::SaveInput)));
+    let _ = render_tx.send(RenderCommand::Action(Action::Custom(FsAction::Reload)));
+}
+
+async fn run_timer_loop(
+    config: WatcherConfig,
+    render_tx: RenderSender<FsAction>,
+    mut timer_rx: mpsc::UnboundedReceiver<TimerMessage>,
+) {
+    const FAR_FUTURE: Duration = Duration::from_secs(3600 * 24 * 365);
+    let far_future = || tokio::time::Instant::now() + FAR_FUTURE;
+
+    let debounce_timer = tokio::time::sleep(FAR_FUTURE);
+    tokio::pin!(debounce_timer);
+    let mut pending_reload = false;
+
+    // thrash throttle: raw event timestamps within the sliding window, plus a
+    // resume timer that is (re)armed on every event while throttled — so it
+    // fires resume_delay after the FS goes quiet, and the settle reload is the
+    // one authoritative recompute per storm.
+    let thrash = config.thrash_threshold;
+    let mut events: VecDeque<tokio::time::Instant> = VecDeque::new();
+    let resume_timer = tokio::time::sleep(FAR_FUTURE);
+    tokio::pin!(resume_timer);
+    let mut throttled = false;
+    let mut must_watch = false;
+
+    loop {
+        tokio::select! {
+            msg = timer_rx.recv() => {
+                let Some(msg) = msg else { break };
+                match msg {
+                    TimerMessage::MustWatch => {
+                        must_watch = true;
                         throttled = false;
+                        pending_reload = false;
                         events.clear();
                         resume_timer.as_mut().reset(far_future());
-
-                        TOAST::replace(
-                            ToastStyle::Normal,
-                            "file watcher ",
-                            Span::styled("resumed", ToastStyle::Warning),
-                        );
-
-                        let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::SaveInput)));
-                        let _ = self.render_tx.send(RenderCommand::Action(Action::Custom(FsAction::Reload)));
+                    }
+                    TimerMessage::Switched { reset, must_watch: mw } => {
+                        must_watch = mw;
+                        if reset {
+                            pending_reload = false;
+                            events.clear();
+                            throttled = false;
+                            debounce_timer.as_mut().reset(far_future());
+                            resume_timer.as_mut().reset(far_future());
+                        }
+                    }
+                    TimerMessage::Pause => {
+                        must_watch = false;
+                        pending_reload = false;
+                        debounce_timer.as_mut().reset(far_future());
+                    }
+                    TimerMessage::Reload => {
+                        let now = tokio::time::Instant::now();
+                        if must_watch {
+                            pending_reload = true;
+                            debounce_timer.as_mut().reset(now + config.debounce_ms);
+                        } else if throttled {
+                            resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
+                        } else {
+                            pending_reload = true;
+                            debounce_timer.as_mut().reset(now + config.debounce_ms);
+                        }
                     }
                 }
             }
-        });
-        Ok(())
+            _ = &mut debounce_timer, if pending_reload && !throttled => {
+                pending_reload = false;
+                debounce_timer.as_mut().reset(far_future());
+
+                let now = tokio::time::Instant::now();
+                while events.front().is_some_and(|t| now - *t > thrash.duration_ms) {
+                    events.pop_front();
+                }
+                events.push_back(now);
+
+                if !must_watch && events.len() >= thrash.count {
+                    log::debug!(
+                        "Watcher throttling: {} reloads in {:?}",
+                        events.len(),
+                        thrash.duration_ms
+                    );
+                    throttled = true;
+                    resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
+                    TOAST::replace(
+                        ToastStyle::Normal,
+                        "file watcher ",
+                        Span::styled("paused", ToastStyle::Warning),
+                    );
+                    continue;
+                }
+
+                emit_reload(&render_tx);
+            }
+            _ = &mut resume_timer, if throttled => {
+                // the FS settled after a storm: one authoritative reload
+                throttled = false;
+                events.clear();
+                resume_timer.as_mut().reset(far_future());
+
+                TOAST::replace(
+                    ToastStyle::Normal,
+                    "file watcher ",
+                    Span::styled("resumed", ToastStyle::Warning),
+                );
+
+                emit_reload(&render_tx);
+            }
+        }
     }
 }
 
@@ -719,5 +830,59 @@ mod tests {
         ));
 
         let _ = std::fs::remove_dir_all(&test_root);
+    }
+
+    #[test]
+    fn test_coalesce_consecutive_switches_and_pause() {
+        let (render_tx, _render_rx) = mpsc::unbounded_channel();
+        let (fs_watcher, path_tx) = FsWatcher::new(WatcherConfig::default(), render_tx);
+        let (timer_tx, _timer_rx) = mpsc::unbounded_channel();
+        let watcher = fs_watcher.start_watcher().unwrap();
+
+        let mut worker = WatcherWorker {
+            path_rx: fs_watcher.path_rx,
+            timer_tx,
+            watcher,
+            current_path: None,
+            must_watch: None,
+            current_options: None,
+            current_gitignore: None,
+            is_paused: true,
+            pending: None,
+        };
+
+        path_tx
+            .send(WatcherMessage::Switch(
+                PathBuf::from("/tmp/a"),
+                WatchOptions::default(),
+            ))
+            .unwrap();
+        path_tx
+            .send(WatcherMessage::Switch(
+                PathBuf::from("/tmp/b"),
+                WatchOptions::default(),
+            ))
+            .unwrap();
+        path_tx
+            .send(WatcherMessage::Reload(vec![PathBuf::from("/tmp/b/f")]))
+            .unwrap();
+
+        assert!(matches!(
+            worker.next_message(),
+            Some(WatcherMessage::Switch(p, _)) if p == PathBuf::from("/tmp/b")
+        ));
+        assert!(matches!(
+            worker.next_message(),
+            Some(WatcherMessage::Reload(_))
+        ));
+
+        path_tx
+            .send(WatcherMessage::Switch(
+                PathBuf::from("/tmp/c"),
+                WatchOptions::default(),
+            ))
+            .unwrap();
+        path_tx.send(WatcherMessage::Pause).unwrap();
+        assert!(matches!(worker.next_message(), Some(WatcherMessage::Pause)));
     }
 }

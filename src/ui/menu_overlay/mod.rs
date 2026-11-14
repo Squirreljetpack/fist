@@ -189,7 +189,7 @@ impl MenuOverlay {
         };
         self.reload_pending = false;
         if restart {
-            worker.restart(false);
+            worker.restart(true);
             self.results.invalidate_widths();
             self.results.set_dirty();
         }

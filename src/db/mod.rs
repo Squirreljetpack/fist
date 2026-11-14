@@ -84,22 +84,21 @@ impl Connection {
         paths: impl IntoIterator<Item = AbsPath>,
         count: i32,
     ) -> Result<(), DbError> {
-        let mut files = Vec::new();
-        let mut dirs = Vec::new();
-
-        for path in paths {
-            if path.is_dir() {
-                dirs.push(path);
-            } else if path.is_file() {
-                files.push(path);
+        let paths: Vec<AbsPath> = paths.into_iter().collect();
+        let (dirs, files) = tokio::task::spawn_blocking(move || {
+            let mut dirs = Vec::new();
+            let mut files = Vec::new();
+            for path in paths {
+                if path.is_dir() {
+                    dirs.push(path);
+                } else if path.is_file() {
+                    files.push(path);
+                }
             }
-            // else {
-            //     dbog!(
-            //         "Could not determine filetype of '{}'",
-            //         path.to_string_lossy()
-            //     )
-            // }
-        }
+            (dirs, files)
+        })
+        .await
+        .expect("blocking path classification failed");
 
         self.switch_table(DbTable::dirs);
         for f in dirs {
@@ -134,8 +133,8 @@ impl Connection {
             }
             // This variant is only called on actual paths since apps are prepopulated
             None => {
-                let canonical = path
-                    .canonicalize()
+                let canonical = tokio::fs::canonicalize(path.as_path())
+                    .await
                     .ok()
                     .and_then(|c| (c.as_path() != path.as_path()).then_some(c));
                 let mut entry = Entry::new(name, path);
@@ -168,7 +167,13 @@ impl Connection {
             entries.truncate(config.prune_min);
         }
 
-        entries.retain(|e| config.filter(e, table));
+        let config = config.clone();
+        let entries = tokio::task::spawn_blocking(move || {
+            entries.retain(|e| config.filter(e, table));
+            entries
+        })
+        .await
+        .expect("blocking entry filter failed");
         Ok(entries)
     }
 
@@ -197,23 +202,30 @@ impl Connection {
         &mut self,
         targets: &[AbsPath],
     ) -> Result<usize, DbError> {
-        let mut removed = 0;
-
         let entries: Vec<Entry> = self.get_entries_range(0, 0, SortOrder::mtime).await?;
+        let targets = targets.to_vec();
+        let to_delete = tokio::task::spawn_blocking(move || {
+            entries
+                .into_iter()
+                .filter_map(|entry| {
+                    let canonical = entry.path.canonicalize().ok();
+                    let matched = targets.iter().any(|target| {
+                        canonical
+                            .as_ref()
+                            .map(|p| p == target.as_path())
+                            .unwrap_or(entry.path == *target)
+                    });
+                    matched.then_some(entry.path)
+                })
+                .collect::<Vec<_>>()
+        })
+        .await
+        .expect("blocking remove_paths filter failed");
 
-        for target in targets {
-            for entry in &entries {
-                let matches = entry
-                    .path
-                    .canonicalize()
-                    .map(|p| p == target.as_path())
-                    .unwrap_or(entry.path == *target);
-
-                if matches {
-                    self.delete_entry(&entry.path).await?;
-                    removed += 1;
-                }
-            }
+        let mut removed = 0;
+        for path in to_delete {
+            self.delete_entry(&path).await?;
+            removed += 1;
         }
 
         Ok(removed)

@@ -470,23 +470,28 @@ impl FsPane {
 
                     // with prune, nonexistent entries are collected and
                     // removed from the db after the loop
-                    let mut to_prune: Vec<AbsPath> = Vec::new();
-                    for e in entries {
-                        if !matches!(kind, StashPaneKind::Transient) && !e.stash.exists() {
-                            match kind {
-                                StashPaneKind::Prune => {
-                                    to_prune.push(e.stash.clone());
-                                    continue;
+                    let sort_order = sort::get_sort().order;
+                    let to_prune = spawn_blocking(move || {
+                        let mut to_prune: Vec<AbsPath> = Vec::new();
+                        for e in entries {
+                            if !matches!(kind, StashPaneKind::Transient) && !e.stash.exists() {
+                                match kind {
+                                    StashPaneKind::Prune => {
+                                        to_prune.push(e.stash.clone());
+                                        continue;
+                                    }
+                                    // Filter hides missing entries
+                                    _ => continue,
                                 }
-                                // Filter hides missing entries
-                                _ => continue,
                             }
+                            let mut item = PathItem::new_unchecked(e.stash.into());
+                            item.tail = Ok([e.tail, String::new()]);
+                            sort::store_sort_value(&item, sort_order);
+                            injector.push(item)?;
                         }
-                        let mut item = PathItem::new_unchecked(e.stash.into());
-                        item.tail = Ok([e.tail, String::new()]);
-                        sort::store_sort_value(&item, sort::get_sort().order);
-                        injector.push(item)?;
-                    }
+                        anyhow::Ok(to_prune)
+                    })
+                    .await??;
 
                     if !to_prune.is_empty()
                         && let Some(conn) = conn.as_mut()
@@ -533,7 +538,8 @@ impl FsPane {
                 if is_recaching {
                     STORE::set(RanRecache);
                     tokio::spawn(async move {
-                        let mut entries = collect_apps(require_icon);
+                        let mut entries =
+                            spawn_blocking(move || collect_apps(require_icon)).await?;
                         // initial population in order
                         entries.sort_by(|a, b| a.name.cmp(&b.name));
                         let mut conn = db().get_conn(DbTable::apps).await.elog()?;

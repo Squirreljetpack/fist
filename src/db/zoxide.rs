@@ -395,6 +395,60 @@ fn is_monotonic_substring(
 // --------------------------------------------
 // Fetching with the filter
 
+enum BestFrecencyMatch {
+    Found(Entry),
+    NotFound,
+    Search,
+}
+
+async fn select_best_frecency(
+    entries: Vec<Entry>,
+    config: HistoryConfig,
+    table: DbTable,
+) -> (Vec<Entry>, BestFrecencyMatch) {
+    tokio::task::spawn_blocking(move || {
+        let maybe_cwd = std::env::current_dir().ok();
+        let mut selected = BestFrecencyMatch::NotFound;
+
+        for e in &entries {
+            if !config.filter(e, table) {
+                continue;
+            }
+
+            if let Some(cwd) = maybe_cwd.as_deref()
+                && cwd == e.cmd.as_maybe_realpath().unwrap_or(&e.path)
+            {
+                match config.refind {
+                    RetryStrat::Next => continue,
+                    RetryStrat::None => {}
+                    RetryStrat::Search => {
+                        selected = BestFrecencyMatch::Search;
+                        break;
+                    }
+                }
+            }
+            selected = BestFrecencyMatch::Found(e.clone());
+            break;
+        }
+
+        (entries, selected)
+    })
+    .await
+    .expect("blocking frecency selection failed")
+}
+
+async fn refresh_entry_cmd_if_changed(
+    conn: &mut Connection,
+    entry: &Entry,
+) {
+    if let Some(p) = entry.cmd.as_maybe_realpath()
+        && let Ok(rp) = tokio::fs::canonicalize(entry.path.as_path()).await
+        && p != rp.as_path()
+    {
+        conn.set_cmd(&entry.path, &rp.into()).await._elog();
+    }
+}
+
 impl Connection {
     /// some optimizations on the [`Self::get_entries`] for faster printing
     ///
@@ -407,45 +461,24 @@ impl Connection {
         config: &HistoryConfig,
         table: DbTable,
     ) -> RetryStrat {
-        let mut found = None;
-
         let entries = self.get_entries_range(0, 0, SortOrder::none).await.__ebog();
+        let (entries, selection) = select_best_frecency(entries, config.clone(), table).await;
 
-        let maybe_cwd = std::env::current_dir().ok();
-
-        for e in &entries {
-            if !config.filter(e, table) {
-                continue;
+        let found = match selection {
+            BestFrecencyMatch::Search => return RetryStrat::Search,
+            BestFrecencyMatch::Found(e) => {
+                prints!(e.path.to_string_lossy());
+                refresh_entry_cmd_if_changed(&mut self, &e).await;
+                true
             }
-
-            if let Some(cwd) = maybe_cwd.as_deref()
-                && cwd == e.cmd.as_maybe_realpath().unwrap_or(&e.path)
-            {
-                match config.refind {
-                    RetryStrat::Next => continue,
-                    RetryStrat::None => {}
-                    RetryStrat::Search => {
-                        return RetryStrat::Search;
-                    }
-                }
-            };
-            prints!(e.path.to_string_lossy());
-            if let Some(p) = e.cmd.as_maybe_realpath()
-                && let Ok(rp) = e.path.canonicalize()
-                && p != rp
-            {
-                self.set_cmd(&e.path, &rp.into()).await._elog();
-            }
-            found = Some(e.path.clone());
-
-            break;
-        }
+            BestFrecencyMatch::NotFound => false,
+        };
 
         self.prune_tail(&entries, config.prune_max, config.prune_min)
             .await
             ._elog();
 
-        if found.is_some() {
+        if found {
             RetryStrat::Next
         } else {
             RetryStrat::None
@@ -458,44 +491,22 @@ impl Connection {
         config: &HistoryConfig,
         table: DbTable,
     ) -> Option<AbsPath> {
-        let mut found = None;
-
         let entries = self.get_entries_range(0, 0, SortOrder::none).await.__ebog();
+        let (entries, selection) = select_best_frecency(entries, config.clone(), table).await;
 
-        let maybe_cwd = std::env::current_dir().ok();
+        let found = match selection {
+            BestFrecencyMatch::Search => return None,
+            BestFrecencyMatch::Found(e) => Some(e),
+            BestFrecencyMatch::NotFound => None,
+        };
 
-        for e in &entries {
-            if !config.filter(e, table) {
-                continue;
-            }
-
-            if let Some(cwd) = maybe_cwd.as_deref()
-                && cwd == e.cmd.as_maybe_realpath().unwrap_or(&e.path)
-            {
-                match config.refind {
-                    RetryStrat::Next => continue,
-                    RetryStrat::None => {}
-                    RetryStrat::Search => {
-                        return None;
-                    }
-                }
-            };
-            found = Some(e.clone());
-            break;
-        }
-
-        let _found = found.clone();
+        let ret = found.as_ref().map(|e| e.path.clone());
         let prune_max = config.prune_max;
         let prune_min = config.prune_min;
 
         tokio::spawn(async move {
-            if let Some(e) = _found {
-                if let Some(p) = e.cmd.as_maybe_realpath()
-                    && let Ok(rp) = e.path.canonicalize()
-                    && p != rp
-                {
-                    self.set_cmd(&e.path, &rp.into()).await._elog();
-                }
+            if let Some(e) = found {
+                refresh_entry_cmd_if_changed(&mut self, &e).await;
                 // bump because this opens up an interactive screen
                 self.bump_entry(&e, 1).await._elog();
             };
@@ -504,7 +515,7 @@ impl Connection {
                 ._elog();
         });
 
-        found.map(|e| e.path)
+        ret
     }
 
     /// Sweep all entries and remove missing entries with score below threshold.
@@ -525,15 +536,20 @@ impl Connection {
             jiff::Timestamp::now().as_second()
         };
 
-        // Filter missing entries below threshold
-        let mut to_remove = Vec::new();
-        for entry in entries {
-            if score_threshold == 0 || zoxide::score(now, &entry, self.lambda) < score_threshold {
-                if !entry.path.exists() {
-                    to_remove.push(entry.path);
-                }
-            }
-        }
+        // Filter missing entries below threshold off the async executor
+        let lambda = self.lambda;
+        let to_remove = tokio::task::spawn_blocking(move || {
+            entries
+                .into_iter()
+                .filter(|entry| {
+                    (score_threshold == 0 || zoxide::score(now, entry, lambda) < score_threshold)
+                        && !entry.path.exists()
+                })
+                .map(|entry| entry.path)
+                .collect::<Vec<_>>()
+        })
+        .await
+        .expect("blocking prune_missing check failed");
 
         // Remove entries
         self.remove_entries(&to_remove).await
