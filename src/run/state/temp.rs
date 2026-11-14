@@ -8,7 +8,7 @@ use fist_types::When;
 
 use crate::{
     abspath::AbsPath, cli::paths::lessfilter_cfg_path, config::pager_cfg,
-    lessfilter::LessfilterConfig, ui::menu_overlay::PromptKind,
+    lessfilter::LessfilterConfig,
 };
 
 thread_local! {
@@ -99,6 +99,22 @@ define_collection_wrapper!(
     MenuCommandPaths: Vec<AbsPath>
 );
 
+/// What a menu prompt's input is for, deciding how its value is applied.
+#[derive(Debug, strum_macros::Display, Clone, Copy)]
+pub enum PromptKind {
+    New,
+    #[strum(serialize = "New folder")]
+    NewFolder,
+    Rename,
+    #[strum(serialize = "Jump to")]
+    Jump,
+    #[strum(serialize = "Extract to")]
+    Extract,
+    #[strum(serialize = "Set alias")]
+    SetAlias,
+    Execute,
+}
+
 /// Menu prompt configuration for the overlay input bar
 #[derive(Debug, Clone)]
 pub struct MenuPrompt {
@@ -106,6 +122,14 @@ pub struct MenuPrompt {
     pub title: String,
     pub initial: String,
     pub cursor: usize,
+    /// The cursor target and parent directory snapshotted when the prompt
+    /// opens; [`MenuOverlay`](crate::ui::menu_overlay::MenuOverlay) resolves
+    /// the live cursor when this is left `None`.
+    pub target: Option<MenuPromptTarget>,
+    /// Whether cancelling the prompt returns to the menu list. A prompt opened
+    /// from a pane keybinding was not asked for through the menu, so
+    /// cancelling closes the overlay instead.
+    pub return_menu: bool,
 }
 
 impl MenuPrompt {
@@ -115,6 +139,8 @@ impl MenuPrompt {
             kind,
             initial: String::new(),
             cursor: 0,
+            target: None,
+            return_menu: true,
         }
     }
 
@@ -145,6 +171,34 @@ impl MenuPrompt {
         self.cursor = pos;
         self
     }
+
+    /// Open the prompt for this snapshotted target instead of resolving the
+    /// live cursor when it opens.
+    pub fn target(
+        mut self,
+        value: MenuPromptTarget,
+    ) -> Self {
+        self.target = Some(value);
+        self
+    }
+
+    /// Whether cancelling returns to the menu list (`true`) or closes the
+    /// overlay (`false`).
+    pub fn return_menu(
+        mut self,
+        value: bool,
+    ) -> Self {
+        self.return_menu = value;
+        self
+    }
+}
+
+/// Snapshotted cursor target and parent directory for an open menu prompt,
+/// carried by [`MenuPrompt`] when a prompt is opened outside `MenuOverlay`.
+#[derive(Debug, Clone)]
+pub struct MenuPromptTarget {
+    pub target: AbsPath,
+    pub parent: AbsPath,
 }
 
 /// AbsPath: Previous Directory

@@ -1,38 +1,41 @@
-use crate::run::state::GLOBAL::db;
-use crate::{
-    abspath::AbsPath,
-    config::StashPaneKind,
-    db::DbTable,
-    run::{
-        FsAction,
-        item::{PathItem, short_display},
-        state::{GLOBAL, MenuPrompt, STACK, TASKS, TOAST, ToastFlags, ToastStyle},
-    },
-};
+use std::path::{Path, PathBuf};
 
 use cba::{bath::PathExt, blaim};
 use matchmaker::{
     nucleo::{Color, Span},
     render::MMState,
-    ui::{Overlay, OverlayEffect},
+    ui::{Overlay, OverlayEffect, Rect},
 };
-use std::path::{Path, PathBuf};
 
-use super::menu_overlay::MenuOverlay;
+use crate::{
+    abspath::AbsPath,
+    config::StashPaneKind,
+    db::DbTable,
+    menu::{MenuEvaluationContext, MenuSnapshot, MenuStrategy},
+    run::{
+        FsAction, FsPane,
+        item::{PathItem, short_display},
+        queue::QUEUE,
+        reload::fs_reload,
+        state::{
+            GLOBAL, GLOBAL::db, MenuCommandPaths, MenuPrompt, MenuPromptTarget, PromptKind, STACK,
+            STORE, TASKS, TOAST, ToastFlags, ToastStyle, lessfilter_cfg,
+        },
+    },
+};
 
-#[derive(Debug, strum_macros::Display, Clone, Copy)]
-pub enum PromptKind {
-    New,
-    #[strum(serialize = "New folder")]
-    NewFolder,
-    Rename,
-    #[strum(serialize = "Jump to")]
-    Jump,
-    #[strum(serialize = "Extract to")]
-    Extract,
-    #[strum(serialize = "Set alias")]
-    SetAlias,
-    Execute,
+use super::{
+    MenuOverlay,
+    items::{MenuItem, MenuOutcome},
+};
+
+/// A prompt open over the menu: its kind, the paths snapshotted with it, and
+/// whether cancelling returns to the menu.
+#[derive(Debug, Clone)]
+pub(super) struct ActivePrompt {
+    pub kind: PromptKind,
+    pub paths: MenuPromptTarget,
+    pub return_menu: bool,
 }
 
 /// The rename prompt for `path`: the input is prepopulated with the full path
@@ -44,20 +47,40 @@ pub fn rename_prompt_for(path: &AbsPath) -> MenuPrompt {
         .with_file_name(path.file_stem().unwrap_or_default())
         .to_string_lossy()
         .len();
-    MenuPrompt {
-        kind: PromptKind::Rename,
-        title: "Rename".to_string(),
-        initial: filename,
-        cursor,
-    }
+    MenuPrompt::new(PromptKind::Rename)
+        .title("Rename")
+        .initial(filename)
+        .cursor(cursor)
 }
 
 /// The extract prompt for `path`: the input is prepopulated with the
 /// archive's sibling directory named after its stem (`foo.tar.gz` ->
 /// `foo.tar`), so accepting immediately extracts beside the archive.
-pub fn extract_prompt_for(path: &AbsPath) -> MenuPrompt {
+pub(super) fn extract_prompt_for(path: &AbsPath) -> MenuPrompt {
     let dest = path._parent().join(path.file_stem().unwrap_or_default());
     MenuPrompt::new(PromptKind::Extract).initial(dest.to_string_lossy())
+}
+
+pub(super) fn resolve_prompt_target(state: &mut MMState<'_, PathItem, ()>) -> AbsPath {
+    crate::run::register::resolve_target(state, true)
+        .or_else(STACK::cwd)
+        .unwrap_or_else(STACK::_cwd)
+}
+
+pub(super) fn resolve_prompt_parent(state: &mut MMState<'_, PathItem, ()>) -> AbsPath {
+    state
+        .picker_ui
+        .current_indexed()
+        .map(|(_, p)| p.path._parent())
+        .or_else(STACK::cwd)
+        .unwrap_or_else(STACK::_cwd)
+}
+
+pub(crate) fn capture_prompt_target(state: &mut MMState<'_, PathItem, ()>) -> MenuPromptTarget {
+    MenuPromptTarget {
+        target: resolve_prompt_target(state),
+        parent: resolve_prompt_parent(state),
+    }
 }
 
 /// If the process's current working directory is inside `path` (or equals
@@ -74,53 +97,208 @@ pub(crate) fn current_dir_suffix(path: &AbsPath) -> Option<PathBuf> {
     }
 }
 
+/// The selected items, or the fallback target when nothing is selected.
+fn snapshot_targets(snapshot: MenuSnapshot) -> (AbsPath, Vec<AbsPath>) {
+    let path = snapshot.fallback;
+    let targets = if snapshot.selected.is_empty() {
+        vec![path.clone()]
+    } else {
+        snapshot.selected
+    };
+    (path, targets)
+}
+
+/// OpenWith creates the app pane right there: the selected items (or the
+/// cursor item when nothing is selected) preload it, then the pane reloads —
+/// the same bookkeeping as `FsAction::App`, done inline since the selection is
+/// only known here.
+fn open_with(
+    snapshot: MenuSnapshot,
+    state: &mut MMState<'_, PathItem, ()>,
+) -> OverlayEffect {
+    let (_, files) = snapshot_targets(snapshot);
+
+    let displays: Vec<_> = files.iter().map(|p| short_display(p)).collect();
+
+    // save input, then switch to the app pane and reload
+    let (content, index) = state.get_content_and_index();
+    STACK::save_input(content, index);
+    STACK::push(FsPane::new_apps(files));
+    fs_reload(state, true, false);
+    // after the switch: entering a pane clears the toasts of the one left
+    TOAST::push(ToastStyle::Normal, "Opening: ", displays);
+    OverlayEffect::Disable
+}
+
 impl MenuOverlay {
-    /// The current item under the cursor, or the stack cwd when the cursor is
-    /// disabled. The picker state cannot change while the menu overlay is
-    /// open (input is intercepted), so this equals the state at menu open.
-    pub fn target_path(
-        &self,
-        state: &mut MMState<'_, PathItem, ()>,
-    ) -> AbsPath {
-        crate::run::register::resolve_target(state, true)
-            .or_else(STACK::cwd)
-            .unwrap_or_else(STACK::_cwd)
-    }
-
-    /// The selected items, or the cursor item (the cwd while the cursor is
-    /// disabled) when nothing is selected.
-    pub fn target_paths(
-        &self,
-        state: &mut MMState<'_, PathItem, ()>,
-    ) -> Vec<AbsPath> {
-        let mut paths: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
-        if paths.is_empty() {
-            paths.push(self.target_path(state));
-        }
-        paths
-    }
-
-    pub fn target_parent(
-        &self,
-        state: &mut MMState<'_, PathItem, ()>,
-    ) -> AbsPath {
-        state
-            .picker_ui
-            .current_indexed()
-            .map(|(_, p)| p.path._parent())
-            .or_else(STACK::cwd)
-            .unwrap_or_else(STACK::_cwd)
-    }
-
-    pub fn on_prompt_accept(
+    pub(super) fn set_prompt(
         &mut self,
-        prompt: PromptKind,
+        mut prompt: MenuPrompt,
         state: &mut MMState<'_, PathItem, ()>,
+    ) {
+        let paths = prompt
+            .target
+            .take()
+            .unwrap_or_else(|| capture_prompt_target(state));
+        self.active_prompt = Some(ActivePrompt {
+            kind: prompt.kind,
+            paths,
+            return_menu: prompt.return_menu,
+        });
+        if !prompt.title.is_empty() {
+            self.prompt.input.config.frame.title = prompt.title;
+        }
+        self.prompt.on_enable(&Rect::default(), state);
+
+        if !prompt.initial.is_empty() {
+            self.prompt.input.set_value(prompt.initial);
+            self.prompt
+                .input
+                .inner
+                .set(Option::<String>::None, prompt.cursor as u16);
+        }
+    }
+
+    pub fn accept(
+        &mut self,
+        state: &mut MMState<'_, PathItem, ()>,
+    ) -> OverlayEffect {
+        let Some(worker) = self.worker.as_ref() else {
+            return OverlayEffect::Disable;
+        };
+        let Some((_, entry)) = worker.get_nth_indexed(self.results.index()) else {
+            return OverlayEffect::Disable;
+        };
+        let item = entry.item.clone();
+        self.execute(item, state)
+    }
+
+    /// Run `item` on the current target, opening a prompt when the item
+    /// returns one.
+    pub(super) fn execute(
+        &mut self,
+        item: MenuItem,
+        state: &mut MMState<'_, PathItem, ()>,
+    ) -> OverlayEffect {
+        let snapshot = MenuSnapshot::capture(state);
+        if let MenuItem::Custom { action, .. } = item {
+            return self.run_custom(&action, snapshot);
+        }
+        // the listing can predate a cursor move (ReloadMenu) or a mount change:
+        // re-check the listing precondition against live state
+        if let Err(msg) = item.check(&snapshot) {
+            TOAST::notice(ToastStyle::Error, msg);
+            return OverlayEffect::None;
+        }
+        match item {
+            MenuItem::OpenWith => open_with(snapshot, state),
+            item => self.run_action(item, snapshot, state),
+        }
+    }
+
+    /// Apply a resolved item: open its prompt, keep the menu, or close it.
+    fn run_action(
+        &mut self,
+        item: MenuItem,
+        snapshot: MenuSnapshot,
+        state: &mut MMState<'_, PathItem, ()>,
+    ) -> OverlayEffect {
+        let (path, targets) = snapshot_targets(snapshot);
+        match item.action(path, targets) {
+            MenuOutcome::Prompt(prompt) => {
+                self.set_prompt(prompt, state);
+                OverlayEffect::None
+            }
+            MenuOutcome::Stay => OverlayEffect::None,
+            MenuOutcome::Close => OverlayEffect::Disable,
+        }
+    }
+
+    /// Run a custom action on the target items (the current selection, or
+    /// the target item when nothing is selected).
+    fn run_custom(
+        &mut self,
+        key: &str,
+        snapshot: MenuSnapshot,
+    ) -> OverlayEffect {
+        let Some(action) = self.actions.get(key) else {
+            log::error!("Menu action not found: {key}");
+            return OverlayEffect::None;
+        };
+        let lcfg = lessfilter_cfg();
+        let mut ctx = MenuEvaluationContext::from_snapshot(snapshot, lcfg);
+        if !ctx.is_applicable(action) {
+            TOAST::notice(
+                ToastStyle::Error,
+                format!(
+                    "Conditions not met for action '{}'",
+                    action.display_name(key)
+                ),
+            );
+            return OverlayEffect::None;
+        }
+        let targets = ctx.resolve_targets(action);
+        let displays: Vec<Span<'static>> = targets.iter().map(|p| short_display(p)).collect();
+
+        if GLOBAL::cfg().interface.bump_menu_action_paths {
+            for path in &targets {
+                db().bump_path(path.is_dir(), path.clone());
+            }
+        }
+
+        match action.strategy {
+            MenuStrategy::Queue => {
+                QUEUE::enqueue(key.to_string(), targets);
+                TOAST::push(ToastStyle::Normal, "Queued: ", displays);
+            }
+            MenuStrategy::Enqueue => {
+                if let Some(index) = QUEUE::enqueue_one(key.to_string(), targets) {
+                    QUEUE::dispatch(vec![index], ctx.snapshot.nav_cwd.clone());
+                    TOAST::push(ToastStyle::Normal, "Started: ", displays);
+                }
+            }
+            MenuStrategy::QueueBatch(n) => {
+                // a zero batch size parses but chunks of size 0 are invalid
+                let n = n.max(1);
+                for chunk in targets.chunks(n) {
+                    QUEUE::enqueue(key.to_string(), chunk.to_vec());
+                }
+                TOAST::push(ToastStyle::Normal, "Queued: ", displays);
+            }
+            MenuStrategy::Exec => {
+                STORE::set(MenuCommandPaths::new_from(targets));
+                GLOBAL::send_action(FsAction::MenuAction(key.to_string()));
+            }
+            MenuStrategy::ExecWait => {
+                STORE::set(MenuCommandPaths::new_from(targets));
+                GLOBAL::send_action(FsAction::MenuActionWait(key.to_string()));
+            }
+            MenuStrategy::ExecSilent => {
+                STORE::set(MenuCommandPaths::new_from(targets));
+                GLOBAL::send_action(FsAction::MenuActionSilent(action.command.clone()));
+            }
+            MenuStrategy::ExecPaged => {
+                STORE::set(MenuCommandPaths::new_from(targets));
+                GLOBAL::send_action(FsAction::MenuActionExecPaged(key.to_string()));
+            }
+        }
+
+        if action.closes() {
+            OverlayEffect::Disable
+        } else {
+            OverlayEffect::None
+        }
+    }
+
+    pub(super) fn on_prompt_accept(
+        &mut self,
+        active: ActivePrompt,
         print_flavor: bool,
     ) -> OverlayEffect {
-        match prompt {
+        match active.kind {
             PromptKind::New => {
-                let current_item_parent = self.target_parent(state);
+                // Relative paths resolve against the current item's parent (same as NewFolder and Extract).
+                let current_item_parent = active.paths.parent;
                 let input = self.prompt.input.value();
                 let into_dir = Path::new(&input).ends_in_separator();
                 let dest = AbsPath::new_unchecked(Path::new(&input).abs(&current_item_parent));
@@ -156,7 +334,7 @@ impl MenuOverlay {
                 });
             }
             PromptKind::NewFolder => {
-                let current_item_parent = self.target_parent(state);
+                let current_item_parent = active.paths.parent;
                 let input = self.prompt.input.value();
                 let dest = AbsPath::new_unchecked(Path::new(&input).abs(current_item_parent));
                 let cd = Path::new(&input).ends_in_separator();
@@ -197,7 +375,7 @@ impl MenuOverlay {
                 });
             }
             PromptKind::Rename => {
-                let old_path = self.target_path(state);
+                let old_path = active.paths.target;
                 if old_path.file_name().is_none() {
                     return OverlayEffect::None;
                 }
@@ -345,8 +523,9 @@ impl MenuOverlay {
                 if input.trim().is_empty() {
                     return OverlayEffect::None;
                 }
-                let source = self.target_path(state);
-                let dest = AbsPath::new_unchecked(Path::new(&input).abs(self.target_parent(state)));
+                let source = active.paths.target;
+                // Relative destinations resolve against the original parent directory, same as New/NewFolder.
+                let dest = AbsPath::new_unchecked(Path::new(&input).abs(active.paths.parent));
                 let label = short_display(&source);
 
                 TASKS::spawn("extract", async move {
@@ -357,12 +536,12 @@ impl MenuOverlay {
                 });
             }
             PromptKind::SetAlias => {
-                let path = self.target_path(state);
+                let path = active.paths.target;
                 let alias = self.prompt.input.value();
 
                 // in a stash pane this edits the entry's tail column instead
                 let stash_name = STACK::with_current(|p| match p {
-                    crate::run::FsPane::Stash { stash_name, .. } => Some(stash_name.clone()),
+                    FsPane::Stash { stash_name, .. } => Some(stash_name.clone()),
                     _ => None,
                 });
 
@@ -417,7 +596,7 @@ impl MenuOverlay {
             }
         }
 
-        self.prompt_kind = None;
+        self.active_prompt = None;
         self.prompt.on_disable();
         OverlayEffect::Disable
     }

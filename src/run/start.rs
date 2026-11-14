@@ -39,7 +39,9 @@ use crate::{
     },
     spawn::{Program, open_wrapped},
     ui::{
+        OverlayId,
         confirm_overlay::ConfirmOverlay,
+        empty_overlay::EmptyOverlay,
         menu_overlay::MenuOverlay,
         mount_overlay::MountOverlay,
         options_overlay::OptionsOverlay,
@@ -137,9 +139,13 @@ fn make_mm(
     mm.register_event_handler(Event::Synced, sync_handler);
     mm.register_event_handler(Event::QueryChange, query_handler);
 
-    // cwd prompt <=> cursor_disabled can change on any cursor movement
+    // cwd prompt <=> cursor_disabled can change on any cursor movement;
+    // the open menu's items depend on the cursor/selection state
     mm.register_event_handler(Event::CursorChange, |state, _| {
         query_prompt::refresh_prompt(state);
+        if state.overlay_index() == Some(OverlayId::Menu.index()) {
+            GLOBAL::send_action(crate::run::FsAction::ReloadMenu);
+        }
     });
 
     (mm, injector)
@@ -284,7 +290,13 @@ pub async fn start(
     let mut context = ActionContext::new(print_handle.clone());
 
     // configure mm
-    let mut builder = PickOptions::new()
+    // the empty-state box mirrors the menu's frame
+    let empty_overlay = EmptyOverlay::new(
+        menu.frame.as_ref().unwrap().clone(),
+        menu.min_width,
+        "No available\nactions",
+    );
+    let builder = PickOptions::new()
         .previewer(previewer)
         .event_loop(event_loop)
         .ext_handler(move |x, y| fsaction_handler(x, y, &mut context))
@@ -314,7 +326,8 @@ pub async fn start(
         .overlay(QueueOverlay::new(queue.clone()))
         .overlay(AppOverlay::new(app))
         .overlay(OptionsOverlay::new(options))
-        .overlay(ConfirmOverlay::new(confirm))
+        .overlay(ConfirmOverlay::new(confirm));
+    let mut builder = builder
         .overlay(MenuOverlay::new(
             menu,
             prompt,
@@ -323,7 +336,8 @@ pub async fn start(
                 .expect("MENU_ACTIONS must be set before start")
                 .clone(),
         ))
-        .overlay(MountOverlay::new(mount));
+        .overlay(MountOverlay::new(mount))
+        .overlay(empty_overlay);
 
     let render_tx = builder.render_tx();
 

@@ -733,24 +733,21 @@ impl MenuCondition {
     }
 }
 
-pub struct MenuEvaluationContext<'a> {
+/// Thread-safe snapshot of the picker and stack state needed to evaluate
+/// menu action conditions and builtins off the render thread.
+#[derive(Debug, Clone)]
+pub struct MenuSnapshot {
     pub selected: Vec<AbsPath>,
     pub cursor: Option<AbsPath>,
     pub cursor_disabled: bool,
     pub cwd: Option<AbsPath>,
     pub nav_cwd: Option<AbsPath>,
     pub fallback: AbsPath,
-    pub cache: VecMap<AbsPath, FileData<'a>>,
-    pub settings: &'a LessfilterSettings,
-    pub categories: &'a Categories,
 }
 
-impl<'a> MenuEvaluationContext<'a> {
-    pub fn new(
-        state: &MMState<'_, PathItem, ()>,
-        lcfg: &'a LessfilterConfig,
-    ) -> Self {
-        let selected: Vec<AbsPath> = state.map_selections_to_vec(|_, item| item.path.clone());
+impl MenuSnapshot {
+    pub fn capture(state: &MMState<'_, PathItem, ()>) -> Self {
+        let selected = state.map_selections_to_vec(|_, item| item.path.clone());
         let cursor_disabled = state.picker_ui.results.cursor_disabled();
         let cursor = if cursor_disabled {
             None
@@ -769,6 +766,31 @@ impl<'a> MenuEvaluationContext<'a> {
             cwd,
             nav_cwd,
             fallback,
+        }
+    }
+}
+
+pub struct MenuEvaluationContext<'a> {
+    pub snapshot: MenuSnapshot,
+    pub cache: VecMap<AbsPath, FileData<'a>>,
+    pub settings: &'a LessfilterSettings,
+    pub categories: &'a Categories,
+}
+
+impl<'a> MenuEvaluationContext<'a> {
+    pub fn new(
+        state: &MMState<'_, PathItem, ()>,
+        lcfg: &'a LessfilterConfig,
+    ) -> Self {
+        Self::from_snapshot(MenuSnapshot::capture(state), lcfg)
+    }
+
+    pub fn from_snapshot(
+        snapshot: MenuSnapshot,
+        lcfg: &'a LessfilterConfig,
+    ) -> Self {
+        Self {
+            snapshot,
             cache: VecMap::new(),
             settings: &lcfg.settings,
             categories: &lcfg.categories,
@@ -781,11 +803,11 @@ impl<'a> MenuEvaluationContext<'a> {
     ) -> bool {
         condition_passes(
             &action.condition,
-            &self.selected,
-            self.cursor.as_ref(),
-            self.cursor_disabled,
-            self.cwd.as_ref(),
-            self.nav_cwd.as_ref(),
+            &self.snapshot.selected,
+            self.snapshot.cursor.as_ref(),
+            self.snapshot.cursor_disabled,
+            self.snapshot.cwd.as_ref(),
+            self.snapshot.nav_cwd.as_ref(),
             &mut self.cache,
             self.settings,
             self.categories,
@@ -797,11 +819,11 @@ impl<'a> MenuEvaluationContext<'a> {
         action: &MenuAction,
     ) -> Vec<AbsPath> {
         action.resolve_targets(
-            self.selected.clone(),
-            self.fallback.clone(),
-            self.cursor_disabled,
-            self.cwd.clone(),
-            self.nav_cwd.clone(),
+            self.snapshot.selected.clone(),
+            self.snapshot.fallback.clone(),
+            self.snapshot.cursor_disabled,
+            self.snapshot.cwd.clone(),
+            self.snapshot.nav_cwd.clone(),
         )
     }
 }

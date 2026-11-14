@@ -21,9 +21,11 @@ Action Guidance
 ---------------
 Execute
   The prompt is a command template: {} is the current item and {+} every
-  selected item.
+  selected item. alt-accept detaches the command.
 
 New / New folder
   New creates a file unless the name ends in a separator, which creates a
   directory. New folder always creates a directory; a trailing separator also
-  jumps into it.
+  jumps into it. Relative paths resolve against the current item's parent
+  directory (or the pane's working directory when there is no item); the same
+  applies to Extract.

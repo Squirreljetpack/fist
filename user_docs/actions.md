@@ -23,7 +23,7 @@ Menu actions (`actions.toml`) are a separate, Lua-based mechanism; see
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Advance`            | Enter the current file or directory. Files open through the lessfilter edit preset by default.                                                                                                                                                             |
 | `Parent`             | Go to the parent of the current directory, or of the current item when the pane has no directory.                                                                                                                                                          |
-| `Find`               | Open the find pane in the current directory.                                                                                                                                                                                                        |
+| `Find`               | Open the find pane in the current directory.                                                                                                                                                                                                               |
 | `Search`             | Open the full-text search pane. Inside the search pane, toggle between query mode and filter mode.                                                                                                                                                         |
 | `History`            | Open recent files. Inside a history pane, switch between the file and folder lists.                                                                                                                                                                        |
 | `App`                | Open the application launcher pane. No-op when already in it.                                                                                                                                                                                              |
@@ -39,7 +39,7 @@ Menu actions (`actions.toml`) are a separate, Lua-based mechanism; see
 
 | Action         | Description                                                                                                                           |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `ShowMenu`     | Open the menu of contextual and custom actions.                                                                                       |
+| `ShowMenu`     | Open the menu of contextual and custom actions. The app pane has no filesystem items, so the menu reports that no actions apply.      |
 | `ShowOptions`  | Open the options overlay (visibility, sorting, pane settings).                                                                        |
 | `ShowQueue`    | Open the queue overlay. In the app pane, opens the pending-files view instead.                                                        |
 | `Help`         | Show the keybinding help for the current context.                                                                                     |
@@ -54,9 +54,9 @@ Menu actions (`actions.toml`) are a separate, Lua-based mechanism; see
 | `Copy`                 | Enqueue the selection under the `copy` kind, and copy the files to the system clipboard when `interface.copy_files_to_clipboard` is enabled.                                          |
 | `CopyPath`             | Copy the selected paths as text.                                                                                                                                                      |
 | `CopyFiles`            | Copy the selected files themselves, for pasting into a file manager.                                                                                                                  |
-| `New`                  | Create a file relative to the current item's parent. A trailing separator creates a directory.                                                                                        |
-| `NewFolder`            | Create a directory relative to the current item's parent.                                                                                                                             |
-| `Rename`               | Rename the item under the cursor, or the current directory in prompt mode.                                                                                                            |
+| `New`                  | Create a file relative to the current item's parent. A trailing separator creates a directory. Unavailable in the app pane.                                                           |
+| `NewFolder`            | Create a directory relative to the current item's parent. Unavailable in the app pane.                                                                                                |
+| `Rename`               | Rename the item under the cursor, or the current directory in prompt mode. Unavailable in the app pane.                                                                               |
 | `Trash([no_confirm])`  | Move the item to the system trash. Pass `true` to skip the confirmation prompt: `Trash(true)`.                                                                                        |
 | `Delete([no_confirm])` | Permanently delete the item. Pass `true` to skip the confirmation prompt.                                                                                                             |
 | `Paste([destination])` | Execute all pending `copy`, `move`, and `symlink` rows into the current directory, or into an absolute destination path.                                                              |

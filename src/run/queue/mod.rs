@@ -27,6 +27,7 @@ use crate::{
         FsPane,
         state::{MENU_ACTIONS, STACK, TASKS, TOAST, ToastStyle},
     },
+    ui::OverlayId,
 };
 
 /// The kind of a queued operation: a builtin (`copy`, `move`, `symlink`,
@@ -232,10 +233,13 @@ pub enum QueueView {
     Apps,
 }
 
-/// `ShowQueue` dispatches on this: `0` = the shared queue overlay, `1` = the
-/// app view (overlay index 1).
-pub fn show_queue_variant() -> u8 {
-    if STACK::in_app() { 1 } else { 0 }
+/// `ShowQueue` dispatches on this: the shared queue overlay or the app view.
+pub fn show_queue_variant() -> OverlayId {
+    if STACK::in_app() {
+        OverlayId::App
+    } else {
+        OverlayId::Queue
+    }
 }
 
 pub struct QUEUE;

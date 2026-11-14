@@ -43,14 +43,15 @@ use crate::{
         reload::{enter_dir_pane, fs_reload},
         state::{
             AcceptAsPrint, ExecuteHandlerShouldProcessParent, GLOBAL, InPrompt, MENU_ACTIONS,
-            MenuPrompt, STACK, STORE, TASKS, TOAST, ToastFlags, ToastStyle, context::ActionContext,
-            lessfilter_cfg, sort,
+            MenuPrompt, PromptKind, STACK, STORE, TASKS, TOAST, ToastFlags, ToastStyle,
+            context::ActionContext, lessfilter_cfg, sort,
         },
     },
     spawn::open_wrapped,
     ui::{
+        OverlayId,
         confirm_overlay::ConfirmPrompt,
-        menu_overlay::{PromptKind, rename_prompt_for},
+        menu_overlay::{capture_prompt_target, rename_prompt_for},
     },
     unzip,
     utils::trash::trash,
@@ -227,6 +228,8 @@ pub enum FsAction {
     AcceptPrompt(bool),
     Filtering(Option<bool>),
     SetStatus(Option<Line<'static>>),
+    /// Reload the menu overlay items for the current selection/cursor state.
+    ReloadMenu,
 }
 // print, accept
 
@@ -355,6 +358,13 @@ pub fn fsaction_aliaser(
                 state.picker_ui.status.set(s);
                 acs![]
             }
+            FsAction::ReloadMenu => {
+                if state.overlay_index() == Some(OverlayId::Menu.index()) {
+                    acs![fa]
+                } else {
+                    acs![]
+                }
+            }
 
             // Actions which only trigger when not in the prompt:
             // -------------------------------------------------
@@ -390,25 +400,28 @@ pub fn fsaction_aliaser(
             }
             FsAction::ShowQueue => {
                 // the queue overlay in a nav pane, the app view in the app pane
-                acs![Action::Overlay(show_queue_variant() as usize)]
+                acs![Action::Overlay(show_queue_variant().index())]
             }
             FsAction::ShowOptions => {
-                acs![Action::Overlay(2)]
+                acs![Action::Overlay(OverlayId::Options.index())]
             }
             FsAction::ShowMounts => {
                 // the volumes of a just-mounted image (or of an image that was
                 // already mounted), so one of them can be entered
-                acs![Action::Overlay(5)]
+                acs![Action::Overlay(OverlayId::Mount.index())]
             }
             FsAction::Confirm => {
-                acs![Action::Overlay(3)]
+                acs![Action::Overlay(OverlayId::Confirm.index())]
             }
             // todo: matchmaker needs to support activating the overlay ourselves so that the activated item is aligned
             FsAction::ShowMenu => {
+                if STACK::in_app() {
+                    return acs![Action::Overlay(OverlayId::Empty.index())];
+                }
                 if state.picker_ui.current_indexed().is_none() && STACK::cwd().is_none() {
                     return acs![];
                 }
-                acs![Action::Overlay(4)]
+                acs![Action::Overlay(OverlayId::Menu.index())]
             }
             FsAction::LessfilterPreview(preset, header) => {
                 let target_cmd = preset.to_command_string(header, true);
@@ -558,6 +571,20 @@ pub fn fsaction_aliaser(
             _ => acs![a],
         },
     }
+}
+
+/// Open a menu-hosted prompt from a pane keybinding: the input bar shows over
+/// the menu frame, and cancelling closes the overlay instead of revealing a
+/// menu the user never asked for.
+fn open_menu_prompt(
+    state: &mut MMState<'_>,
+    prompt: MenuPrompt,
+) {
+    let prompt = prompt
+        .target(capture_prompt_target(state))
+        .return_menu(false);
+    STORE::set_menu_prompt(Some(prompt));
+    GLOBAL::send_action(Action::Overlay(OverlayId::Menu.index()));
 }
 
 pub fn fsaction_handler(
@@ -1733,7 +1760,12 @@ pub fn fsaction_handler(
         // gets first crack; when the menu itself is open they are handed
         // back so the menu can trigger the matching item.
         FsAction::New | FsAction::NewFolder | FsAction::Rename | FsAction::SetAlias(_) => {
-            if state.overlay_index() == Some(4) {
+            // New/NewFolder/Rename act on filesystem items, and the app pane
+            // lists commands. SetAlias does apply: it labels the command.
+            if !matches!(a, FsAction::SetAlias(_)) && STACK::in_app() {
+                return;
+            }
+            if state.overlay_index() == Some(OverlayId::Menu.index()) {
                 GLOBAL::send_action(a.clone());
                 return;
             }
@@ -1741,15 +1773,13 @@ pub fn fsaction_handler(
                 FsAction::New => {
                     // no support for creating outside of nav
                     if state.current_raw().is_some() || STACK::nav_cwd().is_some() {
-                        STORE::set_menu_prompt(Some(MenuPrompt::new(PromptKind::New)));
-                        GLOBAL::send_action(Action::Overlay(4));
+                        open_menu_prompt(state, MenuPrompt::new(PromptKind::New));
                     }
                 }
                 FsAction::NewFolder => {
                     // no support for creating outside of nav
                     if state.current_raw().is_some() || STACK::nav_cwd().is_some() {
-                        STORE::set_menu_prompt(Some(MenuPrompt::new(PromptKind::NewFolder)));
-                        GLOBAL::send_action(Action::Overlay(4));
+                        open_menu_prompt(state, MenuPrompt::new(PromptKind::NewFolder));
                     }
                 }
                 FsAction::SetAlias(_) => {
@@ -1759,17 +1789,13 @@ pub fn fsaction_handler(
                     }
                     if let Some(item) = state.current_raw() {
                         let prepop_value = item.tail_text().to_string();
-                        STORE::set_menu_prompt(Some(
+                        open_menu_prompt(
+                            state,
                             MenuPrompt::new(PromptKind::SetAlias).initial(prepop_value),
-                        ));
-                        GLOBAL::send_action(Action::Overlay(4));
+                        );
                     }
                 }
                 FsAction::Rename => {
-                    // the app pane lists commands, not filesystem items
-                    if STACK::in_app() {
-                        return;
-                    }
                     // the item under the cursor, or the cwd when the cursor is
                     // disabled (prompt mode)
                     let Some(target) = resolve_target(state, true).or_else(STACK::cwd) else {
@@ -1778,8 +1804,7 @@ pub fn fsaction_handler(
                     if target.file_name().is_none() {
                         return;
                     }
-                    STORE::set_menu_prompt(Some(rename_prompt_for(&target)));
-                    GLOBAL::send_action(Action::Overlay(4));
+                    open_menu_prompt(state, rename_prompt_for(&target));
                 }
                 _ => unreachable!(),
             }
@@ -2104,7 +2129,7 @@ macro_rules! enum_from_str_display {
                                         write!(f, "ClearQueue({selector})")
                                     }
                                 }
-                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | ResortSizes | Refilter | AcceptPrompt(_) | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionWait(_) | MenuActionSilent(_) | MenuActionExecPaged(_) | Unmount(_) => Ok(()), // internal
+                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | ResortSizes | Refilter | AcceptPrompt(_) | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionWait(_) | MenuActionSilent(_) | MenuActionExecPaged(_) | Unmount(_) | ReloadMenu => Ok(()), // internal
                                 Lessfilter { preset, paging, .. } => {
                                     if *paging {
                                         write!(f, "LFPaged({preset})")

@@ -102,6 +102,7 @@ panes inside the overlay. Each accepts `frame` and `alignment`.
 | `no_default_aliases` | bool    | `false`                                    | Remove the built-in aliases from builtin items; custom action aliases are kept. |
 | `compact`            | bool    | `false`                                    | Remove `Move`, `Copy`, `Open`, and `Trash` from the menu.                       |
 | `min_width`          | integer | `16`                                       | Minimum menu width.                                                             |
+| `max_width`          | integer | `0`                                        | Maximum menu width (`0` = sized to the widest configured action).               |
 | `min_height`         | integer | `12`                                       | Minimum menu height.                                                            |
 | `[menu.results]`     | table   | `min_width_from_cols = false`              | Column table settings; see the matchmaker `[results]` reference.                |
 

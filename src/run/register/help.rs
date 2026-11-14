@@ -25,6 +25,7 @@ use crate::{
         register::ExecutionMode,
         state::{GLOBAL, STACK, STORE},
     },
+    ui::OverlayId,
 };
 
 /// Overlay help documents, addressed through `state.discriminant_payload`.
@@ -63,10 +64,10 @@ impl OverlayHelp {
     /// The overlay this document belongs to, for reopening it after paging.
     fn overlay_index(self) -> usize {
         match self {
-            Self::Menu => 4,
-            Self::Queue => 0,
-            Self::Options => 2,
-            Self::Mount => 5,
+            Self::Menu => OverlayId::Menu.index(),
+            Self::Queue => OverlayId::Queue.index(),
+            Self::Options => OverlayId::Options.index(),
+            Self::Mount => OverlayId::Mount.index(),
         }
     }
 }
