@@ -18,8 +18,8 @@ use unicode_width::UnicodeWidthStr;
 #[serde(default, deny_unknown_fields)]
 pub struct PromptConfig {
     pub frame: FrameSetting,
-    /// Characters kept between the input cursor and the left edge of the bar.
-    pub scroll_padding_left: usize,
+    /// Recenter the cursor when it reaches the left scroll edge.
+    pub recenter_left_scroll_edge: bool,
 }
 
 impl Default for PromptConfig {
@@ -29,7 +29,7 @@ impl Default for PromptConfig {
                 sides: Some(Borders::ALL),
                 ..Default::default()
             },
-            scroll_padding_left: 3,
+            recenter_left_scroll_edge: true,
         }
     }
 }
@@ -43,7 +43,7 @@ impl PromptOverlay {
     pub fn new(config: PromptConfig) -> Self {
         let input_config = InputWidgetConfig {
             frame: config.frame.clone(),
-            scroll_padding_left: config.scroll_padding_left,
+            recenter_left_scroll_edge: config.recenter_left_scroll_edge,
             ..Default::default()
         };
         Self {

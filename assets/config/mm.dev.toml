@@ -37,9 +37,9 @@ frame = { type = "Rounded", sides = "ALL", fg = "blue" }
 delay_clear = true
 
 [prompt]
-# characters kept between the cursor and the left edge of prompt bars
 # (New, NewFolder, Rename, Jump, Extract, SetAlias)
-# scroll_padding_left = 3
+# recenter the cursor at the middle of the bar when it reaches the left scroll edge
+# recenter_left_scroll_edge = true
 
 [binds]
 # Prompt-mode overrides: see mm.toml

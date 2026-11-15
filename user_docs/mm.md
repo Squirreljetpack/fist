@@ -87,10 +87,10 @@ panes inside the overlay. Each accepts `frame` and `alignment`.
 
 `[prompt]` styles the query-bar prompt overlay:
 
-| Key                   | Type    | Default   | Meaning                                               |
-| --------------------- | ------- | --------- | ----------------------------------------------------- |
-| `frame`               | frame   | all sides | Border and padding.                                   |
-| `scroll_padding_left` | integer | `3`       | Characters kept between the cursor and the left edge. |
+| Key                         | Type  | Default   | Meaning                                                                            |
+| --------------------------- | ----- | --------- | ---------------------------------------------------------------------------------- |
+| `frame`                     | frame | all sides | Border and padding.                                                                |
+| `recenter_left_scroll_edge` | bool  | `true`    | Recenter the cursor at the middle of the bar when it reaches the left scroll edge. |
 
 ### Menu
 

@@ -84,8 +84,8 @@ style = { modifier = "DIM | ITALIC", fg = "Gray" }
 frame = { sides = "BOTTOM", fg = "red" }
 
 [prompt]
-# characters kept between the cursor and the left edge of prompt bars
-# scroll_padding_left = 3
+# recenter the cursor at the middle of the bar when it reaches the left scroll edge
+# recenter_left_scroll_edge = true
 
 [binds]
 # Prompt locking: Arrow keys navigate when unlocked, and move cursor when locked

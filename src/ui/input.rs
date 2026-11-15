@@ -10,6 +10,8 @@ pub struct InputWidgetConfig {
     pub frame: FrameSetting,
     /// Characters kept between the cursor and the left edge of the bar.
     pub scroll_padding_left: usize,
+    /// Recenter the cursor when it reaches the left scroll edge.
+    pub recenter_left_scroll_edge: bool,
     pub style: StyleSetting,
     /// Word movement stops at these characters in addition to whitespace.
     pub word_boundaries: Vec<char>,
@@ -19,6 +21,7 @@ impl Default for InputWidgetConfig {
     fn default() -> Self {
         Self {
             scroll_padding_left: 3, // easier to see when editing cells
+            recenter_left_scroll_edge: false,
             frame: Default::default(),
             style: Default::default(),
             // lowpri: figure out a way to configure this
@@ -102,8 +105,9 @@ impl InputWidget {
     }
 
     pub fn scroll_to_cursor(&mut self) {
-        self.inner
-            .state
-            .scroll_to_cursor(self.config.scroll_padding_left);
+        self.inner.state.scroll_to_cursor(
+            self.config.scroll_padding_left,
+            self.config.recenter_left_scroll_edge,
+        );
     }
 }
