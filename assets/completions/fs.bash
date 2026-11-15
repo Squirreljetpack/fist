@@ -648,17 +648,13 @@ _fs() {
             return 0
             ;;
         fs__subcmd__:tool__subcmd__action)
-            opts="-d -q -v --dest --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
+            opts="-q -v --to --config --mm-config --style --fullscreen --lock-prompt --alt-accept --output-sep --format --opener"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
-                --dest)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -d)
+                --to)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

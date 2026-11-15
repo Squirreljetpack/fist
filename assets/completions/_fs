@@ -564,8 +564,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (action)
 _arguments "${_arguments_options[@]}" : \
-'-d+[Destination directory for actions that write somewhere]:DIR:_files' \
-'--dest=[Destination directory for actions that write somewhere]:DIR:_files' \
+'--to=[Destination directory for actions that write somewhere]:DIR:_files' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \
@@ -785,8 +784,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (action)
 _arguments "${_arguments_options[@]}" : \
-'-d+[Destination directory for actions that write somewhere]:DIR:_files' \
-'--dest=[Destination directory for actions that write somewhere]:DIR:_files' \
+'--to=[Destination directory for actions that write somewhere]:DIR:_files' \
 '--config=[config path]:PATH:_files' \
 '--mm-config=[matchmaker config path]:PATH:_files' \
 '--style=[]:STYLE:(icons icon-colors colors none all auto)' \

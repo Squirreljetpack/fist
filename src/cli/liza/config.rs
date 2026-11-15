@@ -44,6 +44,9 @@ pub struct LizaConfig {
     // Raw passthrough flags starting with '-'
     pub passthrough_args: Vec<OsString>,
 
+    /// `:U` — unstyled output.
+    pub unstyled: bool,
+
     // Target paths
     pub paths: Vec<PathBuf>,
 }

@@ -764,7 +764,7 @@ async fn handle_tools(
                 actions_dir(),
                 action::Args {
                     name: cmd.name,
-                    dest: cmd.dest,
+                    to: cmd.to,
                     paths: cmd.paths,
                 },
             );

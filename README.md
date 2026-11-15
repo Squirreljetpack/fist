@@ -8,7 +8,7 @@ In project management there is an iron law: “Cheap, fast, good. Choose two”.
 
 Miraculously, f:st manages to escape this law. *Its* motto goes something more like this: "Free, fast, good... simple, extensible, customizable, minimalistic, powerful, versatile, consistent, cohesive, flexibile, efficient, modular, portable. Take all of them!".
 
-It is a program at once as revolutionary as a comet, and as familiar as an old sock. It takes the greatest ideas for command-line tools in recent history, and combines them into a cohesive experience that makes interacting with the filesystem so fluid, so efficient it will feel like you were born in it, _moulded by it_. Once adopted, the only limits that remain will be those of your own thoughts; and if you ever again return to the old ways, you will be _blinded_ by their slowness.
+It is a program at once as revolutionary as a comet, and as familiar as an old sock. It takes the greatest ideas for command-line tools in recent history, and combines them into a cohesive experience that makes interacting with the filesystem so fluid, so efficient it will feel like you were born in it, *moulded by it*. Once adopted, the only barriers that remain will be those imposed by your own thoughts; and if you ever again return to the old ways, you will be *blinded* by their slowness.
 
 ---
 
@@ -21,7 +21,6 @@ All the rest of this app revolves around this interface, providing efficient way
 [^mouse]: We hope you have a grand time with clicking, dragging, and scrolling.
 
 [^primitives]: Fast and error-proof copying, transparent decompression, re-filtering/sorting that runs on the fly etc.
-
 
 # Installation
 
@@ -247,8 +246,6 @@ By default, `alt-s` and `alt-b` are bound to "smart" `Stash(name)` actions for t
 > [!NOTE]
 >
 > Combined with contextual [Menu actions](#menu), they are f:st's answer to all cross-directory workflows, such as comparing files and folders, archiving, or bulk-renaming: just push everything to the stash and run your action on there.
-
-
 
 ### App
 
@@ -543,13 +540,13 @@ fs exposes several of the more generally useful functionalities it uses internal
 [^zoxide]: f:st uses an improved implementation by default I adopted after seeing [this project](https://github.com/jghub/ze/tree/master), although the simple [zoxide](https://github.com/ajeetdsouza/zoxide) implementation can be enabled by disabling lambda:
 
     **Event clock**: zoxide score decay is coupled to wall-clock time. The problem is that after any extended period of inactivity, all scores decay toward zero, and the first directories visited on return immediately dominate the ranking regardless of prior history. f:st replaces wall-clock time with an event clock: each cd action advances the clock by one tick. The clock stands still during inactive periods and no score decay occurs during such periods.
-    
+
     **Scoring**: Items are sorted by score. In zoxide, the score is computed as count * recency bucket. f:st replaces this with a monoexponential decay kernel. The decay rate is controlled by `lambda` (default `8e-3`, equating to a half-life of about 87 actions).
-    
+
     **Unified database**: f:st maintains a single SQLite database tracking files, directories, and applications together.
-    
+
     **Pruning**: Pruning happens automatically and lazily once db exceeds a certain size. For more information, see `fs :tool bump --help`.
-    
+
     **Interactive fallback**: When no match is found, or when the top result is the current directory, f:st can be configured to start an interactive search interface instead of failing.
 
 # Additional
@@ -577,3 +574,7 @@ fist integrates into [CommandSpace](https://github.com/Squirreljetpack/command-s
    ```sh
    rm -rf ~/.config/fist ~/.local/state/fist ~/.cache/fist
    ```
+
+### Docs
+
+Help is plentiful and always readily accessible: in the [user documentation](https://squirreljetpack.github.io/fist-docs/), from the command line via `--help`, or in-app via `alt-h`.

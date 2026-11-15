@@ -12,7 +12,7 @@
 
 ["zip"]
 strategy = "Exec"
-help = "Select an existing .zip archive first to append to it; otherwise a new archive is created next to the first selected path (or in --dest)."
+help = "Select an existing .zip archive first to append to it; otherwise a new archive is created next to the first selected path (or in --to)."
 condition = { selected = "active", condition = "have:zip" }
 command = """
 local is_archive = paths[1]:lower():match("%.zip$") ~= nil
@@ -44,7 +44,7 @@ toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(ar
 
 ["cbz"]
 strategy = "Exec"
-help = "Select an existing .cbz archive first to append to it; otherwise a new archive is created next to the first selected path (or in --dest)."
+help = "Select an existing .cbz archive first to append to it; otherwise a new archive is created next to the first selected path (or in --to)."
 condition = { selected = "active", condition = "have:zip" }
 command = """
 local is_archive = paths[1]:lower():match("%.cbz$") ~= nil
@@ -76,7 +76,7 @@ toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(ar
 
 ["tar.gz"]
 strategy = "Exec"
-help = "Select an existing .tar.gz/.tgz archive first to append to it; otherwise a new archive is created next to the first selected path (or in --dest)."
+help = "Select an existing .tar.gz/.tgz archive first to append to it; otherwise a new archive is created next to the first selected path (or in --to)."
 condition = { selected = "active", condition = "have:tar" }
 command = """
 local is_archive = paths[1]:lower():match("%.tar%.gz$") ~= nil or paths[1]:lower():match("%.tgz$") ~= nil
@@ -115,7 +115,7 @@ toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(ar
 
 ["tar.xz"]
 strategy = "Exec"
-help = "Select an existing .tar.xz/.txz archive first to append to it; otherwise a new archive is created next to the first selected path (or in --dest)."
+help = "Select an existing .tar.xz/.txz archive first to append to it; otherwise a new archive is created next to the first selected path (or in --to)."
 condition = { selected = "active", condition = "have:xz" }
 command = """
 local is_archive = paths[1]:lower():match("%.tar%.xz$") ~= nil or paths[1]:lower():match("%.txz$") ~= nil
@@ -154,7 +154,7 @@ toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(ar
 
 ["7z"]
 strategy = "Exec"
-help = "Select an existing .7z archive first to append to it; otherwise a new archive is created next to the first selected path (or in --dest)."
+help = "Select an existing .7z archive first to append to it; otherwise a new archive is created next to the first selected path (or in --to)."
 condition = { selected = "active", condition = "have:7z" }
 command = """
 local is_archive = paths[1]:lower():match("%.7z$") ~= nil

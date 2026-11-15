@@ -8,8 +8,8 @@ pub struct ActionCommand {
     /// Menu label, prefix included (`image: to png`, `flatten`).
     pub name: String,
     /// Destination directory for actions that write somewhere.
-    #[arg(long, short = 'd', value_name = "DIR")]
-    pub dest: Option<PathBuf>,
+    #[arg(long, value_name = "DIR")]
+    pub to: Option<PathBuf>,
     /// Paths to pass to the action; defaults to the current directory.
     /// Use `--` before paths that look like options.
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]

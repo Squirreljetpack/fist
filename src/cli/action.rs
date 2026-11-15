@@ -1,8 +1,8 @@
-//! `fs :tool action <name> [--dest <dir>] [--] [paths]` — run one menu action
+//! `fs :tool action <name> [--to <dir>] [--] [paths]` — run one menu action
 //! from the shell.
 //!
 //! The name is the menu label, prefix included (`image: to png`, `flatten`).
-//! Actions that write somewhere need `--dest <dir>`; the script receives it as
+//! Actions that write somewhere need `--to <dir>`; the script receives it as
 //! its `to` argument exactly like a menu run. Options must precede the paths,
 //! and `--` separates a path that looks like an option. Toasts print to stderr
 //! since no UI is showing them.
@@ -20,7 +20,7 @@ use crate::{
 
 pub struct Args {
     pub name: String,
-    pub dest: Option<PathBuf>,
+    pub to: Option<PathBuf>,
     pub paths: Vec<PathBuf>,
 }
 
@@ -54,18 +54,18 @@ pub fn run(
         return 1;
     };
 
-    let dest = match args.dest {
+    let to = match args.to {
         Some(d) => {
             let d = AbsPath::new(d);
             if !AsRef::<Path>::as_ref(&d).is_dir() {
-                eprintln!("error: --dest {d} is not a directory");
+                eprintln!("error: --to {d} is not a directory");
                 return 1;
             }
             Some(d)
         }
         None if action.requires_dest => {
             eprintln!(
-                "error: action {:?} writes to a destination; pass --dest <dir>",
+                "error: action {:?} writes to a destination; pass --to <dir>",
                 action.display_name(key)
             );
             return 1;
@@ -88,7 +88,7 @@ pub fn run(
     };
 
     set_toasts_to_stderr(true);
-    let to = dest.map(|d| d.to_string()).unwrap_or_default();
+    let to = to.map(|d| d.to_string()).unwrap_or_default();
     let nav_cwd = AbsPath::initial();
     // only the strategies that own the terminal can prompt
     let interactive = matches!(action.strategy, MenuStrategy::Exec | MenuStrategy::ExecWait);

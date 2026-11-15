@@ -17,7 +17,9 @@ pub fn handle(args: Vec<OsString>) -> Result<(), CliError> {
         return Ok(());
     }
 
-    if backend::eza::is_eza_available() {
+    if config.unstyled {
+        backend::native::run(&config)
+    } else if backend::eza::is_eza_available() {
         backend::eza::run(&config)
     } else {
         backend::native::run(&config)

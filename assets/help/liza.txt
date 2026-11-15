@@ -27,6 +27,7 @@ Styles:
   -1         one line
   :V         print command
   :h         headers
+  :U         unstyled
 
 Additional Notes:
   Ordinary arguments starting with '-' are passed through to eza.

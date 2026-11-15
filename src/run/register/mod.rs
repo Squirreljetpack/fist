@@ -28,7 +28,7 @@ use crate::{
         state::{MenuCommandPaths, STACK, STORE, TASKS},
     },
     utils::{
-        command::{command_log_stderr, tokio_from_script},
+        command::{command_log_file, tee_stderr, tokio_from_script},
         formatter::{format_item, format_state, format_state_at},
     },
 };
@@ -140,14 +140,22 @@ impl FsMatchmaker {
             if bat.is_some() {
                 builder.env("PG_RAW", "true");
             }
-            // Tty children own the terminal; the other resuming modes log
-            // stderr so stray output cannot corrupt the restored TUI.
-            if matches!(mode, ExecutionMode::Normal | ExecutionMode::Paged) {
-                builder.stderr(command_log_stderr().unwrap_or(Stdio::null()));
+            // Tty children own the terminal; Normal/Paged duplicate stderr to
+            // both the terminal's stderr and the command log when logging.
+            let log_file = if matches!(mode, ExecutionMode::Normal | ExecutionMode::Paged) {
+                command_log_file()
+            } else {
+                None
+            };
+            if log_file.is_some() {
+                builder.stderr(Stdio::piped());
             }
-            let Some(child) = builder._spawn() else {
+            let Some(mut child) = builder._spawn() else {
                 return;
             };
+            if let (Some(log_file), Some(child_stderr)) = (log_file, child.stderr.take()) {
+                tee_stderr(child_stderr, log_file);
+            }
             if wait_exec(mode, &cmd, child, bat) {
                 db().bump_path(path.is_dir(), path);
             }

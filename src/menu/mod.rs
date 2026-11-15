@@ -393,7 +393,7 @@ pub enum MenuStrategy {
     ExecWait,
     /// Run the action's command through the lua engine in the background.
     #[default]
-    #[serde(alias = "ExecuteSilent", alias = "silent")]
+    #[serde(alias = "ExecuteSilent")]
     ExecSilent,
     /// Run the action's command through the lua engine, wait for it, and page
     /// its stdout.
@@ -855,19 +855,6 @@ mod tests {
             ));
             assert!(actions.is_err(), "key {key:?} should be reserved");
         }
-    }
-
-    #[test]
-    fn silent_strategy_alias_parse() {
-        let actions: MenuActions = toml::from_str(
-            "\
-            [my-action]\n\
-            command = \"print('x')\"\n\
-            strategy = \"silent\"\n\
-        ",
-        )
-        .unwrap();
-        assert_eq!(actions["my-action"].strategy, MenuStrategy::ExecSilent);
     }
 
     #[test]

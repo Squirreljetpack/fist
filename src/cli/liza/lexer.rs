@@ -88,6 +88,9 @@ pub fn parse_liza_args(args: &[OsString]) -> LizaConfig {
                     'V' => {
                         config.verbose = true;
                     }
+                    'U' => {
+                        config.unstyled = true;
+                    }
                     'g' => {
                         config.git_status = true;
                         selected_columns.push("g");

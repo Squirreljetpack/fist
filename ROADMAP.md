@@ -16,12 +16,12 @@ New File/Dir: Try put cursor on created
 # Config
 
 Configurable ignore which applies unless visibility.all for nav pane
-Flatten fd, rg into
-option to toast on command completion (false default)
+vendor fd/rg
 
 # lowpri
 
 smarter determination for when to clear the dirsizecache: not too often so that entering + return doesn't need to recompute say ~, and also not too aggresive so that invalidation occurs at a sensible time
 
 # Categories
+
 Unify classifiers

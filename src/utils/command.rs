@@ -36,10 +36,10 @@ pub static COMMAND_LOG_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 static COMMAND_LOG: OnceLock<Option<File>> = OnceLock::new();
 
-/// Stderr sink for a spawned command: the command log, opened (truncating the
+/// Returns a cloned handle to the command log file, opened (truncating the
 /// file once per process) from [`COMMAND_LOG_PATH`], or `None` when the log is
 /// not in use.
-pub fn command_log_stderr() -> Option<Stdio> {
+pub fn command_log_file() -> Option<File> {
     let file = COMMAND_LOG.get_or_init(|| {
         let path = COMMAND_LOG_PATH.lock().unwrap();
         let path = path.as_ref()?;
@@ -56,7 +56,37 @@ pub fn command_log_stderr() -> Option<Stdio> {
             }
         }
     });
-    file.as_ref()
-        .and_then(|f| f.try_clone().ok())
-        .map(Stdio::from)
+    file.as_ref().and_then(|f| f.try_clone().ok())
+}
+
+/// Stderr sink for a spawned command: the command log, or `None` when the log
+/// is not in use.
+pub fn command_log_stderr() -> Option<Stdio> {
+    command_log_file().map(Stdio::from)
+}
+
+/// Spawns a background thread that duplicates `reader` to both the current
+/// process's `stderr` and `log_file`.
+pub fn tee_stderr(
+    mut reader: impl std::io::Read + Send + 'static,
+    mut log_file: File,
+) {
+    std::thread::spawn(move || {
+        use std::io::Write;
+
+        let mut buf = [0u8; 4096];
+        let mut err = std::io::stderr();
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    let chunk = &buf[..n];
+                    let _ = err.write_all(chunk);
+                    let _ = err.flush();
+                    let _ = log_file.write_all(chunk);
+                    let _ = log_file.flush();
+                }
+            }
+        }
+    });
 }

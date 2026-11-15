@@ -718,8 +718,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:tool;action' {
-            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Destination directory for actions that write somewhere')
-            [CompletionResult]::new('--dest', '--dest', [CompletionResultType]::ParameterName, 'Destination directory for actions that write somewhere')
+            [CompletionResult]::new('--to', '--to', [CompletionResultType]::ParameterName, 'Destination directory for actions that write somewhere')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
@@ -734,8 +733,7 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;action' {
-            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Destination directory for actions that write somewhere')
-            [CompletionResult]::new('--dest', '--dest', [CompletionResultType]::ParameterName, 'Destination directory for actions that write somewhere')
+            [CompletionResult]::new('--to', '--to', [CompletionResultType]::ParameterName, 'Destination directory for actions that write somewhere')
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')

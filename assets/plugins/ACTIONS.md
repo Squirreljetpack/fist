@@ -15,7 +15,7 @@ Before inventing fields or syntax, consult the version of F:st being used:
 ```sh
 fs --dump-config            # writes the default actions.toml next to config.toml on first run
 fs :tool check              # parses every config file and compiles each action's lua (still maturing)
-fs :tool action 'zip' --dest <dir> -- x y   # runs one action directly; -- separates option-like paths
+fs :tool action 'zip' --to <dir> -- x y   # runs one action directly; -- separates option-like paths
 ```
 
 The shipped examples are the best style references: `compress.toml` (queued shell-outs gated on `have:`) and `diff.toml` (paged positional-pair comparisons) in the repository's `assets/actions/`, plus the `chmod +x` action in the default `actions.toml`.
@@ -168,7 +168,7 @@ Prefix `!` to invert (`!ext:log`).
 3. **Pick the smallest strategy** that fits; reach for `Queue` only when destinations or batching genuinely help.
 4. **Quote everything** interpolated into shell commands; keep diagnostics off paged stdout only when they belong there.
 5. **Report results** with `toast_push` per item or a final `toast`.
-6. **Exercise non-interactively**: `fs :tool check` catches parse/lua-compile errors (treat it as a lint, not a guarantee), and `fs :tool action '<menu label>' [--dest <dir>] [--] [paths...]` runs one action against given paths (toasts go to stderr; options must precede paths). Then run `fs`, select appropriate targets, and confirm the entry appears and behaves.
+6. **Exercise non-interactively**: `fs :tool check` catches parse/lua-compile errors (treat it as a lint, not a guarantee), and `fs :tool action '<menu label>' [--to <dir>] [--] [paths...]` runs one action against given paths (toasts go to stderr; options must precede paths). Then run `fs`, select appropriate targets, and confirm the entry appears and behaves.
 7. **Test edge cases**: nothing selected (cursor on a file/directory), the prompt state, many items, spaces and quotes in names, missing destination for queued rows, and re-running idempotently.
 
 ## Common failure modes
