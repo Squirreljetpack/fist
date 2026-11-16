@@ -797,7 +797,8 @@ async fn handle_tools(
             // Support -h / --help
             if opt_args.iter().any(|a| a == "-h" || a == "--help") {
                 prints!(
-                    "Page a file or stdin through bat into minus.\n\n\
+                    "Page a file or stdin into minus.\n\n\
+                    Piped stdin is passed to bat only with a PG_LANG, PG_FILENAME or HIGHLIGHT_LINE hint (or PG_FLAGS with PG_RAW=false).\n\n\
                     Usage: fs :tool pager [OPTIONS] [+OFFSET] [--] [FILE]\n\n\
                     Arguments:\n  \
                       +OFFSET              Where to open (see below)\n                         \
@@ -930,7 +931,10 @@ async fn handle_tools(
                 }
             }
 
-            // Base bat opts (from env / pager config).
+            // Base bat opts (from env / pager config). Piped stdin carries no
+            // name, so its bat opts are taken before the file-oriented
+            // mutations below and gated on an explicit content hint.
+            let stdin_bat = lessfilter::env_bat_opts_for_stream();
             let mut bat = lessfilter::env_bat_opts();
 
             // smart_changes: add --style=+changes or --style=-changes based on
@@ -982,7 +986,7 @@ async fn handle_tools(
                     crate::pager::page_reader(
                         std::io::stdin(),
                         false,
-                        bat.filter(|v| !v.is_empty()),
+                        stdin_bat.clone().filter(|v| !v.is_empty()),
                         crate::pager::PagerOpts {
                             follow: true,
                             ..Default::default()
@@ -1069,7 +1073,7 @@ async fn handle_tools(
                 None => crate::pager::page_reader(
                     std::io::stdin(),
                     false,
-                    bat_final.filter(|v| !v.is_empty()),
+                    stdin_bat.filter(|v| !v.is_empty()),
                     crate::pager::PagerOpts {
                         scroll_to,
                         fallback_range,

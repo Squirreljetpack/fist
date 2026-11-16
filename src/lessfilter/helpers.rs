@@ -31,10 +31,6 @@ use crate::pager;
 /// → `-l`, `PG_FILENAME` → `--file-name`, `HIGHLIGHT_LINE` → `--highlight-line`
 /// are appended.
 pub fn env_bat_opts() -> Option<Vec<String>> {
-    fn env_val(name: &str) -> Option<String> {
-        env::var(name).ok().filter(|s| !s.is_empty())
-    }
-
     if env_val("PG_RAW").is_some_and(|v| v == "true") {
         return None;
     }
@@ -51,12 +47,42 @@ pub fn env_bat_opts() -> Option<Vec<String>> {
         args.push("--file-name".into());
         args.push(name);
     }
-    if let Some(line) = env_val("HIGHLIGHT_LINE").filter(|s| s.chars().all(|c| c.is_ascii_digit()))
-    {
+    if let Some(line) = highlight_line() {
         args.push("--highlight-line".into());
         args.push(line);
     }
     Some(args)
+}
+
+/// [`env_bat_opts`] for a stream that has no file name, i.e. piped stdin into
+/// `fs :tool pager`.
+///
+/// bat needs a name to detect a language, so a nameless stream is paged raw
+/// unless the environment identifies its content: `PG_LANG`/`PG_FILENAME`
+/// (which name it), `HIGHLIGHT_LINE` (an explicit request to render it through
+/// bat), or `PG_FLAGS` alongside `PG_RAW=false` (which owns the flags).
+///
+/// `PG_RAW=true` and a `bat_opts = None` config still skip bat entirely.
+pub fn env_bat_opts_for_stream() -> Option<Vec<String>> {
+    let flags_opt_in =
+        env_val("PG_RAW").is_some_and(|v| v == "false") && env_val("PG_FLAGS").is_some();
+    let hinted = env_val("PG_LANG").is_some()
+        || env_val("PG_FILENAME").is_some()
+        || highlight_line().is_some()
+        || flags_opt_in;
+    if !hinted {
+        return None;
+    }
+    env_bat_opts()
+}
+
+fn env_val(name: &str) -> Option<String> {
+    env::var(name).ok().filter(|s| !s.is_empty())
+}
+
+/// `HIGHLIGHT_LINE` when it holds a line number.
+fn highlight_line() -> Option<String> {
+    env_val("HIGHLIGHT_LINE").filter(|s| s.chars().all(|c| c.is_ascii_digit()))
 }
 
 // don't show header when printing to tty

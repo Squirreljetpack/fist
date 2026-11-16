@@ -39,6 +39,10 @@ Two sides converge on `pager_cfg().bat_opts` (`pager.toml`) as the base:
   (`lessfilter/helpers.rs`) resolves env overrides (`PG_FLAGS`, `PG_LANG`,
   `PG_FILENAME`, `HIGHLIGHT_LINE`) on top of the `pager_cfg().bat_opts`
   default; `None` (from `PG_RAW=true` or `bat_opts = None`) skips bat.
+  `env_bat_opts_for_stream()` serves streams that have no file name (piped
+  stdin into the pager): it skips bat unless the environment names the content
+  (`PG_LANG`, `PG_FILENAME`), asks for `HIGHLIGHT_LINE`, or owns the flags with
+  `PG_FLAGS` + `PG_RAW=false`; otherwise it defers to `env_bat_opts()`.
 
 `bat = None` everywhere means raw passthrough with no highlighting (or ANSI
 formatting handled upstream, as in in-app help); `Some` pipes the stream

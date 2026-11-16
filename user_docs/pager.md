@@ -29,7 +29,10 @@ smart_case = true
 | `smart_case`        | bool            | Queries with no uppercase chars match case-insensitively; queries with uppercase stay case-sensitive. |
 
 `bat` is only used when the `bat` binary is on `PATH`; without it, output
-passes through uncolored.
+passes through uncolored. Piped stdin has no name for bat to detect a language
+from, so it is paged raw unless the environment hints at the content
+(`PG_LANG`, `PG_FILENAME`), asks for a highlighted line (`HIGHLIGHT_LINE`), or
+sets `PG_FLAGS` together with `PG_RAW=false`; see below.
 
 ## `fs :tool pager` (alias `pg`)
 
@@ -72,7 +75,10 @@ With `-C NUM`, the display is padded with `NUM` lines of context around the
 ## Environment variables
 
 These apply to `fs :tool pager` and every paged lessfilter output (`preview`,
-`display`, `extract`):
+`display`, `extract`). For piped stdin into `fs :tool pager`, bat is skipped
+entirely unless `PG_LANG`, `PG_FILENAME` or `HIGHLIGHT_LINE` is set, or
+`PG_FLAGS` is set alongside `PG_RAW=false` — with only `HIGHLIGHT_LINE` set bat
+renders through the normal theme:
 
 | Variable         | Effect                                                                                                    |
 | ---------------- | --------------------------------------------------------------------------------------------------------- |
