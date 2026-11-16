@@ -14,9 +14,10 @@ use std::{io::Cursor, sync::Arc};
 use arc_swap::ArcSwap;
 use comfy_table::{ContentArrangement, Row, Table, presets::UTF8_FULL};
 use matchmaker::{
-    HelpFactory, Line, Text, action::Action, binds::ResolvedBindMap, config::HelpDisplayConfig,
-    message::Interrupt, resolve_static_preview, utils::text_to_ansi,
+    HelpFactory, Line, Span, Text, action::Action, binds::ResolvedBindMap,
+    config::HelpDisplayConfig, message::Interrupt, resolve_static_preview, utils::text_to_ansi,
 };
+use ratatui::style::{Color, Style};
 
 use crate::{
     pager::PagerOpts,
@@ -122,8 +123,11 @@ pub(super) fn register_help_handler(
                 resolve_static_preview(&Text::default(), &help_factory, &help_config);
             // Pane-specific guidance follows the binds, separated by a rule.
             if let Some(extra) = pane_extra_help(&binds.load()) {
+                resolved.lines.push(Line::from(Span::styled(
+                    "  ─────────────────────────────────────────",
+                    Style::default().fg(Color::DarkGray),
+                )));
                 resolved.lines.push(Line::from(""));
-                resolved.lines.push(Line::from("---"));
                 resolved
                     .lines
                     .extend(extra.lines().map(|line| Line::from(line.to_string())));
@@ -210,7 +214,7 @@ fn nav_extra_help(binds: &ResolvedBindMap<FsAction>) -> String {
     let forward = keys_or_unbound(Action::ForwardChar, binds);
 
     let mut out = String::from(
-        "The simplest pane in f:st, listing the contents of a directory. Type \
+        "The basic pane in f:st, listing the contents of a directory. Type \
          to filter the list; Enter accepts the highlighted item.",
     );
 

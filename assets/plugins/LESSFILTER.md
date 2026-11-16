@@ -42,11 +42,15 @@ Preset name aliases: `p` review, `d` display, `x` extended, `i` info, `o` open, 
 
 The setting `tracked_presets` (default: edit, alternate, extended, open) lists presets whose invocations record the visited file into the history database — add a preset there if running it should count as "opening" the file. Recording happens once a rule matches, and rules that open files record through this same visit. Pass `--record=true` to record regardless of `tracked_presets`, or `--record=false` when the caller records the visit itself (the Lessfilter action of the TUI records files depending on the exit code of the command that run).
 
+The setting `confirm_errors` (empty by default) lists presets that wait for Enter when their command reports an error, so the message is readable before the TUI redraws. Everything else — other presets, `Execute`, `ExecPaged` — runs with the terminal to itself: output is live and the TUI returns as soon as the command exits. Screen-owning presets stay out of the list.
+
 ## File layout
 
 ```toml
 # top-level settings
 infer = "FileFormat"        # Guess | Infer | FileFormat — how mime/type detection runs
+confirm_errors = ["Display"]  # presets that pause when their command reports an error
+tracked_presets = ["Edit", "Alternate", "Extended", "Open"]
 
 [rules]                     # one key per preset; each is a list of [actions, patterns] pairs
 default = [...]

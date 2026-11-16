@@ -1,7 +1,10 @@
 use std::fs::{File, OpenOptions};
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{
+    Arc, Mutex, OnceLock,
+    atomic::{AtomicBool, Ordering},
+};
 
 use cba::broc::SHELL;
 
@@ -65,11 +68,11 @@ pub fn command_log_stderr() -> Option<Stdio> {
     command_log_file().map(Stdio::from)
 }
 
-/// Spawns a background thread that duplicates `reader` to both the current
-/// process's `stderr` and `log_file`.
-pub fn tee_stderr(
+/// Forwards a child's stderr to this process's stderr in a background thread,
+/// flagging `wrote` when anything is passed through.
+pub fn forward_stderr(
     mut reader: impl std::io::Read + Send + 'static,
-    mut log_file: File,
+    wrote: Arc<AtomicBool>,
 ) {
     std::thread::spawn(move || {
         use std::io::Write;
@@ -80,11 +83,9 @@ pub fn tee_stderr(
             match reader.read(&mut buf) {
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
-                    let chunk = &buf[..n];
-                    let _ = err.write_all(chunk);
+                    wrote.store(true, Ordering::Relaxed);
+                    let _ = err.write_all(&buf[..n]);
                     let _ = err.flush();
-                    let _ = log_file.write_all(chunk);
-                    let _ = log_file.flush();
                 }
             }
         }

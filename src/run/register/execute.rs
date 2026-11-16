@@ -228,8 +228,9 @@ pub(super) fn build_exec_command(
     match mode {
         ExecutionMode::Normal | ExecutionMode::ExecuteOrConfirm | ExecutionMode::ExecuteWait => {}
         ExecutionMode::Paged => {
-            // prepare to pipe stdout to the pager
-            builder.stdout(Stdio::piped()).stdin(Stdio::null());
+            // prepare to pipe stdout to the pager; stdin stays on the terminal
+            // so interactive children can still read keys
+            builder.stdout(Stdio::piped()).stdin(maybe_tty());
         }
         ExecutionMode::Tty => {
             builder

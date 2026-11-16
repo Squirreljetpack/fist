@@ -6,7 +6,14 @@ pub use execute::{ExecutionMode, resolve_target};
 pub use handlers::{paste_handler, query_handler, sync_handler};
 pub use help::{OverlayHelp, request_menu_help, request_overlay_help};
 
-use std::{ffi::OsString, process::Stdio};
+use std::{
+    ffi::OsString,
+    process::Stdio,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use cba::{
     bait::ResultExt,
@@ -25,11 +32,12 @@ use crate::{
         item::PathItem,
         pane::FsPane,
         reload::fs_reload,
-        state::{MenuCommandPaths, STACK, STORE, TASKS},
+        state::{ConfirmStderr, MenuCommandPaths, STACK, STORE, TASKS},
     },
     utils::{
-        command::{command_log_file, tee_stderr, tokio_from_script},
+        command::{forward_stderr, tokio_from_script},
         formatter::{format_item, format_state, format_state_at},
+        prompt::await_continue,
     },
 };
 
@@ -140,23 +148,26 @@ impl FsMatchmaker {
             if bat.is_some() {
                 builder.env("PG_RAW", "true");
             }
-            // Tty children own the terminal; Normal/Paged duplicate stderr to
-            // both the terminal's stderr and the command log when logging.
-            let log_file = if matches!(mode, ExecutionMode::Normal | ExecutionMode::Paged) {
-                command_log_file()
-            } else {
-                None
-            };
-            if log_file.is_some() {
+            // Confirmed presets get their stderr forwarded through the terminal so
+            // the handler can tell whether anything was written; every other
+            // command writes to the terminal directly.
+            if STORE::take::<ConfirmStderr>().is_some()
+                && matches!(mode, ExecutionMode::Normal | ExecutionMode::Paged)
+            {
                 builder.stderr(Stdio::piped());
             }
             let Some(mut child) = builder._spawn() else {
                 return;
             };
-            if let (Some(log_file), Some(child_stderr)) = (log_file, child.stderr.take()) {
-                tee_stderr(child_stderr, log_file);
+            let stderr_written = Arc::new(AtomicBool::new(false));
+            if let Some(stderr) = child.stderr.take() {
+                forward_stderr(stderr, Arc::clone(&stderr_written));
             }
-            if wait_exec(mode, &cmd, child, bat) {
+            let ok = wait_exec(mode, &cmd, child, bat);
+            if stderr_written.load(Ordering::Relaxed) {
+                await_continue();
+            }
+            if ok {
                 db().bump_path(path.is_dir(), path);
             }
         });

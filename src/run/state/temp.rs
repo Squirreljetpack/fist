@@ -38,6 +38,13 @@ pub fn lessfilter_cfg() -> &'static LessfilterConfig {
 #[derive(Debug)]
 pub struct ExecuteHandlerShouldProcessParent;
 
+/// Set when the lessfilter preset about to run is listed in
+/// [`LessfilterSettings::confirm_errors`](crate::lessfilter::config::LessfilterSettings):
+/// the execute handler watches the command's stderr and pauses when it wrote
+/// anything.
+#[derive(Debug)]
+pub struct ConfirmStderr;
+
 /// Set by [`crate::run::reload::fs_reload`] when a new pane's sort
 /// override (panesetting `default_sort`) is applied; consumed by
 /// [`crate::run::FsAction::ReSort`]. While present, the column-2 metadata

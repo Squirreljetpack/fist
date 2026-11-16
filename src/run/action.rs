@@ -42,9 +42,9 @@ use crate::{
         register::{ExecutionMode, resolve_target},
         reload::{enter_dir_pane, fs_reload},
         state::{
-            AcceptAsPrint, ExecuteHandlerShouldProcessParent, GLOBAL, InPrompt, MENU_ACTIONS,
-            MenuPrompt, PromptKind, STACK, STORE, TASKS, TOAST, ToastFlags, ToastStyle,
-            context::ActionContext, lessfilter_cfg, sort,
+            AcceptAsPrint, ConfirmStderr, ExecuteHandlerShouldProcessParent, GLOBAL, InPrompt,
+            MENU_ACTIONS, MenuPrompt, PromptKind, STACK, STORE, TASKS, TOAST, ToastFlags,
+            ToastStyle, context::ActionContext, lessfilter_cfg, sort,
         },
     },
     spawn::open_wrapped,
@@ -1649,6 +1649,12 @@ pub fn fsaction_handler(
                 && state.current_raw().is_some_and(|x| x.path.is_file())
             {
                 STORE::set(ExecuteHandlerShouldProcessParent {});
+            }
+
+            // Presets marked for error confirmation have their stderr watched by
+            // the execute handler; everything else keeps the terminal to itself.
+            if lessfilter_cfg().settings.confirm_errors.contains(&preset) {
+                STORE::set(ConfirmStderr);
             }
 
             let template = preset.to_command_string(header, false);

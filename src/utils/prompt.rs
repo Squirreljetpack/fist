@@ -76,14 +76,12 @@ pub fn confirm_prompt_sync(
     }
 }
 
-/// Clears the terminal screen and displays error messages, waiting for Enter before continuing.
+/// Clears the terminal screen and displays error messages.
 pub fn show_error<S: AsRef<str>>(messages: &[S]) {
     eprint!("\x1B[H\x1B[J");
     for msg in messages {
         eprintln!("{}", msg.as_ref());
     }
-
-    await_continue();
 }
 
 pub fn await_continue() {

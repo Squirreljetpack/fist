@@ -100,6 +100,11 @@ before they run, so they can refer to the current item and environment.
 `ExecuteWait(cmd)` also exists but is not accepted in `[binds]`; the
 confirmation behavior is reached through `ExecuteOrConfirm`.
 
+Commands run from the TUI write straight to the terminal and hand it back when
+they exit. Lessfilter presets listed in lessfilter.toml's `confirm_errors`
+(empty by default) are watched instead: if the command reports an error, the TUI
+waits for Enter before redrawing.
+
 ## Lessfilter
 
 A bare preset name is the shorthand for running that preset as a lessfilter

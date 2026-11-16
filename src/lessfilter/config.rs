@@ -113,6 +113,12 @@ pub struct LessfilterSettings {
     /// database. Opens record through this visit, so `open` is listed by
     /// default; `preview` never records.
     pub tracked_presets: Vec<Preset>,
+    /// Presets that wait for Enter when their command reports an error, so the
+    /// message stays readable instead of being redrawn over. Everything else —
+    /// unlisted presets, `Execute`, `ExecPaged` — runs with the terminal to
+    /// itself: output is live and the TUI returns as soon as the command exits.
+    /// Screen-owning presets stay out of the list.
+    pub confirm_errors: Vec<Preset>,
     pub run: RunSettings,
 }
 
@@ -141,6 +147,7 @@ impl Default for LessfilterSettings {
                 Preset::Extended,
                 Preset::Open,
             ],
+            confirm_errors: Vec::new(),
             run: Default::default(),
         }
     }

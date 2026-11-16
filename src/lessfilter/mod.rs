@@ -184,6 +184,11 @@ pub async fn handle(
 
                     CommandStrategy::ShowError(ref msg) => {
                         crate::utils::prompt::show_error(&[msg.as_str()]);
+                        // preset commands the TUI does not watch hand control
+                        // straight back, so their errors wait here instead
+                        if !cfg.settings.confirm_errors.contains(&preset) {
+                            crate::utils::prompt::await_continue();
+                        }
                         true
                     }
                     CommandStrategy::SystemOpen => {
