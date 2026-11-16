@@ -379,6 +379,7 @@ The jump function (`z`) is a replacement for `cd`, except that incomplete querie
 > - the only argument is a valid path: `cd`.
 > - no arguments: interactively select from history.
 > - last argument is `.` : interactively search subdirectories of the best match.
+> - a valid path directly before a trailing `.`/`./` is that pane's target rather than a query.
 > - otherwise: cd into the best match for the search term (if one exists)[^jump-nav].
 >
 > One final change from zoxide is the introduction of the `history.refind` [setting](#configuration).

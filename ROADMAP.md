@@ -25,3 +25,8 @@ smarter determination for when to clear the dirsizecache: not too often so that 
 # Categories
 
 Unify classifiers
+
+# zoxide
+exponential params arguably need tuning
+score based over filter based
+

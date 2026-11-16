@@ -10,19 +10,34 @@ $${Z_NAME}() {
     esac
   fi
 
+  __fist_target=
+  if [ "$#" -eq 2 ] && [ -d "$1" ]; then
+    case "$2" in
+      "." | "./")
+        __fist_target="$1"
+        shift
+      ;;
+    esac
+  fi
+
   unset __fist_last
   __fist_last=
   for __fist_arg do
     __fist_last="$__fist_arg"
   done
 
-  __fist_results="$(case "$__fist_last" in
-    ".") $${BINARY_PATH} :: $${Z_DOT_ARGS} --cd -- "$@" ;;
-    "./") $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd -- "$@" ;;
-    *)
-      $${BINARY_PATH} :dir $${Z_DIR_ARGS} --cd --initial-input="$FS_INITIAL_INPUT" -- "$@"
-      ;;
-  esac)" || return
+  __fist_results="$(
+    if [ -n "$__fist_target" ]; then
+      cd "$__fist_target" || exit 1
+    fi
+    case "$__fist_last" in
+      ".") $${BINARY_PATH} :: $${Z_DOT_ARGS} --cd -- "$@" ;;
+      "./") $${BINARY_PATH} :: $${Z_SLASH_ARGS} --cd -- "$@" ;;
+      *)
+        $${BINARY_PATH} :dir $${Z_DIR_ARGS} --cd --initial-input="$FS_INITIAL_INPUT" -- "$@"
+        ;;
+    esac
+  )" || return
 
   if [ -d "$__fist_results" ]; then
     cd "$__fist_results" || return
@@ -32,7 +47,9 @@ $${Z_NAME}() {
 }
 
 $${NAV_NAME}() {
-  FS_VERBOSITY=1 $${Z_NAME} "$@" ./;
+  # a miss exits 22 when `[history] refind` is not "Search": re-run `z` with
+  # the arguments as the picker's input so the Folders pane still opens
+  FS_VERBOSITY=1 $${Z_NAME} "$@" ./
   [ $? -eq 22 ] && FS_INITIAL_INPUT="$*" $${Z_NAME}
 }
 
@@ -71,12 +88,25 @@ function $${Z_NAME}
         end
     end
 
+    set -l __fist_target
+    if test (count $argv) -eq 2 -a -d "$argv[1]"
+        switch "$argv[2]"
+            case "." "./"
+                set __fist_target "$argv[1]"
+                set -e argv[1]
+        end
+    end
+
     set -l __fist_last
     if test (count $argv) -gt 0
         set __fist_last "$argv[-1]"
     end
 
     set -l __fist_results
+    if test -n "$__fist_target"
+        pushd "$__fist_target" >/dev/null
+        or return
+    end
     switch "$__fist_last"
         case "."
             set __fist_results ($${BINARY_PATH} :: $${Z_DOT_ARGS} --cd -- $argv)
@@ -85,7 +115,11 @@ function $${Z_NAME}
         case "*"
             set __fist_results ($${BINARY_PATH} :dir $${Z_DIR_ARGS} --cd --initial-input="$FS_INITIAL_INPUT" -- $argv)
     end
-    test $status -eq 0; or return
+    set -l __fist_status $status
+    if test -n "$__fist_target"
+        popd >/dev/null
+    end
+    test $__fist_status -eq 0; or return $__fist_status
 
     if test -d "$__fist_results"
         cd "$__fist_results"; or return
@@ -316,21 +350,35 @@ def --env $${Z_NAME} [...args: string] {
         }
     }
 
-    let __fist_last = if $__fist_count > 0 { $args | last } else { "" }
-    let __fist_results = if $__fist_last == "." {
-        ^$${BINARY_PATH} "::" $${Z_DOT_ARGS} --cd -- ...$args
-    } else if $__fist_last == "./" {
-        ^$${BINARY_PATH} "::" $${Z_SLASH_ARGS} --cd -- ...$args
-    } else {
-        let init_input = ($env.FS_INITIAL_INPUT? | default "")
-        ^$${BINARY_PATH} ":dir" $${Z_DIR_ARGS} --cd $"--initial-input=($init_input)" -- ...$args
-    }
-
-    if ($__fist_results | is-empty) {
+    let __fist_target = (
+        if $__fist_count == 2
+            and ($args.0 | path exists)
+            and (($args.0 | path type) == "dir")
+            and ($args.1 == "." or $args.1 == "./") { $args.0 } else { "" }
+    )
+    let __fist_args = if $__fist_target == "" { $args } else { $args | skip 1 }
+    let __fist_last = if ($__fist_args | length) > 0 { $__fist_args | last } else { "" }
+    let __fist_run = (
+        do {
+            if $__fist_target != "" { cd $__fist_target }
+            if $__fist_last == "." {
+                ^$${BINARY_PATH} "::" $${Z_DOT_ARGS} --cd -- ...$__fist_args
+            } else if $__fist_last == "./" {
+                ^$${BINARY_PATH} "::" $${Z_SLASH_ARGS} --cd -- ...$__fist_args
+            } else {
+                let init_input = ($env.FS_INITIAL_INPUT? | default "")
+                ^$${BINARY_PATH} ":dir" $${Z_DIR_ARGS} --cd $"--initial-input=($init_input)" -- ...$__fist_args
+            }
+        } | complete
+    )
+    let __fist_err = ($__fist_run.stderr | str trim)
+    if ($__fist_err | is-not-empty) { print -e $__fist_err }
+    $env.LAST_EXIT_CODE = $__fist_run.exit_code
+    if $__fist_run.exit_code != 0 {
         return
     }
 
-    let __fist_line = ($__fist_results | str trim)
+    let __fist_line = ($__fist_run.stdout | str trim)
     if ($__fist_line | is-empty) {
         return
     }
@@ -347,14 +395,16 @@ def --env $${Z_NAME} [...args: string] {
 }
 
 def --env $${NAV_NAME} [...args: string] {
-    with-env { FS_VERBOSITY: "1" } {
-        $${Z_NAME} ...$args ./
-        if ($env.LAST_EXIT_CODE? | default 0) == 22 {
-            with-env { FS_INITIAL_INPUT: ($args | str join " ") } {
-                $${Z_NAME}
-            }
-        }
+    let __fist_verbosity = $env.FS_VERBOSITY?
+    let __fist_initial = $env.FS_INITIAL_INPUT?
+    $env.FS_VERBOSITY = "1"
+    $env.FS_INITIAL_INPUT = ($args | str join " ")
+    $${Z_NAME} ...$args ./
+    if ($env.LAST_EXIT_CODE? | default 0) == 22 {
+        $${Z_NAME}
     }
+    if $__fist_initial == null { hide-env FS_INITIAL_INPUT } else { $env.FS_INITIAL_INPUT = $__fist_initial }
+    if $__fist_verbosity == null { hide-env FS_VERBOSITY } else { $env.FS_VERBOSITY = $__fist_verbosity }
 }
 
 def $${OPEN_NAME} [...args: string] {
