@@ -137,13 +137,10 @@ impl Action {
                     [true, false, true],
                 ),
                 Preset::Extended => (
-                    arr![
-                        Header,
-                        Prog(
-                            current_exe().into(),
-                            vec_![: ":tool", "liza", "::nav", ":a", "--", path]
-                        )
-                    ],
+                    arr![Prog(
+                        current_exe().into(),
+                        vec_![: ":tool", "liza", "::nav", ":a", "--", path]
+                    )],
                     [true, false, true],
                 ),
                 Preset::Info => (

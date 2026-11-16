@@ -85,12 +85,12 @@ fn highlight_line() -> Option<String> {
     env_val("HIGHLIGHT_LINE").filter(|s| s.chars().all(|c| c.is_ascii_digit()))
 }
 
-// don't show header when printing to tty
 pub fn show_header(path: &Path) {
-    if !atty::is(atty::Stream::Stdout) {
-        println!("{}", path.to_string_lossy().italic().dim());
-        println!();
-    }
+    // the tty gate is disabled: the header prints on every stdout
+    // if !atty::is(atty::Stream::Stdout) {
+    println!("{}", path.to_string_lossy().italic().dim());
+    println!();
+    // }
 }
 
 // todo: in-house file -bL

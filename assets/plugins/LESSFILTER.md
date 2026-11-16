@@ -126,7 +126,7 @@ Because `default` rules are appended **after** the preset's own rules, a plain `
 - `Metadata` — metadata dump (mediainfo/kreuzberg class tools), stats for directories.
 - `Extract` — extract readable content from documents/archives into the pager (requires `kreuzberg`); commonly paired as `["Extract", "Metadata"]`.
 - `Open` — system open.
-- `Header` — the app header line.
+- `Header` — prints the dim italic path header before the rest of the rule's output.
 - `None` — renders nothing.
 
 In the `open` and `alternate` presets these standard actions collapse to a system open of the path.
