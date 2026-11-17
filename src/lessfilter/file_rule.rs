@@ -655,9 +655,12 @@ mod tests {
         let data = file_data(dir.path(), &categories);
         assert!(!rule("git").passes(dir.path(), &data));
 
-        // the repo root (where these tests run from) is one
-        let repo = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let data = file_data(repo, &categories);
-        assert!(rule("git").passes(repo, &data));
+        // the repo root (where these tests run from) is one, when the checkout
+        // includes `.git` (the windows harness runs without it)
+        let repo = std::env::current_dir().unwrap();
+        if fist_types::git::in_git_repo(Some(repo.clone())) {
+            let data = file_data(&repo, &categories);
+            assert!(rule("git").passes(&repo, &data));
+        }
     }
 }

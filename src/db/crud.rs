@@ -563,7 +563,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_excluded_paths_are_not_bumped() {
-        let exclude = zoxide::compile_exclude(&["/test_excluded/*".to_string()]);
+        // a basename glob, so the pattern does not depend on how a POSIX
+        // literal is normalised into an absolute native path
+        let exclude = zoxide::compile_exclude(&["**/secret.txt".to_string()]);
 
         let pool = Pool::new("sqlite::memory:", None)
             .await

@@ -91,7 +91,7 @@ mod tests {
         let actions: MenuActions = toml::from_str(toml_str).unwrap();
         let stash_action = &actions["stash: 2 items"];
 
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let root = std::env::current_dir().unwrap();
         let manifest = AbsPath::new(root.join("Cargo.toml"));
         let src_dir = AbsPath::new(root.join("src"));
 
@@ -250,6 +250,7 @@ mod tests {
         };
 
         // a set passes iff every rule in it passes
+        #[cfg(unix)]
         assert!(eval(
             &cond("{ selected = \"active\", condition = [\"type:f\", \"have:sh\"] }"),
             std::slice::from_ref(&a)
@@ -274,12 +275,15 @@ mod tests {
         ));
 
         // positional sets apply to their own selection only
-        let two = [a.clone(), a.clone()];
-        assert!(eval(&cond("[[\"type:f\", \"have:sh\"], \"type:f\"]"), &two));
-        assert!(!eval(
-            &cond("[[\"type:f\", \"have:sh\"], \"type:d\"]"),
-            &two
-        ));
+        #[cfg(unix)]
+        {
+            let two = [a.clone(), a.clone()];
+            assert!(eval(&cond("[[\"type:f\", \"have:sh\"], \"type:f\"]"), &two));
+            assert!(!eval(
+                &cond("[[\"type:f\", \"have:sh\"], \"type:d\"]"),
+                &two
+            ));
+        }
         // one position per selected item
         assert!(!eval(
             &cond("[\"type:f\", \"type:f\"]"),

@@ -737,9 +737,18 @@ mod tests {
         let cfg = GlobalConfig::default();
         let cwd = AbsPath::new_unchecked(std::env::current_dir().unwrap());
 
+        #[cfg(unix)]
         let cmd = Some((
             OsString::from("printf"),
             vec![OsString::from("line1\nline2\nline3\n")],
+        ));
+        #[cfg(windows)]
+        let cmd = Some((
+            OsString::from("cmd"),
+            vec![
+                OsString::from("/C"),
+                OsString::from("echo line1& echo line2& echo line3"),
+            ],
         ));
 
         let pane = FsPane::new_custom(
@@ -801,9 +810,19 @@ mod tests {
         let cfg = GlobalConfig::default();
         let cwd = AbsPath::new_unchecked(std::env::current_dir().unwrap());
 
+        // Manually simulate an incomplete state with partial stored items
+        #[cfg(unix)]
         let cmd = Some((
             OsString::from("printf"),
             vec![OsString::from("first\nsecond\n")],
+        ));
+        #[cfg(windows)]
+        let cmd = Some((
+            OsString::from("cmd"),
+            vec![
+                OsString::from("/C"),
+                OsString::from("echo first& echo second"),
+            ],
         ));
 
         let pane = FsPane::new_custom(

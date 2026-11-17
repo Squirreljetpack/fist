@@ -322,8 +322,11 @@ fn deep_destination_parents_are_invented_and_survive_success() {
         .expect_err("file ancestor must be rejected");
     match err {
         fist_copy::SubmitError::Claim(_, err) => {
+            // the OS words this differently: ENOTDIR on unix, "the system cannot
+            // find the path specified" on windows
+            let text = err.to_string().to_lowercase();
             assert!(
-                err.to_string().to_lowercase().contains("not a directory"),
+                text.contains("not a directory") || text.contains("cannot find the path"),
                 "err: {err}"
             );
         }

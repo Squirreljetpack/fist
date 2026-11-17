@@ -540,7 +540,10 @@ mod tests {
         );
         eprintln!("{}", rendered);
         let icon = icon_for_file(&path_in_cwd);
-        assert_eq!(rendered.to_string(), format!("{} src/main.rs", icon));
+        assert_eq!(
+            rendered.to_string(),
+            format!("{} src{}main.rs", icon, std::path::MAIN_SEPARATOR)
+        );
 
         let rendered = render_with(
             &config,
@@ -550,7 +553,10 @@ mod tests {
         );
         eprintln!("{}", rendered);
         let icon = icon_for_file(&path_in_home);
-        assert_eq!(rendered.to_string(), format!("{} ~/.config/app.conf", icon));
+        assert_eq!(
+            rendered.to_string(),
+            format!("{} ~/.config/app.conf", icon).replace('/', std::path::MAIN_SEPARATOR_STR)
+        );
 
         let rendered = render_with(
             &config,
@@ -608,7 +614,10 @@ mod tests {
             Some(cwd),
             EntryKind::probe(&path_in_cwd),
         );
-        assert_eq!(rendered.to_string(), "src/main.rs");
+        assert_eq!(
+            rendered.to_string(),
+            format!("src{}main.rs", std::path::MAIN_SEPARATOR)
+        );
 
         let rendered = render_with(&config, home, Some(cwd), EntryKind::probe(home));
         assert_eq!(rendered.to_string(), "~");
@@ -636,7 +645,10 @@ mod tests {
         assert_eq!(line.spans.len(), 2);
         assert!(line.spans[0].style.fg.is_some());
         assert!(line.spans[1].style.fg.is_none());
-        assert_eq!(line.spans[1].content, " src/main.rs");
+        assert_eq!(
+            line.spans[1].content,
+            format!(" src{}main.rs", std::path::MAIN_SEPARATOR)
+        );
 
         let config = PathDisplayConfig {
             file_colors: true,

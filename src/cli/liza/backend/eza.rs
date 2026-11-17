@@ -446,6 +446,9 @@ mod tests {
         assert_eq!(
             names_d2,
             vec!["c".to_string(), "a/x".to_string(), "a/y".to_string()]
+                .into_iter()
+                .map(|s| s.replace('/', std::path::MAIN_SEPARATOR_STR))
+                .collect::<Vec<_>>()
         );
 
         // 4. Flatten depth 3 from root -> files first (c, a/x, a/y/z), intermediate dirs skipped
@@ -457,6 +460,9 @@ mod tests {
         assert_eq!(
             names_d3,
             vec!["c".to_string(), "a/x".to_string(), "a/y/z".to_string()]
+                .into_iter()
+                .map(|s| s.replace('/', std::path::MAIN_SEPARATOR_STR))
+                .collect::<Vec<_>>()
         );
     }
 

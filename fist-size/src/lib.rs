@@ -620,11 +620,21 @@ mod tests {
             called_clone.fetch_add(1, Ordering::SeqCst);
         });
 
-        // Repeated adds and immediate clear
-        for _ in 0..20 {
-            cache.add(temp_dir.path().join("dir_a"));
+        // A tree large enough that the worker cannot drain it before `clear`
+        // runs: cancellation is what must suppress the completion callback,
+        // not the worker running out of work first.
+        let root = temp_dir.path().join("big");
+        for d in 0..200 {
+            let dir = root.join(format!("d{d}"));
+            std::fs::create_dir_all(&dir).unwrap();
+            for f in 0..3 {
+                std::fs::write(dir.join(format!("f{f}.txt")), [0u8; 64]).unwrap();
+            }
         }
+
+        cache.add(&root);
         cache.clear();
+        cache.wait();
 
         assert_eq!(called.load(Ordering::SeqCst), 0);
     }

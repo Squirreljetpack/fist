@@ -309,6 +309,17 @@ visible again";
         if !cba::broc::has(bin) {
             return;
         }
+        // `bash` on windows resolves to the WSL launcher stub unless a real
+        // shell comes first on PATH; a smoke test skips interpreters that
+        // cannot run anything at all.
+        let runs = Command::new(bin)
+            .args(["-c", "exit 0"])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if !runs {
+            return;
+        }
         let status = if bin == "nu" {
             Command::new(bin).arg("-c").arg(script).status()
         } else {

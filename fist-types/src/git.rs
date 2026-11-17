@@ -50,6 +50,11 @@ mod tests {
 
     #[test]
     fn test_any_path_is_ignored() {
+        // `git check-ignore` only answers inside a work tree; the Windows VM run
+        // ships the tree without `.git`, so there is nothing to consult there.
+        if !in_git_repo(std::env::current_dir().ok()) {
+            return;
+        }
         assert!(any_path_is_ignored(["fist.log", "debug/"]));
         assert!(!any_path_is_ignored(["src"]));
         assert!(!any_path_is_ignored::<&str>([]));

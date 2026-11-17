@@ -311,6 +311,7 @@ mod tests {
         let entry = build_file_entry("hello.txt".into(), &file_path, false, &config);
         assert!(entry.metadata.is_some());
         let meta = entry.metadata.as_ref().unwrap();
+        #[cfg(unix)]
         assert!(meta.permissions.is_some()); // octal permissions
         assert!(meta.size.is_some()); // file size
         assert!(meta.mtime.is_some()); // mtime from :b

@@ -92,8 +92,9 @@ mod tests {
         )
         .unwrap();
         let p = AbsPath::new(std::path::PathBuf::from("/tmp/a.txt"));
+        let want = p.to_string_lossy().into_owned();
         let (path, display, tail) = call_transform(&f, &p, "tail").unwrap();
-        assert_eq!(path.as_deref(), Some("/tmp/a.txt"));
+        assert_eq!(path.as_deref(), Some(want.as_str()));
         assert_eq!(display.as_deref(), Some("tailX"));
         assert_eq!(tail.as_deref(), Some("tail"));
 
@@ -122,7 +123,8 @@ return ..."#
         )
         .unwrap();
         let p = AbsPath::new(std::path::PathBuf::from("/tmp/a.txt"));
+        let want = p.to_string_lossy().into_owned();
         let (path, ..) = call_transform(&f, &p, "").unwrap();
-        assert_eq!(path.as_deref(), Some("/tmp/a.txt"));
+        assert_eq!(path.as_deref(), Some(want.as_str()));
     }
 }

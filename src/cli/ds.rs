@@ -671,6 +671,8 @@ mod tests {
         let mut tiny = File::create(sub.join("tiny.txt")).unwrap();
         tiny.write_all(&[0; 10]).unwrap();
 
+        drop((big, small, huge, tiny));
+
         let cache = DirSizeCache::new();
         cache.add(temp_dir.path());
         cache.wait();
@@ -707,6 +709,8 @@ mod tests {
         fs::create_dir(&b).unwrap();
         let mut fb = File::create(b.join("file.txt")).unwrap();
         fb.write_all(&[0; 30]).unwrap();
+
+        drop((fa, fb));
 
         let cache = DirSizeCache::new();
         cache.add(&a);
@@ -753,6 +757,8 @@ mod tests {
         let mut fa = File::create(a.join("file.txt")).unwrap();
         fa.write_all(&[0; 10]).unwrap();
 
+        drop(fa);
+
         let cache = DirSizeCache::new();
         cache.add(root);
         cache.add(&a);
@@ -786,6 +792,8 @@ mod tests {
         let fb = b.join("f2.txt");
         let mut f2 = File::create(&fb).unwrap();
         f2.write_all(&[0; 20]).unwrap();
+
+        drop((f1, f2));
 
         let cache = DirSizeCache::new();
         cache.add(&fa);
@@ -889,6 +897,7 @@ mod tests {
         small.write_all(&[0; 10]).unwrap();
         let b = root.join("b");
         fs::create_dir(&b).unwrap();
+        drop((big, small));
 
         let cache = DirSizeCache::new();
         cache.add(&a);
@@ -920,6 +929,7 @@ mod tests {
         let mut small = File::create(b.join("small.txt")).unwrap();
         small.write_all(&[0; 30]).unwrap();
 
+        drop((big, small));
         let cache = DirSizeCache::new();
         cache.add(&a);
         cache.add(&b);

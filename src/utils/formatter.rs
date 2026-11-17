@@ -606,6 +606,33 @@ mod tests {
 
     const P: &str = "/home/you/docs/report.md";
 
+    /// The expectations below are written POSIX-style while the formatter joins
+    /// path components with the platform separator, so normalize it away.
+    fn posix(s: String) -> String {
+        s.replace(std::path::MAIN_SEPARATOR, "/")
+    }
+
+    fn render<H: Host>(
+        host: &H,
+        template: &str,
+    ) -> String {
+        posix(super::render(host, template))
+    }
+
+    fn format_item(
+        template: &str,
+        item: &PathItem,
+    ) -> String {
+        posix(super::format_item(template, item))
+    }
+
+    fn format_prompt(
+        template: &str,
+        cwd: &Path,
+    ) -> String {
+        posix(super::format_prompt(template, cwd))
+    }
+
     fn path(template: &str) -> String {
         render(
             &PathHost {
@@ -708,7 +735,7 @@ mod tests {
             cwd: Cow::Borrowed("/tmp"),
             raw: false,
         };
-        assert_eq!(render(&p, "{}"), r"'/tmp/it'\''s here'");
+        assert_eq!(render(&p, "{}"), posix(r"'/tmp/it'\''s here'".to_string()));
         assert_eq!(render(&p, "{=}"), "/tmp/it's here");
         assert_eq!(render(&p, r"\{}\n"), "{}\n".replace("\\n", "\n"));
         assert_eq!(render(&p, "a\\tb"), "a\tb");
@@ -724,7 +751,7 @@ mod tests {
             raw: true,
         };
         assert_eq!(render(&p, "{}"), "/tmp/it's here");
-        assert_eq!(render(&p, "{:}"), r"'/tmp/it'\''s here'");
+        assert_eq!(render(&p, "{:}"), posix(r"'/tmp/it'\''s here'".to_string()));
         assert_eq!(render(&p, "{=}"), "/tmp/it's here");
         assert_eq!(render(&p, "{0:-1}"), "'/tmp'");
         assert_eq!(render(&p, "{0=-1}"), "/tmp");

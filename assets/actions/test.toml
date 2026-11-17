@@ -68,25 +68,33 @@ assert(util.shq("hello world") == "'hello world'", "shq space quoting")
 assert(util.shq("simple") == "simple", "shq simple identity")
 
 -- 6. path behavior
-assert(path.parent("/a/b/c.tar.gz") == "/a/b", "path.parent failed")
-assert(path.parent("/root_file.txt") == "/", "path.parent root failed")
-assert(path.base("/a/b/c.tar.gz") == "c.tar.gz", "path.base failed")
-assert(path.stem("/a/b/c.tar.gz") == "c.tar", "path.stem failed")
-assert(path.ext("/a/b/c.tar.gz") == "gz", "path.ext failed")
+local sep = package.config:sub(1, 1)
+assert(path.parent("a" .. sep .. "b" .. sep .. "c.tar.gz") == "a" .. sep .. "b", "path.parent failed")
+assert(path.parent("root_file.txt") == ".", "path.parent of a lone name failed")
+assert(path.base("a/b/c.tar.gz") == "c.tar.gz", "path.base failed")
+assert(path.stem("a/b/c.tar.gz") == "c.tar", "path.stem failed")
+assert(path.ext("a/b/c.tar.gz") == "gz", "path.ext failed")
 assert(path.ext("no_ext") == "", "path.ext empty failed")
-assert(path.join("a", "b", "c.txt") == "a/b/c.txt", "path.join failed")
+assert(path.join("a", "b", "c.txt") == "a" .. sep .. "b" .. sep .. "c.txt", "path.join failed")
 
 assert(path.is_dir("/") == true, "/ must be a directory")
 assert(path.is_file("/") == false, "/ is not a file")
 assert(path.is_file("/__nonexistent_test_file_path__") == false, "nonexistent file check")
 assert(path.exists("/") == true, "path.exists(/) failed")
 assert(path.lexists("/") == true, "path.lexists(/) failed")
-assert(path.rel("/a/b/c", "/a") == "b/c", "path.rel failed")
+assert(path.rel("a" .. sep .. "b" .. sep .. "c", "a") == "b" .. sep .. "c", "path.rel failed")
 assert(path.mime("test.png") == "image/png", "path.mime failed")
 assert(util.path == nil, "util.path should be nil")
 
 -- 7. proc behavior
-local p_res = proc.run("echo", {"hello"})
+local sep = package.config:sub(1, 1)
+local echo_prog, echo_args
+if sep ~= "/" then
+  echo_prog, echo_args = "cmd", {"/C", "echo hello"}
+else
+  echo_prog, echo_args = "echo", {"hello"}
+end
+local p_res = proc.run(echo_prog, echo_args)
 assert(p_res.ok == true, "proc.run echo")
 assert(p_res.stdout:find("hello") ~= nil, "proc.run echo stdout")
 

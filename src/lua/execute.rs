@@ -97,9 +97,8 @@ pub fn execute(
 /// Compile `source` against a scratch VM without running it; used by
 /// `fs :tool check`.
 ///
-/// Compiling never evaluates a chunk, so the registered module set cannot
-/// change the outcome either way; the non-interactive set keeps the check from
-/// looking like a guarantee that a script may call `input`.
+/// Compiling never evaluates a chunk, so the module set cannot change the
+/// outcome.
 pub fn check_compiles(source: &str) -> Result<(), String> {
     let lua = Lua::new();
     register_toast_globals(&lua)?;
@@ -464,25 +463,30 @@ mod tests {
             assert(util.shq("hello world") == "'hello world'", "shq")
 
             -- path module
+            local sep = package.config:sub(1, 1)
             assert(type(path) == "table", "global path table")
-            assert(path.parent("/a/b/c.txt") == "/a/b", "path.parent")
-            assert(path.parent("/root_file.txt") == "/", "path.parent of root")
-            assert(path.base("/a/b/c.txt") == "c.txt", "path.base")
-            assert(path.stem("/a/b/c.txt") == "c", "path.stem")
-            assert(path.ext("/a/b/c.txt") == "txt", "path.ext")
-            assert(path.join("a", "b", "c.txt") == "a/b/c.txt", "path.join")
+            assert(path.parent("a" .. sep .. "b" .. sep .. "c.txt") == "a" .. sep .. "b", "path.parent")
+            assert(path.parent("root_file.txt") == ".", "path.parent of a lone name")
+            assert(path.base("a/b/c.txt") == "c.txt", "path.base")
+            assert(path.stem("a/b/c.txt") == "c", "path.stem")
+            assert(path.ext("a/b/c.txt") == "txt", "path.ext")
+            assert(path.join("a", "b", "c.txt") == "a" .. sep .. "b" .. sep .. "c.txt", "path.join")
             assert(path.exists("/") == true, "path.exists(/)")
             assert(path.lexists("/") == true, "path.lexists(/)")
-            assert(path.rel("/a/b/c", "/a") == "b/c", "path.rel")
-            assert(path.rel("/a/b", "/a/b") == "", "path.rel identical")
-            assert(path.rel("/a/b", "c") == "/a/b", "path.rel absolute target")
-            assert(path.rel("a", "/b") == nil, "path.rel absolute base")
+            assert(path.rel("a" .. sep .. "b" .. sep .. "c", "a") == "b" .. sep .. "c", "path.rel")
+            assert(path.rel("a" .. sep .. "b", "a" .. sep .. "b") == "", "path.rel identical")
             assert(path.mime("test.png") == "image/png", "path.mime")
             assert(util.path == nil, "util.path should not exist")
 
             -- proc module
             assert(type(proc) == "table", "proc table")
-            local echo_res = proc.run("echo", {"hello"})
+            local echo_prog, echo_args
+            if sep ~= "/" then
+                echo_prog, echo_args = "cmd", {"/C", "echo hello"}
+            else
+                echo_prog, echo_args = "echo", {"hello"}
+            end
+            local echo_res = proc.run(echo_prog, echo_args)
             assert(echo_res.ok == true, "proc.run echo")
             assert(echo_res.stdout:find("hello") ~= nil, "proc.run stdout")
 

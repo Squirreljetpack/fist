@@ -936,6 +936,10 @@ mod tests {
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
 
+    // `have:` resolves through `which`, so the gate needs a program this host
+    // certainly has; the resolution itself is platform independent, so one os
+    // is enough to cover it.
+    #[cfg(unix)]
     #[test]
     fn load_all_drops_failing_has_gates() {
         let temp_dir = std::env::temp_dir().join("fist_test_has_gates");

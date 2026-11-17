@@ -58,7 +58,7 @@ fn make_archives(f: &Fixture) -> Vec<(PathBuf, &'static str)> {
             .args(["."]));
         out.push((p, "tar"));
 
-        if cfg!(feature = "targz") {
+        if have("tar") && cfg!(feature = "targz") {
             let p = d.join("a.tar.gz");
             run(std::process::Command::new("tar")
                 .args(["-czf"])
@@ -70,7 +70,7 @@ fn make_archives(f: &Fixture) -> Vec<(PathBuf, &'static str)> {
         }
 
         // a bare gz stream (not a tar); note gzip names it <name>.txt.gz
-        if cfg!(feature = "gz") {
+        if have("gzip") && cfg!(feature = "gz") {
             std::fs::copy(src("src/hello.txt"), d.join("bare.txt")).unwrap();
             run(std::process::Command::new("gzip")
                 .arg("-kf")
