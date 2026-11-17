@@ -1,13 +1,11 @@
 //! OSC 52 clipboard writes: port of matchmaker-cli's
-//! `set_host_clipboard_universal`. The escape sequence is written directly to
-//! the controlling terminal (or `$SSH_TTY`) so the TUI output stream is left
-//! untouched; when the TTY cannot be opened it falls back to stdout, wrapped
-//! for tmux when `$TMUX` is set.
+//! `set_host_clipboard_universal`. The escape sequence goes to a terminal
+//! device rather than the TUI output stream, which a shell widget may capture.
 
 use std::{
     env,
     fs::OpenOptions,
-    io::{self, Write},
+    io::{self, IsTerminal, Write},
 };
 
 /// Build the OSC 52 copy sequence for `text`; wrap it in a tmux passthrough
@@ -26,28 +24,63 @@ pub fn sequence(
 }
 
 /// Copy `text` to the host clipboard via OSC 52.
+///
+/// The sequence is written to the first terminal device that accepts it: our
+/// controlling terminal, then `$SSH_TTY`, then stdout when it is a terminal.
+/// The first two are unreachable by a capturing stdout redirect, so the copy
+/// cannot be silently swallowed; a stdout that is not a terminal fails instead
+/// of reporting a success that never reached a terminal.
 pub fn write_osc52(text: &str) -> io::Result<()> {
-    // Over SSH, $SSH_TTY points at the exact device file; otherwise use the
-    // process's controlling terminal.
-    let tty_path = env::var("SSH_TTY").unwrap_or_else(|_| "/dev/tty".to_string());
-    let is_tmux = env::var("TMUX").is_ok();
-    let seq = sequence(text, is_tmux);
+    // A tmux passthrough is only understood on the way into a pane. A write
+    // that bypasses the multiplexer must stay bare: the outer terminal does
+    // not speak the DCS wrapper.
+    let pane_seq = sequence(text, env::var("TMUX").is_ok());
+    let bare_seq = sequence(text, false);
 
-    match OpenOptions::new().write(true).open(&tty_path) {
-        Ok(mut tty_file) => {
-            // Write to controlling TTY device (wrapped for tmux if inside tmux)
-            tty_file.write_all(seq.as_bytes())?;
-            tty_file.flush()?;
-        }
-        Err(_) => {
-            // Fallback when the TTY is unavailable (e.g. Windows): stdout,
-            // wrapped for tmux if we are inside it.
-            let mut stdout = io::stdout();
-            stdout.write_all(seq.as_bytes())?;
-            stdout.flush()?;
+    let mut targets = vec![("/dev/tty", &pane_seq)];
+    let ssh_tty = env::var("SSH_TTY").ok();
+    if let Some(path) = ssh_tty.as_deref() {
+        targets.push((path, &bare_seq));
+    }
+
+    let mut last_err = None;
+    for (path, seq) in targets {
+        match write_to(path, seq) {
+            Ok(()) => {
+                log::debug!("OSC 52 clipboard write to {path}");
+                return Ok(());
+            }
+            Err(e) => {
+                log::debug!("OSC 52 clipboard write to {path} failed: {e}");
+                last_err = Some(e);
+            }
         }
     }
-    Ok(())
+
+    if io::stdout().is_terminal() {
+        return write_into(io::stdout(), &pane_seq);
+    }
+    Err(last_err.unwrap_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            "no terminal accepted the OSC 52 sequence",
+        )
+    }))
+}
+
+fn write_to(
+    path: &str,
+    seq: &str,
+) -> io::Result<()> {
+    write_into(OpenOptions::new().write(true).open(path)?, seq)
+}
+
+fn write_into(
+    mut sink: impl Write,
+    seq: &str,
+) -> io::Result<()> {
+    sink.write_all(seq.as_bytes())?;
+    sink.flush()
 }
 
 #[cfg(test)]
