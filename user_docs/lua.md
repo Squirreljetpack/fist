@@ -28,6 +28,7 @@ Path manipulation, normalization, and query functions:
 | `path.is_dir(p)`         | `bool`          | Tests if `p` exists and is a directory.                                                           |
 | `path.is_empty(p)`       | `bool`          | Tests if a file is 0 bytes or a directory contains 0 entries.                                     |
 | `path.rel(target, base)` | `string \| nil` | Relative path from `base` to `target`; `nil` if only `base` is absolute or contains `..`.         |
+| `path.expand_tilde(p)`   | `string`        | Expands a leading `~` to the user's home directory; other paths are returned unchanged.           |
 | `path.mime(p)`           | `string`        | Inspects file header/extension and returns MIME type string (e.g. `"image/png"`, `"text/plain"`). |
 
 ---
@@ -70,7 +71,8 @@ Subprocess execution without shell interpolation:
 | Function                           | Return Type | Description                                                                                                                                                                                      |
 | ---------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `proc.run(prog, [args], [opts])`   | `table`     | Runs command and waits for output. Returns `{ ok = bool, code = number, stdout = string, stderr = string }`.                                                                                     |
-| `proc.spawn(prog, [args], [opts])` | `table`     | Spawns background process without waiting. Returns `{ ok = bool, pid = number }`.                                                                                                                |
+| `proc.spawn(prog, [args], [opts])` | `table`     | Spawns background process without waiting; the child is reaped in the background. Returns `{ ok = bool, pid = number }`.                                                                         |
+| `proc.exec(prog, [args], [opts])`  | `nil`       | Replaces the f:st process with `prog` and never returns (on Windows it waits and exits with the child's status). Hands the terminal over without leaving a parent process behind.                |
 | `proc.has(prog)`                   | `bool`      | Fast in-process check if `prog` exists on `PATH`.                                                                                                                                                |
 | `proc.editor([path])`              | `table`     | Interactive only. Runs `$FS_EDITOR` (then `$EDITOR`, then `nano`) in the foreground with the terminal attached, waiting for it to exit. Returns `{ ok = bool, code = number, editor = string }`. |
 
@@ -78,7 +80,7 @@ Subprocess execution without shell interpolation:
 
 - `cwd` (string): Working directory for the child process.
 - `env` (table): Key-value map of environment variables.
-- `stdin` (string): Data to pipe into child process standard input.
+- `stdin` (string): Data to pipe into child process standard input (`proc.run` only).
 
 ```lua
 if proc.has("ffmpeg") then
@@ -107,6 +109,7 @@ Utility functions for serialization, time, clipboard, and shell quoting:
 | `util.clipboard_get()`             | `string \| nil` | Reads text from system clipboard (integrates with terminal OSC 52).                                                                         |
 | `util.clipboard_set(text, [opts])` | `nil`           | Writes text to clipboard. Accepts optional `{ toast = false }` table.                                                                       |
 | `util.shq(str)`                    | `string`        | Quotes and escapes a string for POSIX shell commands.                                                                                       |
+| `util.split_args(line)`            | `table`         | POSIX word splitting: quotes group and are removed, backslashes escape. Turns `"code --wait"` into `{ "code", "--wait" }`.                  |
 
 ---
 

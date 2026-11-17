@@ -1449,6 +1449,7 @@ dependencies = [
  "log",
  "matchmaker-lib",
  "matchmaker-minus",
+ "matchmaker-mlua-bindings",
  "matchmaker-nucleo",
  "matchmaker-partial",
  "mimalloc",
@@ -2634,6 +2635,22 @@ dependencies = [
  "textwrap",
  "thiserror 2.0.21",
  "unicode-width",
+]
+
+[[package]]
+name = "matchmaker-mlua-bindings"
+version = "0.1.7"
+dependencies = [
+ "cli_boilerplate_automation",
+ "fastrand",
+ "jiff",
+ "log",
+ "matchmaker-lib",
+ "mlua",
+ "serde_json",
+ "shell-words",
+ "tokio",
+ "toml",
 ]
 
 [[package]]

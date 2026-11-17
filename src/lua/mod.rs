@@ -13,7 +13,7 @@
 
 mod execute;
 mod inject;
-pub mod modules;
+pub(crate) mod modules;
 
 pub use execute::{check_compiles, execute, set_toasts_to_stderr};
 pub use inject::{LuaFn, call_transform, compile_script};

@@ -21,7 +21,7 @@ static LUA_LOCK: Mutex<()> = Mutex::new(());
 fn lua_vm() -> &'static Lua {
     VM.get_or_init(|| {
         let lua = Box::leak(Box::new(Lua::new()));
-        let _ = super::modules::register_lunacolors(lua);
+        let _ = matchmaker_mlua_bindings::register_lunacolors(lua);
         lua
     })
 }

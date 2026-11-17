@@ -47,7 +47,7 @@ Different tasks need different relationships with the terminal: interactive prom
 
 ## Lua environment
 
-Each menu action runs inside a fresh, isolated Lua 5.4 VM so concurrent background and queued runs never share or leak global state. Scripts execute in `fs`'s process working directory rather than the active pane's directory, so commands that rely on a specific cwd should pass `{ cwd = ... }` to `proc.run` / `proc.spawn` or `cd` explicitly.
+Each menu action runs inside a fresh, isolated Lua 5.4 VM so concurrent background and queued runs never share or leak global state. Scripts execute in `fs`'s process working directory rather than the active pane's directory, so commands that rely on a specific cwd should pass `{ cwd = ... }` to `proc.run` / `proc.spawn` / `proc.exec` or `cd` explicitly.
 
 Alongside the six standard modules (`path`, `fs`, `proc`, `util`, `input`, and `lunacolors`) documented in [Lua](lua.md), f:st injects these globals and vararg (`...`) parameters:
 

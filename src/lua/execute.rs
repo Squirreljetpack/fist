@@ -96,10 +96,14 @@ pub fn execute(
 
 /// Compile `source` against a scratch VM without running it; used by
 /// `fs :tool check`.
+///
+/// Compiling never evaluates a chunk, so the registered module set cannot
+/// change the outcome either way; the non-interactive set keeps the check from
+/// looking like a guarantee that a script may call `input`.
 pub fn check_compiles(source: &str) -> Result<(), String> {
     let lua = Lua::new();
     register_toast_globals(&lua)?;
-    super::modules::register_modules(&lua, true).map_err(|e| e.to_string())?;
+    super::modules::register_modules(&lua, false).map_err(|e| e.to_string())?;
     lua.load(source)
         .into_function()
         .map(|_| ())
@@ -496,6 +500,13 @@ mod tests {
             assert(type(input.prompt) == "function", "input.prompt")
             assert(type(input.confirm) == "function", "input.confirm")
             assert(type(input.select) == "function", "input.select")
+
+            -- fist-appended functions are reachable through require(...) too
+            assert(require("path").mime("test.png") == "image/png", "require('path').mime")
+            assert(type(require("util").clipboard_get) == "function", "require('util').clipboard_get")
+            assert(type(require("util").clipboard_set) == "function", "require('util').clipboard_set")
+            assert(type(require("fs").trash) == "function", "require('fs').trash")
+            assert(type(require("proc").editor) == "function", "require('proc').editor")
         "#;
         let res = execute(cmd, &[], "", None, None, true);
         assert!(res.is_ok(), "interactive modules test failed: {res:?}");
@@ -506,6 +517,10 @@ mod tests {
             assert(proc.editor == nil, "proc.editor must NOT be injected into non-interactive actions")
             assert(type(util) == "table", "util is still available")
             assert(type(lunacolors) == "table", "lunacolors is still available")
+            assert(require("proc").editor == nil, "require('proc').editor is interactive-only")
+            assert(not pcall(require, "input"), "require('input') is interactive-only")
+            assert(type(require("path").mime) == "function", "require('path').mime")
+            assert(type(require("fs").trash) == "function", "require('fs').trash")
         "#;
         let non_interactive_res = execute(non_interactive_cmd, &[], "", None, None, false);
         assert!(
