@@ -579,3 +579,8 @@ fist integrates into [CommandSpace](https://github.com/Squirreljetpack/command-s
 ### Docs
 
 Help is plentiful and always readily accessible: in the [user documentation](https://squirreljetpack.github.io/fist-docs/), from the command line via `--help`, or in-app via `alt-h`.
+
+## License
+
+F:st is licensed under the GNU Affero General Public License, version 3. See
+[LICENSE](./LICENSE).

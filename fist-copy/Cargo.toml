@@ -3,7 +3,7 @@ name = "fist-copy"
 version.workspace = true
 edition.workspace = true
 homepage.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 description = "Background copy/move/extract engine for fist: worker pool, reflink, cancellation, progress"
 

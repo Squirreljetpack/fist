@@ -2,9 +2,9 @@
 name = "fist-types"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
-description = "Shared types for the Fist search tool"
+description = "Shared types for F:st, the terminal file manager"
 
 [dependencies]
 clap = { workspace = true }

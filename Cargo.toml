@@ -11,7 +11,7 @@ members = [
 version = "0.0.4"
 edition = "2024"
 homepage = "https://github.com/Squirreljetpack/fist"
-license-file = "LICENSE"
+license = "AGPL-3.0-only"
 repository = "https://github.com/Squirreljetpack/fist"
 
 [workspace.dependencies]
@@ -32,11 +32,13 @@ thiserror = "2.0"
 [package]
 name = "fist"
 version.workspace = true
+categories = ["command-line-utilities"]
 edition.workspace = true
 homepage.workspace = true
-license-file.workspace = true
+keywords = ["tui", "file-manager", "terminal", "ratatui", "filesystem"]
+license.workspace = true
 repository.workspace = true
-description = "F:st: Interactive Search Tool"
+description = "F:st: fast, extensible terminal file manager"
 
 [dependencies]
 cli_boilerplate_automation = { workspace = true }
