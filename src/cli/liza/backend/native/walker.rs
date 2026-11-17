@@ -1,9 +1,11 @@
 use std::{
     fs::{self, Metadata},
-    os::unix::fs::PermissionsExt,
     path::Path,
     time::SystemTime,
 };
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 use ignore::{DirEntry, WalkBuilder};
 
@@ -66,11 +68,16 @@ fn extract_metadata(
     let mut file_meta = FileMetadata::default();
 
     if let Some(m) = meta {
-        let mode = m.permissions().mode() & 0o7777;
-        if config.show_octal {
-            file_meta.permissions = Some(format!("{mode:04o}"));
-        } else if !config.no_permissions || config.show_clean_long || config.show_extensive {
-            file_meta.permissions = Some(format_symbolic_permissions(mode, is_dir));
+        // Only unix carries permission bits; the Windows readonly attribute is
+        // not worth a column, so the field stays empty there.
+        #[cfg(unix)]
+        {
+            let mode = m.permissions().mode() & 0o7777;
+            if config.show_octal {
+                file_meta.permissions = Some(format!("{mode:04o}"));
+            } else if !config.no_permissions || config.show_clean_long || config.show_extensive {
+                file_meta.permissions = Some(format_symbolic_permissions(mode, is_dir));
+            }
         }
 
         if !config.no_filesize

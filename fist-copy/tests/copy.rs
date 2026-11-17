@@ -86,6 +86,7 @@ fn tree_copy_preserves_content_structure_and_metadata() {
     fs::create_dir_all(s.join("empty/inner")).expect("dirs");
 
     let f = s.join("a.txt");
+    #[cfg(unix)]
     fs::set_permissions(&f, std::os::unix::fs::PermissionsExt::from_mode(0o750))
         .expect("chmod file");
     let old = fs::FileTimes::new().set_modified(std::time::SystemTime::UNIX_EPOCH);
@@ -440,6 +441,7 @@ fn reflink_auto_falls_back_gracefully_and_produces_correct_content() {
     assert_eq!(fs::read(&out).expect("read"), vec![9u8; 200_000].as_slice());
 }
 
+#[cfg(unix)]
 #[test]
 fn single_symlink_job_copies_the_link_itself() {
     use std::os::unix::fs::symlink;

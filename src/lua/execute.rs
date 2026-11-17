@@ -224,6 +224,7 @@ mod tests {
         AbsPath::new(std::path::PathBuf::from(s))
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_execute_chmod_script() {
         use std::os::unix::fs::PermissionsExt;

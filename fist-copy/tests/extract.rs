@@ -88,14 +88,17 @@ fn make_archives(f: &Fixture) -> Vec<(PathBuf, &'static str)> {
         out.push((p, "zip"));
 
         // a second zip that contains a symlink (-y stores it as a link)
-        let p = d.join("links.zip");
-        std::os::unix::fs::symlink("hello.txt", src("src/link.txt")).ok();
-        run(std::process::Command::new("zip")
-            .args(["-q", "-r", "-y"])
-            .arg(&p)
-            .arg(".")
-            .current_dir(src("src")));
-        out.push((p, "zip+links"));
+        #[cfg(unix)]
+        {
+            let p = d.join("links.zip");
+            std::os::unix::fs::symlink("hello.txt", src("src/link.txt")).ok();
+            run(std::process::Command::new("zip")
+                .args(["-q", "-r", "-y"])
+                .arg(&p)
+                .arg(".")
+                .current_dir(src("src")));
+            out.push((p, "zip+links"));
+        }
     }
     if have("ar") && cfg!(feature = "ar") {
         let p = d.join("a.ar");
