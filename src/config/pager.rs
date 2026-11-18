@@ -19,6 +19,9 @@ pub struct PagerConfig {
     /// Always enable horizontal scrolling.
     pub horizontal_scroll: bool,
 
+    /// Enable horizontal mouse wheel scrolling (`scroll:left` / `scroll:right`).
+    pub mouse_horizontal_scroll: bool,
+
     /// Smart case search: queries with no uppercase characters match case-
     /// insensitively, queries containing uppercase stay case-sensitive.
     pub smart_case: bool,
@@ -49,6 +52,7 @@ impl Default for PagerConfig {
             follow: false,
             prompt: None,
             horizontal_scroll: false,
+            mouse_horizontal_scroll: false,
             smart_case: true,
             smart_changes: false,
             copy_on_select: false,

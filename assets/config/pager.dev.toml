@@ -8,6 +8,8 @@ line_numbers = false
 
 horizontal_scroll = false
 
+mouse_horizontal_scroll = false
+
 smart_case = false
 
 smart_changes = true

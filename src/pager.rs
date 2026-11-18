@@ -417,6 +417,9 @@ fn configure_pager(pager: &Pager) {
     // Default bindings plus the Alt-h help binding.
     let mut input_register = minus::input::HashedEventRegister::default();
     input_register.add_help_key(&[]);
+    if cfg.mouse_horizontal_scroll {
+        input_register.add_horizontal_mouse_scroll();
+    }
 
     // Copy selection to clipboard with toast acknowledgment
     let toast_pager = pager.clone();

@@ -16,17 +16,19 @@
 bat_opts = ["--color=always", "--style=changes"]
 line_numbers = false
 horizontal_scroll = false
+mouse_horizontal_scroll = false
 smart_case = true
 # prompt = "" # disable prompt text
 ```
 
-| Field               | Type            | Meaning                                                                                               |
-| ------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
-| `bat_opts`          | list of strings | Extra arguments passed to `bat`.                                                                      |
-| `line_numbers`      | bool            | Show line numbers in the pager.                                                                       |
-| `horizontal_scroll` | bool            | Always enable horizontal scrolling (Ctrl+h still toggles it).                                         |
-| `prompt`            | string          | Footer prompt text shown by the pager.                                                                |
-| `smart_case`        | bool            | Queries with no uppercase chars match case-insensitively; queries with uppercase stay case-sensitive. |
+| Field                     | Type            | Meaning                                                                                               |
+| ------------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
+| `bat_opts`                | list of strings | Extra arguments passed to `bat`.                                                                      |
+| `line_numbers`            | bool            | Show line numbers in the pager.                                                                       |
+| `horizontal_scroll`       | bool            | Always enable horizontal scrolling (Ctrl+h still toggles it).                                         |
+| `mouse_horizontal_scroll` | bool            | Enable horizontal mouse wheel scrolling.                                                              |
+| `prompt`                  | string          | Footer prompt text shown by the pager.                                                                |
+| `smart_case`              | bool            | Queries with no uppercase chars match case-insensitively; queries with uppercase stay case-sensitive. |
 
 `bat` is only used when the `bat` binary is on `PATH`; without it, output
 passes through uncolored. Piped stdin has no name for bat to detect a language

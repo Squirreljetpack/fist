@@ -12,6 +12,9 @@ line_numbers = false
 # Enable horizontal scrolling on start.
 horizontal_scroll = false
 
+# Enable horizontal mouse wheel scrolling.
+mouse_horizontal_scroll = false
+
 # Smart case search: when enabled, queries with no uppercase characters
 # match case-insensitively; queries containing uppercase stay case-sensitive.
 smart_case = true
