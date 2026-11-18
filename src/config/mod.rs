@@ -189,6 +189,9 @@ pub struct InterfaceConfig {
     // actions
     /// The command template to execute when [FsAction::Advance](`crate::run::FsAction::Advance`) is invoked on a file.
     pub advance_command: String,
+    /// When false, `Advance` and `Parent` in the app pane navigate the query
+    /// text as `ForwardChar` and `BackwardChar` instead of running their actions.
+    pub allow_advance_in_app: bool,
     /// If true, the functions of the Accept and Print actions will be swapped.
     pub alt_accept: bool,
     /// If true, a print emits the current item instead of the selection; a sink
@@ -250,6 +253,7 @@ impl Default for InterfaceConfig {
             no_multi_print: false,
             always_paste: false,
             advance_command: Preset::Edit.to_command_string(When::Auto, false),
+            allow_advance_in_app: false,
             cwd_prompt: "{=} ".into(),
             toast_on_empty: true,
             jump_or_advance: false,

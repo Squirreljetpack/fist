@@ -85,6 +85,9 @@ refind = "Search"
 ### MISC ###
 
 [interface]
+# Let Advance and Parent run in the app pane instead of moving the query cursor.
+# allow_advance_in_app = true
+
 # hide the preview when in the query bar
 # hide_preview_when_cursor_disabled = true
 

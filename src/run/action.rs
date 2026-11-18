@@ -369,17 +369,14 @@ pub fn fsaction_aliaser(
             // Actions which only trigger when not in the prompt:
             // -------------------------------------------------
             FsAction::Parent => {
-                if raw_input {
+                if raw_input || (STACK::in_app() && !GLOBAL::cfg().interface.allow_advance_in_app) {
                     acs![Action::BackwardChar]
-                } else if STACK::in_app() {
-                    // todo()
-                    acs![]
                 } else {
                     acs![Action::Custom(fa)]
                 }
             }
             FsAction::Advance => {
-                if raw_input {
+                if raw_input || (STACK::in_app() && !GLOBAL::cfg().interface.allow_advance_in_app) {
                     acs![Action::ForwardChar]
                 } else {
                     acs![Action::Custom(fa)]
