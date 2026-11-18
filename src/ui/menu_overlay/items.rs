@@ -32,6 +32,7 @@ pub enum MenuItem {
     Delete,
     Open,
     OpenWith,
+    Reveal,
     Extract,
     Unmount,
     Mounts,
@@ -69,6 +70,7 @@ impl MenuItem {
             MenuItem::Delete => "delete",
             MenuItem::Open => "open",
             MenuItem::OpenWith => "open with",
+            MenuItem::Reveal => "reveal",
             MenuItem::Extract => "extract",
             MenuItem::Unmount => "unmount",
             MenuItem::Mounts => "show mounts",
@@ -89,6 +91,7 @@ impl MenuItem {
             MenuItem::Delete => Some("D"),
             MenuItem::Open => Some("O"),
             MenuItem::OpenWith => Some("W"),
+            MenuItem::Reveal => None,
             MenuItem::Extract => Some("E"),
             MenuItem::Unmount => None,
             MenuItem::Mounts => None,
@@ -203,6 +206,12 @@ impl MenuItem {
                 });
                 MenuOutcome::Close
             }
+            MenuItem::Reveal => {
+                // the menu's target is the cursor item, or the cwd when the
+                // cursor is disabled
+                GLOBAL::send_action(FsAction::Reveal);
+                MenuOutcome::Close
+            }
             MenuItem::Extract => MenuOutcome::Prompt(extract_prompt_for(&path)),
             MenuItem::Unmount => {
                 if let Some(mount_point) = crate::mount::unmountable(path.as_path()) {
@@ -309,7 +318,7 @@ impl ColumnIndexable for MenuEntry {
     }
 }
 
-const MENU_ITEMS: [MenuItem; 15] = [
+const MENU_ITEMS: [MenuItem; 16] = [
     MenuItem::New,
     MenuItem::Rename,
     MenuItem::Move,
@@ -318,6 +327,7 @@ const MENU_ITEMS: [MenuItem; 15] = [
     MenuItem::Delete,
     MenuItem::Open,
     MenuItem::OpenWith,
+    MenuItem::Reveal,
     MenuItem::Extract,
     MenuItem::Unmount,
     MenuItem::Mounts,
@@ -425,5 +435,22 @@ pub(super) fn stream_menu_items(
         {
             return;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn builtin_aliases_do_not_collide() {
+        let aliases: Vec<&str> = MENU_ITEMS.iter().filter_map(MenuItem::alias).collect();
+        let unique: HashSet<&str> = aliases.iter().copied().collect();
+        assert_eq!(
+            aliases.len(),
+            unique.len(),
+            "duplicate aliases in {aliases:?}"
+        );
     }
 }

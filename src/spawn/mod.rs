@@ -121,6 +121,42 @@ pub fn open(
     (!words.is_empty()).then(|| spawn(&words))
 }
 
+/// Reveal `path` in the system file manager, without waiting for it.
+///
+/// Finder and Explorer select the item itself; other platforms open the
+/// directory containing it. The root has no containing directory, so it is
+/// opened directly.
+pub fn reveal(path: &AbsPath) -> Result<(), CliError> {
+    let has_parent = path.parent().is_some();
+
+    let words: Vec<OsString> = if cfg!(target_os = "macos") {
+        if has_parent {
+            vec_![: "open", "-R", path]
+        } else {
+            vec_![: "open", path]
+        }
+    } else if cfg!(target_os = "windows") {
+        // todo: untested
+        if has_parent {
+            let mut select = OsString::from("/select,");
+            select.push(path.as_path());
+            vec_![: "explorer", select]
+        } else {
+            vec_![: "explorer", path]
+        }
+    } else if cfg!(target_os = "linux") {
+        vec_![: "xdg-open", path._parent()]
+    } else {
+        eprintln!("Unsupported platform, cannot reveal: {path}");
+        return Err(CliError::Handled);
+    };
+
+    spawn(&words)
+        .spawn_detached()
+        .map(|_| ())
+        .ok_or(CliError::Handled)
+}
+
 static SPAWN_WITH: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 pub fn init_spawn_with(cmd: Vec<String>) {

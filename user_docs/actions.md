@@ -48,18 +48,19 @@ Menu actions (`actions.toml`) are a separate, Lua-based mechanism; see
 
 ## Files & directories
 
-| Action                 | Description                                                                                                                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Move`                 | Enqueue the selection (or the current directory in prompt mode) under the `move` kind, and cut the paths to the system clipboard when `interface.move_files_to_clipboard` is enabled. |
-| `Copy`                 | Enqueue the selection under the `copy` kind, and copy the files to the system clipboard when `interface.copy_files_to_clipboard` is enabled.                                          |
-| `CopyPath`             | Copy the selected paths as text.                                                                                                                                                      |
-| `CopyFiles`            | Copy the selected files themselves, for pasting into a file manager.                                                                                                                  |
-| `New`                  | Create a file relative to the current item's parent. A trailing separator creates a directory. Unavailable in the app pane.                                                           |
-| `NewFolder`            | Create a directory relative to the current item's parent. Unavailable in the app pane.                                                                                                |
-| `Rename`               | Rename the item under the cursor, or the current directory in prompt mode. Unavailable in the app pane.                                                                               |
-| `Trash([no_confirm])`  | Move the item to the system trash. Pass `true` to skip the confirmation prompt: `Trash(true)`.                                                                                        |
-| `Delete([no_confirm])` | Permanently delete the item. Pass `true` to skip the confirmation prompt.                                                                                                             |
-| `Paste([destination])` | Execute all pending `copy`, `move`, and `symlink` rows into the current directory, or into an absolute destination path.                                                              |
+| Action                 | Description                                                                                                                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Move`                 | Enqueue the selection (or the current directory in prompt mode) under the `move` kind, and cut the paths to the system clipboard when `interface.move_files_to_clipboard` is enabled.     |
+| `Copy`                 | Enqueue the selection under the `copy` kind, and copy the files to the system clipboard when `interface.copy_files_to_clipboard` is enabled.                                              |
+| `CopyPath`             | Copy the selected paths as text.                                                                                                                                                          |
+| `CopyFiles`            | Copy the selected files themselves, for pasting into a file manager.                                                                                                                      |
+| `Reveal`               | Reveal the item under the cursor, or the current directory in prompt mode, in the system file manager: the item is selected in Finder or Explorer, and its directory is opened elsewhere. |
+| `New`                  | Create a file relative to the current item's parent. A trailing separator creates a directory. Unavailable in the app pane.                                                               |
+| `NewFolder`            | Create a directory relative to the current item's parent. Unavailable in the app pane.                                                                                                    |
+| `Rename`               | Rename the item under the cursor, or the current directory in prompt mode. Unavailable in the app pane.                                                                                   |
+| `Trash([no_confirm])`  | Move the item to the system trash. Pass `true` to skip the confirmation prompt: `Trash(true)`.                                                                                            |
+| `Delete([no_confirm])` | Permanently delete the item. Pass `true` to skip the confirmation prompt.                                                                                                                 |
+| `Paste([destination])` | Execute all pending `copy`, `move`, and `symlink` rows into the current directory, or into an absolute destination path.                                                                  |
 
 In the database-backed panes (history and stashes), `Trash` and `Delete` can
 remove the database record instead of touching the filesystem; see

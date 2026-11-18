@@ -47,7 +47,7 @@ use crate::{
             context::ActionContext, lessfilter_cfg, sort,
         },
     },
-    spawn::open_wrapped,
+    spawn::{open_wrapped, reveal},
     ui::{
         OverlayId,
         confirm_overlay::ConfirmPrompt,
@@ -134,6 +134,9 @@ pub enum FsAction {
     /// Copy the selected files themselves to the system clipboard, to be
     /// pasted into a file manager.
     CopyFiles,
+    /// Reveal the current item in the system file manager: the item is
+    /// selected in Finder or Explorer, and its directory is opened elsewhere.
+    Reveal,
     /// Create a new file. Paths are relative to the current item's parent.
     New,
     /// Create a new directory. Paths are relative to the current item's parent.
@@ -1267,6 +1270,16 @@ pub fn fsaction_handler(
 
             copy_paths(paths, Payload::Files(CopyMode::Copy), true);
         }
+        FsAction::Reveal => {
+            // the item under the cursor, or the cwd when there is none
+            let path = resolve_target(state, true)
+                .or_else(STACK::cwd)
+                .unwrap_or_else(STACK::_cwd);
+            TOAST::push(ToastStyle::Normal, "Revealed", [short_display(&path)]);
+            TASKS::spawn("reveal", async move {
+                reveal(&path)._elog();
+            });
+        }
         FsAction::Paste(dest_base) => {
             let base = if dest_base.is_empty() {
                 if let Some(c) = STACK::nav_cwd() {
@@ -2024,7 +2037,7 @@ enum_from_str_display! {
     Undo, Redo,
     ShowOptions, Help, ShowQueue, ShowMounts,
     ShowMenu, CycleFilter, ToggleFilter,
-    Move, Copy, CopyPath, CopyFiles, New, NewFolder, Rename;
+    Move, Copy, CopyPath, CopyFiles, Reveal, New, NewFolder, Rename;
 
     tuples:
     JumpOrAccept, SetAlias, Enqueue, SetSort,
