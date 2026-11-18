@@ -135,6 +135,10 @@ impl ConfirmOverlay {
 }
 
 impl Overlay<FsAction, PathItem, ()> for ConfirmOverlay {
+    fn allow_scroll(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn on_enable(
         &mut self,
         _area: &Rect,

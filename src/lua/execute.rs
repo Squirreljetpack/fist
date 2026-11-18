@@ -142,7 +142,7 @@ fn register_toast_globals(lua: &Lua) -> Result<(), String> {
             if toasts_to_stderr() {
                 eprintln!("{toast_style}: {msg}");
             } else {
-                TOAST::notice(toast_style, msg);
+                TOAST::LUA.notice(toast_style, msg);
             }
             Ok(())
         })
@@ -153,9 +153,13 @@ fn register_toast_globals(lua: &Lua) -> Result<(), String> {
             |_, (style, prefix, item): (Option<String>, String, String)| {
                 let toast_style = parse_toast_style(style.as_deref());
                 if toasts_to_stderr() {
-                    eprintln!("{toast_style}: {prefix}{item}");
+                    if prefix.is_empty() {
+                        eprintln!("{toast_style}: {item}");
+                    } else {
+                        eprintln!("{toast_style}: {prefix}: {item}");
+                    }
                 } else {
-                    TOAST::push(toast_style, prefix, vec![Span::raw(item)]);
+                    TOAST::LUA.push(toast_style, prefix, vec![Span::raw(item)]);
                 }
                 Ok(())
             },
@@ -391,8 +395,8 @@ mod tests {
         GLOBAL::init_test_senders();
         let cmd = r#"
             toast("info", "Information message")
-            toast_push("success", "Processed: ", "file.txt")
-            toast_push("warning", "Skipped: ", "file2.txt")
+            toast_push("success", "Processed", "file.txt")
+            toast_push("warning", "Skipped", "file2.txt")
             toast("error", "Error message")
             toast(nil, "Default normal message")
         "#;

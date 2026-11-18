@@ -235,6 +235,10 @@ impl MountOverlay {
 }
 
 impl Overlay<FsAction, PathItem, ()> for MountOverlay {
+    fn allow_scroll(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn on_enable(
         &mut self,
         _area: &Rect,

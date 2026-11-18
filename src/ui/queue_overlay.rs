@@ -601,6 +601,10 @@ impl QueueOverlay {
 }
 
 impl Overlay<FsAction, PathItem, ()> for QueueOverlay {
+    fn allow_scroll(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn on_enable(
         &mut self,
         _area: &Rect,
@@ -837,6 +841,10 @@ fn app_pending() -> Vec<AbsPath> {
 }
 
 impl Overlay<FsAction, PathItem, ()> for AppOverlay {
+    fn allow_scroll(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn on_enable(
         &mut self,
         _area: &Rect,

@@ -79,6 +79,10 @@ show = true
 row_connection = "Capped"
 style = { modifier = "DIM | ITALIC", fg = "Gray" }
 
+[toast]
+frame.sides = ""
+max_height = 16
+
 [query_locked.query]
 # Frame while the prompt is locked.
 frame = { sides = "BOTTOM", fg = "red" }

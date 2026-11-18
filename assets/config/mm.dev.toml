@@ -36,6 +36,10 @@ frame = { type = "Rounded", sides = "ALL", fg = "blue" }
 [results]
 delay_clear = true
 
+[toast]
+frame.sides = ""
+max_height = 16
+
 [prompt]
 # (New, NewFolder, Rename, Jump, Extract, SetAlias)
 # recenter the cursor at the middle of the bar when it reaches the left scroll edge

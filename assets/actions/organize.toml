@@ -39,13 +39,13 @@ for i, root in ipairs(paths) do
       if ok then
         moved = moved + 1
       else
-        toast_push("error", "Kept in place: ", path.base(file))
+        toast_push("error", "Kept in place", path.base(file))
       end
     end
     -- deepest first, so nested empties go before their parents
     for _, dir in ipairs(dirs) do pcall(fs.remove, dir) end
 
-    toast_push("success", "Flattened: ", path.base(root) .. " (" .. moved .. " files)")
+    toast_push("success", "Flattened", path.base(root) .. " (" .. moved .. " files)")
   end
 end
 """
@@ -141,7 +141,7 @@ for i, item in ipairs(staged) do
   end
 end
 
-toast_push("success", "Renamed: ", #staged == 1 and path.base(staged[1].dst) or (#staged .. " items"))
+toast_push("success", "Renamed", #staged == 1 and path.base(staged[1].dst) or (#staged .. " items"))
 """
 
 ["dedupe"]
@@ -197,5 +197,5 @@ if not written then
   toast("error", "Unchanged: " .. path.base(p) .. " (" .. tostring(err) .. ")")
   return
 end
-toast_push("success", ("Removed %d duplicate line%s: "):format(#dropped, #dropped == 1 and "" or "s"), path.base(p))
+toast_push("success", ("Removed %d duplicate line%s"):format(#dropped, #dropped == 1 and "" or "s"), path.base(p))
 """

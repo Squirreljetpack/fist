@@ -20,7 +20,7 @@ use fist_copy::{Scheduler, TaskState};
 use super::*;
 use crate::run::{
     item::short_display,
-    state::{GLOBAL::db, TOAST, ToastFlags, ToastStyle},
+    state::{GLOBAL::db, TOAST, ToastStyle},
 };
 
 pub static COPY_SCHED: OnceLock<Scheduler> = OnceLock::new();
@@ -103,7 +103,7 @@ fn tick(
             TaskState::CompleteOk => finalize(item, QueueItemState::CompleteOk, |item| {
                 maybe_bump_dest(item);
                 if let Some(first) = item.src.first() {
-                    TOAST::push(ToastStyle::Success, "Complete: ", [short_display(first)]);
+                    TOAST::push(ToastStyle::Success, "Complete", [short_display(first)]);
                 }
             }),
             TaskState::CompleteErr | TaskState::Canceled => {
@@ -118,7 +118,7 @@ fn tick(
                 });
                 finalize(item, QueueItemState::CompleteErr, |item| {
                     if let Some(first) = item.src.first() {
-                        TOAST::push(ToastStyle::Error, "Failed: ", [short_display(first)]);
+                        TOAST::push(ToastStyle::Error, "Failed", [short_display(first)]);
                     }
                     TOAST::notice(ToastStyle::Error, why);
                 });
@@ -163,12 +163,7 @@ fn discover(
             if item.kind == "extract"
                 && let Some(first) = item.src.first()
             {
-                TOAST::push_with_flag(
-                    ToastStyle::Info,
-                    "Extracting: ",
-                    [short_display(first)],
-                    ToastFlags::PERSIST,
-                );
+                TOAST::PERSIST.push(ToastStyle::Info, "Extracting", [short_display(first)]);
             }
             seen.insert(id, item.clone());
         }
@@ -216,7 +211,7 @@ fn finalize(
         }
         // retire the persistent toast pushed when entering the archive
         if let Some(first) = item.src.first() {
-            TOAST::pop("Extracting: ", &short_display(first));
+            TOAST::pop("Extracting", &short_display(first));
         }
     }
 }

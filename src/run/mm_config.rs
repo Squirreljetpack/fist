@@ -3,9 +3,8 @@ use matchmaker::{
     binds::{BindMap, BindMapExt, ResolvedBindMap},
     collections::HiddenColumns,
     config::{
-        DisplayConfig, HelpDisplayConfig, OverlayConfig, PartialQueryConfig, PartialStatusConfig,
-        Percentage, PreviewSetting, PreviewerConfig, RenderConfig, RowConnectionStyle,
-        TerminalConfig, TerminalLayoutSettings,
+        HelpDisplayConfig, OverlayConfig, PartialQueryConfig, PartialStatusConfig, Percentage,
+        PreviewSetting, PreviewerConfig, RenderConfig, TerminalConfig, TerminalLayoutSettings,
     },
     nucleo::nucleo,
 };
@@ -123,7 +122,7 @@ pub fn get_mm_cfg(
         results,
         status,
         preview,
-        footer,
+        footer: _,
         header: _,
         toast: _,
     } = &mut mm_cfg.render;
@@ -145,13 +144,6 @@ pub fn get_mm_cfg(
     if status.template.is_empty() {
         status.template = r#"\m/\t"#.to_string();
     }
-
-    *footer = DisplayConfig {
-        style: Default::default(),
-        wrap: true,
-        row_connection: RowConnectionStyle::Full,
-        ..Default::default()
-    };
 
     // Preview display
 

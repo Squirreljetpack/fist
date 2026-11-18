@@ -43,8 +43,8 @@ use crate::{
         reload::{enter_dir_pane, fs_reload},
         state::{
             AcceptAsPrint, ConfirmStderr, ExecuteHandlerShouldProcessParent, GLOBAL, InPrompt,
-            MENU_ACTIONS, MenuPrompt, PromptKind, STACK, STORE, TASKS, TOAST, ToastFlags,
-            ToastStyle, context::ActionContext, lessfilter_cfg, sort,
+            MENU_ACTIONS, MenuPrompt, PromptKind, STACK, STORE, TASKS, TOAST, ToastStyle,
+            context::ActionContext, lessfilter_cfg, sort,
         },
     },
     spawn::open_wrapped,
@@ -216,7 +216,6 @@ pub enum FsAction {
     // ----------------------------------
     SaveInput,
     SetHeader(Option<Text<'static>>),
-    SetFooter(Option<Text<'static>>),
     Reload,
     /// Apply the current pane sort to the worker (also lands pending fill values).
     ReSort,
@@ -238,10 +237,6 @@ impl FsAction {
     // fn unchecked_jump(p: AbsPath) -> Self {
     //     Self::Jump(p.into(), Some('\0'))
     // }
-    #[inline]
-    pub fn set_footer(p: impl Into<Option<Text<'static>>>) -> Self {
-        Self::SetFooter(p.into())
-    }
     #[inline]
     pub fn set_header(p: impl Into<Option<Text<'static>>>) -> Self {
         Self::SetHeader(p.into())
@@ -335,14 +330,6 @@ pub fn fsaction_aliaser(
                     state.picker_ui.header.set(text);
                 } else {
                     state.picker_ui.header.clear(true);
-                }
-                acs![]
-            }
-            FsAction::SetFooter(text) => {
-                if let Some(text) = text {
-                    state.footer_ui.set(text);
-                } else {
-                    state.footer_ui.clear(false);
                 }
                 acs![]
             }
@@ -863,7 +850,7 @@ pub fn fsaction_handler(
                                 // toasts of the one left
                                 TOAST::push(
                                     ToastStyle::Warning,
-                                    "Entering: ",
+                                    "Entering",
                                     [Span::raw("failed extraction")],
                                 );
                             }
@@ -935,12 +922,7 @@ pub fn fsaction_handler(
             };
             if !items.is_empty() {
                 QUEUE::enqueue("move".into(), items);
-                TOAST::push_with_flag(
-                    ToastStyle::Normal,
-                    "Move: ",
-                    toast_vec,
-                    ToastFlags::SUSTAINED,
-                );
+                TOAST::SUSTAINED.push(ToastStyle::Normal, "Move", toast_vec);
                 if let Some(payload) = copy_payload(CopyMode::Cut) {
                     copy_paths(cb_vec, payload, false);
                 }
@@ -966,12 +948,7 @@ pub fn fsaction_handler(
             };
             if !items.is_empty() {
                 QUEUE::enqueue("copy".into(), items);
-                TOAST::push_with_flag(
-                    ToastStyle::Normal,
-                    "Copied: ",
-                    toast_vec,
-                    ToastFlags::SUSTAINED,
-                );
+                TOAST::SUSTAINED.push(ToastStyle::Normal, "Copied", toast_vec);
                 if let Some(payload) = copy_payload(CopyMode::Copy) {
                     copy_paths(cb_vec, payload, false);
                 }
@@ -1062,9 +1039,9 @@ pub fn fsaction_handler(
             db_stash(name.clone(), items, reload);
 
             let prefix = if name.is_empty() {
-                Cow::Borrowed("Stashed: ")
+                Cow::Borrowed("Stashed")
             } else {
-                Cow::Owned(format!("Stashed to {name}: "))
+                Cow::Owned(format!("Stashed to {name}"))
             };
             TOAST::push(ToastStyle::Normal, prefix, toast_vec);
             state.picker_ui.clear_selections();
@@ -1145,13 +1122,13 @@ pub fn fsaction_handler(
                 for path in items {
                     match trash(&path) {
                         Ok(()) => {
-                            TOAST::push(ToastStyle::Success, "Trashed: ", [short_display(&path)]);
+                            TOAST::push(ToastStyle::Success, "Trashed", [short_display(&path)]);
                         }
                         Err(e) => {
                             log::error!("Failed to trash {}: {e}", path.to_string_lossy());
                             TOAST::push(
                                 ToastStyle::Error,
-                                "Failed to trash: ",
+                                "Failed to trash",
                                 [short_display(&path)],
                             );
                         }
@@ -1237,11 +1214,10 @@ pub fn fsaction_handler(
                 .unwrap_or(false);
 
                 if big_delete {
-                    TOAST::push_with_flag(
+                    TOAST::PERSIST.push(
                         ToastStyle::Info,
-                        "Deleting: ",
+                        "Deleting",
                         items.iter().map(|p| short_display(p)),
-                        ToastFlags::PERSIST,
                     );
                 }
 
@@ -1254,20 +1230,20 @@ pub fn fsaction_handler(
 
                     match result {
                         Ok(()) => {
-                            TOAST::push(ToastStyle::Success, "Deleted: ", [short_display(&path)]);
+                            TOAST::push(ToastStyle::Success, "Deleted", [short_display(&path)]);
                         }
                         Err(e) => {
                             log::error!("Failed to delete {}: {e}", path.to_string_lossy());
                             TOAST::push(
                                 ToastStyle::Error,
-                                "Failed to delete: ",
+                                "Failed to delete",
                                 [short_display(&path)],
                             );
                         }
                     }
 
                     if big_delete {
-                        TOAST::pop("Deleting: ", &short_display(&path));
+                        TOAST::pop("Deleting", &short_display(&path));
                     }
                 }
             });
@@ -1388,7 +1364,7 @@ pub fn fsaction_handler(
                             QUEUE::enqueue(kind.clone(), items);
                             TOAST::push(
                                 ToastStyle::Normal,
-                                format!("Enqueued ({kind}): "),
+                                format!("Enqueued ({kind})"),
                                 toast_vec,
                             );
                         }
@@ -1420,7 +1396,7 @@ pub fn fsaction_handler(
                         QUEUE::enqueue(kind.clone(), targets);
                     }
                 }
-                TOAST::push(ToastStyle::Normal, "Queued: ", displays);
+                TOAST::push(ToastStyle::Normal, "Queued", displays);
             }
         }
         // filters
@@ -1434,15 +1410,15 @@ pub fn fsaction_handler(
                     *case
                 });
                 let style = Style::new().fg(Color::Yellow);
-                TOAST::remove("ordering: ");
-                TOAST::remove("showing: ");
-                TOAST::remove("pattern: ");
+                TOAST::remove("ordering");
+                TOAST::remove("showing");
+                TOAST::remove("pattern");
                 let label = match case {
                     fist_types::When::Auto => "smart",
                     fist_types::When::Always => "sensitive",
                     fist_types::When::Never => "ignore",
                 };
-                TOAST::replace(style, "case: ", Span::raw(label).italic());
+                TOAST::replace(style, "case", Span::raw(label).italic());
                 fs_reload(state, false, false);
             } else if STACK::with_current(|p| {
                 matches!(
@@ -1475,8 +1451,8 @@ pub fn fsaction_handler(
                     (SortOrder::size, false) => "size",
                     (SortOrder::name, false) => "name",
                 };
-                TOAST::remove("showing: ");
-                TOAST::replace(style, "ordering: ", Span::raw(label).italic());
+                TOAST::remove("showing");
+                TOAST::replace(style, "ordering", Span::raw(label).italic());
                 GLOBAL::send_action(FsAction::Refilter);
             } else {
                 let changed = STACK::with_current_mut(|p| {
@@ -1491,7 +1467,7 @@ pub fn fsaction_handler(
                             }
                         };
                         let style = Style::new().fg(Color::Yellow);
-                        TOAST::remove("ordering: ");
+                        TOAST::remove("ordering");
                         let label = if vis.dirs {
                             "dirs"
                         } else if vis.files {
@@ -1499,7 +1475,7 @@ pub fn fsaction_handler(
                         } else {
                             "all"
                         };
-                        TOAST::replace(style, "showing: ", Span::raw(label).italic());
+                        TOAST::replace(style, "showing", Span::raw(label).italic());
                         true
                     } else {
                         false
@@ -1521,12 +1497,12 @@ pub fn fsaction_handler(
                     *fixed_strings
                 });
                 let style = Style::new().fg(Color::Yellow);
-                TOAST::remove("ordering: ");
-                TOAST::remove("showing: ");
-                TOAST::remove("case: ");
+                TOAST::remove("ordering");
+                TOAST::remove("showing");
+                TOAST::remove("case");
                 TOAST::replace(
                     style,
-                    "pattern: ",
+                    "pattern",
                     Span::raw(if fixed { "fixed" } else { "regex" }).italic(),
                 );
                 GLOBAL::send_action(FsAction::Refilter);
@@ -1545,13 +1521,13 @@ pub fn fsaction_handler(
                     *sort
                 });
                 let style = Style::new().fg(Color::Yellow);
-                TOAST::remove("showing: ");
+                TOAST::remove("showing");
                 match sort {
                     SortOrder::none => {
-                        TOAST::replace(style, "ordering: ", Span::raw("frecency").italic())
+                        TOAST::replace(style, "ordering", Span::raw("frecency").italic())
                     }
                     SortOrder::atime => {
-                        TOAST::replace(style, "ordering: ", Span::raw("recent").italic())
+                        TOAST::replace(style, "ordering", Span::raw("recent").italic())
                     }
                     _ => {}
                 };
@@ -1560,14 +1536,14 @@ pub fn fsaction_handler(
                 let changed = STACK::with_current_mut(|p| {
                     if let Some(vis) = p.vis_mut() {
                         let style = Style::new().fg(Color::Yellow);
-                        TOAST::remove("ordering: ");
+                        TOAST::remove("ordering");
                         if vis.hidden || vis.all() {
                             vis.set_default();
-                            TOAST::replace(style, "showing: ", Span::raw("default").italic())
+                            TOAST::replace(style, "showing", Span::raw("default").italic())
                             // TOAST::msg(Span::styled("Default filters", style), true);
                         } else {
                             vis.hidden = true;
-                            TOAST::replace(style, "showing: ", Span::raw("hidden").italic())
+                            TOAST::replace(style, "showing", Span::raw("hidden").italic())
                             // TOAST::msg(Span::styled("Showing hidden", style), true);
                         }
                         true
@@ -1587,7 +1563,7 @@ pub fn fsaction_handler(
             let Some(target) = target else {
                 TOAST::replace(
                     Style::new().fg(Color::Yellow),
-                    "ordering: ",
+                    "ordering",
                     Span::raw("unsupported").italic(),
                 );
                 return;
@@ -1604,7 +1580,7 @@ pub fn fsaction_handler(
             if changed {
                 TOAST::replace(
                     Style::new().fg(Color::Yellow),
-                    "ordering: ",
+                    "ordering",
                     Span::raw(target.label(db)).italic(),
                 );
                 GLOBAL::send_action(FsAction::Refilter);
@@ -2132,7 +2108,7 @@ macro_rules! enum_from_str_display {
                                         write!(f, "ClearQueue({selector})")
                                     }
                                 }
-                                SaveInput | SetHeader(_) | SetFooter(_) | Reload | ReSort | ResortSizes | Refilter | AcceptPrompt(_) | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionWait(_) | MenuActionSilent(_) | MenuActionExecPaged(_) | Unmount(_) | ReloadMenu => Ok(()), // internal
+                                SaveInput | SetHeader(_) | Reload | ReSort | ResortSizes | Refilter | AcceptPrompt(_) | Filtering(_) | SetStatus(_) | Confirm | MenuAction(_) | MenuActionWait(_) | MenuActionSilent(_) | MenuActionExecPaged(_) | Unmount(_) | ReloadMenu => Ok(()), // internal
                                 Lessfilter { preset, paging, .. } => {
                                     if *paging {
                                         write!(f, "LFPaged({preset})")

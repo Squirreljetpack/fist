@@ -19,7 +19,7 @@ use crate::{
         reload::fs_reload,
         state::{
             GLOBAL, GLOBAL::db, MenuCommandPaths, MenuPrompt, MenuPromptTarget, PromptKind, STACK,
-            STORE, TASKS, TOAST, ToastFlags, ToastStyle, lessfilter_cfg,
+            STORE, TASKS, TOAST, ToastStyle, lessfilter_cfg,
         },
     },
 };
@@ -126,7 +126,7 @@ fn open_with(
     STACK::push(FsPane::new_apps(files));
     fs_reload(state, true, false);
     // after the switch: entering a pane clears the toasts of the one left
-    TOAST::push(ToastStyle::Normal, "Opening: ", displays);
+    TOAST::push(ToastStyle::Normal, "Opening", displays);
     OverlayEffect::Disable
 }
 
@@ -249,12 +249,12 @@ impl MenuOverlay {
         match action.strategy {
             MenuStrategy::Queue => {
                 QUEUE::enqueue(key.to_string(), targets);
-                TOAST::push(ToastStyle::Normal, "Queued: ", displays);
+                TOAST::push(ToastStyle::Normal, "Queued", displays);
             }
             MenuStrategy::Enqueue => {
                 if let Some(index) = QUEUE::enqueue_one(key.to_string(), targets) {
                     QUEUE::dispatch(vec![index], ctx.snapshot.nav_cwd.clone());
-                    TOAST::push(ToastStyle::Normal, "Started: ", displays);
+                    TOAST::push(ToastStyle::Normal, "Started", displays);
                 }
             }
             MenuStrategy::QueueBatch(n) => {
@@ -263,7 +263,7 @@ impl MenuOverlay {
                 for chunk in targets.chunks(n) {
                     QUEUE::enqueue(key.to_string(), chunk.to_vec());
                 }
-                TOAST::push(ToastStyle::Normal, "Queued: ", displays);
+                TOAST::push(ToastStyle::Normal, "Queued", displays);
             }
             MenuStrategy::Exec => {
                 STORE::set(MenuCommandPaths::new_from(targets));
@@ -314,11 +314,10 @@ impl MenuOverlay {
                     };
                     match reserved {
                         Ok(()) => {
-                            TOAST::push_with_flag(
+                            TOAST::SUSTAINED.push(
                                 ToastStyle::Success,
-                                "New: ",
+                                "New",
                                 [short_display(&dest)],
-                                ToastFlags::SUSTAINED,
                             );
                         }
                         Err(blaim::ClaimError::Taken) => TOAST::push_skipped(),
@@ -326,7 +325,7 @@ impl MenuOverlay {
                             log::error!("Failed to create {dest:?}: {e:?}");
                             TOAST::push(
                                 ToastStyle::Error,
-                                "Failed to create: ",
+                                "Failed to create",
                                 [short_display(&dest)],
                             );
                         }
@@ -345,11 +344,10 @@ impl MenuOverlay {
                     match blaim::reserve_dir_all(&dest, blaim::ClaimPolicy::default()) {
                         Ok(reserved) => {
                             if let Some(path) = reserved.into_path() {
-                                TOAST::push_with_flag(
+                                TOAST::SUSTAINED.push(
                                     ToastStyle::Success,
-                                    "New: ",
+                                    "New",
                                     [short_display(&path)],
-                                    ToastFlags::SUSTAINED,
                                 );
                                 if cd {
                                     GLOBAL::send_action(FsAction::Jump(vec![path]));
@@ -359,7 +357,7 @@ impl MenuOverlay {
                         Err(blaim::ClaimError::Taken) => {
                             TOAST::push(
                                 ToastStyle::Error,
-                                "Already exists: ",
+                                "Already exists",
                                 [short_display(&dest)],
                             );
                         }
@@ -367,7 +365,7 @@ impl MenuOverlay {
                             log::error!("Failed to create {dest:?}: {e}");
                             TOAST::push(
                                 ToastStyle::Error,
-                                "Failed to create: ",
+                                "Failed to create",
                                 [short_display(&dest)],
                             );
                         }
@@ -407,7 +405,7 @@ impl MenuOverlay {
                         blaim::ClaimError::Taken => {
                             TOAST::push(
                                 ToastStyle::Error,
-                                "Already exists: ",
+                                "Already exists",
                                 [short_display(&dest)],
                             );
                         }
@@ -415,7 +413,7 @@ impl MenuOverlay {
                             log::error!("Failed to rename target {dest:?}: {e}");
                             TOAST::push(
                                 ToastStyle::Error,
-                                "Failed to rename: ",
+                                "Failed to rename",
                                 [short_display(&old_path)],
                             );
                         }
@@ -450,7 +448,7 @@ impl MenuOverlay {
                             let new_display = dest.to_string_lossy().to_string().into();
                             TOAST::pair(
                                 ToastStyle::Success,
-                                "Renamed: ",
+                                "Renamed",
                                 short_display(&old_path),
                                 new_display,
                             );
@@ -479,7 +477,7 @@ impl MenuOverlay {
                             // the placeholder and invented ancestors were rolled back
                             TOAST::push(
                                 ToastStyle::Error,
-                                "Failed to rename: ",
+                                "Failed to rename",
                                 [short_display(&old_path)],
                             );
                         }
@@ -531,7 +529,7 @@ impl MenuOverlay {
                 TASKS::spawn("extract", async move {
                     if let Err(e) = crate::unzip::extract_to(&source, dest.as_path()) {
                         log::error!("Failed to extract {}: {e}", source.to_string_lossy());
-                        TOAST::push(ToastStyle::Error, "Failed to extract: ", [label]);
+                        TOAST::push(ToastStyle::Error, "Failed to extract", [label]);
                     }
                 });
             }
@@ -585,13 +583,9 @@ impl MenuOverlay {
                 }
 
                 if alias.is_empty() {
-                    TOAST::push(
-                        ToastStyle::Normal,
-                        "Alias cleared: ",
-                        [short_display(&path)],
-                    );
+                    TOAST::push(ToastStyle::Normal, "Alias cleared", [short_display(&path)]);
                 } else {
-                    TOAST::push(ToastStyle::Success, "Alias set: ", [short_display(&path)]);
+                    TOAST::push(ToastStyle::Success, "Alias set", [short_display(&path)]);
                 }
             }
         }

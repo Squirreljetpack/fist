@@ -489,7 +489,7 @@ async fn run_timer_loop(
                     resume_timer.as_mut().reset(now + thrash.resume_delay_ms);
                     TOAST::replace(
                         ToastStyle::Normal,
-                        "file watcher ",
+                        "file watcher",
                         Span::styled("paused", ToastStyle::Warning),
                     );
                     continue;
@@ -505,7 +505,7 @@ async fn run_timer_loop(
 
                 TOAST::replace(
                     ToastStyle::Normal,
-                    "file watcher ",
+                    "file watcher",
                     Span::styled("resumed", ToastStyle::Warning),
                 );
 

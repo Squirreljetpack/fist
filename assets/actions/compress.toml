@@ -39,7 +39,7 @@ local cmd = same_parent
   or ("zip -rq -j " .. util.shq(archive) .. " " .. table.concat(names, " "))
 local ok, how, code = os.execute(cmd)
 if not ok then error("zip failed: " .. tostring(code)) end
-toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(archive))
+toast_push("success", is_archive and "Updated" or "Compressed", path.base(archive))
 """
 
 ["cbz"]
@@ -71,7 +71,7 @@ local cmd = same_parent
   or ("zip -rq -j " .. util.shq(archive) .. " " .. table.concat(names, " "))
 local ok, how, code = os.execute(cmd)
 if not ok then error("cbz failed: " .. tostring(code)) end
-toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(archive))
+toast_push("success", is_archive and "Updated" or "Compressed", path.base(archive))
 """
 
 ["tar.gz"]
@@ -110,7 +110,7 @@ else
 end
 local ok, how, code = os.execute(cmd)
 if not ok then error("tar.gz failed: " .. tostring(code)) end
-toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(archive))
+toast_push("success", is_archive and "Updated" or "Compressed", path.base(archive))
 """
 
 ["tar.xz"]
@@ -149,7 +149,7 @@ else
 end
 local ok, how, code = os.execute(cmd)
 if not ok then error("tar.xz failed: " .. tostring(code)) end
-toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(archive))
+toast_push("success", is_archive and "Updated" or "Compressed", path.base(archive))
 """
 
 ["7z"]
@@ -168,5 +168,5 @@ if #names == 0 then error("no files to add to " .. path.base(archive)) end
 local ok, how, code = os.execute(
   "7z a -bd " .. util.shq(archive) .. " " .. table.concat(names, " "))
 if not ok then error("7z failed: " .. tostring(code)) end
-toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(archive))
+toast_push("success", is_archive and "Updated" or "Compressed", path.base(archive))
 """

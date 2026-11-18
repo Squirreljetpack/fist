@@ -36,6 +36,10 @@ impl EmptyOverlay {
 }
 
 impl Overlay<FsAction, PathItem, ()> for EmptyOverlay {
+    fn allow_scroll(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn handle_input(
         &mut self,
         _c: char,

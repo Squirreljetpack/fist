@@ -37,11 +37,11 @@ for _, target in ipairs(paths) do
   if proc.run("kdeconnect-cli", {"--device", id, "--share", target}).ok then
     shared = shared + 1
   else
-    toast_push("error", "Failed: ", path.base(target))
+    toast_push("error", "Failed", path.base(target))
   end
 end
 if shared > 0 then
-  toast_push("success", "Shared to " .. choice .. ": ", shared == 1 and path.base(paths[1]) or (shared .. " items"))
+  toast_push("success", "Shared to " .. choice, shared == 1 and path.base(paths[1]) or (shared .. " items"))
 end
 """
 
@@ -70,7 +70,7 @@ for _, target in ipairs(paths) do args[#args + 1] = target end
 args[#args + 1] = host .. ":"
 local res = proc.run("tailscale", args)
 if res.ok then
-  toast_push("success", "Sent to " .. host .. ": ", #paths == 1 and path.base(paths[1]) or (#paths .. " items"))
+  toast_push("success", "Sent to " .. host, #paths == 1 and path.base(paths[1]) or (#paths .. " items"))
 else
   toast("error", "tailscale file cp: " .. res.stderr)
 end
@@ -94,9 +94,9 @@ for _, target in ipairs(paths) do
     or url(proc.run("curl", {"-fsS", "--data-binary", "@" .. target, "https://paste.rs"}))
   if link then
     util.clipboard_set(link, { toast = false })
-    toast_push("success", "Uploaded: ", link)
+    toast_push("success", "Uploaded", link)
   else
-    toast_push("error", "Upload failed: ", path.base(target))
+    toast_push("error", "Upload failed", path.base(target))
   end
 end
 """

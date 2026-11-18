@@ -96,6 +96,10 @@ impl PromptOverlay {
 }
 
 impl Overlay<FsAction, PathItem, ()> for PromptOverlay {
+    fn allow_scroll(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn on_disable(&mut self) {
         self.input.inner.clear();
     }

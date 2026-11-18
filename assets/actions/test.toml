@@ -24,11 +24,11 @@ toast("err", "test: err toast")
 toast("normal", "test: normal toast")
 toast(nil, "test: nil/default toast")
 
-toast_push("info", "test: ", "info item")
-toast_push("success", "test: ", "success item")
-toast_push("warning", "test: ", "warning item")
-toast_push("error", "test: ", "error item")
-toast_push(nil, "test: ", "normal item")
+toast_push("info", "test", "info item")
+toast_push("success", "test", "success item")
+toast_push("warning", "test", "warning item")
+toast_push("error", "test", "error item")
+toast_push(nil, "test", "normal item")
 
 -- 3. os.exit stops the script without terminating the host
 local exit_ok, exit_err = pcall(function() os.exit(0) end)

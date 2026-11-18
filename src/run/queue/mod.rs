@@ -500,7 +500,7 @@ impl QUEUE {
                 log::warn!("cannot cancel running {kind} task: {display}");
                 TOAST::push(
                     ToastStyle::Error,
-                    "Failed to cancel: ",
+                    "Failed to cancel",
                     [Span::raw(format!("{kind}: {display}"))],
                 );
             }

@@ -16,9 +16,9 @@ for _, p in ipairs(paths) do
   end
   local res = proc.run("cwebp", {"-q", "85", p, "-o", out_file})
   if res.ok then
-    toast_push("success", "Converted: ", path.base(out_file))
+    toast_push("success", "Converted", path.base(out_file))
   else
-    toast_push("error", "Failed: ", path.base(p))
+    toast_push("error", "Failed", path.base(p))
   end
 end
 """
@@ -39,9 +39,9 @@ for _, p in ipairs(paths) do
   end
   local res = proc.run("magick", {p, out_file})
   if res.ok then
-    toast_push("success", "Converted: ", path.base(out_file))
+    toast_push("success", "Converted", path.base(out_file))
   else
-    toast_push("error", "Failed: ", path.base(p))
+    toast_push("error", "Failed", path.base(p))
   end
 end
 """
@@ -74,9 +74,9 @@ for _, p in ipairs(paths) do
 end
 
 if #names > 0 then
-  toast_push("success", "Optimized: ", #names == 1 and names[1] or (#names .. " images"))
+  toast_push("success", "Optimized", #names == 1 and names[1] or (#names .. " images"))
 end
-if #failed > 0 then toast_push("error", "Failed: ", table.concat(failed, ", ")) end
+if #failed > 0 then toast_push("error", "Failed", table.concat(failed, ", ")) end
 if #names == 0 and #failed == 0 then toast("warning", "Nothing optimized: no png/jpeg targets") end
 """
 
@@ -97,9 +97,9 @@ for i, p in ipairs(paths) do
   end
   local res = proc.run("ffmpeg", {"-y", "-hide_banner", "-loglevel", "error", "-i", p, "-vcodec", "libwebp", "-filter:v", "fps=15", "-lossless", "0", "-q:v", "70", "-loop", "0", "-an", out_file})
   if res.ok then
-    toast_push("success", "Created webp: ", path.base(out_file))
+    toast_push("success", "Created webp", path.base(out_file))
   else
-    toast_push("error", "Failed: ", path.base(p))
+    toast_push("error", "Failed", path.base(p))
   end
 end
 set_progress(255)
@@ -121,9 +121,9 @@ for _, p in ipairs(paths) do
   end
   local res = proc.run("ffmpeg", {"-y", "-hide_banner", "-loglevel", "error", "-i", p, "-vn", "-c:a", "libmp3lame", "-q:a", "2", out_file})
   if res.ok then
-    toast_push("success", "Extracted audio: ", path.base(out_file))
+    toast_push("success", "Extracted audio", path.base(out_file))
   else
-    toast_push("error", "Failed: ", path.base(p))
+    toast_push("error", "Failed", path.base(p))
   end
 end
 """
@@ -144,9 +144,9 @@ for _, p in ipairs(paths) do
   end
   local res = proc.run("ffmpeg", {"-y", "-hide_banner", "-loglevel", "error", "-i", p, "-c:a", "libmp3lame", "-b:a", "320k", out_file})
   if res.ok then
-    toast_push("success", "Converted to mp3: ", path.base(out_file))
+    toast_push("success", "Converted to mp3", path.base(out_file))
   else
-    toast_push("error", "Failed: ", path.base(p))
+    toast_push("error", "Failed", path.base(p))
   end
 end
 """

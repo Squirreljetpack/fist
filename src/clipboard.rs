@@ -29,7 +29,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
 use crate::run::item::short_display;
-use crate::run::state::{GLOBAL, TASKS, TOAST, ToastFlags, ToastStyle};
+use crate::run::state::{GLOBAL, TASKS, TOAST, ToastStyle};
 use crate::utils::osc52;
 
 pub mod files;
@@ -196,12 +196,7 @@ fn report(
     match result {
         Ok(written) => {
             if toast {
-                TOAST::push_with_flag(
-                    ToastStyle::Success,
-                    "Copied: ",
-                    spans,
-                    ToastFlags::SUSTAINED,
-                );
+                TOAST::SUSTAINED.push(ToastStyle::Success, "Copied", spans);
             }
             if matches!(written, Written::Osc52) {
                 // the sequence bypassed the TUI stream: repaint
@@ -210,7 +205,7 @@ fn report(
         }
         Err(e) => {
             log::error!("Clipboard write failed: {e}");
-            TOAST::push(ToastStyle::Error, "Failed to copy: ", spans);
+            TOAST::push(ToastStyle::Error, "Failed to copy", spans);
         }
     }
 }

@@ -571,6 +571,10 @@ impl OptionsOverlay {
 }
 
 impl Overlay<FsAction, PathItem, ()> for OptionsOverlay {
+    fn allow_scroll(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn handle_input(
         &mut self,
         c: char,

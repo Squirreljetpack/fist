@@ -10,7 +10,7 @@ pub use stack::*;
 pub mod context;
 mod temp;
 pub mod toast;
-pub use toast::{TOAST, ToastContent, ToastFlags, ToastStyle};
+pub use toast::{TOAST, ToastFlags, ToastStyle};
 pub mod ui;
 pub use temp::*;
 

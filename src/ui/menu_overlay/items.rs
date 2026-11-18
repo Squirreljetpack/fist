@@ -8,10 +8,7 @@ use crate::{
         action::FsAction,
         item::short_display,
         queue::QUEUE,
-        state::{
-            GLOBAL, GLOBAL::db, MenuPrompt, PromptKind, TOAST, ToastFlags, ToastStyle,
-            lessfilter_cfg,
-        },
+        state::{GLOBAL, GLOBAL::db, MenuPrompt, PromptKind, TOAST, ToastStyle, lessfilter_cfg},
     },
     spawn::open_wrapped,
 };
@@ -159,21 +156,19 @@ impl MenuItem {
             MenuItem::NewFolder => MenuOutcome::Prompt(MenuPrompt::new(PromptKind::NewFolder)),
             MenuItem::Rename => MenuOutcome::Prompt(rename_prompt_for(&path)),
             MenuItem::Move => {
-                TOAST::push_with_flag(
+                TOAST::SUSTAINED.push(
                     ToastStyle::Normal,
-                    "Move: ",
+                    "Move",
                     targets.iter().map(|p| short_display(p)),
-                    ToastFlags::SUSTAINED,
                 );
                 QUEUE::enqueue("move".into(), targets);
                 MenuOutcome::Close
             }
             MenuItem::Copy => {
-                TOAST::push_with_flag(
+                TOAST::SUSTAINED.push(
                     ToastStyle::Normal,
-                    "Copied: ",
+                    "Copied",
                     targets.iter().map(|p| short_display(p)),
-                    ToastFlags::SUSTAINED,
                 );
                 QUEUE::enqueue("copy".into(), targets);
                 MenuOutcome::Close
@@ -181,7 +176,7 @@ impl MenuItem {
             MenuItem::Symlink => {
                 TOAST::push(
                     ToastStyle::Normal,
-                    "Queued symlink: ",
+                    "Queued symlink",
                     targets.iter().map(|p| short_display(p)),
                 );
                 QUEUE::enqueue("symlink".into(), targets);
@@ -199,7 +194,7 @@ impl MenuItem {
                 MenuOutcome::Close
             }
             MenuItem::Open => {
-                TOAST::push(ToastStyle::Normal, "Opened: ", [short_display(&path)]);
+                TOAST::push(ToastStyle::Normal, "Opened", [short_display(&path)]);
                 let path_clone = path;
                 tokio::spawn(async move {
                     let conn = db().get_conn(crate::db::DbTable::dirs).await?;

@@ -49,7 +49,7 @@ use crate::{
     },
 };
 use fist_types::filters::SortOrder;
-use matchmaker::nucleo::Span;
+use matchmaker::nucleo::{Line, Span};
 
 // todo: when do we need be able to restart after STOP
 // todo: lowpri: this is like 1.2 slower than pure fd? Accept input is a bit sluggish? Cache to reduce disk reads?
@@ -520,10 +520,12 @@ impl FsPane {
                     if toast_on_empty && entries.is_empty() {
                         TOAST::toast_empty();
                         if is_recaching {
-                            TOAST::push(
-                                ToastStyle::Normal,
-                                "Populating apps, ",
-                                [Span::raw("please wait")],
+                            TOAST::msg(
+                                Line::from(vec![
+                                    Span::styled("Populating apps, ", ToastStyle::Normal),
+                                    Span::raw("please wait"),
+                                ]),
+                                false,
                             );
                         }
                     }
@@ -705,8 +707,6 @@ pub fn map_reader_rg(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::ui::StyleConfig;
-    use crate::run::state::ui::{global_ui_init, try_global_ui};
     use matchmaker::nucleo::{Column, Worker};
     use std::ffi::OsString;
     use std::sync::Mutex;
@@ -714,9 +714,6 @@ mod tests {
     static TEST_POPULATE_LOCK: Mutex<()> = Mutex::new(());
 
     fn init_test_env() {
-        if try_global_ui().is_none() {
-            let _ = std::panic::catch_unwind(|| global_ui_init(StyleConfig::DEFAULT));
-        }
         GLOBAL::init_test_senders();
     }
 

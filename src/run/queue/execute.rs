@@ -113,7 +113,7 @@ pub fn perform(
                     log::error!("Transfer submit failed for {item:?}: {e}");
                     item.status.state.store(QueueItemState::CompleteErr);
                     let display = short_display(item.src.first().expect("single source checked"));
-                    TOAST::push(ToastStyle::Error, "Failed: ", [display]);
+                    TOAST::push(ToastStyle::Error, "Failed", [display]);
                     TOAST::notice(ToastStyle::Error, e.to_string());
                 }
             }

@@ -506,19 +506,10 @@ impl Eq for PathItem {}
 mod tests {
     use super::*;
     use crate::cli::paths::{__cwd, __home};
-    use crate::config::ui::{PathDisplayConfig, StyleConfig};
+    use crate::config::ui::PathDisplayConfig;
     use crate::run::state::set_render_path;
-    use crate::run::state::ui::global_ui_init;
     use fist_types::icons::icon_for_file;
     use std::path::Path;
-    use std::sync::Once;
-
-    /// `render()`/`match_name()` read the global UI config; initialize it once
-    /// (OnceLock set is one-shot — per-test swaps are impossible).
-    static INIT_GLOBAL_UI: Once = Once::new();
-    fn init_global_ui_once() {
-        INIT_GLOBAL_UI.call_once(|| global_ui_init(StyleConfig::DEFAULT));
-    }
 
     #[test]
     fn test_render_logical_paths() {
@@ -692,7 +683,6 @@ mod tests {
 
     #[test]
     fn test_match_name_relative() {
-        init_global_ui_once();
         let cwd = __cwd();
         // render() reads the global render path (set per populate) — point it
         // at the cwd so relative display is exercised

@@ -162,7 +162,7 @@ end
 if #names == 0 then error("no files to add to " .. path.base(archive)) end
 local ok, _, code = os.execute("zip -rq -j " .. util.shq(archive) .. " " .. table.concat(names, " "))
 if not ok then error("zip failed: " .. tostring(code)) end
-toast_push("success", is_archive and "Updated: " or "Compressed: ", path.base(archive))
+toast_push("success", is_archive and "Updated" or "Compressed", path.base(archive))
 """
 ```
 
@@ -190,7 +190,7 @@ for _, p in ipairs(paths) do
   end
 end
 local item = #paths == 1 and path.base(paths[1]) or (#paths .. " items")
-toast_push("success", "set " .. mode .. ": ", item)
+toast_push("success", "set " .. mode, item)
 """
 ```
 
@@ -211,7 +211,7 @@ for _, target in ipairs(paths) do args[#args + 1] = target end
 args[#args + 1] = host .. ":"
 local res = proc.run("tailscale", args)
 if res.ok then
-  toast_push("success", "Sent to " .. host .. ": ", #paths == 1 and path.base(paths[1]) or (#paths .. " items"))
+  toast_push("success", "Sent to " .. host, #paths == 1 and path.base(paths[1]) or (#paths .. " items"))
 else
   toast("error", "tailscale file cp: " .. res.stderr)
 end
@@ -250,7 +250,7 @@ for i, p in ipairs(paths) do
   local out_file = path.join(to, path.stem(p) .. ".webp")
   local res = proc.run("cwebp", {"-q", "85", p, "-o", out_file})
   if not res.ok then
-    toast_push("error", "Failed: ", path.base(p))
+    toast_push("error", "Failed", path.base(p))
   end
 end
 set_progress(255)
