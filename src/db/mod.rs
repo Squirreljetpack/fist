@@ -68,6 +68,38 @@ impl Pool {
             }
         });
     }
+    /// Spawn a background task that moves the paths `old` and everything under
+    /// it onto `new` in the tables that store filesystem paths: the dirs,
+    /// files and apps history, plus the stash pane rows when `stashes` is set.
+    pub fn rename_path(
+        &'static self,
+        old: AbsPath,
+        new: AbsPath,
+        stashes: bool,
+    ) {
+        TASKS::spawn("db rename path", async move {
+            for table in [DbTable::dirs, DbTable::files, DbTable::apps] {
+                match self.get_conn(table).await {
+                    Ok(mut conn) => match conn.rename_path(&old, &new).await {
+                        Ok(n) => log::debug!("Renamed {n} {table} entries"),
+                        Err(e) => log::error!("Error renaming {table} entries: {e}"),
+                    },
+                    Err(e) => log::error!("Error getting connection: {e}"),
+                }
+            }
+
+            if !stashes {
+                return;
+            }
+            match self.get_conn(DbTable::stashes).await {
+                Ok(mut conn) => match conn.rename_stash_paths(&old, &new).await {
+                    Ok(n) => log::debug!("Renamed {n} stash entries"),
+                    Err(e) => log::error!("Error renaming stash entries: {e}"),
+                },
+                Err(e) => log::error!("Error getting connection: {e}"),
+            }
+        });
+    }
 }
 
 impl Connection {

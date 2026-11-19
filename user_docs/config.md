@@ -154,6 +154,7 @@ A stash with no table of its own falls back to a white prompt.
 | `move_files_to_clipboard`           | bool                               | `false`                | Cut the selected files to the system clipboard on `Move`.                                                                                                   |
 | `bump_menu_action_paths`            | bool                               | `false`                | Record menu-action targets in history, including actions that only enqueue them.                                                                            |
 | `bump_transfer_destinations`        | bool                               | `false`                | Record successful transfer destinations in history.                                                                                                         |
+| `rename_stash_paths`                | bool                               | `true`                 | Rewrite the paths stored in the stash pane when `Rename` moves a stashed path or a directory containing one.                                                |
 
 ## Queue
 

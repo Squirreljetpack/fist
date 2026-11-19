@@ -389,6 +389,7 @@ impl MenuOverlay {
                 // Snapshot any relative process cwd before the move: the old path stops
                 // existing on disk.
                 let renames_process_cwd = current_dir_suffix(&old_path);
+                let rename_stash_paths = GLOBAL::cfg().interface.rename_stash_paths;
 
                 TASKS::spawn("rename", async move {
                     // reserve the target first: a taken name fails the
@@ -452,6 +453,7 @@ impl MenuOverlay {
                                 short_display(&old_path),
                                 new_display,
                             );
+                            db().rename_path(old_path.clone(), dest.clone(), rename_stash_paths);
                             if let Some(rel) = renames_process_cwd {
                                 // the process's own working directory (or an ancestor) moved:
                                 // follow it so relative paths and spawned commands resolve

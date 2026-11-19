@@ -244,6 +244,9 @@ pub struct InterfaceConfig {
     pub bump_menu_action_paths: bool,
     /// Bump the destinations of successful Copy, Move, and Symlink runs.
     pub bump_transfer_destinations: bool,
+    /// Rewrite the paths stored in the stash pane when Rename moves a stashed
+    /// path or a directory containing one.
+    pub rename_stash_paths: bool,
 }
 
 impl Default for InterfaceConfig {
@@ -267,6 +270,7 @@ impl Default for InterfaceConfig {
             move_files_to_clipboard: false,
             bump_menu_action_paths: false,
             bump_transfer_destinations: false,
+            rename_stash_paths: true,
         }
     }
 }

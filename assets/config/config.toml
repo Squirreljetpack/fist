@@ -108,3 +108,7 @@ remove_db_record_action = "Trash" # Trash | Delete | None
 
 # Bump the destinations of successful Copy, Move, and Symlink runs.
 # bump_transfer_destinations = true
+
+# Rewrite the paths stored in the stash pane when Rename moves a stashed path
+# (or a directory containing one).
+# rename_stash_paths = false

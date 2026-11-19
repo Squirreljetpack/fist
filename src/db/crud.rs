@@ -1,6 +1,9 @@
 use crate::errors::DbError;
 use crate::{abspath::OsStringWrapper, db::*};
-use cba::bait::ResultExt;
+use cba::{
+    bait::ResultExt,
+    bath::{PathExt, os_str_to_bytes},
+};
 use fist_types::filters::SortOrder;
 use log::trace;
 use sqlx::Acquire;
@@ -136,6 +139,55 @@ impl Connection {
 
         tx.commit().await?;
         Ok(total_removed)
+    }
+
+    /// Move the stored paths of `old` and everything nested under it onto
+    /// `new`, keeping each row's frecency, alias and cmd intact. Returns the
+    /// number of rows rewritten.
+    pub async fn rename_path(
+        &mut self,
+        old: &AbsPath,
+        new: &AbsPath,
+    ) -> Result<u64, DbError> {
+        let paths = paths_under(&mut self.conn, self.table, "path", old).await?;
+        let sql = format!(
+            "UPDATE OR REPLACE {} SET path = ?, name = ? WHERE path = ?",
+            self.table
+        );
+
+        let mut tx = self.conn.begin().await?;
+        for path in &paths {
+            let moved = rebase(path, old, new);
+            sqlx::query(sqlx::AssertSqlSafe(sql.clone()))
+                .bind(&moved)
+                .bind(moved.basename())
+                .bind(path)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await?;
+        Ok(paths.len() as u64)
+    }
+
+    /// The stash rows' version of [Connection::rename_path]: their path lives
+    /// in the `stash` column, and they carry no name of their own.
+    pub async fn rename_stash_paths(
+        &mut self,
+        old: &AbsPath,
+        new: &AbsPath,
+    ) -> Result<u64, DbError> {
+        let paths = paths_under(&mut self.conn, self.table, "stash", old).await?;
+
+        let mut tx = self.conn.begin().await?;
+        for path in &paths {
+            sqlx::query("UPDATE stashes SET stash = ? WHERE stash = ?")
+                .bind(rebase(path, old, new))
+                .bind(path)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await?;
+        Ok(paths.len() as u64)
     }
 
     pub async fn get_entry(
@@ -335,6 +387,47 @@ impl Connection {
     }
 }
 
+/// Every path in `column` of `table` equal to `root` or nested under it.
+/// Paths are stored as raw bytes, so the prefix test is bytewise: `substr`
+/// counts bytes when its argument is a BLOB.
+async fn paths_under(
+    conn: &mut sqlx::SqliteConnection,
+    table: DbTable,
+    column: &str,
+    root: &AbsPath,
+) -> Result<Vec<AbsPath>, DbError> {
+    let mut prefix = root.to_os_string();
+    prefix.push(std::path::MAIN_SEPARATOR_STR);
+    let prefix = os_str_to_bytes(&prefix);
+
+    let paths: Vec<(AbsPath,)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT {column} FROM {table} WHERE {column} = ? OR substr({column}, 1, ?) = ?"
+    )))
+    .bind(root)
+    .bind(prefix.len() as i64)
+    .bind(prefix.as_ref())
+    .fetch_all(&mut *conn)
+    .await?;
+
+    Ok(paths.into_iter().map(|(path,)| path).collect())
+}
+
+/// `path` moved from its place under `old` to the same place under `new`;
+/// `path` is `old` itself or one of its descendants.
+fn rebase(
+    path: &AbsPath,
+    old: &AbsPath,
+    new: &AbsPath,
+) -> AbsPath {
+    let suffix = path
+        .strip_prefix(old)
+        .expect("paths_under only yields paths under the given root");
+    if suffix.as_os_str().is_empty() {
+        return new.clone();
+    }
+    AbsPath::new_unchecked(new.as_path().join(suffix))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -424,6 +517,59 @@ mod tests {
         let fetched_entry = db.get_entry(&path).await.unwrap();
         assert!(fetched_entry.is_none());
     }
+    #[tokio::test]
+    async fn test_rename_path_moves_subtree() {
+        let mut db = setup_db().await;
+        let old = AbsPath::new("/old_dir");
+        db.set_entry(&Entry::new("old_dir", old.clone()))
+            .await
+            .unwrap();
+        let nested = AbsPath::new("/old_dir/nested/deep.txt");
+        db.set_entry(&Entry::new("deep.txt", nested)).await.unwrap();
+        // shares the byte prefix but is not inside the renamed directory
+        let sibling = AbsPath::new("/old_dir2/keep.txt");
+        db.set_entry(&Entry::new("keep.txt", sibling.clone()))
+            .await
+            .unwrap();
+
+        let new = AbsPath::new("/new_dir");
+        assert_eq!(db.rename_path(&old, &new).await.unwrap(), 2);
+
+        let moved = db.get_entry(&new).await.unwrap().unwrap();
+        assert_eq!(moved.name, "new_dir");
+        let child = AbsPath::new("/new_dir/nested/deep.txt");
+        assert_eq!(
+            db.get_entry(&child).await.unwrap().unwrap().name,
+            "deep.txt"
+        );
+        assert!(db.get_entry(&old).await.unwrap().is_none());
+        assert!(db.get_entry(&sibling).await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_rename_stash_paths_moves_subtree() {
+        let pool = Pool::new("sqlite::memory:", None).await.unwrap();
+        let mut conn = pool.get_conn(DbTable::stashes).await.unwrap();
+        let old = AbsPath::new("/old_dir");
+        conn.add_stash_entry("default", &old).await.unwrap();
+        conn.add_stash_entry("default", &AbsPath::new("/old_dir/deep"))
+            .await
+            .unwrap();
+
+        let new = AbsPath::new("/new_dir");
+        assert_eq!(conn.rename_stash_paths(&old, &new).await.unwrap(), 2);
+
+        let mut paths: Vec<String> = conn
+            .get_stash_entries("default")
+            .await
+            .unwrap()
+            .iter()
+            .map(|e| e.stash.to_string_lossy().into_owned())
+            .collect();
+        paths.sort();
+        assert_eq!(paths, ["/new_dir", "/new_dir/deep"]);
+    }
+
     #[tokio::test]
     async fn test_get_entries_range_sorted() {
         let mut db = setup_db().await;
