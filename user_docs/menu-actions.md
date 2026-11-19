@@ -51,15 +51,16 @@ Each menu action runs inside a fresh, isolated Lua 5.4 VM so concurrent backgrou
 
 Alongside the six standard modules (`path`, `fs`, `proc`, `util`, `input`, and `lunacolors`) documented in [Lua](lua.md), f:st injects these globals and vararg (`...`) parameters:
 
-| Symbol                            | Value                                                                                     | Availability               |
-| --------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------- |
-| `paths`                           | Array of resolved absolute path strings (always a table)                                  | Always                     |
-| `to`                              | Destination string (`""` unless queued with a destination or passed `--to`)               | Always                     |
-| `nav_cwd`                         | Active Nav pane directory string, or `nil` outside a Nav pane                             | Always                     |
-| `toast(style, msg)`               | Display a footer notification (`"normal"`, `"info"`, `"success"`, `"warning"`, `"error"`) | Always                     |
-| `toast_push(style, prefix, item)` | Append an item to a grouped footer notification                                           | Always                     |
-| `set_progress(n)`                 | Set the queue row progress bar (`0`–`255`)                                                | Queued strategies only     |
-| `input`, `proc.editor`            | Terminal prompts and `$EDITOR` launcher                                                   | `Exec` and `ExecWait` only |
+| Symbol                            | Value                                                                                                      | Availability                |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `paths`                           | Array of resolved absolute path strings (always a table)                                                   | Always                      |
+| `to`                              | Destination string (`""` unless queued with a destination or passed `--to`)                                | Always                      |
+| `nav_cwd`                         | Active Nav pane directory string, or `nil` outside a Nav pane                                              | Always                      |
+| `toast(style, msg)`               | Display a footer notification (`"normal"`, `"info"`, `"success"`, `"warning"`, `"error"`)                  | Always                      |
+| `toast_push(style, prefix, item)` | Append an item to a grouped footer notification                                                            | Always                      |
+| `set_progress(n)`                 | Set the queue row progress bar (`0`–`255`)                                                                 | Queued strategies only      |
+| `send_action(action)`             | Queue a UI action, handled after the script returns: `send_action("Jump(" .. path:gsub(",", ",,") .. ")")` | Always (dropped when no UI) |
+| `input`, `proc.editor`            | Terminal prompts and `$EDITOR` launcher                                                                    | `Exec` and `ExecWait` only  |
 
 `os.exit([code])` is overridden per VM so calling it aborts only the script (raising a runtime error carrying `code`) without terminating `fs`.
 

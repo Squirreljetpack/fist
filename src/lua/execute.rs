@@ -13,11 +13,14 @@ use std::{
 
 use mlua::{Lua, MultiValue, Value};
 
-use matchmaker::nucleo::Span;
+use matchmaker::{action::Action, nucleo::Span};
 
 use crate::{
     abspath::AbsPath,
-    run::state::{TOAST, ToastStyle},
+    run::{
+        FsAction,
+        state::{GLOBAL, TOAST, ToastStyle},
+    },
 };
 
 // The progress cell of the queue item whose command is running on this
@@ -55,6 +58,7 @@ pub fn execute(
         register_progress_global(&lua)?;
     }
     register_toast_globals(&lua)?;
+    register_action_global(&lua)?;
     let is_interactive = allow_input && progress.is_none();
     super::modules::register_modules(&lua, is_interactive).map_err(|e| e.to_string())?;
     override_os_exit(&lua)?;
@@ -102,6 +106,7 @@ pub fn execute(
 pub fn check_compiles(source: &str) -> Result<(), String> {
     let lua = Lua::new();
     register_toast_globals(&lua)?;
+    register_action_global(&lua)?;
     super::modules::register_modules(&lua, false).map_err(|e| e.to_string())?;
     lua.load(source)
         .into_function()
@@ -172,6 +177,32 @@ fn register_toast_globals(lua: &Lua) -> Result<(), String> {
         .set("toast_push", toast_push_fn)
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// Register the `send_action(action[, payload])` global on `lua`.
+///
+/// The string is the same action syntax bind configuration uses; the parsed
+/// action is queued for the main loop, so it is handled after the script
+/// returns. The two-argument form builds `action(payload)` verbatim. Without a
+/// renderer (CLI runs) the action is dropped, like every other
+/// [`crate::run::state::GLOBAL::send_action`] caller.
+fn register_action_global(lua: &Lua) -> Result<(), String> {
+    let f = lua
+        .create_function(
+            |_, (action, payload): (String, Option<String>)| -> mlua::Result<()> {
+                let spec = match payload {
+                    Some(payload) if !payload.is_empty() => format!("{action}({payload})"),
+                    _ => action,
+                };
+                let action: Action<FsAction> = spec.parse().map_err(mlua::Error::RuntimeError)?;
+                GLOBAL::send_action(action);
+                Ok(())
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    lua.globals()
+        .set("send_action", f)
+        .map_err(|e| e.to_string())
 }
 
 /// Register the `set_progress(v)` global on `lua`, for the executions that
@@ -402,6 +433,27 @@ mod tests {
         "#;
         let res = execute(cmd, &[], "", None, None, false);
         assert!(res.is_ok(), "execute failed: {res:?}");
+    }
+
+    #[test]
+    fn test_lua_send_action() {
+        GLOBAL::init_test_senders();
+        let ok = r#"
+            send_action("Jump(/tmp)")
+            send_action("Jump(/tmp/a,,b)")
+            send_action("Jump", "/tmp/a,,b")
+            send_action("Jump", ("/tmp/a,b"):gsub(",", ",,"))
+            send_action("Jump")
+            send_action("Down(2)")
+            send_action("Trash")
+            send_action("Trash", "")
+        "#;
+        let res = execute(ok, &[], "", None, None, false);
+        assert!(res.is_ok(), "send_action failed: {res:?}");
+
+        let res = execute("send_action('Bogus')", &[], "", None, None, false);
+        let err = res.expect_err("unknown action should raise");
+        assert!(err.contains("Unknown action"), "{err}");
     }
 
     #[test]

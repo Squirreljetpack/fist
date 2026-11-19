@@ -79,6 +79,7 @@ Built-in functions:
 - `toast(style, msg)` — footer notice; styles `info`, `success`, `warning`/`warn`, `error`/`err`, `normal`/nil.
 - `toast_push(style, prefix, item)` — grouped list toast (e.g. one row per processed file).
 - `set_progress(0-255)` — the executing queue item's progress bar; defined only for queued actions.
+- `send_action(action)` — queue a UI action for the main loop, handled after the script returns: `send_action("Jump(" .. path:gsub(",", ",,") .. ")")`. `send_action(action, payload)` builds `action(payload)` verbatim, so the same jump is `send_action("Jump", (path:gsub(",", ",,")))`.
 - `os.exit(code)` — stop the script safely (does not terminate `fs`).
 - `error(...)` — abort and surface a failure toast.
 

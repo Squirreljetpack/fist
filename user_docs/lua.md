@@ -167,6 +167,7 @@ When executing [Menu Actions](menu-actions.md), scripts also receive context arg
 - `toast(style, msg)` — displays a footer notice toast (`"info"`, `"success"`, `"warning"`, `"error"`, or `"normal"`).
 - `toast_push(style, prefix, item)` — adds a bulleted item to a grouped toast summary.
 - `set_progress(0-255)` — updates the queue row's progress bar (0–255 scale). Defined only for queued actions (`Queue`, `QueueBatch`, `Enqueue`).
+- `send_action(action)` — queues a UI action for the main loop, which handles it once the script returns. Takes any action string from [Actions](actions.md); escaping is the caller's, so a path goes in with its commas doubled: `send_action("Jump(" .. path:gsub(",", ",,") .. ")")`. The two-argument form builds `action(payload)` verbatim: `send_action("Jump", (path:gsub(",", ",,")))`.
 - `os.exit(code)` — safely halts script execution with the given exit code without exiting F:st.
 - `error(...)` — stops execution with a runtime error toast.
 
