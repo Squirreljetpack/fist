@@ -97,7 +97,7 @@ frame = { sides = "BOTTOM", fg = "red" }
 "prompt^^shift-right" = "Advance"
 "prompt^^left" = "BackwardChar"
 "prompt^^right" = "ForwardChar"
-"prompt^^ctrl-h" = "DeleteWord"
+"prompt^^ctrl-backspace" = "DeleteWord"
 "left" = "Parent"
 "right" = "Advance"
 "shift-left" = "BackwardChar"
@@ -165,9 +165,11 @@ frame = { sides = "BOTTOM", fg = "red" }
 "f2" = "Rename"
 "ctrl-shift-r" = "Rename"
 # alternative if no delete key:
+"ctrl-backspace" = "Trash"
+"cmd-backspace" = "Trash"
 "ctrl-shift-backspace" = "Delete"
 "shift-cmd-backspace" = "Delete"
-"alt-backspace" = "Trash"
+"alt-backspace" = "DeleteWord"
 
 ### Stash
 # "alt-s" = "PushStash"

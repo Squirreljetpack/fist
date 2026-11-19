@@ -239,7 +239,7 @@ pattern and `^^`:
 ```toml
 [binds]
 "nav^^alt-n" = "Execute($EDITOR .)"
-"prompt^^ctrl-h" = "DeleteWord"
+"prompt^^ctrl-backspace" = "DeleteWord"
 ```
 
 f:st sets the active mode from the pane:

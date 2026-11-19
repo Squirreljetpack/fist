@@ -51,7 +51,7 @@ max_height = 16
 "prompt^^shift-right" = "Advance"
 "prompt^^left" = "BackwardChar"
 "prompt^^right" = "ForwardChar"
-"prompt^^ctrl-h" = "DeleteWord"
+"prompt^^ctrl-backspace" = "DeleteWord"
 "ctrl-m" = "Execute(echo hi | pg)"
 "ctrl-q" = "ExecPaged(echo hi)"
 
@@ -107,8 +107,9 @@ max_height = 16
 "alt-x" = "CopyPath"
 "delete" = "Trash"
 "shift-delete" = "Delete"
-# non-mac default; mac dev keeps DeleteWord (lib default, no mac.dev toml)
-"alt-backspace" = "Trash"
+"ctrl-backspace" = "Trash"
+"cmd-backspace" = "Trash"
+"alt-backspace" = "DeleteWord"
 "ctrl-shift-r" = "Rename"
 
 ### Stash

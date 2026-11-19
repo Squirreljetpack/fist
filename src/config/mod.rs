@@ -417,6 +417,5 @@ mod tests {
             toml::from_str(include_str!("../../assets/config/pager.dev.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.dev.toml")).unwrap();
-        let _: MMConfig = toml::from_str(include_str!("../../assets/config/mac.mm.toml")).unwrap();
     }
 }
