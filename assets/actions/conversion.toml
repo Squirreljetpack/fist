@@ -150,3 +150,49 @@ for _, p in ipairs(paths) do
   end
 end
 """
+
+["replace with opus"]
+prefix = "audio"
+
+strategy = "Enqueue"
+condition = { any = [{ selected = "active", condition = ["mime:audio/*", "have:ffmpeg"] }, { selected = "active", condition = ["mime:video/*", "have:ffmpeg"] }] }
+command = """
+-- Wrap the audio track in ogg/opus and trash the source: a copy remux when the
+-- track is already opus (webm/mkv), a libopus re-encode otherwise.
+local function ffmpeg(input, out, codec)
+  local args = {"-y", "-hide_banner", "-loglevel", "error", "-i", input, "-vn", "-sn", "-dn", "-map_metadata", "0"}
+  for _, a in ipairs(codec) do args[#args + 1] = a end
+  args[#args + 1] = out
+  return proc.run("ffmpeg", args)
+end
+
+for i, p in ipairs(paths) do
+  set_progress(math.floor((i - 1) / #paths * 255))
+  local out_dir = path.parent(p)
+  local out_file = path.join(out_dir, path.stem(p) .. ".opus")
+  if out_file == p then
+    out_file = path.unique(path.join(out_dir, path.stem(p) .. "_converted.opus"))
+  elseif path.exists(out_file) then
+    out_file = path.unique(out_file)
+  end
+
+  local res = ffmpeg(p, out_file, {"-c:a", "copy"})
+  if not res.ok then
+    res = ffmpeg(p, out_file, {"-c:a", "libopus", "-b:a", "128k"})
+  end
+
+  local out_stat = fs.stat(out_file)
+  if res.ok and out_stat and out_stat.size > 0 then
+    local trashed = pcall(fs.trash, p)
+    if trashed then
+      toast_push("success", "Replaced", path.base(out_file))
+    else
+      toast_push("warning", "Kept original", path.base(p) .. " as " .. path.base(out_file))
+    end
+  else
+    if path.exists(out_file) then fs.remove(out_file) end
+    toast_push("error", "Failed", path.base(p))
+  end
+end
+set_progress(255)
+"""
