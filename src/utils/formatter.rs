@@ -395,7 +395,7 @@ fn slice_text(
         .into_owned()
 }
 
-/// Shell-quote a value, with embedded `'` escaped as `'\''`.
+/// Shell-quote a value using the active shell's quoting rules.
 fn quote(
     raw: bool,
     value: String,
@@ -403,7 +403,7 @@ fn quote(
     if raw {
         value
     } else {
-        format!("'{}'", value.replace('\'', "'\\''"))
+        cba::broc::shell_quote(&value).unwrap_or(value)
     }
 }
 

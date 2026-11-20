@@ -4,7 +4,6 @@ use std::sync::Mutex;
 pub mod utils;
 
 use crate::abspath::AbsPath;
-use cba::bait::TransformExt;
 use cba::vec_;
 use cba::{bog::BogOkExt, broc::ChildExt};
 pub use program::*;
@@ -25,22 +24,25 @@ pub async fn open_wrapped(
     files: &[OsString],
     detach: bool,
 ) -> Result<(), CliError> {
-    // todo: better errors
-    open(prog.as_ref(), files)
-        .ok_or(CliError::Handled)?
-        .transform(|mut c| {
-            if detach {
-                c.spawn_detached().map(|_| {})
-            } else {
-                // `-v` leaves the child's stderr on the terminal for debugging
-                if let Some(stderr) = command_log_stderr() {
-                    c.stderr(stderr);
-                }
-                c._spawn()
-                    .and_then(|mut child| (child.wait_for_code() == 0).then_some(()))
+    let cmds = open(prog.as_ref(), files);
+    if cmds.is_empty() {
+        return Err(CliError::Handled);
+    }
+    for mut c in cmds {
+        let ok = if detach {
+            c.spawn_detached().is_some()
+        } else {
+            // `-v` leaves the child's stderr on the terminal for debugging
+            if let Some(stderr) = command_log_stderr() {
+                c.stderr(stderr);
             }
-        })
-        .ok_or(CliError::Handled)?;
+            c._spawn()
+                .is_some_and(|mut child| child.wait_for_code() == 0)
+        };
+        if !ok {
+            return Err(CliError::Handled);
+        }
+    }
 
     if let Some(conn) = conn {
         bump_after_open(conn, prog, files).await;
@@ -78,10 +80,12 @@ use std::process::Command;
 pub fn open(
     prog: Option<&Program>,
     files: &[OsString],
-) -> Option<Command> {
+) -> Vec<Command> {
     // Build the command words to spawn
     let words: Vec<OsString> = if let Some(prog) = prog {
-        let mut cmd = prog.to_cmd()._ebog()?;
+        let Some(mut cmd) = prog.to_cmd()._ebog() else {
+            return Vec::new();
+        };
 
         // append file arguments if any
         if !files.is_empty() {
@@ -99,12 +103,13 @@ pub fn open(
             cmd.extend_from_slice(files);
             cmd
         } else if cfg!(target_os = "windows") {
-            // todo: untested
-            let mut cmd = vec_![: "cmd", "/C", "start"];
-            for f in files {
-                cmd.push(f.clone());
-            }
-            cmd
+            // `start` treats a quoted first argument as the window title, so
+            // paths with spaces need an explicit empty title. `start` only
+            // opens one file per invocation, so spawn one command per file.
+            return files
+                .iter()
+                .map(|f| spawn(&vec_![: "cmd", "/C", "start", "", f.clone()]))
+                .collect();
         } else {
             eprintln!(
                 "Unsupported platform, cannot construct command for files: {}",
@@ -114,11 +119,15 @@ pub fn open(
                     .collect::<Vec<_>>()
                     .join(" ")
             );
-            return None;
+            return Vec::new();
         }
     };
 
-    (!words.is_empty()).then(|| spawn(&words))
+    if words.is_empty() {
+        Vec::new()
+    } else {
+        vec![spawn(&words)]
+    }
 }
 
 /// Reveal `path` in the system file manager, without waiting for it.

@@ -1,6 +1,10 @@
 use std::{collections::HashMap, str::FromStr};
 
-use cba::{bird::transform::camelcase_normalized, define_collection_wrapper};
+use cba::{
+    bird::transform::camelcase_normalized,
+    broc::{current_shell, shell_quote},
+    define_collection_wrapper,
+};
 use mime_guess::Mime;
 
 use crate::{
@@ -74,10 +78,14 @@ impl Preset {
             When::Auto => "",
         };
         let record = if record { "" } else { "--record=false " };
-        format!(
-            "'{}' :tool lessfilter {header} {record}{self} {{}}",
-            current_exe().to_str().unwrap_or(BINARY_SHORT),
-        )
+        let exe = current_exe();
+        let exe = shell_quote(&exe).unwrap_or_else(|| BINARY_SHORT.into());
+        let prefix = if cfg!(windows) && current_shell() != "cmd.exe" {
+            "& "
+        } else {
+            ""
+        };
+        format!("{prefix}{exe} :tool lessfilter {header} {record}{self} {{}}",)
     }
 }
 
