@@ -168,7 +168,7 @@ dependencies = [
  "objc2-foundation",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
  "wl-clipboard-rs",
  "x11rb",
 ]
@@ -1130,7 +1130,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1301,7 +1301,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2581,7 +2581,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-lib"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -2626,20 +2626,19 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-minus"
-version = "5.7.203"
+version = "5.7.204"
 dependencies = [
  "crossbeam-channel",
  "crossterm 0.29.0",
  "parking_lot",
  "regex",
- "textwrap",
  "thiserror 2.0.21",
  "unicode-width",
 ]
 
 [[package]]
 name = "matchmaker-mlua-bindings"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "cli_boilerplate_automation",
  "fastrand",
@@ -2666,7 +2665,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-partial"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
@@ -2674,7 +2673,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-partial-macros"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3163,7 +3162,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d8fae84b431384b68627d0f9b3b1245fcf9f46f6c0e3dc902e9dce64edd1967"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3935,7 +3934,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4544,7 +4543,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.6",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4633,15 +4632,6 @@ dependencies = [
  "wezterm-dynamic",
  "wezterm-input-types",
  "winapi",
-]
-
-[[package]]
-name = "textwrap"
-version = "0.16.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ecfad6c3abc80a577f2b91c1e412ee57e7a060d430b553c1b0c940974ebcd49"
-dependencies = [
- "unicode-width",
 ]
 
 [[package]]
@@ -5422,7 +5412,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

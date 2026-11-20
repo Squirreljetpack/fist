@@ -334,7 +334,6 @@ impl Connection {
     /// Raw table access: every row when `end` is 0, otherwise the `start..end`
     /// window, ordered by `sort_by`. Applies no filtering, so callers that
     /// display the rows filter them themselves.
-
     pub async fn get_entries_range(
         &mut self,
         start: u32,
@@ -559,15 +558,18 @@ mod tests {
         let new = AbsPath::new("/new_dir");
         assert_eq!(conn.rename_stash_paths(&old, &new).await.unwrap(), 2);
 
-        let mut paths: Vec<String> = conn
+        let mut paths: Vec<AbsPath> = conn
             .get_stash_entries("default")
             .await
             .unwrap()
-            .iter()
-            .map(|e| e.stash.to_string_lossy().into_owned())
+            .into_iter()
+            .map(|e| e.stash)
             .collect();
-        paths.sort();
-        assert_eq!(paths, ["/new_dir", "/new_dir/deep"]);
+        paths.sort_by(|a, b| a.as_path().cmp(b.as_path()));
+        assert_eq!(
+            paths,
+            [AbsPath::new("/new_dir"), AbsPath::new("/new_dir/deep")]
+        );
     }
 
     #[tokio::test]

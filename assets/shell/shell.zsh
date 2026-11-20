@@ -50,7 +50,9 @@ $${NAV_NAME}() {
   # a miss exits 22 when `[history] refind` is not "Search": re-run `z` with
   # the arguments as the picker's input so the Folders pane still opens
   FS_VERBOSITY=1 $${Z_NAME} "$@" ./
-  [ $? -eq 22 ] && FS_INITIAL_INPUT="$*" $${Z_NAME}
+  if [ $? -eq 22 ]; then
+    FS_INITIAL_INPUT="$*" $${Z_NAME}
+  fi
 }
 
 $${OPEN_NAME}() {

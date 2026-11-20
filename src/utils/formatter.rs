@@ -612,6 +612,13 @@ mod tests {
         s.replace(std::path::MAIN_SEPARATOR, "/")
     }
 
+    /// Shell-quoted form of a value, as the formatter emits it for non-raw
+    /// fields on this platform: POSIX `'\''`, PowerShell doubled `''`, or
+    /// cmd's `"`/`%%`.
+    fn quoted(s: &str) -> String {
+        posix(cba::broc::shell_quote(s).unwrap())
+    }
+
     fn render<H: Host>(
         host: &H,
         template: &str,
@@ -735,7 +742,7 @@ mod tests {
             cwd: Cow::Borrowed("/tmp"),
             raw: false,
         };
-        assert_eq!(render(&p, "{}"), posix(r"'/tmp/it'\''s here'".to_string()));
+        assert_eq!(render(&p, "{}"), quoted("/tmp/it's here"));
         assert_eq!(render(&p, "{=}"), "/tmp/it's here");
         assert_eq!(render(&p, r"\{}\n"), "{}\n".replace("\\n", "\n"));
         assert_eq!(render(&p, "a\\tb"), "a\tb");
@@ -751,7 +758,7 @@ mod tests {
             raw: true,
         };
         assert_eq!(render(&p, "{}"), "/tmp/it's here");
-        assert_eq!(render(&p, "{:}"), posix(r"'/tmp/it'\''s here'".to_string()));
+        assert_eq!(render(&p, "{:}"), quoted("/tmp/it's here"));
         assert_eq!(render(&p, "{=}"), "/tmp/it's here");
         assert_eq!(render(&p, "{0:-1}"), "'/tmp'");
         assert_eq!(render(&p, "{0=-1}"), "/tmp");

@@ -289,12 +289,11 @@ mod tests {
               end
             end
             local mode = all_exec and "-x" or "+x"
-            local args = { mode, "--" }
             for _, p in ipairs(paths) do
-              args[#args + 1] = p
+              if not fs.chmod(p, mode) then
+                error("chmod " .. mode .. " failed on " .. p)
+              end
             end
-            local res = proc.run("chmod", args)
-            if not res.ok then error("chmod " .. mode .. " failed: " .. tostring(res.code)) end
 
             local prefix = "set " .. mode .. ": "
             local item = #paths == 1 and path.base(paths[1]) or (#paths .. " items")

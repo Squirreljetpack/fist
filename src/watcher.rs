@@ -758,78 +758,70 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_watcher_filters_hidden_and_ignored_paths() {
-        let (render_tx, mut render_rx) = mpsc::unbounded_channel();
-        let config = WatcherConfig {
-            fs_poll_ms: Duration::from_millis(100),
-            debounce_ms: Duration::from_millis(20),
-            thrash_threshold: ThrashSetting {
-                count: 2,
-                duration_ms: Duration::from_millis(1000),
-                resume_delay_ms: Duration::from_millis(150),
-            },
+    /// Hidden and `.gitignore`d event paths stop at the worker; a normal path
+    /// reaches the debounce timer.
+    ///
+    /// The worker is driven directly: the filter is what is under test, and a
+    /// live backend would feed its own events into the same channel, leaving
+    /// the negative assertions at the mercy of the platform's event latency.
+    #[test]
+    fn test_watcher_filters_hidden_and_ignored_paths() {
+        let (render_tx, _render_rx) = mpsc::unbounded_channel();
+        let (fs_watcher, _path_tx) = FsWatcher::new(WatcherConfig::default(), render_tx);
+        let (timer_tx, mut timer_rx) = mpsc::unbounded_channel();
+        let watcher = fs_watcher.start_watcher().unwrap();
+        let mut worker = WatcherWorker {
+            path_rx: fs_watcher.path_rx,
+            timer_tx,
+            watcher,
+            current_path: None,
+            must_watch: None,
+            current_options: None,
+            current_gitignore: None,
+            is_paused: true,
+            pending: None,
         };
 
-        let (watcher, tx) = FsWatcher::new(config, render_tx);
-        watcher.spawn().unwrap();
+        let root = std::env::temp_dir().join("fist_test_watcher_filter");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join(".gitignore"), "target/\n*.tmp\n").unwrap();
+        // the worker registers, and filters against, the canonical root
+        let root = watch_root(root);
 
-        let test_root = std::env::temp_dir().join("fist_test_watcher_filter");
-        let _ = std::fs::create_dir_all(&test_root);
-        // the watcher stores the canonical root; build event paths under it
-        let test_root = test_root.canonicalize().unwrap_or(test_root);
-        let gitignore = test_root.join(".gitignore");
-        std::fs::write(&gitignore, "target/\n*.tmp\n").unwrap();
-
-        tx.send(WatcherMessage::Switch(
-            test_root.clone(),
+        assert!(worker.handle_message(WatcherMessage::Switch(
+            root.clone(),
             WatchOptions {
                 ignore: true,
                 recursive: true,
                 ..Default::default()
             },
-        ))
-        .unwrap();
-
-        // Hidden event: should be dropped
-        tx.send(WatcherMessage::Reload(vec![
-            test_root.join(".git").join("index.lock"),
-        ]))
-        .unwrap();
-        let res = tokio::time::timeout(Duration::from_millis(80), render_rx.recv()).await;
-        assert!(res.is_err(), "Expected hidden path to be filtered");
-
-        // Ignored event: should be dropped
-        tx.send(WatcherMessage::Reload(vec![
-            test_root.join("target").join("debug").join("app"),
-        ]))
-        .unwrap();
-        let res = tokio::time::timeout(Duration::from_millis(80), render_rx.recv()).await;
-        assert!(res.is_err(), "Expected target/ path to be filtered");
-
-        // Normal event: should trigger reload
-        tx.send(WatcherMessage::Reload(vec![
-            test_root.join("src").join("main.rs"),
-        ]))
-        .unwrap();
-        let cmd1 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv())
-            .await
-            .unwrap()
-            .unwrap();
+        )));
         assert!(matches!(
-            cmd1,
-            RenderCommand::Action(Action::Custom(FsAction::SaveInput))
-        ));
-        let cmd2 = tokio::time::timeout(Duration::from_millis(100), render_rx.recv())
-            .await
-            .unwrap()
-            .unwrap();
-        assert!(matches!(
-            cmd2,
-            RenderCommand::Action(Action::Custom(FsAction::Reload))
+            timer_rx.try_recv(),
+            Ok(TimerMessage::Switched { reset: true, .. })
         ));
 
-        let _ = std::fs::remove_dir_all(&test_root);
+        for filtered in [
+            root.join(".git").join("index.lock"),
+            root.join("target").join("debug").join("app"),
+            root.join("scratch.tmp"),
+        ] {
+            assert!(
+                worker.handle_message(WatcherMessage::Reload(vec![filtered.clone()])),
+                "worker stopped on {filtered:?}"
+            );
+            assert!(
+                timer_rx.try_recv().is_err(),
+                "expected {filtered:?} to be filtered"
+            );
+        }
+
+        assert!(worker.handle_message(WatcherMessage::Reload(vec![
+            root.join("src").join("main.rs"),
+        ])));
+        assert!(matches!(timer_rx.try_recv(), Ok(TimerMessage::Reload)));
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
@@ -869,7 +861,7 @@ mod tests {
 
         assert!(matches!(
             worker.next_message(),
-            Some(WatcherMessage::Switch(p, _)) if p == PathBuf::from("/tmp/b")
+            Some(WatcherMessage::Switch(p, _)) if p.as_path() == Path::new("/tmp/b")
         ));
         assert!(matches!(
             worker.next_message(),

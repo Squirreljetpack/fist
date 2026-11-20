@@ -2,7 +2,8 @@
 //! scheduler-submitted extract jobs.
 //!
 //! Fixtures are built with the system archivers when available; formats
-//! whose tool is missing are skipped.
+//! whose tool is missing are skipped. `ar` is written from the crate instead:
+//! no system archiver produces a members-only archive on macOS.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -100,17 +101,26 @@ fn make_archives(f: &Fixture) -> Vec<(PathBuf, &'static str)> {
             out.push((p, "zip+links"));
         }
     }
-    if have("ar") && cfg!(feature = "ar") {
+    if cfg!(feature = "ar") {
         let p = d.join("a.ar");
-        // a member name longer than 15 chars exercises the GNU/BSD long
-        // filename string table
-        let long = d.join("a-very-long-member-name-exceeding-fifteen.txt");
-        std::fs::copy(src("src/hello.txt"), &long).unwrap();
-        run(std::process::Command::new("ar")
-            .args(["rcs"])
-            .arg(&p)
-            .arg(&long)
-            .arg(src("src/nested/data.txt")));
+        // built directly rather than by the system archiver: a name past the
+        // 16-byte header field exercises the BSD `#1/` extended-name encoding,
+        // and macOS `ar` keeps only `__.SYMDEF` when the members are not
+        // object files
+        let members = [
+            (
+                "a-very-long-member-name-exceeding-fifteen.txt",
+                src("src/hello.txt"),
+            ),
+            ("data.txt", src("src/nested/data.txt")),
+        ];
+        let mut builder = ar::Builder::new(std::fs::File::create(&p).unwrap());
+        for (name, source) in members {
+            builder
+                .append_file(name.as_bytes(), &mut std::fs::File::open(source).unwrap())
+                .unwrap();
+        }
+        builder.into_inner().unwrap();
         out.push((p, "ar"));
     }
     if have("7z") && cfg!(feature = "sevenz") {
@@ -132,6 +142,14 @@ fn make_archives(f: &Fixture) -> Vec<(PathBuf, &'static str)> {
         out.push((p, "rar"));
     }
     out
+}
+
+/// Head of a file, for diagnosing an archiver that produced something the
+/// format parsers cannot list.
+fn head(path: &Path) -> String {
+    let bytes = std::fs::read(path).unwrap_or_default();
+    let end = bytes.len().min(96);
+    format!("{} bytes, head {:02x?}", bytes.len(), &bytes[..end])
 }
 
 /// Polls the task to a terminal state, returning whether it was ok.
@@ -156,7 +174,12 @@ fn detect_list_extract_roundtrip() {
         };
         let listing = fist_copy::extract::list(&path, format)
             .unwrap_or_else(|e| panic!("list {}: {e}", path.display()));
-        assert!(!listing.is_empty(), "empty listing for {}", path.display());
+        assert!(
+            !listing.is_empty(),
+            "empty listing for {} ({})",
+            path.display(),
+            head(&path)
+        );
 
         let dest = f.dir.join(format!(
             "out-{}",

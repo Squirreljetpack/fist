@@ -1,10 +1,12 @@
 [package]
 name = "fist-copy"
 version.workspace = true
+categories = ["command-line-utilities", "filesystem"]
 edition.workspace = true
-homepage.workspace = true
+keywords = ["file-manager", "filesystem", "copy", "move"]
 license.workspace = true
 repository.workspace = true
+rust-version.workspace = true
 description = "Background copy/move/extract engine for fist: worker pool, reflink, cancellation, progress"
 
 [dependencies]
@@ -31,6 +33,7 @@ zstd = { version = "0.14", optional = true }
 libc = "0.2"
 
 [dev-dependencies]
+ar = "0.9"
 tempfile = "3.25.0"
 
 [features]

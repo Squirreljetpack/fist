@@ -28,6 +28,11 @@ fn main() {
     println!("cargo::rerun-if-changed=build.rs");
     println!("cargo::rerun-if-changed=build/completions_mock.rs");
     println!("cargo::rerun-if-changed=src");
+    println!("cargo::rerun-if-env-changed=SKIP_COMPLETIONS");
+
+    if env::var_os("SKIP_COMPLETIONS").is_some() {
+        return;
+    }
 
     let out_dir = {
         let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());

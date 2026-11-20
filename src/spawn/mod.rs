@@ -108,7 +108,7 @@ pub fn open(
             // opens one file per invocation, so spawn one command per file.
             return files
                 .iter()
-                .map(|f| spawn(&vec_![: "cmd", "/C", "start", "", f.clone()]))
+                .map(|f| spawn(&vec_![: "cmd", "/C", "start", "", f.clone()][..]))
                 .collect();
         } else {
             eprintln!(

@@ -1,0 +1,38 @@
+name: Unix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/unix.yml"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: test (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo test
+        env:
+          RUST_BACKTRACE: 1
+        run: cargo test --workspace --no-fail-fast
+
+      - name: cargo clippy
+        if: runner.os == 'Linux'
+        run: cargo clippy --workspace --all-targets

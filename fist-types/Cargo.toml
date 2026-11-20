@@ -1,9 +1,12 @@
 [package]
 name = "fist-types"
 version.workspace = true
+categories = ["command-line-utilities"]
 edition.workspace = true
+keywords = ["file-manager", "filesystem", "types"]
 license.workspace = true
 repository.workspace = true
+rust-version.workspace = true
 description = "Shared types for F:st, the terminal file manager"
 
 [dependencies]

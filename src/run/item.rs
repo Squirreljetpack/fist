@@ -107,16 +107,29 @@ impl ItemMeta {
         Self(AtomicU64::new(Self::PAYLOAD_UNSET))
     }
 
+    /// Applies `f` to the current value, retrying until the store succeeds.
+    fn update(
+        &self,
+        f: impl Fn(u64) -> u64,
+    ) {
+        let mut cur = self.0.load(Ordering::Relaxed);
+        loop {
+            match self
+                .0
+                .compare_exchange_weak(cur, f(cur), Ordering::Relaxed, Ordering::Relaxed)
+            {
+                Ok(_) => return,
+                Err(actual) => cur = actual,
+            }
+        }
+    }
+
     fn set_payload(
         &self,
         payload: u64,
     ) {
         let payload = payload.min(Self::PAYLOAD_UNSET - 1);
-        let _ = self
-            .0
-            .try_update(Ordering::Relaxed, Ordering::Relaxed, |cur| {
-                Some((cur & Self::FLAGS_MASK) | payload)
-            });
+        self.update(|cur| (cur & Self::FLAGS_MASK) | payload);
     }
 
     fn update_flags(
@@ -126,11 +139,7 @@ impl ItemMeta {
     ) {
         let clear = (clear_byte_mask as u64) << Self::FLAGS_SHIFT;
         let set = ((set_byte_bits & clear_byte_mask) as u64) << Self::FLAGS_SHIFT;
-        let _ = self
-            .0
-            .try_update(Ordering::Relaxed, Ordering::Relaxed, |cur| {
-                Some((cur & !clear) | set)
-            });
+        self.update(|cur| (cur & !clear) | set);
     }
 
     pub fn value(&self) -> Option<u64> {
@@ -364,7 +373,7 @@ fn display_path<'a>(
         && let Some(cwd) = cwd
         && let Ok(stripped) = path.strip_prefix(cwd)
     {
-        path = if stripped.is_empty() {
+        path = if stripped.as_os_str().is_empty() {
             Path::new(".")
         } else {
             stripped
@@ -374,7 +383,7 @@ fn display_path<'a>(
     if cfg.collapse_home
         && let Ok(stripped) = path.strip_prefix(__home())
     {
-        return if stripped.is_empty() {
+        return if stripped.as_os_str().is_empty() {
             Cow::Borrowed(Path::new("~"))
         } else {
             Cow::Owned(PathBuf::from("~").join(stripped))

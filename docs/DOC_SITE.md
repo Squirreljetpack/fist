@@ -29,10 +29,10 @@ Clip shorthand: each scene exists as `<name>.mp4` with a `<name>.png` poster und
 
 ### No backend mechanics or contributor internals
 
-- `fd` and `ripgrep` are implementation details: describe what a setting does to results, never the CLI flags it passes
-- Never expose internal crate/binary names (`fist-copy`, `fist-size`), static/module names (`MEM_STASHES`), internal Rust type/enum names (`CompleteOk`, `PendingErr`, `TransferParams`, `RootStrategy`, `ConflictStrategy`), syscalls/errnos (`O_CREAT | O_EXCL`, `rename(2)`, `EXDEV`), internal task IDs, polling/debounce timings (`100 ms`, percentage blends), or internal helpers (`showerror`)
+- Name backing tools or libraries only when it helps a reader use the feature (mentioning `fd` or `ripgrep` once to clarify search behavior is fine; never name internal libraries such as `nucleo`, internal crates/binaries like `fist-copy` or `fist-size`, or internal CLI flags passed to backends)
+- Never expose static/module names (`MEM_STASHES`), internal Rust type/enum names (`CompleteOk`, `PendingErr`, `TransferParams`, `RootStrategy`, `ConflictStrategy`), syscalls/errnos (`O_CREAT | O_EXCL`, `rename(2)`, `EXDEV`), internal task IDs, polling/debounce timings (`100 ms`, percentage blends), or internal helpers (`showerror`)
 - Omit contributor-only and debug-build details (`dev.toml`, `*.dev.toml`, `dev.db`, repo paths like `assets/config/pager.toml`); these are user-facing docs
-- When a default differs between the binary fallback and `--dump-config`, label it as `(--dump-config)` rather than "shipped config"
+- State defaults plainly without citing where a default config defines them: write `(default ctrl-r)` and `Default keys`, not `(ctrl-r via @reload in --dump-config)` or `Default keys (--dump-config)`
 
 ### No UI narration or self-evident state
 
@@ -43,14 +43,15 @@ Clip shorthand: each scene exists as `<name>.mp4` with a `<name>.png` poster und
 ### Reference voice
 
 - These are reference pages, not tutorials: no step lists, no "now you try"
-- Write naturally and explain the *intent* of a feature—what problem its design solves and how its pieces work together—in the opening paragraph and the first line of each H2, rather than dryly reciting config fields or inventing UX convenience slogans
-- Organization should reflect how a reader understands and uses the feature rather than mirroring struct layouts
+- Docs should read naturally and describe features in a motivated way, with an understanding of the intent of features. Do not shoehorn motivation into descriptions: the motivation for each section should mostly come from how the topics are organized.
+- Describe what a feature is and how it connects to related features, without inventing "often confused" framing, spending sentences on what it is not, or justifying design choices inside a feature description
 - `getting-started` is the one page allowed to sequence things
 - Examples are allowed where config is uninstructive without one: the custom pane's note manager, stash setups, `assets/actions` entries
 - A clip illustrates a section; it never replaces an explanation
 
 ### Page shape
 
+- One topic per page; link across pages rather than cramming unrelated subtopics into one doc or repeating another page's section
 - Title, then one paragraph: what this is and why you would reach for it
 - H2s follow the order a reader asks questions, not the order of the code (`getting-started` puts **First run** and **Core keybindings** right after **Install**, before shell setup and config dumping)
 - No `Overview` or `Hero` heading; opening content sits directly under the H1
@@ -63,12 +64,14 @@ Clip shorthand: each scene exists as `<name>.mp4` with a `<name>.png` poster und
 - Second person, present tense; "you" and "the pane", never "the user"
 - One topic per paragraph: break multi-topic blocks (such as terminal requirements + image protocols + build targets, or long flag enumerations) into short bullets or subsections
 - A table for enumerations, prose for anything with a decision in it; avoid repeating full config tables from `configuration` on feature pages
+- Fold single-sentence bold-lead bullets into prose when the list adds no scanning value; keep genuinely reference-like lists (catalogues, keymaps) uniform
+- Do not walk through or count volatile contents of dynamic files (such as exact entry counts or every rule in a default config); link to the file or inspect command instead
 - Keep single settings (such as `clear_completed_on_close`) in the operations section they govern rather than giving them their own H2, and drop repetitive table columns when a rule has a single default with one or two exceptions described in prose
 - Table cells are noun phrases, one line, no sentences or leading imperative verbs
 - Keys in backticks and spelled as the config spells them: `ctrl-f`, `alt-e`, `ctrl-shift-a`
 - Code fences carry a language (`shell`, `toml`, `lua`); commands are runnable as written; no `...` elisions; no output unless the output is the point
 - At most one admonition per page, and only for something destructive
-- Do not say `shipped` i.e. 'shipped `config.toml`', prefer to directly hyperlink `config.toml` (i.e. to the source file on github)
+- Avoid "ships" and "shipped" (e.g. "shipped `config.toml`" or "ships with X"); link directly to the source file on GitHub or state what is included plainly
 
 ---
 

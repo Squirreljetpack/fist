@@ -1,9 +1,12 @@
 [package]
 name = "fist-size"
 version.workspace = true
+categories = ["command-line-utilities", "filesystem"]
 edition.workspace = true
+keywords = ["file-manager", "filesystem", "size"]
 license.workspace = true
 repository.workspace = true
+rust-version.workspace = true
 description = "Data structure for computing file size trees"
 
 [dependencies]

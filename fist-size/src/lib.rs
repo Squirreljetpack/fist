@@ -168,6 +168,9 @@ impl PathTrie {
 #[derive(Default, Debug)]
 struct TaskState {
     active: PathTrie,
+    /// A completion callback is running; waiters hold until it returns so that
+    /// `wait` returning means completion has been observed.
+    completing: bool,
 }
 
 pub type CompletionCallback = Arc<dyn Fn() + Send + Sync>;
@@ -221,6 +224,13 @@ impl TaskManager {
 
         self.cancel_token.store(false, Ordering::Relaxed);
     }
+
+    fn wait_until_idle(&self) {
+        let mut state = self.state.lock().unwrap();
+        while !state.active.is_empty() || state.completing {
+            state = self.cvar.wait(state).unwrap();
+        }
+    }
 }
 
 struct TaskGuard {
@@ -238,21 +248,30 @@ impl Drop for TaskGuard {
             }
 
             let is_empty = state.active.is_empty();
-            if is_empty {
-                self.manager.cvar.notify_all();
-            }
-
             let is_cancelled = self.manager.cancel_token.load(Ordering::Relaxed);
-            if is_empty && !is_cancelled {
+            let callback = if is_empty && !is_cancelled {
                 self.manager.on_complete.lock().unwrap().clone()
             } else {
                 None
+            };
+
+            if is_empty {
+                // nothing else will move `active` off empty; waiters stay put
+                // until the callback (if any) has run
+                state.completing = callback.is_some();
+                self.manager.cvar.notify_all();
             }
+
+            callback
         };
 
-        if let Some(cb) = callback {
-            cb();
-        }
+        let Some(callback) = callback else {
+            return;
+        };
+        callback();
+
+        self.manager.state.lock().unwrap().completing = false;
+        self.manager.cvar.notify_all();
     }
 }
 
@@ -354,10 +373,7 @@ impl DirSizeCache {
     }
 
     pub fn wait(&self) {
-        let mut state = self.manager.state.lock().unwrap();
-        while !state.active.is_empty() {
-            state = self.manager.cvar.wait(state).unwrap();
-        }
+        self.manager.wait_until_idle();
     }
 
     pub fn clear(&self) {

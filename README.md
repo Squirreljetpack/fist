@@ -76,9 +76,15 @@ npm install -g @squirreljetpack/fist
 
 ##### Cargo
 
+Build from a clone[^cargo]:
+
 ```sh
-cargo install fist
+git clone https://github.com/Squirreljetpack/fist
+cd fist
+cargo build --release
 ```
+
+[^cargo]: f:st depends on patched crates, so it must be cloned and built in place; `cargo install fist` cannot apply those patches.
 
 # Commands
 

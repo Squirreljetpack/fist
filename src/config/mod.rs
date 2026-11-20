@@ -148,7 +148,7 @@ pub struct QueueConfig {
 }
 
 /// Miscellaneous and Tool specific options.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MiscConfig {
     /// Overwrite or append logs on application start.
@@ -158,17 +158,6 @@ pub struct MiscConfig {
     /// Pass the spawning command to this instead of invoking it directly.
     pub spawn_with: Vec<String>,
     pub list_absolute_paths: bool,
-}
-
-impl Default for MiscConfig {
-    fn default() -> Self {
-        Self {
-            append_mode_logging: false,
-            tools_append_mode_logging: false,
-            spawn_with: Vec::new(),
-            list_absolute_paths: false,
-        }
-    }
 }
 
 // -------------- GLOBAL --------------

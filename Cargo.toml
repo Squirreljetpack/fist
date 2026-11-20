@@ -10,9 +10,9 @@ members = [
 [workspace.package]
 version = "0.0.4"
 edition = "2024"
-homepage = "https://github.com/Squirreljetpack/fist"
 license = "AGPL-3.0-only"
 repository = "https://github.com/Squirreljetpack/fist"
+rust-version = "1.94"
 
 [workspace.dependencies]
 cli_boilerplate_automation = { version = "0.8.2", features = ["bring", "serde", "blaim", "dirs"] }
@@ -34,10 +34,11 @@ name = "fist"
 version.workspace = true
 categories = ["command-line-utilities"]
 edition.workspace = true
-homepage.workspace = true
+exclude = [".cargo/"]
 keywords = ["tui", "file-manager", "terminal", "ratatui", "filesystem"]
 license.workspace = true
 repository.workspace = true
+rust-version.workspace = true
 description = "F:st: fast, extensible terminal file manager"
 
 [dependencies]
@@ -108,10 +109,10 @@ reflink-copy = "0.1.30"
 # archive extraction: include rar on platforms with working C++ toolchains,
 # exclude on musl and windows-aarch64
 [target.'cfg(all(not(target_env = "musl"), not(all(target_os = "windows", target_arch = "aarch64"))))'.dependencies]
-fist-copy = { version = "0.0.4", path = "fist-copy", features = ["zip", "targz", "tarxz", "tarbz2", "tarzst", "ar", "gz", "bz2", "xz", "zst", "rar", "sevenz"] }
+fist-copy = { version = "0.*", path = "fist-copy", features = ["zip", "targz", "tarxz", "tarbz2", "tarzst", "ar", "gz", "bz2", "xz", "zst", "rar", "sevenz"] }
 
 [target.'cfg(any(target_env = "musl", all(target_os = "windows", target_arch = "aarch64")))'.dependencies]
-fist-copy = { version = "0.0.4", path = "fist-copy", features = ["zip", "targz", "tarxz", "tarbz2", "tarzst", "ar", "gz", "bz2", "xz", "zst", "sevenz"] }
+fist-copy = { version = "0.*", path = "fist-copy", features = ["zip", "targz", "tarxz", "tarbz2", "tarzst", "ar", "gz", "bz2", "xz", "zst", "sevenz"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

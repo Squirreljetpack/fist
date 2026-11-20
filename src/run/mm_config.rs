@@ -192,7 +192,7 @@ pub fn get_mm_cfg(
     }
     if let Err(p) = mm_cfg.confirm.frame {
         let mut full = mm_cfg.overlay.frame.clone();
-        if p.style.as_ref().map_or(true, |s| s.modifier.is_empty()) {
+        if p.style.as_ref().is_none_or(|s| s.modifier.is_empty()) {
             full.style.modifier = Modifier::ITALIC;
         }
         full.apply(p);
