@@ -314,13 +314,13 @@ fn time_spec(t: Option<SystemTime>) -> libc::timespec {
     match t {
         None => libc::timespec {
             tv_sec: 0,
-            tv_nsec: libc::UTIME_OMIT as libc::c_long,
+            tv_nsec: libc::UTIME_OMIT as _,
         },
         Some(v) => {
             let (sec, nsec) = split_epoch(v);
             libc::timespec {
-                tv_sec: sec,
-                tv_nsec: nsec,
+                tv_sec: sec as _,
+                tv_nsec: nsec as _,
             }
         }
     }

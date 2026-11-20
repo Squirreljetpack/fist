@@ -32,7 +32,15 @@ fn application_icon_candidates(path: &Path) -> Vec<PathBuf> {
 
 /// Whether `path` names an image the preview pipeline can show, svg included.
 fn previewable_image(path: &Path) -> bool {
-    matchmaker::preview::image::PreviewFormat::from_path(path).is_some()
+    #[cfg(any(feature = "image-defaults", feature = "image-all"))]
+    {
+        matchmaker::preview::image::PreviewFormat::from_path(path).is_some()
+    }
+    #[cfg(not(any(feature = "image-defaults", feature = "image-all")))]
+    {
+        let _ = path;
+        false
+    }
 }
 
 /// Whether an icon file can be resolved for `path` without materializing it.
