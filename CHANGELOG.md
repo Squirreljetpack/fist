@@ -1,3 +1,14 @@
+## [0.0.6] - 2026-11-20
+
+### 🐛 Bug Fixes
+
+- Compile on targets without a SIMD kernel (wasm), and keep the icon path off when no image feature is enabled
+- *(ci)* Publish to npm on tag releases; a called workflow sees the caller's `push` event, so the old `workflow_call` gate skipped every publish
+
+### 💼 Other
+
+- *(dist)* Ship an `aarch64-unknown-linux-musl` build
+
 ## [0.0.5] - 2026-11-20
 
 A broad release focused on configurability, navigation, and day-to-day polish.

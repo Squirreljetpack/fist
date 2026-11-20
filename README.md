@@ -66,7 +66,9 @@ brew install Squirreljetpack/tap/fist
 
 ##### AUR
 
-Not available
+```ssh
+yay -S fist-bin 
+```
 
 ##### npm
 
