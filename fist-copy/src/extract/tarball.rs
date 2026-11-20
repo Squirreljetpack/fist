@@ -13,7 +13,9 @@ use tar::{Archive, Entry, EntryType};
 use super::ArchiveEntry;
 use super::codec::{self, SourceBytes};
 use super::ctx::ExtractCtx;
-use super::safety::{is_safe, link_target_safe};
+use super::safety::{
+    canonical_root, is_safe, link_target_safe, prepare_path, resolve_existing, resolve_parent,
+};
 
 /// A rewind-free byte source: either a real file or a decoded stream that
 /// may start with an already-consumed peek block.
@@ -85,15 +87,22 @@ pub(crate) fn extract(
     ctx: &ExtractCtx<'_>,
     bytes: Option<&SourceBytes>,
 ) -> io::Result<()> {
-    for_each(reader, dest, ctx, bytes, |entry, full, _| {
-        if entry.header().entry_type().is_dir() {
-            fs::create_dir_all(&full)?;
-            return Ok(());
+    for_each(reader, dest, ctx, bytes, |entry, full, root| {
+        match entry.header().entry_type() {
+            EntryType::Directory => fs::create_dir_all(&full)?,
+            EntryType::Link => {
+                // tar hardlink names are relative to the archive root, not
+                // to the link's directory.
+                let target = entry.link_name()?.ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidData, "hardlink without a target")
+                })?;
+                let target = resolve_existing(root, &target)?;
+                fs::hard_link(&target, &full)?;
+            }
+            _ => {
+                entry.unpack(&full)?;
+            }
         }
-        if let Some(parent) = full.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        entry.unpack(&full)?;
         Ok(())
     })
 }
@@ -120,6 +129,7 @@ fn for_each(
     bytes: Option<&SourceBytes>,
     mut write: impl FnMut(&mut Entry<'_, ByteSource>, PathBuf, &Path) -> io::Result<()>,
 ) -> io::Result<()> {
+    let root = canonical_root(dest)?;
     let mut archive = Archive::new(reader);
     for entry in archive.entries()? {
         if ctx.cancelled() {
@@ -145,16 +155,41 @@ fn for_each(
             }
         };
         let ty = entry.header().entry_type();
-        if !is_safe(&rel)
-            || (matches!(ty, EntryType::Symlink | EntryType::Link)
-                && !link_target_is_safe(dest, &rel, &entry))
-        {
+        if !is_safe(&rel) {
             log::warn!("tar: skipping unsafe entry {rel:?}");
             ctx.entry_skipped();
             continue;
         }
-        let full = dest.join(&rel);
-        match write(&mut entry, full, dest) {
+        if ty == EntryType::Symlink {
+            // Validate the target before `prepare_path` creates directories or
+            // removes a leaf symlink, so a rejected link leaves the destination
+            // untouched. The parent must be resolved rather than taken from
+            // `root.join(&rel)`: a parent symlink changes where the OS resolves
+            // the link's relative target, and with it how many `..` it takes
+            // to escape.
+            let parent = match resolve_parent(&root, &rel) {
+                Ok(parent) => parent,
+                Err(e) => {
+                    log::warn!("tar: skipping {rel:?}: {e}");
+                    ctx.entry_skipped();
+                    continue;
+                }
+            };
+            if !link_target_is_safe(&root, &parent, &entry) {
+                log::warn!("tar: skipping unsafe link {rel:?}");
+                ctx.entry_skipped();
+                continue;
+            }
+        }
+        let full = match prepare_path(&root, &rel) {
+            Ok(full) => full,
+            Err(e) => {
+                log::warn!("tar: skipping {rel:?}: {e}");
+                ctx.entry_skipped();
+                continue;
+            }
+        };
+        match write(&mut entry, full, &root) {
             Ok(()) => ctx.entry_ok(),
             Err(e) => {
                 log::warn!("tar: failed to extract {rel:?}: {e}");
@@ -177,14 +212,14 @@ fn normalize<R: Read>(entry: &Entry<'_, R>) -> io::Result<PathBuf> {
 }
 
 fn link_target_is_safe<R: Read>(
-    dest: &Path,
-    rel: &Path,
+    root: &Path,
+    parent: &Path,
     entry: &Entry<'_, R>,
 ) -> bool {
     let target = entry.link_name().ok().flatten();
     match target {
         // the OS resolves the target relative to the link's directory
-        Some(t) => link_target_safe(dest, rel.parent().unwrap_or(Path::new("")), &t),
+        Some(t) => link_target_safe(root, parent, &t),
         None => false,
     }
 }

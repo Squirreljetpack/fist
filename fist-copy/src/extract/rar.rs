@@ -41,6 +41,7 @@ pub(crate) fn extract(
             .open_for_processing()
             .map_err(io::Error::other)?,
     );
+    let root = safety::canonical_root(dest)?;
 
     while let Some(archive) = rest.take() {
         if ctx.cancelled() {
@@ -55,6 +56,12 @@ pub(crate) fn extract(
         if rel.as_os_str().is_empty() || !safety::is_safe(&rel) {
             log::warn!("rar: skipping unsafe entry {:?}", rel);
             ctx.entry_skipped();
+            rest = file.skip().map(Some).map_err(io::Error::other)?;
+            continue;
+        }
+        if let Err(e) = safety::prepare_path(&root, &rel) {
+            log::warn!("rar: skipping {:?}: {e}", rel);
+            ctx.entry_failed();
             rest = file.skip().map(Some).map_err(io::Error::other)?;
             continue;
         }

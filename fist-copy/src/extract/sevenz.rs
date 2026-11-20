@@ -69,7 +69,7 @@ pub(crate) fn extract(
         )));
     }
 
-    fs::create_dir_all(dest)?;
+    let root = safety::canonical_root(dest)?;
 
     let is_solid = archive.is_solid;
     let file = fs::File::open(source)?;
@@ -91,12 +91,21 @@ pub(crate) fn extract(
         }
 
         let normalized = entry.name().replace('\\', "/");
-        let dest_path = dest.join(normalized);
+        let rel = Path::new(&normalized);
 
         if entry.is_directory() {
-            if !dest_path.exists() {
-                if let Err(e) = fs::create_dir_all(&dest_path) {
-                    log::warn!("7z: failed to create dir {:?}: {e}", dest_path);
+            match safety::prepare_path(&root, rel) {
+                Ok(dest_path) => {
+                    if !dest_path.exists()
+                        && let Err(e) = fs::create_dir_all(&dest_path)
+                    {
+                        log::warn!("7z: failed to create dir {:?}: {e}", dest_path);
+                        ctx.entry_failed();
+                        return Ok(true);
+                    }
+                }
+                Err(e) => {
+                    log::warn!("7z: skipping {:?}: {e}", entry.name());
                     ctx.entry_failed();
                     return Ok(true);
                 }
@@ -106,12 +115,7 @@ pub(crate) fn extract(
         }
 
         let write_res = (|| -> io::Result<()> {
-            if let Some(parent) = dest_path.parent() {
-                if !parent.exists() {
-                    fs::create_dir_all(parent)?;
-                }
-            }
-
+            let dest_path = safety::prepare_path(&root, rel)?;
             let file = fs::File::create(&dest_path)?;
             if entry.size() > 0 {
                 let mut writer = io::BufWriter::new(file);

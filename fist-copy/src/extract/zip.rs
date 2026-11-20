@@ -10,6 +10,7 @@ use std::path::Path;
 
 use super::ArchiveEntry;
 use super::ctx::ExtractCtx;
+use super::safety::{canonical_root, prepare_path};
 
 fn open(source: &Path) -> io::Result<zip::ZipArchive<File>> {
     let file = File::open(source)?;
@@ -61,6 +62,7 @@ pub(crate) fn extract(
     };
     ctx.register_bytes(total);
     ctx.register_entries(archive.len() as u32);
+    let root = canonical_root(dest)?;
 
     for i in 0..archive.len() {
         if ctx.cancelled() {
@@ -79,11 +81,18 @@ pub(crate) fn extract(
             ctx.entry_skipped();
             continue;
         };
-        let full = dest.join(&rel);
+        let full = match prepare_path(&root, &rel) {
+            Ok(full) => full,
+            Err(e) => {
+                log::warn!("zip: skipping {rel:?}: {e}");
+                ctx.entry_failed();
+                continue;
+            }
+        };
         let res = if entry.is_dir() {
             fs::create_dir_all(&full).map(|_| 0u64)
         } else if entry.is_symlink() {
-            match write_symlink(&mut entry, &rel, dest, &full) {
+            match write_symlink(&mut entry, &full, &root) {
                 Ok(n) => {
                     ctx.add_copied(n);
                     Ok(n)
@@ -122,9 +131,8 @@ where
 /// Non-unix targets fall back to a plain file containing the target.
 fn write_symlink<R>(
     entry: &mut zip::read::ZipFile<'_, R>,
-    rel: &Path,
-    dest: &Path,
     full: &Path,
+    root: &Path,
 ) -> io::Result<u64>
 where
     R: std::io::Read + std::io::Seek,
@@ -134,15 +142,12 @@ where
 
     #[cfg(unix)]
     {
-        let link_dir = rel.parent().unwrap_or(Path::new(""));
-        if !super::safety::link_target_safe(dest, link_dir, Path::new(&target)) {
+        let link_dir = full.parent().unwrap_or(root);
+        if !super::safety::link_target_safe(root, link_dir, Path::new(&target)) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("link target escapes destination: {target:?}"),
             ));
-        }
-        if let Some(parent) = full.parent() {
-            fs::create_dir_all(parent)?;
         }
         let _ = fs::remove_file(full);
         std::os::unix::fs::symlink(&target, full)?;
@@ -150,10 +155,8 @@ where
     }
     #[cfg(not(unix))]
     {
-        let _ = (rel, dest);
-        if let Some(parent) = full.parent() {
-            fs::create_dir_all(parent)?;
-        }
+        let _ = root;
+        let _ = fs::remove_file(full);
         fs::write(full, target.as_bytes())?;
         Ok(target.len() as u64)
     }
@@ -167,9 +170,6 @@ fn write_entry<R>(
 where
     R: std::io::Read + std::io::Seek,
 {
-    if let Some(parent) = full.parent() {
-        fs::create_dir_all(parent)?;
-    }
     let mut out = File::create(full)?;
     let mut buf = [0u8; 64 * 1024];
     let mut written = 0u64;

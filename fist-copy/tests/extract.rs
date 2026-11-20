@@ -238,61 +238,133 @@ fn symlink_exists(p: &Path) -> bool {
     std::fs::symlink_metadata(p).is_ok()
 }
 
+#[cfg(unix)]
 #[test]
-fn skeleton_creates_dirs_only_and_skips_unsafe() {
-    let dir = std::env::temp_dir().join(format!(
-        "fist-copy-skeleton-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .subsec_nanos()
-    ));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+fn extraction_does_not_follow_destination_symlinks() {
+    if !have("tar") || !cfg!(feature = "tar") {
+        return;
+    }
+    let f = fixture();
+    let stage = f.dir.join("stage");
+    std::fs::create_dir_all(stage.join("escape")).unwrap();
+    std::fs::write(stage.join("escape/pwn.txt"), b"pwn").unwrap();
+    let archive = f.dir.join("evil.tar");
+    run(std::process::Command::new("tar")
+        .args(["-cf"])
+        .arg(&archive)
+        .arg("-C")
+        .arg(&stage)
+        .arg("escape/pwn.txt"));
 
-    let entries = vec![
-        fist_copy::extract::ArchiveEntry {
-            path: "a/b/c.txt".into(),
-            is_dir: false,
-        },
-        fist_copy::extract::ArchiveEntry {
-            path: "a/b/".into(),
-            is_dir: true,
-        },
-        fist_copy::extract::ArchiveEntry {
-            path: "empty/".into(),
-            is_dir: true,
-        },
-        fist_copy::extract::ArchiveEntry {
-            path: "flat".into(),
-            is_dir: false,
-        },
-        // traversal and absolute entries never touch the disk
-        fist_copy::extract::ArchiveEntry {
-            path: "../../fist-copy-skeleton-evil".into(),
-            is_dir: true,
-        },
-        fist_copy::extract::ArchiveEntry {
-            path: "/abs".into(),
-            is_dir: true,
-        },
-    ];
-    fist_copy::extract::skeleton(&dir, &entries);
+    let outside = f.dir.join("outside");
+    std::fs::create_dir_all(&outside).unwrap();
+    let dest = f.dir.join("out-symlink");
+    std::fs::create_dir_all(&dest).unwrap();
+    std::os::unix::fs::symlink(&outside, dest.join("escape")).unwrap();
 
-    assert!(dir.join("a/b").is_dir());
-    assert!(dir.join("empty").is_dir());
-    // files are never created by the skeleton
-    assert!(!dir.join("a/b/c.txt").exists());
-    assert!(!dir.join("flat").exists());
+    let sched = Scheduler::new(SchedulerOptions {
+        workers: std::num::NonZeroUsize::new(1).unwrap(),
+    });
+    let handle = sched
+        .submit(JobRequest {
+            kind: JobKind::Extract(ExtractParams),
+            source: archive,
+            dest: dest.clone(),
+        })
+        .expect("submit");
+    let _ = wait_ok(&handle);
+    assert!(!outside.join("pwn.txt").exists());
     assert!(
-        !std::env::temp_dir()
-            .join("fist-copy-skeleton-evil")
-            .exists()
+        std::fs::symlink_metadata(dest.join("escape"))
+            .unwrap()
+            .file_type()
+            .is_symlink()
     );
-    assert!(!dir.join("abs").exists());
+    sched.shutdown(Duration::from_secs(2));
+}
 
-    let _ = std::fs::remove_dir_all(&dir);
+#[cfg(unix)]
+#[test]
+fn tar_hardlinks_resolve_from_the_archive_root() {
+    if !have("tar") || !cfg!(feature = "tar") {
+        return;
+    }
+    let f = fixture();
+    let stage = f.dir.join("stage-hard");
+    std::fs::create_dir_all(&stage).unwrap();
+    std::fs::write(stage.join("a.txt"), b"linked").unwrap();
+    std::fs::hard_link(stage.join("a.txt"), stage.join("b.txt")).unwrap();
+    let archive = f.dir.join("hard.tar");
+    run(std::process::Command::new("tar")
+        .args(["-cf"])
+        .arg(&archive)
+        .arg("-C")
+        .arg(&stage)
+        .arg("a.txt")
+        .arg("b.txt"));
+
+    let dest = f.dir.join("out-hard");
+    let sched = Scheduler::new(SchedulerOptions {
+        workers: std::num::NonZeroUsize::new(1).unwrap(),
+    });
+    let handle = sched
+        .submit(JobRequest {
+            kind: JobKind::Extract(ExtractParams),
+            source: archive,
+            dest: dest.clone(),
+        })
+        .expect("submit");
+    assert!(wait_ok(&handle), "hardlink extraction failed");
+    assert_eq!(std::fs::read(dest.join("a.txt")).unwrap(), b"linked");
+    assert_eq!(std::fs::read(dest.join("b.txt")).unwrap(), b"linked");
+    use std::os::unix::fs::MetadataExt;
+    assert_eq!(
+        std::fs::metadata(dest.join("a.txt")).unwrap().ino(),
+        std::fs::metadata(dest.join("b.txt")).unwrap().ino()
+    );
+    sched.shutdown(Duration::from_secs(2));
+}
+
+#[cfg(unix)]
+#[test]
+fn symlink_target_uses_the_resolved_parent_directory() {
+    if !have("tar") || !cfg!(feature = "tar") {
+        return;
+    }
+    let f = fixture();
+    let stage = f.dir.join("stage-link");
+    std::fs::create_dir_all(stage.join("a")).unwrap();
+    std::os::unix::fs::symlink("../../sibling", stage.join("a/link")).unwrap();
+    let archive = f.dir.join("link.tar");
+    run(std::process::Command::new("tar")
+        .args(["-cf"])
+        .arg(&archive)
+        .arg("-C")
+        .arg(&stage)
+        .arg("a/link"));
+
+    // `a` is a pre-existing symlink to a deeper directory inside the
+    // destination. The link's `../../sibling` target is safe from
+    // `dest/real/deep`, but would look like an escape if checked from the
+    // unresolved `dest/a`.
+    let dest = f.dir.join("out-link");
+    std::fs::create_dir_all(dest.join("real/deep")).unwrap();
+    std::os::unix::fs::symlink("real/deep", dest.join("a")).unwrap();
+    std::fs::write(dest.join("sibling"), b"ok").unwrap();
+
+    let sched = Scheduler::new(SchedulerOptions {
+        workers: std::num::NonZeroUsize::new(1).unwrap(),
+    });
+    let handle = sched
+        .submit(JobRequest {
+            kind: JobKind::Extract(ExtractParams),
+            source: archive,
+            dest: dest.clone(),
+        })
+        .expect("submit");
+    assert!(wait_ok(&handle), "symlink extraction failed");
+    assert_eq!(std::fs::read(dest.join("a/link")).unwrap(), b"ok");
+    sched.shutdown(Duration::from_secs(2));
 }
 
 #[test]

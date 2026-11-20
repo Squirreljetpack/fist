@@ -4,7 +4,7 @@
 //! (tar.gz & co) delegate to [`super::tarball`], bare compressed files are
 //! copied through the decoder under their de-suffixed name.
 
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
@@ -12,6 +12,7 @@ use super::ArchiveEntry;
 use super::codec;
 use super::ctx::ExtractCtx;
 use super::detect::Format;
+use super::safety;
 use super::tarball::{self, ByteSource};
 
 enum Shape {
@@ -71,8 +72,15 @@ pub(crate) fn extract(
                 return Err(super::ctx::cancelled());
             }
             ctx.register_entries(1);
-            let full = dest.join(bare_stem(source));
-            fs::create_dir_all(dest)?;
+            let name = bare_stem(source);
+            if !safety::is_safe(Path::new(&name)) {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("unsafe output name: {name:?}"),
+                ));
+            }
+            let root = safety::canonical_root(dest)?;
+            let full = safety::prepare_path(&root, Path::new(&name))?;
             let mut out = File::create(&full)?;
             // chunked so cancellation lands between chunks and byte
             // progress advances during the copy
