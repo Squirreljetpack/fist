@@ -176,7 +176,7 @@ pub fn display_epoch(epoch: Epoch) -> String {
     let Ok(ts) = jiff::Timestamp::from_second(epoch) else {
         return "-".to_string();
     };
-    let local_dt = ts.to_zoned(jiff::tz::TimeZone::system());
+    let local_dt = ts.to_zoned_datetime(jiff::tz::TimeZone::system());
     local_dt.strftime("%d-%m-%y %H:%M:%S").to_string()
 }
 

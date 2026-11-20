@@ -99,7 +99,7 @@ fn extract_metadata(
             let tz = jiff::tz::TimeZone::system();
             let format_time = |time: SystemTime| {
                 let ts = jiff::Timestamp::try_from(time).ok()?;
-                let local_dt = ts.to_zoned(tz.clone());
+                let local_dt = ts.to_zoned_datetime(tz.clone());
                 Some(local_dt.strftime("%Y-%m-%d %H:%M").to_string())
             };
 
