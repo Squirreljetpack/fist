@@ -1,3 +1,6 @@
+opening files really needs to surface their errors somehow
+but the error code/stderr is not dependable/gives false positives? we should toast/block by default.
+
 # Bugs
 
 drag into nav pane: ask copy or move.
