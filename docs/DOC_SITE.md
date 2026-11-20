@@ -1,8 +1,6 @@
 # fist-docs (site) — documentation guide
 
-Reference guide for maintaining `fist-docs` (content scope, editorial rules, terminology, page skeletons, and clip placements).
-
-Three goals, in priority order: **up to date** (the binary is the authority), **focused** (no `--help` duplication or UI noise), **reference voice** (see the editorial policy).
+Project guide for `fist-docs`: sidebar grouping, terminology, sources of truth, clip index, and site conventions for this site.
 
 Sidebar grouping:
 
@@ -15,63 +13,6 @@ Sidebar grouping:
 - Mechanics: `shell-integration`, `command-line`, `tools`, `output-templates`
 
 Clip shorthand: each scene exists as `<name>.mp4` with a `<name>.png` poster under `docs/images/`; `splash` and `cwd-prompt` are poster-only.
-
----
-
-## Editorial policy
-
-### The `--help` rule
-
-- If a reader can get it from `fs X --help`, link to `--help` instead of restating it
-- Flags, defaults, aliases, and accepted values belong to `--help`, not exhaustive markdown tables (applies across `command-line`, `tools`, and pane pages)
-- What earns a section: a concept with a decision or non-obvious interaction (which preset wins, why a sort is soft, when a destination resolves, how `diskspace` builds multi-path trees)
-- Config and extension pages (`menu-actions`, `lessfilter`, `configuration`, `mm.toml`) should end their opening section by noting how to validate or test edits (`fs :tool check`, `fs :tool action`, `fs :tool lessfilter --diagnose`), without enumerating what `:tool check` rejects
-
-### No backend mechanics or contributor internals
-
-- Name backing tools or libraries only when it helps a reader use the feature (mentioning `fd` or `ripgrep` once to clarify search behavior is fine; never name internal libraries such as `nucleo`, internal crates/binaries like `fist-copy` or `fist-size`, or internal CLI flags passed to backends)
-- Never expose static/module names (`MEM_STASHES`), internal Rust type/enum names (`CompleteOk`, `PendingErr`, `TransferParams`, `RootStrategy`, `ConflictStrategy`), syscalls/errnos (`O_CREAT | O_EXCL`, `rename(2)`, `EXDEV`), internal task IDs, polling/debounce timings (`100 ms`, percentage blends), or internal helpers (`showerror`)
-- Omit contributor-only and debug-build details (`dev.toml`, `*.dev.toml`, `dev.db`, repo paths like `assets/config/pager.toml`); these are user-facing docs
-- State defaults plainly without citing where a default config defines them: write `(default ctrl-r)` and `Default keys`, not `(ctrl-r via @reload in --dump-config)` or `Default keys (--dump-config)`
-
-### No UI narration or self-evident state
-
-- Describe what an action *does*, not obvious visual mechanics: never narrate that an overlay stays open, that toggling repopulates the pane immediately, that an empty list displays `"Queue is empty"`, that empty columns collapse, that selections clear on push, or exact toast wording
-- Skip self-evident UI behaviors: mutually exclusive radio toggles (`dirs` vs `files`), toggle-to-clear on active options, standard readline editing keys, and trivial boundary no-ops (`Parent` at `/`, `Advance` on an empty folder)
-- Do not repeat generic pane operations (movement, selections, previews, stashing, file ops) on specialized pane pages (`find-pane`, `custom-pane`); cross-reference `panes` instead
-
-### Reference voice
-
-- These are reference pages, not tutorials: no step lists, no "now you try"
-- Docs should read naturally and describe features in a motivated way, with an understanding of the intent of features. Do not shoehorn motivation into descriptions: the motivation for each section should mostly come from how the topics are organized.
-- Describe what a feature is and how it connects to related features, without inventing "often confused" framing, spending sentences on what it is not, or justifying design choices inside a feature description
-- `getting-started` is the one page allowed to sequence things
-- Examples are allowed where config is uninstructive without one: the custom pane's note manager, stash setups, `assets/actions` entries
-- A clip illustrates a section; it never replaces an explanation
-
-### Page shape
-
-- One topic per page; link across pages rather than cramming unrelated subtopics into one doc or repeating another page's section
-- Title, then one paragraph: what this is and why you would reach for it
-- H2s follow the order a reader asks questions, not the order of the code (`getting-started` puts **First run** and **Core keybindings** right after **Install**, before shell setup and config dumping)
-- No `Overview` or `Hero` heading; opening content sits directly under the H1
-- No `Summary` or `Conclusion`, and no manual `Next:` footer rows (rely on VitePress's built-in `Previous` / `Next` footer)
-- Depth stops at H3
-
-### Prose
-
-- Sentence case headings, unnumbered, no "Introduction"/"Advanced"
-- Second person, present tense; "you" and "the pane", never "the user"
-- One topic per paragraph: break multi-topic blocks (such as terminal requirements + image protocols + build targets, or long flag enumerations) into short bullets or subsections
-- A table for enumerations, prose for anything with a decision in it; avoid repeating full config tables from `configuration` on feature pages
-- Fold single-sentence bold-lead bullets into prose when the list adds no scanning value; keep genuinely reference-like lists (catalogues, keymaps) uniform
-- Do not walk through or count volatile contents of dynamic files (such as exact entry counts or every rule in a default config); link to the file or inspect command instead
-- Keep single settings (such as `clear_completed_on_close`) in the operations section they govern rather than giving them their own H2, and drop repetitive table columns when a rule has a single default with one or two exceptions described in prose
-- Table cells are noun phrases, one line, no sentences or leading imperative verbs
-- Keys in backticks and spelled as the config spells them: `ctrl-f`, `alt-e`, `ctrl-shift-a`
-- Code fences carry a language (`shell`, `toml`, `lua`); commands are runnable as written; no `...` elisions; no output unless the output is the point
-- At most one admonition per page, and only for something destructive
-- Avoid "ships" and "shipped" (e.g. "shipped `config.toml`" or "ships with X"); link directly to the source file on GitHub or state what is included plainly
 
 ---
 
@@ -103,8 +44,6 @@ Naming rule: `f:st` in prose wherever it is a word; fall back to `fist` only whe
 
 ## Sources of truth
 
-When prose and code disagree, the code wins. Verify directly against the source before updating a page.
-
 | topic               | files                                                                                      |
 | ------------------- | ------------------------------------------------------------------------------------------ |
 | `config.toml`       | `src/config/mod.rs`, `panes.rs`, `styles.rs`, `ui.rs`, `src/db/zoxide.rs`                  |
@@ -131,9 +70,8 @@ Commands that answer questions directly:
 - `fs :tool showbinds`: the keymap after every override
 - `fs :tool lessfilter --diagnose PATH`: which rule wins, and why
 - `fs :tool check`: config and installed menu actions
+- `fs :tool action NAME`: run a menu action directly, to test an edit
 - `fs :tool types`: types and categories
-
-The recordings are the second source of truth: if prose and a clip disagree about what a key does, re-record rather than reword.
 
 ---
 
@@ -147,7 +85,7 @@ Every scene has a home. Primary reference first.
 | nav-pane       | navigation-in-depth | parent-and-advance                |
 | find           | find-pane           | working-with-results              |
 | search         | search-pane         | query-mode-and-filter-mode        |
-| custom         | custom-pane         | example-a-markdown-notes-manager  |
+| custom         | custom-pane         | a-markdown-notes-manager          |
 | history        | history-database    | history-panes                     |
 | apps           | app                 | *(top intro)*                     |
 | queue          | queue               | the-queue-overlay                 |

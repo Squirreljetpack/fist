@@ -1,26 +1,30 @@
 # F:st
 
-F:st is a file manager that runs in your terminal.
-
----
-
-In project management there is an iron law: “Cheap, fast, good. Choose two”.
-
-Miraculously, f:st manages to escape this law. *Its* motto goes something more like this: "Free, fast, good... simple, extensible, customizable, minimalistic, powerful, versatile, consistent, cohesive, flexibile, efficient, modular, portable. Take all of them!".
-
-It is a program at once as revolutionary as a comet, and as familiar as an old sock. It takes the greatest ideas for command-line tools in recent history, and combines them into a cohesive experience that makes interacting with the filesystem so fluid, so efficient it will feel like you were born in it, *moulded by it*. Once adopted, the only barriers that remain will be those imposed by your own thoughts; and if you ever again return to the old ways, you will be *blinded* by their slowness.
+F:st is a tactile file manager that runs in your terminal.
 
 ---
 
 <img src=".README.assets/splash.png" alt="Size-sorted file list filtered to images, with a photo preview" width="747" />
 
-It all starts with the *pane*, a dropdown list of all the items in your current directory. Type to filter, navigate with the arrow keys, a preview window to the side shows you the contents of the files, press `alt-h` to show a *dynamic help menu with all available actions*, and *you can even use your mouse*[^mouse]. Everything that should run asynchronously does, so that the UI never stutters, and all effects are accompanied by toasts, so that you always know what exactly is going on.
+The filesystem is a gnarly, sprawling beast. Attempting to navigate it in the terminal is a miserable experience, and built-in file managers are not much better. How do you  organize items you downloaded, find a file you edited last week, check your most visited directories, convert media files, find large files to free up disk space, swap two files, share files between devices, extract archives and so on and on?
 
-All the rest of this app revolves around this interface, providing efficient ways to navigate, robust and optimized filesystem primitives[^primitives], smart previews, recents tracking, alterrnate views & lists, and a system for contextual actions. All of this on the same interface, with the help menu only ever being one keypress away, the net effect being that *everything* is within the reach of a few taps and nothing is overwhelming.
+The problem lies mostly with its strengths: scale and versatility. The first makes it difficult to navigate, the second makes it awkward to manipulate — too few features and you can't do what you need to, too many and things get bloated.
+But the problem is maybe not an impossible one.
 
-[^mouse]: We hope you have a grand time with clicking, dragging, and scrolling.
+F:st provides just one view, a single list of files, and polishes that view to the limit. The list can be the contents of a directory, or the results of a recursive search, a full text search, your recent files and folders, or other custom lists. Importantly, these searches run extremely efficiently, indexing your entire filesystem in seconds, after which the fuzzy filter[^typo] floats just the ones you were thinking of to the top. No matter where you need to be, *there you are* (in a couple of keystrokes)[^addendum].
 
-[^primitives]: Fast and error-proof copying, transparent decompression, re-filtering/sorting that runs on the fly etc.
+The second problem, which puts power and complexity at odds with each other, is really a problem of *strategy*. Most of the things we need from our files fall into a few broad categories: opening, previewing, editing, checking metadata[^metadata], as well as a few others. F:st provides a preconfigured [dispatcher](#lessfilter), so that you can do things without needing to think about *how* to do them. For example, the right arrow key steps into things: it enters directly into directories, archives and volumes, opens files in your editor and images in a viewer.
+
+For all else, such as media conversion, comparing directories, sending files and other odd tools which are occasionally useful to have on hand, f:st provides an extensible [contextual menu](#menu). The same principles that guide the rest of the app are applied here: clutter is reduced by only showing actions valid on the current selections, the help menu is always available for a description of the available options, and the execution model is tightly integrated with other features of f:st, allowing you to bind, background and queue tasks — the purpose of minimal interface is to clarify the power and flexibility concealed beneath.
+
+Good tools should feel comfortable to pick up and use. In many words, they should be intuitive and responsive, transparent in what they do, adaptable to your preferences and rewarding to master, staying out of the way while delivering power and utility as naturally as an extension of your self.
+
+In one word, they should be *tactile*[^tactile].
+
+[^typo]: optionally typo-resistant or regex-driven
+[^addendum]: Compare this to having to use standard file managers or cli tools, where you need to learn filter grammars or organizational schemes. Here, the process is always the same: choose the list type, (optionally, choose a sort or filter), and type in a fragment of the file's path. Then, to return, `ctrl-z` takes you back in the pane stack.
+[^tactile]: If f:st does not live up to that standard in any way, [let me know](https://github.com/Squirreljetpack/fist/issues)!
+[^metadata]: image dimensions, media type, encoding
 
 # Installation
 
@@ -86,7 +90,7 @@ cd fist
 cargo build --release
 ```
 
-[^cargo]: f:st depends on patched crates, so it must be cloned and built in place; `cargo install fist` cannot apply those patches.
+[^cargo]: f:st depends on the patches in `.cargo/config.toml` crates, so you must either clone the repository, or export the variables in there before running `cargo install fist`.
 
 # Commands
 
@@ -129,9 +133,7 @@ cargo build --release
 - `alt-space`: JumpOrAccept(prompt)
 - `ctrl-space`, `alt-hyphen`: toggle prompt lock
 
-For a full list of binds, press `alt-h` within the app[^binds].
-
-[^binds]: For more information on bindings (how they are defined, key testing, and default generic binds), see [matchmaker](https://github.com/Squirreljetpack/matchmaker).
+Pressing `alt-h` within the app displays your available binds as part of the help.
 
 ### Configuration
 
@@ -149,7 +151,7 @@ To begin, call `fs` without any positional arguments.
 
 <img src=".README.assets/nav-pane.png" alt="Navigation pane with a fuzzy query and a directory-tree preview" width="666" />
 
-Once inside, you can navigate and re-enter from other panes by pressing the `left`/`right` arrow keys (corresponding to the `Parent`/ `Advance` actions).
+Once inside, you can navigate and re-enter from other panes by pressing the `left`/`right` arrow keys (corresponding to the `Parent`/ `Advance` actions). Press `alt-h` to show a full list of available actions.
 
 ##### Prompt locking
 
@@ -157,8 +159,7 @@ Once inside, you can navigate and re-enter from other panes by pressing the `lef
 >
 > The following describes what is probably the least straightforward feature of F:st. Hopefully, it will make more sense when you start to use it. If not, the behavior comes from a block of bind definitions in [`mm.toml`](https://github.com/Squirreljetpack/fist/blob/main/assets/config/mm.toml)[^customization-philosophy] that you can delete to disable.
 
-F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. Unfortunately, because the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions end up bound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in query-reliant panes like [`Find`](#find) or [`Search`](#search), the query bar locks when entering these panes: indicated by a red underline. When the prompt is locked, the `left`/`right` and `shift-left`/`right` keys switch roles, so that `left`/`right` reverts to only moving the caret in your query.
-On macos, `cmd+delete` also returns to `DeleteWord` instead of `Trash`.
+F:st binds `left`/`right` to actions to emulate a traditional file manager experience and to keep all the (most useful) navigation keys together. Unfortunately, because the prompt is also available for typing, the `ForwardChar`/`BackwardChar` actions end up bound to `shift-left`/`right`, and this can be a bit unexpected at first. To prevent accidents in query-reliant panes like [`Find`](#find) or [`Search`](#search), the query bar locks when entering these panes: indicated by a red underline. When the prompt is locked, the `left`/`right` and `shift-left`/`right` keys switch roles, so that `left`/`right` reverts to only moving the caret in your query. `ctrl+backspace` also returns to `DeleteWord` instead of `Trash`.
 
 The locked state can also be entered by *entering the prompt* -- pressing up at the first result, (or down at the last with `results.cycle`). Note that `in_prompt` ⇒ `locked_prompt`: in this state, the prompt displays your current directory, and all actions apply to that instead. To exit the prompt, just press up or down again. To toggle *the locked state*, press `ctrl-space` or `alt-hyphen`[^prompt-lock] -- but this is not often necessary. `alt-space` jumps to the locked cwd and then accepts it.
 
@@ -176,7 +177,7 @@ You can search through all files recursively by
 
 <img src=".README.assets/find-pane.png" alt="Find pane with a fuzzy query and a markdown preview" width="666" />
 
-The results will be available for filtering, navigating, editing, previewing etc. Filtering and sort order can be adjusted through the [Options overlay](#options).
+This is the same as the **Nav** view before, only a different list.
 
 > [!NOTE]
 >
@@ -227,7 +228,7 @@ f:st can also accept **arbitrary lists of files from a command** or **input stre
 - filtering and sorting
 - and so on.
 
-A complete example of a notes manager this can be used for can be found [here](https://squirreljetpack.github.io/fist-docs/custom-pane#example-browsing-markdown-notes).
+A complete example of a notes manager this can be used for can be found [here](https://squirreljetpack.github.io/fist-docs/custom-pane#example-a-markdown-notes-manager).
 
 <img src=".README.assets/custom-stream.png" alt="Custom stream pane listing markdown notes with a filtered preview" width="666" />
 
@@ -259,7 +260,7 @@ By default, `alt-s` and `alt-b` are bound to "smart" `Stash(name)` actions for t
 
 The apps pane comes prepopulated from the existing applications on your system, and can be accessed either through
 
-- `fs :o -w [..FILES]` on the command-line
+- `fs :o` on the command-line
 - the `open with` [menu action](#menu)
 - a custom binding for the `App` action.
 
@@ -441,32 +442,9 @@ Images are rendered using the best supported graphics protocol of your terminal 
 
 <img src=".README.assets/image-preview.png" alt="An image preview rendered at pixel resolution with the sixel protocol" width="666" />
 
-Each preset is configured by a rules table in the [config file](https://github.com/Squirreljetpack/fist/blob/main/assets/config/lessfilter.toml). Each rule is a pair (Actions, Patterns), and for a given file, the rule whose patterns score the highest is selected -- its actions are invoked on the target file.
+Each preset is configured by a rules table in the [config file](https://github.com/Squirreljetpack/fist/blob/main/assets/config/lessfilter.toml). Each rule is a pair (Actions, Patterns), and for a given file, the rule whose patterns score the highest is selected -- its actions are invoked on the target file. A more complete account can be found in the [documentation](https://squirreljetpack.github.io/fist-docs/lessfilter).
 
-The score modifiers and their prefix syntax are:
-
-- `>n|pattern`: `Max(n)` — take the max of the current score with `n`.
-  - The minimal syntax `n|` (such as `1|cat:...`) is also supported.
-- `<n|pattern`: `Min(n)` — take the min of the current score with `n`.
-- `+n|pattern`: `Add(n)` — add `n` (or 1) to the current score.
-- `-n|pattern`: `Sub(n)` — subtract `n` (or 1) from the current score.
-- `^|pattern` : `Req` — require the condition; sets the score to 0 if the test fails.
-  - `^pattern` is also supported.
-
-The patterns and their default scores (used when no score prefix is specified) are:
-
-- `glob`: match the full path — `Max(50)`
-- `child`: match a child name (or a sibling name for a file) — `Max(50)`
-- `ext`: match a file extension — `Max(30)`
-- `mime`: match a MIME type such as `text/plain` or `image/*` — `Max(20)`
-- `cat`: match a built-in or configured file category — `Max(20)`
-- `application`: match a platform-specific application bundle, launcher, or executable — `Max(60)`
-- `*`: match any path — `Max(0)`
-- `have`: require an executable to exist — `Req`
-- `filetype`: require a matching filesystem type — `Req`
-- `git`: require a path inside a Git work tree — `Req`
-
-Though the syntax has many parts, configuration should be fairly straightforward. f:st comes with a sane set of defaults with wide coverage for a variety of filetypes, and declaring overrides is as simple as declaring the desired action together with the conditions which it requires. For example:
+f:st comes with a sane set of defaults with wide coverage for a variety of filetypes, and declaring overrides is as simple as declaring the desired action together with the conditions which it requires. For example:
 
 ```toml
 ### --- lessfilter.toml -- ###
@@ -522,10 +500,6 @@ Note that certain default previews will not display without the required [depend
 
 If something is not resolving properly, `fs :tool lessfilter --diagnose <PATH>` shows you how and why your configuration resolves as it does on a given file.
 
-### Types
-
-A list of all supported types, used by the `-t` parameter of the [find subcommand](#find) and the `cat` condition of the [lessfilter](#lessfilter).
-
 ### Others
 
 fs exposes several of the more generally useful functionalities it uses internally:
@@ -539,6 +513,8 @@ fs exposes several of the more generally useful functionalities it uses internal
 - `action`: run a menu action directly
 
 - `check`: verify your configuration
+
+- `types`: a list of all supported types, used by the `-t` parameter of the [find subcommand](#find) and the `cat` condition of the [lessfilter](#lessfilter).
 
 - as for the rest, run `fs :tool` to see a full listing.
 
