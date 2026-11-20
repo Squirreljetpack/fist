@@ -1,3 +1,16 @@
+## [0.0.5] - 2026-11-20
+
+A broad release focused on configurability, navigation, and day-to-day polish.
+
+- Menus, actions, and bindings are now configurable, with pane-scoped modes, multiselect batch actions, Lua action modules, and confirm/wait execution modes.
+- The pager gained follow mode, goto, copy-on-select, and mouse scrolling, with better handling of piped input.
+- Stashes, history, and jump behavior were reworked: configurable stash panes, history exclusions, the `Z` history jump, and `JumpOrAccept`.
+- Shell integration now covers more shells, with safer init scripts and prompt redraws.
+- Added mount v1, system clipboard copy, native lessfilter image previews, and richer find/search panes.
+- Archive extraction is now contained against path and symlink escapes, and Windows file opening and quoting were fixed.
+- Rendering, watchers, queueing, and the copy/move workers received performance and stability work.
+- CI now covers Linux and macOS alongside Windows, and packaging metadata and install docs were refreshed.
+
 ## [0.0.4] - 2026-08-19
 
 ### 🚀 Features

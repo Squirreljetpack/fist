@@ -1354,7 +1354,7 @@ checksum = "09ded33109e99472f809cb7495544506eea45e366725dacf2a383e184f660456"
 
 [[package]]
 name = "fist"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "ahash",
  "ansi-to-tui",
@@ -1424,7 +1424,7 @@ dependencies = [
 
 [[package]]
 name = "fist-copy"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "ar",
  "bzip2",
@@ -1448,7 +1448,7 @@ dependencies = [
 
 [[package]]
 name = "fist-size"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "crossbeam-channel",
  "dashmap",
@@ -1458,7 +1458,7 @@ dependencies = [
 
 [[package]]
 name = "fist-types"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "clap",
  "cli_boilerplate_automation",
