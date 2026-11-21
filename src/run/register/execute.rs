@@ -65,8 +65,8 @@ impl ExecutionMode {
     pub fn from_discriminant_for_silent(d: u8) -> Option<Self> {
         match d {
             0 => Some(Self::Copy),
-            3 => Some(Self::Detached),
-            4 => Some(Self::Silent),
+            4 => Some(Self::Detached),
+            5 => Some(Self::Silent),
             7 => Some(Self::MenuAction),
             8 => Some(Self::LuaCommand),
             _ => None,
