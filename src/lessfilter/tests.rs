@@ -5,7 +5,7 @@ use std::path::Path;
 use super::{action::*, file_rule::*, *};
 use crate::abspath::AbsPath;
 use crate::cli::paths::current_exe;
-use crate::lessfilter::helpers::image_viewer;
+use crate::lessfilter::helpers::{format_image_metadata, image_viewer};
 use crate::lessfilter::rule_matcher::Test;
 use cba::vec_;
 use fist_types::{FileCategory, When};
@@ -133,7 +133,7 @@ fn test_text_file_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(progs.0[0], CommandStrategy::Pager(path.clone()));
+    assert_eq!(progs.0[0], CommandStrategy::pager(&path));
 
     // the edit preset (used by `Advance`) matches the same file
     let edit_action = best_action(&cfg, Preset::Edit, &path).unwrap();
@@ -157,7 +157,7 @@ fn test_rust_file_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(progs.0[0], CommandStrategy::Pager(path.clone()));
+    assert_eq!(progs.0[0], CommandStrategy::pager(&path));
 }
 
 #[test]
@@ -172,14 +172,14 @@ fn test_image_file_matching() {
 
     let progs = action.to_progs(&path, Preset::Preview);
     assert_eq!(progs.0.len(), 1);
-    assert_eq!(progs.0[0], image_viewer(&path, None));
+    assert_eq!(progs.0[0], image_viewer(&path, None, false));
 
     // Test extended preset for multiple commands
     let extended_action = best_action(&cfg, Preset::Extended, &path).unwrap();
     let extended_progs = extended_action.to_progs(&path, Preset::Extended);
     assert_eq!(extended_progs.0.len(), 3);
     assert_eq!(extended_progs.0[0], CommandStrategy::Header); // header
-    assert_eq!(extended_progs.0[1], image_viewer(&path, None)); // image viewer
+    assert_eq!(extended_progs.0[1], image_viewer(&path, None, false)); // image viewer
     assert_eq!(extended_progs.0[2], CommandStrategy::Metadata(path.clone())); // metadata
 }
 
@@ -405,5 +405,86 @@ fn fileformat_config_chooses_by_score_and_category() {
     assert_eq!(
         best_action(&cfg, Preset::Preview, dir.path()),
         Some(&Action::Directory)
+    );
+}
+
+#[test]
+fn fs_paged_swaps_preview_images_to_metadata_and_hands_extended_to_mm_pager() {
+    let dir = tempdir().unwrap();
+    let img = dir.path().join("photo.png");
+    // Minimal 1x1 PNG (IHDR + IDAT + IEND) so image_dimensions succeeds.
+    let png_1x1: &[u8] = &[
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F,
+        0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00,
+        0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+        0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    ];
+    File::create(&img).unwrap().write_all(png_1x1).unwrap();
+    let txt = dir.path().join("note.txt");
+    File::create(&txt).unwrap().write_all(b"hello").unwrap();
+
+    // Unpaged preview keeps the normal image viewer and extended keeps header+viewer+meta.
+    assert_eq!(
+        image_viewer(&img, None, false),
+        Action::Image
+            .to_progs_for(&img, Preset::Preview, false, true)
+            .0[0]
+    );
+    let preview_unpaged = Action::Text.to_progs_for(&txt, Preset::Extended, false, true);
+    assert_eq!(preview_unpaged.0.len(), 3);
+    assert_eq!(preview_unpaged.0[0], CommandStrategy::Header);
+
+    // Paged preview swaps image tokens for single-line italicized metadata.
+    assert_eq!(
+        image_viewer(&img, None, true),
+        CommandStrategy::ImageMetadata(img.clone())
+    );
+    let preview_paged_img = Action::Image.to_progs_for(&img, Preset::Preview, true, true);
+    assert_eq!(
+        preview_paged_img.0.as_slice(),
+        &[CommandStrategy::ImageMetadata(img.clone())]
+    );
+
+    let meta_line = format_image_metadata(&img);
+    assert!(!meta_line.contains('\n'));
+    assert!(meta_line.contains("1x1"));
+    assert!(meta_line.contains(&img.display().to_string()));
+    assert!(meta_line.contains("67 B"));
+
+    // Paged extended hands both text and image directly to mm pager with PG_INTERACTIVE=true when `mm` exists.
+    assert_eq!(
+        Action::Text
+            .to_progs_for(&txt, Preset::Extended, true, true)
+            .0
+            .as_slice(),
+        &[CommandStrategy::interactive_pager(&txt)]
+    );
+    assert_eq!(
+        Action::Image
+            .to_progs_for(&img, Preset::Extended, true, true)
+            .0
+            .as_slice(),
+        &[CommandStrategy::interactive_pager(&img)]
+    );
+
+    // Without `mm`, paged extended falls back to the in-process steps (keeping metadata for images).
+    let no_mm_text = Action::Text.to_progs_for(&txt, Preset::Extended, true, false);
+    assert_eq!(
+        no_mm_text.0.as_slice(),
+        &[
+            CommandStrategy::Header,
+            CommandStrategy::pager(&txt),
+            CommandStrategy::Metadata(txt)
+        ]
+    );
+    let no_mm_img = Action::Image.to_progs_for(&img, Preset::Extended, true, false);
+    assert_eq!(
+        no_mm_img.0.as_slice(),
+        &[
+            CommandStrategy::Header,
+            CommandStrategy::ImageMetadata(img.clone()),
+            CommandStrategy::Metadata(img)
+        ]
     );
 }

@@ -18,7 +18,7 @@ use std::{
 
 use cba::broc::TTY_HANDLE;
 use log::error;
-use minus::{LineNumbers, Pager, hooks::Hook};
+use minus::{LineNumbers, Pager, hooks::Hook, input::InputEvent};
 
 /// Footer prompt shown by the pager.
 const PROMPT: &str = "alt-h for help, q to quit";
@@ -30,9 +30,13 @@ fn configure_pager(pager: &Pager) {
     let _ = pager.set_smart_case(true);
     let _ = pager.set_prompt(PROMPT);
 
-    // Default bindings plus the Alt-h help binding and `y` to copy.
+    // Default bindings plus Alt-h help, Alt-w wrap toggle, horizontal mouse scroll, and `y` to copy.
     let mut input_register = minus::input::HashedEventRegister::default();
     input_register.add_help_key(&[]);
+    input_register.add_described_key_events(&["m-w"], "toggle line wrap", |_, ps| {
+        InputEvent::HorizontalScroll(!ps.screen.line_wrapping())
+    });
+    input_register.add_horizontal_mouse_scroll();
     let toast_pager = pager.clone();
     input_register.add_copy_key(&["y"], move |text| {
         crate::clipboard::copy_from_pager(text.to_string());

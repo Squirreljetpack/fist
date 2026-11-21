@@ -33,7 +33,9 @@ use crate::config::Config;
 use crate::db::{DbTable, Pool};
 use crate::errors::{CliError, DbError};
 use crate::lessfilter::env::line_column;
-use crate::lessfilter::helpers::{extract, show_header, show_simple_metadata};
+use crate::lessfilter::helpers::{
+    extract, print_image_metadata, show_header, show_simple_metadata,
+};
 use crate::pager;
 use crate::spawn::{init_spawn_with, open_wrapped};
 use crate::utils::formatter::format_path_shell;
@@ -157,14 +159,14 @@ pub async fn handle(
                     CommandStrategy::Metadata(p) => {
                         paths.iter().all(|path| show_simple_metadata(path, pi == 0))
                     }
-                    CommandStrategy::Pager(_) => {
+                    CommandStrategy::Pager { interactive, .. } => {
                         if has("mm") {
                             // a final pager step replaces this process, so the
                             // pager owns the terminal directly
                             if Some(pi) == pl && i == rl {
-                                mm_pager(&paths)._exec();
+                                mm_pager(&paths, interactive)._exec();
                             }
-                            mm_pager(&paths)
+                            mm_pager(&paths, interactive)
                                 .status()
                                 ._ebog()
                                 .is_some_and(|s| s.success())
@@ -184,13 +186,19 @@ pub async fn handle(
                         // contain any byte (newlines included).
                         let bytes = p.as_os_str().as_encoded_bytes();
                         let header = match options.as_deref() {
-                            Some(options) => format!("\x1e<MM_IMAGE:{}> {options}\n", bytes.len()),
+                            Some(options) => {
+                                format!("\x1e<MM_IMAGE:{}> {options}\n", bytes.len())
+                            }
                             None => format!("\x1e<MM_IMAGE:{}>\n", bytes.len()),
                         };
                         let mut out = std::io::stdout();
                         out.write_all(header.as_bytes()).is_ok()
                             && out.write_all(bytes).is_ok()
                             && out.flush().is_ok()
+                    }
+                    CommandStrategy::ImageMetadata(p) => {
+                        print_image_metadata(&p);
+                        true
                     }
 
                     CommandStrategy::ShowError(ref msg) => {
@@ -252,13 +260,23 @@ pub async fn handle(
     if any_file_succeeded { 0 } else { 1 }
 }
 
-/// `mm pager` for `paths`: `PG_IMAGE=false` leaves image files to the text
-/// pipeline so the rule table decides how they render.
-fn mm_pager(paths: &[PathBuf]) -> Command {
+/// `mm pager` for `paths`.
+///
+/// `interactive = true` sets `PG_INTERACTIVE=true` so `mm` owns `/dev/tty`
+/// (or stderr) directly even when stdout is captured and renders images;
+/// `interactive = false` sets `PG_IMAGE=false` so the rule table decides how
+/// images render.
+fn mm_pager(
+    paths: &[PathBuf],
+    interactive: bool,
+) -> Command {
     let mut cmd = Command::new("mm");
-    cmd.env("PG_IMAGE", "false")
-        .args(["pager", "--"])
-        .args(paths);
+    if interactive {
+        cmd.env("PG_INTERACTIVE", "true");
+    } else {
+        cmd.env("PG_IMAGE", "false");
+    }
+    cmd.args(["pager", "--"]).args(paths);
     cmd
 }
 
@@ -381,15 +399,23 @@ fn describe_strategy(
     match strategy {
         CommandStrategy::Header => "<header>".to_string(),
         CommandStrategy::Metadata(p) => format!("<metadata {}>", p.display()),
-        CommandStrategy::Pager(p) => {
+        CommandStrategy::Pager {
+            path, interactive, ..
+        } => {
             if has("mm") {
-                format!("PG_IMAGE=false mm pager -- {}", p.display())
+                let env_prefix = if interactive {
+                    "PG_INTERACTIVE=true"
+                } else {
+                    "PG_IMAGE=false"
+                };
+                format!("{env_prefix} mm pager -- {}", path.display())
             } else {
-                format!("<pager fallback {}>", p.display())
+                format!("<pager fallback {}>", path.display())
             }
         }
         CommandStrategy::ShowError(msg) => format!("<showerror \"{msg}\">"),
         CommandStrategy::Image(p, _) => format!("<image {}>", p.display()),
+        CommandStrategy::ImageMetadata(p) => format!("<image-metadata {}>", p.display()),
         CommandStrategy::SystemOpen => format!("<open {}>", path.display()),
         CommandStrategy::None => "<none>".to_string(),
         CommandStrategy::Prog(prog, args) => std::iter::once(prog)

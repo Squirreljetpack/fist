@@ -2,6 +2,7 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use arrayvec::ArrayVec;
+use cba::broc::has;
 use cba::vec_;
 use serde::{Deserialize, Deserializer};
 
@@ -9,7 +10,7 @@ use crate::arr;
 use crate::cli::paths::current_exe;
 use crate::lessfilter::Preset;
 use crate::lessfilter::helpers::{
-    application_icon_path, image_viewer, infer_editor, infer_visual, with_header_lines,
+    application_icon_path, fs_paged, image_viewer, infer_editor, infer_visual, with_header_lines,
 };
 
 #[derive(
@@ -63,11 +64,19 @@ impl<'de> Deserialize<'de> for Action {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandStrategy {
     /// Page [PathBuf] with `mm pager`, falling back to the in-process minus
-    /// pager when `mm` is not on `PATH`.
-    Pager(PathBuf),
+    /// pager when `mm` is not on `PATH` and `interactive` is false.
+    ///
+    /// `interactive = false` sets `PG_IMAGE=false`; `interactive = true` sets
+    /// `PG_INTERACTIVE=true` so `mm pager` renders images and markdown natively.
+    Pager {
+        path: PathBuf,
+        interactive: bool,
+    },
     /// Print the `<MM_IMAGE>` header for [PathBuf], with optional header options
     /// (e.g. `hfit=fill:16`): the previewer loads it natively.
     Image(PathBuf, Option<String>),
+    /// Print single-line italicized image metadata for [PathBuf] when `FS_PAGED=true`.
+    ImageMetadata(PathBuf),
     /// Show the app header in-process.
     Header,
     /// Show metadata for [PathBuf] in-process.
@@ -80,6 +89,22 @@ pub enum CommandStrategy {
     Prog(OsString, Vec<OsString>),
     /// No program to spawn (empty command line).
     None,
+}
+
+impl CommandStrategy {
+    pub fn pager(path: impl Into<PathBuf>) -> Self {
+        Self::Pager {
+            path: path.into(),
+            interactive: false,
+        }
+    }
+
+    pub fn interactive_pager(path: impl Into<PathBuf>) -> Self {
+        Self::Pager {
+            path: path.into(),
+            interactive: true,
+        }
+    }
 }
 
 /// Wrap a complete command line (program + args) into a spawn strategy; an
@@ -101,7 +126,17 @@ impl Action {
         path: &Path,
         preset: Preset,
     ) -> (ArrayVec<CommandStrategy, 5>, [bool; 3]) {
-        use CommandStrategy::{Header, Metadata, Pager, Prog, ShowError, SystemOpen};
+        self.to_progs_for(path, preset, fs_paged(), has("mm"))
+    }
+
+    pub(crate) fn to_progs_for(
+        &self,
+        path: &Path,
+        preset: Preset,
+        paged: bool,
+        has_mm: bool,
+    ) -> (ArrayVec<CommandStrategy, 5>, [bool; 3]) {
+        use CommandStrategy::{Header, Metadata, Prog, ShowError, SystemOpen};
 
         match preset {
             Preset::Default => return Default::default(), // do nothing, should be unreachable
@@ -158,13 +193,26 @@ impl Action {
             },
             Action::Text => match preset {
                 Preset::Preview | Preset::Display => {
-                    (arr![Pager(path.into())], [true, false, false])
+                    (arr![CommandStrategy::pager(path)], [true, false, false])
                 }
                 // bat has a "native" header but using our app header is more consistent
-                Preset::Extended => (
-                    arr![Header, Pager(path.into()), Metadata(path.into())],
-                    [true, false, false],
-                ),
+                Preset::Extended => {
+                    if paged && has_mm {
+                        (
+                            arr![CommandStrategy::interactive_pager(path)],
+                            [true, false, false],
+                        )
+                    } else {
+                        (
+                            arr![
+                                Header,
+                                CommandStrategy::pager(path),
+                                Metadata(path.into())
+                            ],
+                            [true, false, false],
+                        )
+                    }
+                }
                 Preset::Info => (
                     arr![
                         Prog(
@@ -183,12 +231,25 @@ impl Action {
             },
             Action::Image => match preset {
                 Preset::Preview | Preset::Display => {
-                    (arr![image_viewer(path, None)], [true, false, false])
+                    (arr![image_viewer(path, None, paged)], [true, false, false])
                 }
-                Preset::Extended => (
-                    arr![Header, image_viewer(path, None), Metadata(path.into())],
-                    [true, false, false],
-                ),
+                Preset::Extended => {
+                    if paged && has_mm {
+                        (
+                            arr![CommandStrategy::interactive_pager(path)],
+                            [true, false, false],
+                        )
+                    } else {
+                        (
+                            arr![
+                                Header,
+                                image_viewer(path, None, paged),
+                                Metadata(path.into())
+                            ],
+                            [true, false, false],
+                        )
+                    }
+                }
                 Preset::Info => (arr![Header, Metadata(path.into())], [true, false, false]),
                 Preset::Edit => (arr![SystemOpen], [true, false, false]),
                 Preset::Default | Preset::Open | Preset::Alternate | Preset::Alternate2 => {
@@ -204,14 +265,14 @@ impl Action {
                     Preset::Preview | Preset::Display => {
                         // fallback to directory display if no icon found
                         let ac = match display_path {
-                            Some(icon) => image_viewer(icon, Some(16)),
+                            Some(icon) => image_viewer(icon, Some(16), paged),
                             None => application_fallback(path).into(),
                         };
                         (arr![ac], [false, false, false])
                     }
                     Preset::Extended => {
                         let ac = match display_path {
-                            Some(icon) => with_header_lines(image_viewer(icon, Some(16)), 1),
+                            Some(icon) => with_header_lines(image_viewer(icon, Some(16), paged), 1),
                             None => application_fallback(path).into(),
                         };
 

@@ -224,8 +224,13 @@ pub(super) fn build_exec_command(
         ExecutionMode::Normal | ExecutionMode::ExecuteOrConfirm | ExecutionMode::ExecuteWait => {}
         ExecutionMode::Paged => {
             // prepare to pipe stdout to the pager; stdin stays on the terminal
-            // so interactive children can still read keys
-            builder.stdout(Stdio::piped()).stdin(maybe_tty());
+            // so interactive children can still read keys. `FS_PAGED=true` lets
+            // lessfilter swap image tokens for metadata and hand `extended` off
+            // to `mm pager`.
+            builder
+                .env("FS_PAGED", "true")
+                .stdout(Stdio::piped())
+                .stdin(maybe_tty());
         }
         ExecutionMode::Tty => {
             builder
