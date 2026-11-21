@@ -86,7 +86,6 @@ display = [
 extended = [
     # Keep the SVG source text in the paged extended preset.
     [["Text"], ["1|ext:svg"]],
-    [["mmdoc"], ["1|ext:md", "have:mm"]],
     # [ [ "rainfrog" ], [ "application/vnd.sqlite3" ] ],
     # [ ["fx"], [ ".yml", ".json", ".jsonl", ".yaml", ".jsonh" ] ],
 ]
@@ -142,7 +141,6 @@ done
 '''
 
 mediainfo = 'mediainfo {}'
-mmdoc = 'mm --doc {}'
 # code = 'code --add {}'
 # rainfrog = 'rainfrog --url "sqlite://{.}?mode=ro"'
 # fx = 'fx {}'

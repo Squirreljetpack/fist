@@ -9,7 +9,7 @@ Sidebar grouping:
   `history-database`, `stash-panes`, `custom-pane`, `app`, `visibility`,
   `sorting` (plus `mount-pane` once complete)
 - Menu: `menu-actions`, `queue`, `lua`
-- Configuration: `configuration`, `mm.toml`, `lessfilter`, `pager`
+- Configuration: `configuration`, `mm.toml`, `lessfilter`
 - Mechanics: `shell-integration`, `command-line`, `tools`, `output-templates`
 
 Clip shorthand: each scene exists as `<name>.mp4` with a `<name>.png` poster under `docs/images/`; `splash` and `cwd-prompt` are poster-only.
@@ -49,7 +49,6 @@ Naming rule: `f:st` in prose wherever it is a word; fall back to `fist` only whe
 | `config.toml`       | `src/config/mod.rs`, `panes.rs`, `styles.rs`, `ui.rs`, `src/db/zoxide.rs`                  |
 | `mm.toml`           | `src/run/mm_config.rs`, `assets/config/mm.toml`                                            |
 | lessfilter          | `src/lessfilter/config.rs`, `assets/config/lessfilter.toml`                                |
-| pager               | `src/config/pager.rs`, `assets/config/pager.toml`                                          |
 | lua                 | `src/lua/`, `assets/plugins/*.md`                                                          |
 | menu actions        | `src/menu/`, `src/ui/menu_overlay/`, `assets/config/actions.toml`, `assets/actions/*.toml` |
 | queue               | `src/run/queue/`, `src/ui/queue_overlay.rs`, `fist-copy/`, `docs/CONFLICTS.md`             |
@@ -119,7 +118,6 @@ Secondary placements:
 
 - `nav-pane` also appears on `getting-started#first-run`.
 - `previews` also appears on `lessfilter#presets`.
-- `paged` also appears on `pager#when-output-gets-paged`.
 - `splash` also appears on `sorting#size-sorting`.
 
 ## Site conventions

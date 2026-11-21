@@ -138,16 +138,7 @@ impl FsMatchmaker {
             let cwd = STACK::cwd();
             let vars = collect_exec_env(state, &path);
 
-            // Bat passthrough for Paged: decided once here (STORE take), then
-            // reflected into the child env so the subtool skips its own bat
-            // (PG_RAW) and handed to the pager at wait time.
-            let bat = (mode == ExecutionMode::Paged)
-                .then(STORE::get_bat_opts)
-                .flatten();
             let mut builder = build_exec_command(mode, &cmd, cwd, vars).unwrap();
-            if bat.is_some() {
-                builder.env("PG_RAW", "true");
-            }
             // Confirmed presets get their stderr forwarded through the terminal so
             // the handler can tell whether anything was written; every other
             // command writes to the terminal directly.
@@ -163,7 +154,7 @@ impl FsMatchmaker {
             if let Some(stderr) = child.stderr.take() {
                 forward_stderr(stderr, Arc::clone(&stderr_written));
             }
-            let ok = wait_exec(mode, &cmd, child, bat);
+            let ok = wait_exec(mode, &cmd, child);
             if stderr_written.load(Ordering::Relaxed) {
                 await_continue();
             }
@@ -222,7 +213,7 @@ impl FsMatchmaker {
                             clipboard::copy_text(contents, true);
                         };
                     } else if let Some(child) = c._spawn() {
-                        if wait_exec(mode, &cmd, child, None) {
+                        if wait_exec(mode, &cmd, child) {
                             db().bump_path(path.is_dir(), path);
                         }
                     };

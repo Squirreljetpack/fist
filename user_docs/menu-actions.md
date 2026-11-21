@@ -31,15 +31,15 @@ Organizing actions across topic files under `~/.config/fist/actions/`—such as 
 
 Different tasks need different relationships with the terminal: interactive prompts and editors must own `/dev/tty`, diffs belong in a pager, fast side effects should finish quietly in the background, and heavy batch jobs benefit from sitting in the queue where you can adjust destinations or watch progress.
 
-| Strategy             | Execution                                                       | Interactive `input` |
-| -------------------- | --------------------------------------------------------------- | ------------------- |
-| `"Exec"`             | Foreground on `/dev/tty`; resumes TUI on exit                   | yes                 |
-| `"ExecWait"`         | Foreground on `/dev/tty`; waits for `enter` before redrawing    | yes                 |
-| `"ExecSilent"`       | Background thread; reports via toasts                           | no                  |
-| `"ExecPaged"`        | Foreground; pipes stdout into the interactive [pager](pager.md) | no                  |
-| `"Queue"`            | Enqueues one multi-path row into the queue                      | no                  |
-| `{ QueueBatch = n }` | Enqueues rows of at most `n` paths each                         | no                  |
-| `"Enqueue"`          | Enqueues one multi-path row and starts it immediately           | no                  |
+| Strategy             | Execution                                                    | Interactive `input` |
+| -------------------- | ------------------------------------------------------------ | ------------------- |
+| `"Exec"`             | Foreground on `/dev/tty`; resumes TUI on exit                | yes                 |
+| `"ExecWait"`         | Foreground on `/dev/tty`; waits for `enter` before redrawing | yes                 |
+| `"ExecSilent"`       | Background thread; reports via toasts                        | no                  |
+| `"ExecPaged"`        | Foreground; pipes stdout into the built-in minus pager       | no                  |
+| `"Queue"`            | Enqueues one multi-path row into the queue                   | no                  |
+| `{ QueueBatch = n }` | Enqueues rows of at most `n` paths each                      | no                  |
+| `"Enqueue"`          | Enqueues one multi-path row and starts it immediately        | no                  |
 
 `Execute`, `ExecuteWait`, `ExecuteSilent`, and `ExecutePaged` are accepted as aliases for the four `Exec*` spellings. Every strategy except `Queue` and `{ QueueBatch = n }` closes the context menu after launching; set `close = true` or `close = false` to override that default.
 

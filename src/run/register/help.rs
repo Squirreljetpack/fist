@@ -20,7 +20,6 @@ use matchmaker::{
 use ratatui::style::{Color, Style};
 
 use crate::{
-    pager::PagerOpts,
     run::{
         FsAction, FsPane,
         register::ExecutionMode,
@@ -133,12 +132,7 @@ pub(super) fn register_help_handler(
                     .extend(extra.lines().map(|line| Line::from(line.to_string())));
             }
             let ansi_text = text_to_ansi(&resolved);
-            let _ = crate::pager::page_reader(
-                Cursor::new(ansi_text.into_bytes()),
-                true,
-                None,
-                PagerOpts::default(),
-            );
+            let _ = crate::pager::page_reader(Cursor::new(ansi_text.into_bytes()), true);
             return;
         }
 
@@ -155,12 +149,7 @@ pub(super) fn register_help_handler(
                 .unwrap_or_default();
             page = append_menu_action_help(page, actions);
         }
-        let _ = crate::pager::page_reader(
-            Cursor::new(page.into_bytes()),
-            true,
-            None,
-            PagerOpts::default(),
-        );
+        let _ = crate::pager::page_reader(Cursor::new(page.into_bytes()), true);
         // return to the overlay that asked for the document
         GLOBAL::send_action(Action::Overlay(document.overlay_index()));
     });

@@ -62,7 +62,8 @@ impl<'de> Deserialize<'de> for Action {
 /// [`None`](CommandStrategy::None).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandStrategy {
-    /// Render [PathBuf] through the in-process pager (bat + minus).
+    /// Page [PathBuf] with `mm pager`, falling back to the in-process minus
+    /// pager when `mm` is not on `PATH`.
     Pager(PathBuf),
     /// Print the `<MM_IMAGE>` header for [PathBuf], with optional header options
     /// (e.g. `hfit=fill:16`): the previewer loads it natively.

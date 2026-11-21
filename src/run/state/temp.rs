@@ -6,10 +6,7 @@ use anymap::AnyMap;
 use cba::{_dbg, define_collection_wrapper};
 use fist_types::When;
 
-use crate::{
-    abspath::AbsPath, cli::paths::lessfilter_cfg_path, config::pager_cfg,
-    lessfilter::LessfilterConfig,
-};
+use crate::{abspath::AbsPath, cli::paths::lessfilter_cfg_path, lessfilter::LessfilterConfig};
 
 thread_local! {
     static TLS_MAP: RefCell<AnyMap> = RefCell::new(AnyMap::new());
@@ -212,11 +209,6 @@ pub struct MenuPromptTarget {
 /// u32: Stashed index
 pub struct STORE;
 
-/// Bat passthrough argument extras, handed to the pager via the STORE TLS map.
-/// Consumed one-shot by `STORE::get_bat_opts`, output is wrapped with bat before paging iff this is present.
-#[derive(Debug, Clone)]
-pub struct BatOpts(pub Vec<String>);
-
 impl STORE {
     pub fn set<T: 'static + Debug>(value: T) {
         TLS_MAP.with(|map| {
@@ -262,24 +254,6 @@ impl STORE {
     ///
     /// # Additional
     /// When the prompt is set and the target is Ok, the target's filename is shown in the title of the input bar.
-    /// Set bat passthrough extras for the next [`STORE::get_bat_opts`] call.
-    /// Consumed one-shot by `get_bat_opts` (take semantics).
-    pub fn set_bat_opts(opts: Vec<String>) {
-        STORE::set(BatOpts(opts));
-    }
-
-    /// Merge the store-held [`BatOpts`] extras (taken once) with the
-    /// `pager.toml` `bat_opts` base ([`pager_cfg`]). Returns `None` when
-    /// either is absent: no BatOpts was set for this paging (plain
-    /// ExecutePaged → raw) or the config disables bat
-    /// (`bat_opts = None`). Does not consult the environment.
-    pub fn get_bat_opts() -> Option<Vec<String>> {
-        let BatOpts(extra) = STORE::take::<BatOpts>()?;
-        let mut opts = pager_cfg().bat_opts.clone()?;
-        opts.extend(extra);
-        Some(opts)
-    }
-
     pub fn set_menu_prompt(menu_prompt: Option<MenuPrompt>) {
         if let Some(prompt) = menu_prompt {
             TLS_MAP.with(|map| {

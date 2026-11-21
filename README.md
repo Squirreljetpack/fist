@@ -6,7 +6,7 @@ F:st is a tactile file manager that runs in your terminal.
 
 <img src=".README.assets/splash.png" alt="Size-sorted file list filtered to images, with a photo preview" width="747" />
 
-The filesystem is a gnarly, sprawling beast. Attempting to navigate it in the terminal is a miserable experience, and built-in file managers are not much better. How do you  organize items you downloaded, find a file you edited last week, check your most visited directories, convert media files, find large files to free up disk space, swap two files, share files between devices, extract archives and so on and on?
+The filesystem is a gnarly, sprawling beast. Attempting to navigate it in the terminal is a miserable experience, and built-in file managers are not much better. How do you organize items you downloaded, find a file you edited last week, check your most visited directories, convert media files, find large files to free up disk space, swap two files, share files between devices, extract archives and so on and on?
 
 The problem lies mostly with its strengths: scale and versatility. The first makes it difficult to navigate, the second makes it awkward to manipulate — too few features and you can't do what you need to, too many and things get bloated.
 But the problem is maybe not an impossible one.
@@ -22,8 +22,11 @@ Good tools should feel comfortable to pick up and use. In many words, they shoul
 In one word, they should be *tactile*[^tactile].
 
 [^typo]: optionally typo-resistant or regex-driven
+
 [^addendum]: Compare this to having to use standard file managers or cli tools, where you need to learn filter grammars or organizational schemes. Here, the process is always the same: choose the list type, (optionally, choose a sort or filter), and type in a fragment of the file's path. Then, to return, `ctrl-z` takes you back in the pane stack.
+
 [^tactile]: If f:st does not live up to that standard in any way, [let me know](https://github.com/Squirreljetpack/fist/issues)!
+
 [^metadata]: image dimensions, media type, encoding
 
 # Installation
@@ -71,7 +74,7 @@ brew install Squirreljetpack/tap/fist
 ##### AUR
 
 ```ssh
-yay -S fist-bin 
+yay -S fist-bin
 ```
 
 ##### npm
@@ -507,8 +510,6 @@ fs exposes several of the more generally useful functionalities it uses internal
 - `diskspace`: A stupid fast parallel directory tree/size lister, using the same background worker that is used in the main app for sorting by size.
 
 - `trash`: cross platform tool for easily moving files to the system trash.
-
-- `pager`: smart compatible pager that feeds `bat` for syntax highlighting into `minus` for modern aesthetics.
 
 - `action`: run a menu action directly
 

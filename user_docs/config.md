@@ -1,7 +1,7 @@
 # config.toml
 
 `config.toml` configures the application itself: pane behavior, history,
-transfers, the filesystem watcher, and path styling. UI configuration lives separately in [mm.toml](mm.md); the pager, lessfilter, and
+transfers, the filesystem watcher, and path styling. UI configuration lives separately in [mm.toml](mm.md); lessfilter and
 menu actions have their own files as well.
 
 | File                       | Purpose                                                                       |
@@ -9,7 +9,6 @@ menu actions have their own files as well.
 | `config.toml`              | This page.                                                                    |
 | `mm.toml`                  | Columns, previews, TUI layout, overlays, key bindings — see [mm.toml](mm.md). |
 | `lessfilter.toml`          | Preview and handler presets.                                                  |
-| `pager.toml`               | The pager — see [The Pager](pager.md).                                        |
 | `actions.toml`, `actions/` | Menu actions — see [Menu Actions](menu-actions.md).                           |
 
 The config directory is the platform config directory (`~/.config/fist` on

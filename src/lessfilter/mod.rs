@@ -11,7 +11,7 @@ pub mod rule_matcher;
 #[cfg(target_os = "linux")]
 mod xdg_icon;
 pub use config::*;
-pub use helpers::{application_has_icon, editor_cmd, env_bat_opts, env_bat_opts_for_stream};
+pub use helpers::{application_has_icon, editor_cmd};
 pub mod env;
 pub mod mime_helpers;
 
@@ -19,7 +19,10 @@ use arrayvec::ArrayVec;
 use cba::bait::ResultExt;
 use cba::bog::BogUnwrapExt;
 use cba::{_trace, ebog, unwrap};
-use cba::{bog::BogOkExt, broc::CommandExt};
+use cba::{
+    bog::BogOkExt,
+    broc::{CommandExt, has},
+};
 use std::ffi::OsString;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -154,19 +157,27 @@ pub async fn handle(
                     CommandStrategy::Metadata(p) => {
                         paths.iter().all(|path| show_simple_metadata(path, pi == 0))
                     }
-                    CommandStrategy::Pager(p) => {
-                        // in-process render replacing the renderer subprocess:
-                        // the singleton-exec optimization is lost for this path.
-                        paths.iter().all(|path| {
-                            matches!(
-                                pager::render_text(
-                                    path,
-                                    env_bat_opts(),
-                                    pager::PagerOpts::default()
-                                ),
-                                Ok(true)
-                            )
-                        })
+                    CommandStrategy::Pager(_) => {
+                        if has("mm") {
+                            // a final pager step replaces this process, so the
+                            // pager owns the terminal directly
+                            if Some(pi) == pl && i == rl {
+                                mm_pager(&paths)._exec();
+                            }
+                            mm_pager(&paths)
+                                .status()
+                                ._ebog()
+                                .is_some_and(|s| s.success())
+                        } else {
+                            // no `mm` on PATH: page in-process
+                            let mut ok = true;
+                            for path in &paths {
+                                if pager::page_file(path).is_err() {
+                                    ok = false;
+                                }
+                            }
+                            ok
+                        }
                     }
                     CommandStrategy::Image(p, options) => {
                         // The declared byte count delimits the path, so the path may
@@ -239,6 +250,16 @@ pub async fn handle(
     }
 
     if any_file_succeeded { 0 } else { 1 }
+}
+
+/// `mm pager` for `paths`: `PG_IMAGE=false` leaves image files to the text
+/// pipeline so the rule table decides how they render.
+fn mm_pager(paths: &[PathBuf]) -> Command {
+    let mut cmd = Command::new("mm");
+    cmd.env("PG_IMAGE", "false")
+        .args(["pager", "--"])
+        .args(paths);
+    cmd
 }
 
 /// Lazily connected database handle for recording a tracked-preset visit.
@@ -360,7 +381,13 @@ fn describe_strategy(
     match strategy {
         CommandStrategy::Header => "<header>".to_string(),
         CommandStrategy::Metadata(p) => format!("<metadata {}>", p.display()),
-        CommandStrategy::Pager(p) => format!("<pager {}>", p.display()),
+        CommandStrategy::Pager(p) => {
+            if has("mm") {
+                format!("PG_IMAGE=false mm pager -- {}", p.display())
+            } else {
+                format!("<pager fallback {}>", p.display())
+            }
+        }
         CommandStrategy::ShowError(msg) => format!("<showerror \"{msg}\">"),
         CommandStrategy::Image(p, _) => format!("<image {}>", p.display()),
         CommandStrategy::SystemOpen => format!("<open {}>", path.display()),

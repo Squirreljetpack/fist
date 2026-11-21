@@ -11,79 +11,15 @@ use cba::bo::map_reader_lines;
 use cba::bring::TableBuilder;
 use cba::broc::CommandExt;
 use cba::{StringError, wbog};
-use cba::{bo::MapReaderError, bog::BogOkExt, broc::has, vec_};
+use cba::{bo::MapReaderError, bog::BogOkExt, broc::has};
 use crossterm::style::Stylize;
 
 pub use super::application_helper::{application_has_icon, application_icon_path};
 use super::env::line_column;
 use crate::cli::paths::current_exe;
-use crate::config::pager_cfg;
 use crate::lessfilter::action::CommandStrategy;
 use crate::lessfilter::mime_helpers::{detect_encoding, is_native};
 use crate::pager;
-
-/// Subtool-side bat args derived from the process env and the pager config.
-/// Returns `None` to skip bat entirely: `PG_RAW=true` (the parent's Paged flow
-/// will color the stream itself) or the pager config's `bat_opts = None`.
-///
-/// Args: `PG_FLAGS` set → comma-split with doubled-escape (raw, caller-supplied
-/// flags); otherwise the `pager.toml` `bat_opts` ([`pager_cfg`]). Then `PG_LANG`
-/// → `-l`, `PG_FILENAME` → `--file-name`, `HIGHLIGHT_LINE` → `--highlight-line`
-/// are appended.
-pub fn env_bat_opts() -> Option<Vec<String>> {
-    if env_val("PG_RAW").is_some_and(|v| v == "true") {
-        return None;
-    }
-
-    let mut args = match env_val("PG_FLAGS") {
-        Some(flags) => cba::bring::split::split_on_delimiter_with_doubled_escape(&flags, ','),
-        None => pager_cfg().bat_opts.clone()?,
-    };
-    if let Some(lang) = env_val("PG_LANG") {
-        args.push("-l".into());
-        args.push(lang);
-    }
-    if let Some(name) = env_val("PG_FILENAME") {
-        args.push("--file-name".into());
-        args.push(name);
-    }
-    if let Some(line) = highlight_line() {
-        args.push("--highlight-line".into());
-        args.push(line);
-    }
-    Some(args)
-}
-
-/// [`env_bat_opts`] for a stream that has no file name, i.e. piped stdin into
-/// `fs :tool pager`.
-///
-/// bat needs a name to detect a language, so a nameless stream is paged raw
-/// unless the environment identifies its content: `PG_LANG`/`PG_FILENAME`
-/// (which name it), `HIGHLIGHT_LINE` (an explicit request to render it through
-/// bat), or `PG_FLAGS` alongside `PG_RAW=false` (which owns the flags).
-///
-/// `PG_RAW=true` and a `bat_opts = None` config still skip bat entirely.
-pub fn env_bat_opts_for_stream() -> Option<Vec<String>> {
-    let flags_opt_in =
-        env_val("PG_RAW").is_some_and(|v| v == "false") && env_val("PG_FLAGS").is_some();
-    let hinted = env_val("PG_LANG").is_some()
-        || env_val("PG_FILENAME").is_some()
-        || highlight_line().is_some()
-        || flags_opt_in;
-    if !hinted {
-        return None;
-    }
-    env_bat_opts()
-}
-
-fn env_val(name: &str) -> Option<String> {
-    env::var(name).ok().filter(|s| !s.is_empty())
-}
-
-/// `HIGHLIGHT_LINE` when it holds a line number.
-fn highlight_line() -> Option<String> {
-    env_val("HIGHLIGHT_LINE").filter(|s| s.chars().all(|c| c.is_ascii_digit()))
-}
 
 pub fn show_header(path: &Path) {
     // the tty gate is disabled: the header prints on every stdout
@@ -202,41 +138,12 @@ fn count_file<P: AsRef<Path>>(path: P) -> Result<[usize; 3], MapReaderError<Stri
 
 thread_local! {
     // vs lazycell?
-    static CHAFA_FORMAT: OnceCell<&'static str> = const { OnceCell::new() };
     static VISUAL: OnceCell<Vec<String>> = const { OnceCell::new() };
 }
 
-fn infer_chafa_format() -> &'static str {
-    CHAFA_FORMAT.with(|cell| {
-        *cell.get_or_init(|| {
-            if let Ok(v) = env::var("CHAFA_FORMAT") {
-                if !v.is_empty() {
-                    return Box::leak(v.into_boxed_str());
-                }
-            }
-
-            if env::var_os("KITTY_WINDOW_ID").is_some() {
-                return "kitty";
-            }
-
-            if env::var_os("ITERM_SESSION_ID").is_some() {
-                return "iterm";
-            }
-
-            let sixel = Command::new("infocmp")
-                .output()
-                .ok()
-                .map(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).contains("sixel"))
-                .unwrap_or(false);
-
-            if sixel { "sixels" } else { "symbols" }
-        })
-    })
-}
-
 /// Image preview for a file: a native `<MM_IMAGE>` header when the output is
-/// captured (a matchmaker preview) and chafa when stdout is a terminal. `max_w`
-/// bounds the rendered width in columns.
+/// captured (a matchmaker preview) and `mm image` when stdout is a terminal.
+/// `max_w` bounds the rendered width in columns.
 pub fn image_viewer(
     path: &Path,
     max_w: Option<u8>,
@@ -251,17 +158,14 @@ pub fn image_viewer(
         }
     }
 
-    let mut args = vec_![: "chafa", "-f", infer_chafa_format()];
+    // `mm image` emits the `<MM_IMAGE>` header itself when stdout is captured
+    // and renders in the terminal otherwise; a missing `mm` fails at spawn.
+    let mut cmd: Vec<OsString> = vec!["mm".into(), "image".into(), "--".into(), path.into()];
     if let Some(w) = max_w {
-        let terminal_lines = env::var("LINES")
-            .ok()
-            .and_then(|v| v.parse::<usize>().ok())
-            .unwrap_or(24);
-        args.push(format!("--size={}x{}", w, terminal_lines).into());
+        cmd.push(format!("hfit=fill:{w}").into());
+        cmd.push("vfit=crop".into());
     }
-    args.push("--scale=max".into());
-    args.push(path.into());
-    CommandStrategy::from(args)
+    CommandStrategy::from(cmd)
 }
 /// Attach `header_lines` to an image request so the text lines emitted before it
 /// stay above the image when it is panned.
@@ -503,11 +407,5 @@ pub fn extract(path: &Path) -> bool {
     };
 
     // pipe kreuzberg's plain text straight into the in-process pager
-    pager::page_reader(
-        kreuzberg,
-        false,
-        env_bat_opts(),
-        pager::PagerOpts::default(),
-    )
-    .is_ok()
+    pager::page_reader(kreuzberg, false).is_ok()
 }

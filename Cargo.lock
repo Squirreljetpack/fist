@@ -594,7 +594,7 @@ checksum = "e0921b3876b3a1df8a1c9f912e7f94342458022c2e84288015893d83c4d62a79"
 
 [[package]]
 name = "cli_boilerplate_automation"
-version = "0.8.2"
+version = "0.8.3"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2533,7 +2533,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-lib"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -2548,7 +2548,6 @@ dependencies = [
  "crokey",
  "crossterm 0.29.0",
  "easy-ext",
- "env_logger",
  "futures",
  "image",
  "indexmap",
@@ -2558,19 +2557,15 @@ dependencies = [
  "matchmaker-partial-macros",
  "mio",
  "nix 0.31.4",
- "paste",
- "phf 0.14.0",
  "ratatui",
  "ratatui-image",
  "regex",
  "resvg",
- "rustc-hash",
  "serde",
  "strum",
  "strum_macros",
  "thiserror 2.0.21",
  "tokio",
- "toml",
  "unicode-segmentation",
  "unicode-width",
  "windows-sys 0.61.2",
@@ -2590,7 +2585,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-mlua-bindings"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "cli_boilerplate_automation",
  "fastrand",
@@ -2606,7 +2601,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-nucleo"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "log",
  "memchr",
@@ -2617,7 +2612,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-partial"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
@@ -2625,7 +2620,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-partial-macros"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3206,12 +3201,6 @@ dependencies = [
  "smallvec",
  "windows-link",
 ]
-
-[[package]]
-name = "paste"
-version = "1.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "percent-encoding"

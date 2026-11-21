@@ -52,7 +52,7 @@ max_height = 16
 "prompt^^left" = "BackwardChar"
 "prompt^^right" = "ForwardChar"
 "prompt^^ctrl-backspace" = "DeleteWord"
-"ctrl-m" = "Execute(echo hi | pg)"
+"ctrl-m" = "Execute(echo hi | mm pager)"
 "ctrl-q" = "ExecPaged(echo hi)"
 
 ### MM

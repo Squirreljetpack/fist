@@ -40,12 +40,6 @@ pub enum SubTool {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<OsString>,
     },
-    #[command(alias = "pg")]
-    /// Page a file or stdin through bat into minus (single optional path).
-    Pager {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<OsString>,
-    },
     /// Bump history entries
     Bump {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]

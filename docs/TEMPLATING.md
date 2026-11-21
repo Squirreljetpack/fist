@@ -42,9 +42,8 @@ fit.
 
 Every spec is exactly one operation, with exactly one delimiter — there are no
 prefixes and no combinations, so raw multi (`{+=}`) and multi truncation do not
-exist. Path values are raw by default in display/output and argv contexts
-(listing, `--format`/Print, the cwd prompt, and the pager's
-`display_directory`), and shell-quoted by default in shell contexts (command
+exist. Path values are raw by default in display/output contexts
+(listing, `--format`/Print, and the cwd prompt), and shell-quoted by default in shell contexts (command
 actions, previews, and lessfilter actions). Use `{:}` to force shell quoting,
 `{=}` to force raw, or an explicit `S:E` / `S=E` slice to pick the quoting for
 that range. `t` and `#` read data rather than a path, so they are always raw:
@@ -114,7 +113,6 @@ against a single path.
 | Listing         | `--list`, `fs :info --format`                                                                                                                                  | raw path values; path only: `{t}`/`{#}` stay literal                                                                                                   |
 | lessfilter      | action commands in the lessfilter config                                                                                                                       | shell context, so `{}` is quoted; path only                                                                                                            |
 | cwd prompt      | `interface.cwd_prompt`                                                                                                                                         | `{}` is the cwd (with `~` collapsed), raw; use `{:}` to quote                                                                                          |
-| Pager directory | `pager.toml` `display_directory`                                                                                                                               | argv context, so `{}` is raw; use `{:}` to include quotes                                                                                              |
 
 Status/footer/help lines are matchmaker display templates (`\m`, `\t`,
 `{red:text}`), not item templates.

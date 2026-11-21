@@ -372,7 +372,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('liza', 'liza', [CompletionResultType]::ParameterValue, 'List directory (eza wrapper)')
             [CompletionResult]::new('shell', 'shell', [CompletionResultType]::ParameterValue, 'Dump the initialization code for your shell')
             [CompletionResult]::new('lessfilter', 'lessfilter', [CompletionResultType]::ParameterValue, 'Context and preset dependent file handler')
-            [CompletionResult]::new('pager', 'pager', [CompletionResultType]::ParameterValue, 'Page a file or stdin through bat into minus (single optional path)')
             [CompletionResult]::new('bump', 'bump', [CompletionResultType]::ParameterValue, 'Bump history entries')
             [CompletionResult]::new('trash', 'trash', [CompletionResultType]::ParameterValue, 'Trash files with timed fallback prompts')
             [CompletionResult]::new('showbinds', 'showbinds', [CompletionResultType]::ParameterValue, 'Show binds')
@@ -399,7 +398,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             [CompletionResult]::new('liza', 'liza', [CompletionResultType]::ParameterValue, 'List directory (eza wrapper)')
             [CompletionResult]::new('shell', 'shell', [CompletionResultType]::ParameterValue, 'Dump the initialization code for your shell')
             [CompletionResult]::new('lessfilter', 'lessfilter', [CompletionResultType]::ParameterValue, 'Context and preset dependent file handler')
-            [CompletionResult]::new('pager', 'pager', [CompletionResultType]::ParameterValue, 'Page a file or stdin through bat into minus (single optional path)')
             [CompletionResult]::new('bump', 'bump', [CompletionResultType]::ParameterValue, 'Bump history entries')
             [CompletionResult]::new('trash', 'trash', [CompletionResultType]::ParameterValue, 'Trash files with timed fallback prompts')
             [CompletionResult]::new('showbinds', 'showbinds', [CompletionResultType]::ParameterValue, 'Show binds')
@@ -508,34 +506,6 @@ Register-ArgumentCompleter -Native -CommandName 'fs' -ScriptBlock {
             break
         }
         'fs;:t;lessfilter' {
-            [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
-            [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
-            [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
-            [CompletionResult]::new('--lock-prompt', '--lock-prompt', [CompletionResultType]::ParameterName, 'Lock the prompt at startup')
-            [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
-            [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
-            [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
-            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
-            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
-            [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
-            break
-        }
-        'fs;:tool;pager' {
-            [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
-            [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
-            [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')
-            [CompletionResult]::new('--fullscreen', '--fullscreen', [CompletionResultType]::ParameterName, 'fullscreen')
-            [CompletionResult]::new('--lock-prompt', '--lock-prompt', [CompletionResultType]::ParameterName, 'Lock the prompt at startup')
-            [CompletionResult]::new('--output-sep', '--output-sep', [CompletionResultType]::ParameterName, 'Separator printed after each result')
-            [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Output template for printed results')
-            [CompletionResult]::new('--opener', '--opener', [CompletionResultType]::ParameterName, 'Program used to open files on accept')
-            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
-            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
-            [CompletionResult]::new('--alt-accept', '--alt-accept', [CompletionResultType]::ParameterName, 'alt-accept')
-            break
-        }
-        'fs;:t;pager' {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config path')
             [CompletionResult]::new('--mm-config', '--mm-config', [CompletionResultType]::ParameterName, 'matchmaker config path')
             [CompletionResult]::new('--style', '--style', [CompletionResultType]::ParameterName, 'style')

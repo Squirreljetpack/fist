@@ -18,10 +18,8 @@ fn cache_dir() -> PathBuf {
     crate::cli::paths::cache_dir().to_path_buf()
 }
 
-mod pager;
 mod panes;
 mod styles;
-pub use pager::*;
 pub use panes::*;
 pub mod ui;
 use ui::StyleConfig;
@@ -404,10 +402,6 @@ mod tests {
             toml::from_str(include_str!("../../assets/config/lessfilter.toml")).unwrap();
         let _: LessfilterConfig =
             toml::from_str(include_str!("../../assets/config/lessfilter.dev.toml")).unwrap();
-        let _: PagerConfig =
-            toml::from_str(include_str!("../../assets/config/pager.toml")).unwrap();
-        let _: PagerConfig =
-            toml::from_str(include_str!("../../assets/config/pager.dev.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.toml")).unwrap();
         let _: MMConfig = toml::from_str(include_str!("../../assets/config/mm.dev.toml")).unwrap();
     }

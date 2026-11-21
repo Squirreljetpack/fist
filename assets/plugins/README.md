@@ -54,7 +54,7 @@ Review remote instructions before installing them in an environment where the ag
 ## References
 
 - [F:st repository](https://github.com/Squirreljetpack/fist)
-- Shipped config defaults: [`assets/config/`](../config/) (`config.toml`, `mm.toml`, `lessfilter.toml`, `pager.toml`, `actions.toml`)
+- Shipped config defaults: [`assets/config/`](../config/) (`config.toml`, `mm.toml`, `lessfilter.toml`, `actions.toml`)
 - Shipped menu actions: [`assets/actions/`](../actions/)
 - [Matchmaker](https://github.com/Squirreljetpack/matchmaker) (the picker layer; bind/action semantics)
 - [Codex skills](https://developers.openai.com/codex/build-skills) · [pi skills](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md) · [OpenCode skills](https://opencode.ai/docs/skills) · [Claude Code skills](https://code.claude.com/docs/en/skills)

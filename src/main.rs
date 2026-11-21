@@ -16,7 +16,7 @@ use fist::{
     cli::{
         Cli, DEFAULT_VERBOSITY, SubCmd, ToolsCmd,
         handlers::handle_subcommand,
-        paths::{BINARY_FULL, actions_dir, actions_path, lessfilter_cfg_path, pager_cfg_path},
+        paths::{BINARY_FULL, actions_dir, actions_path, lessfilter_cfg_path},
     },
     config::Config,
     errors::CliError,
@@ -60,11 +60,6 @@ async fn main() {
             write_str(
                 lessfilter_cfg_path(),
                 include_str!("../assets/config/lessfilter.dev.toml"),
-            )
-            ._ebog();
-            write_str(
-                pager_cfg_path(),
-                include_str!("../assets/config/pager.dev.toml"),
             )
             ._ebog();
             write_str(
@@ -246,7 +241,6 @@ fn dump_config(
         init_config!(&opts.config, "../assets/config/config.toml");
         init_config!(&opts.mm_config, "../assets/config/mm.toml");
         init_config!(&lessfilter_cfg_path, "../assets/config/lessfilter.toml");
-        init_config!(&pager_cfg_path(), "../assets/config/pager.toml");
         init_config!(&actions_path(), "../assets/config/actions.toml");
     } else {
         // if piped: dump the current cfg

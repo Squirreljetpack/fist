@@ -221,7 +221,7 @@ pub fn run(config: &LizaConfig) -> Result<(), CliError> {
             .spawn()
             .map_err(CliError::IoError)?;
 
-        page_child(child, None).map_err(CliError::IoError)?;
+        page_child(child).map_err(CliError::IoError)?;
         Ok(())
     } else {
         let status = Command::new("eza")

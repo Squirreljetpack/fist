@@ -1,7 +1,7 @@
 ---
 name: fist-lessfilter
 description: Customizes F:st's lessfilter.toml - the scored rule table deciding how each file is previewed, displayed, opened, edited, and summarized. Use when changing previews for specific file types, adding custom preview commands or categories, wiring the alternate/edit/open presets, or debugging why a file previews wrongly.
-compatibility: Requires the F:st CLI (`fs`). Rule quality depends on optional tools being on PATH (bat, eza, chafa, kreuzberg, mediainfo, sqlite3, ...); rules can gate on them with `have:`.
+compatibility: Requires the F:st CLI (`fs`). Rule quality depends on optional tools being on PATH (mm, bat, eza, kreuzberg, mediainfo, sqlite3, ...); rules can gate on them with `have:`.
 ---
 
 # F:st lessfilter configuration
@@ -120,8 +120,8 @@ Because `default` rules are appended **after** the preset's own rules, a plain `
 ## Built-in actions
 
 - `Directory` — directory listing per preset (eza-backed via `fs :tool liza`).
-- `Text` — in-process pager (bat → minus); `edit` infers `$VISUAL`.
-- `Image` — chafa render (terminal graphics protocol auto-detected).
+- `Text` — delegates to `PG_IMAGE=false mm pager` when `mm` is on `PATH` (handling `bat`, markdown, and `PG_*` env vars), falling back to f:st's uncolored built-in `minus` pager otherwise; `edit` infers `$VISUAL`.
+- `Image` — `<MM_IMAGE>` header when piped, or `mm image` when stdout is a terminal.
 - `Application` — icon render with directory fallback.
 - `Metadata` — metadata dump (mediainfo/kreuzberg class tools), stats for directories.
 - `Extract` — extract readable content from documents/archives into the pager (requires `kreuzberg`); commonly paired as `["Extract", "Metadata"]`.
@@ -158,7 +158,7 @@ Keep templates single-purpose; multi-step pipelines belong in a script reference
 2. Add the narrowest rule that fixes the case, in the right preset (or `default` if it should apply everywhere).
 3. Score deliberately: prefer `have:` requirements for tool-dependent actions so systems without the tool fall through cleanly.
 4. Verify with `--diagnose` (resolve and report without running), then run the preset directly, then check inside the TUI (`?` for preview, `alt-/` info, `alt-l` extended).
-5. Remember paged output honors `PG_RAW`, `PG_FLAGS`, `PG_LANG`, `PG_FILENAME`, and `HIGHLIGHT_LINE` environment variables when testing rendering.
+5. Remember `Text` output delegated to `mm pager` honors `PG_RAW`, `PG_FLAGS`, `PG_LANG`, `PG_FILENAME`, `PG_MARKDOWN`, `PG_IMAGE`, and `HIGHLIGHT_LINE` environment variables when testing rendering.
 
 ## Common failure modes
 

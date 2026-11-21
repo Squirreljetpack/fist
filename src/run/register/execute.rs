@@ -126,11 +126,6 @@ pub(super) fn run_menu_lua_paged(
         return;
     };
 
-    // Bat opts are read on the calling thread before the feeder starts, so the
-    // lua script cannot influence them mid-run.
-    #[cfg(unix)]
-    let bat = STORE::get_bat_opts();
-
     #[cfg(unix)]
     {
         let (reader, writer) = match std::io::pipe() {
@@ -155,7 +150,7 @@ pub(super) fn run_menu_lua_paged(
         };
 
         let feeder = std::thread::spawn(move || {
-            let _ = pager::page_reader(reader, true, bat, pager::PagerOpts::default());
+            let _ = pager::page_reader(reader, true);
         });
 
         let result = execute(&source, paths, "", nav_cwd, None, false);
@@ -277,10 +272,9 @@ pub(super) fn wait_exec(
     mode: ExecutionMode,
     cmd: &str,
     mut child: std::process::Child,
-    bat: Option<Vec<String>>,
 ) -> bool {
     match mode {
-        ExecutionMode::Paged => match pager::page_child(child, bat) {
+        ExecutionMode::Paged => match pager::page_child(child) {
             Ok(ok) => {
                 info!("Command [{cmd}] paged (success={ok})");
                 ok
